@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import java.math.BigDecimal;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -140,56 +139,57 @@ class UtilisateurTest {
     }
 
     @Nested
-    @DisplayName("Égalité entre Enseignants")
+    @DisplayName("Égalité entre Utilisateurs")
     class Egalite {
 
         @Test
-        @DisplayName("deux enseignants avec le même id sont égaux, même si le reste diffère")
+        @DisplayName("deux utilisateurs avec le même id sont égaux, même si le reste diffère")
         void memeIdImpliqueEgalite() {
+            // Given
             UUID id = unId();
-            Enseignant e1 = new Enseignant(id, "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
-            Enseignant e2 = new Enseignant(id, "Autre", "Nom", "MAT-999", new BigDecimal("1"));
+            Utilisateur u1 = new Utilisateur(id, "Abega", "Flore", "abega.flore@excelis.local",
+                    "hash-1", RoleUtilisateur.CAISSIER);
+            Utilisateur u2 = new Utilisateur(id, "Autre", "Nom", "autre.email@excelis.local",
+                    "hash-2", RoleUtilisateur.DIRECTEUR);
 
-            assertThat(e1).isEqualTo(e2);
-            assertThat(e1.hashCode()).isEqualTo(e2.hashCode());
+            // When / Then
+            assertThat(u1).isEqualTo(u2);
+            assertThat(u1.hashCode()).isEqualTo(u2.hashCode());
         }
 
         @Test
-        @DisplayName("deux enseignants avec des id différents ne sont pas égaux")
+        @DisplayName("deux utilisateurs avec des id différents ne sont pas égaux")
         void idDifferentImpliqueInegalite() {
-            Enseignant e1 = new Enseignant(unId(), "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
-            Enseignant e2 = new Enseignant(unId(), "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
+            // Given
+            Utilisateur u1 = new Utilisateur(unId(), "Abega", "Flore", "abega.flore@excelis.local",
+                    "hash-1", RoleUtilisateur.CAISSIER);
+            Utilisateur u2 = new Utilisateur(unId(), "Abega", "Flore", "abega.flore@excelis.local",
+                    "hash-1", RoleUtilisateur.CAISSIER);
 
-            assertThat(e1).isNotEqualTo(e2);
+            // When / Then
+            assertThat(u1).isNotEqualTo(u2);
         }
 
         @Test
-        @DisplayName("deux enseignants avec le même matricule mais des id différents ne sont PAS égaux "
-                + "(equals() se base sur l'identité technique id, pas sur le matricule métier — "
-                + "l'unicité du matricule est garantie en amont par le service, pas par equals())")
-        void memeMatriculeMaisIdDifferentImpliqueInegalite() {
-            Enseignant e1 = new Enseignant(unId(), "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
-            Enseignant e2 = new Enseignant(unId(), "Soh", "Wilson", "MAT-001", new BigDecimal("6000"));
-
-            assertThat(e1).isNotEqualTo(e2);
-            assertThat(e1.getMatricule()).isEqualTo(e2.getMatricule()); // même matricule...
-            assertThat(e1.getId()).isNotEqualTo(e2.getId());            // ...mais id distincts → pas égaux
-        }
-
-        @Test
-        @DisplayName("un enseignant n'est jamais égal à null")
+        @DisplayName("un utilisateur n'est jamais égal à null")
         void nEstJamaisEgalANull() {
-            Enseignant e1 = new Enseignant(unId(), "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
+            // Given
+            Utilisateur u1 = new Utilisateur(unId(), "Abega", "Flore", "abega.flore@excelis.local",
+                    "hash-1", RoleUtilisateur.CAISSIER);
 
-            assertThat(e1).isNotEqualTo(null);
+            // When / Then
+            assertThat(u1).isNotEqualTo(null);
         }
 
         @Test
-        @DisplayName("un enseignant n'est jamais égal à un objet d'un autre type")
+        @DisplayName("un utilisateur n'est jamais égal à un objet d'un autre type")
         void nEstJamaisEgalAUnAutreType() {
-            Enseignant e1 = new Enseignant(unId(), "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
+            // Given
+            Utilisateur u1 = new Utilisateur(unId(), "Abega", "Flore", "abega.flore@excelis.local",
+                    "hash-1", RoleUtilisateur.CAISSIER);
 
-            assertThat(e1).isNotEqualTo("une chaîne de caractères");
+            // When / Then
+            assertThat(u1).isNotEqualTo("une chaîne de caractères");
         }
     }
 
