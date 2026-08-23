@@ -1,0 +1,2920 @@
+Project Context From: /home/ghost/Documents/EXCELIS/gesprepas/backend
+Generated On: dim. 23 août 2026 08:20:56 WAT
+===============================================
+Ignored Directory Patterns: .* node_modules vendor build dist target __pycache__ .next cache target storage
+Ignored File Patterns: *.log *.jar *.pdf *.class *.sqlite project_context.txt package-lock.json yarn.lock composer.lock *.ico pnpm-lock.yaml
+===============================================
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/backend.iml
+
+<?xml version="1.0" encoding="UTF-8"?>
+<module version="4">
+  <component name="AdditionalModuleElements">
+    <content url="file://$MODULE_DIR$" dumb="true">
+      <sourceFolder url="file://$MODULE_DIR$/src/main/java" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/test/java" isTestSource="true" />
+    </content>
+  </component>
+</module>// END OF FILE: backend.iml
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/CLAUDE.md
+
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project
+
+Spring Boot 4.1.1 / Java 21 backend for EXCELIS PRÉPAS, a multi-center school management system. This `backend/` directory is a subproject of a larger repo rooted at `../` (git root is `../`, not here) — `../docker-compose.yml` provisions the Postgres database and `../.env` supplies datasource credentials (loaded via `spring.config.import: optional:file:../.env[.properties]` in `application.yaml`).
+
+## Commands
+
+Run all commands from the `backend/` directory using the Maven wrapper.
+
+```bash
+./mvnw spring-boot:run              # run the app (port 8080 by default)
+./mvnw test                         # run all tests
+./mvnw test -Dtest=EnseignantServiceTest            # run a single test class
+./mvnw test -Dtest=EnseignantServiceTest#methodName # run a single test method
+./mvnw compile                      # compile only
+./mvnw clean package                # build the jar
+```
+
+Start the database before running the app or tests that need it:
+
+```bash
+docker compose -f ../docker-compose.yml up -d
+```
+
+Repository-adapter tests use Testcontainers (real Postgres in a container), so Docker must be running for those.
+
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- OpenAPI JSON: `http://localhost:8080/v3/api-docs`
+
+## Architecture
+
+The codebase follows **hexagonal architecture (ports & adapters)**, organized by business module rather than technical layer. Currently there is one module, `personnel`, under `src/main/java/com/excelisprepas/backend/personnel/`, plus a `shared/` package for cross-cutting config (e.g. `shared/config/OpenApiConfig.java`). New business modules should follow the same package shape:
+
+```
+<module>/
+  domain/
+    model/       # plain Java domain objects, no framework annotations
+    exception/   # domain-specific exceptions
+    port/in/     # use-case interfaces the module exposes (driven by web/etc.)
+    port/out/    # interfaces the domain needs from infrastructure (persistence, encoding, ...)
+    service/     # use-case implementations, depend only on port/out interfaces
+  infrastructure/
+    config/      # Spring @Configuration wiring domain services to their ports (manual `new`, not @Service)
+    in/web/      # @RestController, DTOs (Java records), @RestControllerAdvice exception handlers
+    out/persistence/  # JPA entities, Spring Data repositories, MapStruct mappers, port adapters
+```
+
+Key conventions to preserve when extending this:
+
+- **Domain services are plain classes**, not Spring beans. They're instantiated manually inside an `infrastructure/config/*BeanConfiguration` class (e.g. `PersonnelBeanConfiguration`) and exposed only through their `port/in` interface. Domain code has zero Spring/JPA/Jakarta dependencies.
+- **Domain models are framework-free** and self-validating: constructors/setters throw `IllegalArgumentException`/`NullPointerException` on invalid state (see `Personnel`, `Enseignant`, `Utilisateur`). `Personnel` is an abstract base class; `Enseignant` and `Utilisateur` extend it and fix their `ModeCalculPaie` (`PAR_SEANCE` vs `FIXE`).
+- **Persistence uses class-table inheritance**: `PersonnelEntity` is `@Entity` with `@Inheritance(strategy = InheritanceType.JOINED)`; `EnseignantEntity` extends it (backed by an `enseignants` table joined to `personnel`). A `Utilisateur` entity/table would follow the same pattern.
+- **MapStruct** (`componentModel = "spring"`) maps between domain models and JPA entities in `*PersistenceMapper` interfaces; adapters (`*RepositoryAdapter`) implement the `domain/port/out` repository interface using the JPA repository + mapper.
+- **Web layer**: controllers depend only on `port/in` use-case interfaces (never on domain services directly), use `@Valid @RequestBody` records for input, and translate domain exceptions to HTTP responses via a module-level `@RestControllerAdvice` (`PersonnelExceptionHandler`) returning a `Map`-based error body (`timestamp`, `status`, `error`, `message`).
+- **Domain/business text (field names, validation messages, entity/exception names) is in French**; keep new domain code consistent with this.
+
+Tests mirror the module structure under `src/test/java`, one test class per production class, using JUnit 5 + Mockito for domain/service/controller tests (`@WebMvcTest` for controllers with `@MockitoBean` for the use-case) and Testcontainers/`@DataJpaTest`-style tests for the persistence adapter layer.
+
+## Configuration notes
+
+- `spring.jpa.hibernate.ddl-auto` defaults to `update` and Flyway is disabled by default (`FLYWAY_ENABLED:false`) — schema currently comes from Hibernate auto-DDL, not migrations, despite `flyway` dependencies being present in `pom.xml`.
+- Datasource/server settings are all environment-variable driven with local defaults (`DB_HOST`, `DB_PORT:5433`, `DB_NAME:excelis_prepas`, `DB_USER`, `DB_PASSWORD`, `SERVER_PORT:8080`) — see `application.yaml` and `../docker-compose.yml`.
+// END OF FILE: CLAUDE.md
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/.gitattributes
+
+/mvnw text eol=lf
+*.cmd text eol=crlf
+// END OF FILE: .gitattributes
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/.gitignore
+
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+// END OF FILE: .gitignore
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/HELP.md
+
+# Getting Started
+
+### Reference Documentation
+
+For further reference, please consider the following sections:
+
+* [Official Apache Maven documentation](https://maven.apache.org/guides/index.html)
+* [Spring Boot Maven Plugin Reference Guide](https://docs.spring.io/spring-boot/4.1.1/maven-plugin)
+* [Create an OCI image](https://docs.spring.io/spring-boot/4.1.1/maven-plugin/build-image.html)
+* [Spring Data JPA](https://docs.spring.io/spring-boot/4.1.1/reference/data/sql.html#data.sql.jpa-and-spring-data)
+* [Spring Boot DevTools](https://docs.spring.io/spring-boot/4.1.1/reference/using/devtools.html)
+* [Flyway Migration](https://docs.spring.io/spring-boot/4.1.1/how-to/data-initialization.html#howto.data-initialization.migration-tool.flyway)
+* [Validation](https://docs.spring.io/spring-boot/4.1.1/reference/io/validation.html)
+* [Spring Web](https://docs.spring.io/spring-boot/4.1.1/reference/web/servlet.html)
+
+### Guides
+
+The following guides illustrate how to use some features concretely:
+
+* [Accessing Data with JPA](https://spring.io/guides/gs/accessing-data-jpa/)
+* [Validation](https://spring.io/guides/gs/validating-form-input/)
+* [Building a RESTful Web Service](https://spring.io/guides/gs/rest-service/)
+* [Serving Web Content with Spring MVC](https://spring.io/guides/gs/serving-web-content/)
+* [Building REST services with Spring](https://spring.io/guides/tutorials/rest/)
+
+### Maven Parent overrides
+
+Due to Maven's design, elements are inherited from the parent POM to the project POM. While most of the inheritance is
+fine, it also inherits unwanted elements like `<license>` and `<developers>` from the parent. To prevent this, the
+project POM contains empty overrides for these elements. If you manually switch to a different parent and actually want
+the inheritance, you need to remove those overrides.
+
+// END OF FILE: HELP.md
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/mvnw
+
+#!/bin/sh
+# ----------------------------------------------------------------------------
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+# ----------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------
+# Apache Maven Wrapper startup batch script, version 3.3.4
+#
+# Optional ENV vars
+# -----------------
+#   JAVA_HOME - location of a JDK home dir, required when download maven via java source
+#   MVNW_REPOURL - repo url base for downloading maven distribution
+#   MVNW_USERNAME/MVNW_PASSWORD - user and password for downloading maven
+#   MVNW_VERBOSE - true: enable verbose log; debug: trace the mvnw script; others: silence the output
+# ----------------------------------------------------------------------------
+
+set -euf
+[ "${MVNW_VERBOSE-}" != debug ] || set -x
+
+# OS specific support.
+native_path() { printf %s\\n "$1"; }
+case "$(uname)" in
+CYGWIN* | MINGW*)
+  [ -z "${JAVA_HOME-}" ] || JAVA_HOME="$(cygpath --unix "$JAVA_HOME")"
+  native_path() { cygpath --path --windows "$1"; }
+  ;;
+esac
+
+# set JAVACMD and JAVACCMD
+set_java_home() {
+  # For Cygwin and MinGW, ensure paths are in Unix format before anything is touched
+  if [ -n "${JAVA_HOME-}" ]; then
+    if [ -x "$JAVA_HOME/jre/sh/java" ]; then
+      # IBM's JDK on AIX uses strange locations for the executables
+      JAVACMD="$JAVA_HOME/jre/sh/java"
+      JAVACCMD="$JAVA_HOME/jre/sh/javac"
+    else
+      JAVACMD="$JAVA_HOME/bin/java"
+      JAVACCMD="$JAVA_HOME/bin/javac"
+
+      if [ ! -x "$JAVACMD" ] || [ ! -x "$JAVACCMD" ]; then
+        echo "The JAVA_HOME environment variable is not defined correctly, so mvnw cannot run." >&2
+        echo "JAVA_HOME is set to \"$JAVA_HOME\", but \"\$JAVA_HOME/bin/java\" or \"\$JAVA_HOME/bin/javac\" does not exist." >&2
+        return 1
+      fi
+    fi
+  else
+    JAVACMD="$(
+      'set' +e
+      'unset' -f command 2>/dev/null
+      'command' -v java
+    )" || :
+    JAVACCMD="$(
+      'set' +e
+      'unset' -f command 2>/dev/null
+      'command' -v javac
+    )" || :
+
+    if [ ! -x "${JAVACMD-}" ] || [ ! -x "${JAVACCMD-}" ]; then
+      echo "The java/javac command does not exist in PATH nor is JAVA_HOME set, so mvnw cannot run." >&2
+      return 1
+    fi
+  fi
+}
+
+# hash string like Java String::hashCode
+hash_string() {
+  str="${1:-}" h=0
+  while [ -n "$str" ]; do
+    char="${str%"${str#?}"}"
+    h=$(((h * 31 + $(LC_CTYPE=C printf %d "'$char")) % 4294967296))
+    str="${str#?}"
+  done
+  printf %x\\n $h
+}
+
+verbose() { :; }
+[ "${MVNW_VERBOSE-}" != true ] || verbose() { printf %s\\n "${1-}"; }
+
+die() {
+  printf %s\\n "$1" >&2
+  exit 1
+}
+
+trim() {
+  # MWRAPPER-139:
+  #   Trims trailing and leading whitespace, carriage returns, tabs, and linefeeds.
+  #   Needed for removing poorly interpreted newline sequences when running in more
+  #   exotic environments such as mingw bash on Windows.
+  printf "%s" "${1}" | tr -d '[:space:]'
+}
+
+scriptDir="$(dirname "$0")"
+scriptName="$(basename "$0")"
+
+# parse distributionUrl and optional distributionSha256Sum, requires .mvn/wrapper/maven-wrapper.properties
+while IFS="=" read -r key value; do
+  case "${key-}" in
+  distributionUrl) distributionUrl=$(trim "${value-}") ;;
+  distributionSha256Sum) distributionSha256Sum=$(trim "${value-}") ;;
+  esac
+done <"$scriptDir/.mvn/wrapper/maven-wrapper.properties"
+[ -n "${distributionUrl-}" ] || die "cannot read distributionUrl property in $scriptDir/.mvn/wrapper/maven-wrapper.properties"
+
+case "${distributionUrl##*/}" in
+maven-mvnd-*bin.*)
+  MVN_CMD=mvnd.sh _MVNW_REPO_PATTERN=/maven/mvnd/
+  case "${PROCESSOR_ARCHITECTURE-}${PROCESSOR_ARCHITEW6432-}:$(uname -a)" in
+  *AMD64:CYGWIN* | *AMD64:MINGW*) distributionPlatform=windows-amd64 ;;
+  :Darwin*x86_64) distributionPlatform=darwin-amd64 ;;
+  :Darwin*arm64) distributionPlatform=darwin-aarch64 ;;
+  :Linux*x86_64*) distributionPlatform=linux-amd64 ;;
+  *)
+    echo "Cannot detect native platform for mvnd on $(uname)-$(uname -m), use pure java version" >&2
+    distributionPlatform=linux-amd64
+    ;;
+  esac
+  distributionUrl="${distributionUrl%-bin.*}-$distributionPlatform.zip"
+  ;;
+maven-mvnd-*) MVN_CMD=mvnd.sh _MVNW_REPO_PATTERN=/maven/mvnd/ ;;
+*) MVN_CMD="mvn${scriptName#mvnw}" _MVNW_REPO_PATTERN=/org/apache/maven/ ;;
+esac
+
+# apply MVNW_REPOURL and calculate MAVEN_HOME
+# maven home pattern: ~/.m2/wrapper/dists/{apache-maven-<version>,maven-mvnd-<version>-<platform>}/<hash>
+[ -z "${MVNW_REPOURL-}" ] || distributionUrl="$MVNW_REPOURL$_MVNW_REPO_PATTERN${distributionUrl#*"$_MVNW_REPO_PATTERN"}"
+distributionUrlName="${distributionUrl##*/}"
+distributionUrlNameMain="${distributionUrlName%.*}"
+distributionUrlNameMain="${distributionUrlNameMain%-bin}"
+MAVEN_USER_HOME="${MAVEN_USER_HOME:-${HOME}/.m2}"
+MAVEN_HOME="${MAVEN_USER_HOME}/wrapper/dists/${distributionUrlNameMain-}/$(hash_string "$distributionUrl")"
+
+exec_maven() {
+  unset MVNW_VERBOSE MVNW_USERNAME MVNW_PASSWORD MVNW_REPOURL || :
+  exec "$MAVEN_HOME/bin/$MVN_CMD" "$@" || die "cannot exec $MAVEN_HOME/bin/$MVN_CMD"
+}
+
+if [ -d "$MAVEN_HOME" ]; then
+  verbose "found existing MAVEN_HOME at $MAVEN_HOME"
+  exec_maven "$@"
+fi
+
+case "${distributionUrl-}" in
+*?-bin.zip | *?maven-mvnd-?*-?*.zip) ;;
+*) die "distributionUrl is not valid, must match *-bin.zip or maven-mvnd-*.zip, but found '${distributionUrl-}'" ;;
+esac
+
+# prepare tmp dir
+if TMP_DOWNLOAD_DIR="$(mktemp -d)" && [ -d "$TMP_DOWNLOAD_DIR" ]; then
+  clean() { rm -rf -- "$TMP_DOWNLOAD_DIR"; }
+  trap clean HUP INT TERM EXIT
+else
+  die "cannot create temp dir"
+fi
+
+mkdir -p -- "${MAVEN_HOME%/*}"
+
+# Download and Install Apache Maven
+verbose "Couldn't find MAVEN_HOME, downloading and installing it ..."
+verbose "Downloading from: $distributionUrl"
+verbose "Downloading to: $TMP_DOWNLOAD_DIR/$distributionUrlName"
+
+# select .zip or .tar.gz
+if ! command -v unzip >/dev/null; then
+  distributionUrl="${distributionUrl%.zip}.tar.gz"
+  distributionUrlName="${distributionUrl##*/}"
+fi
+
+# verbose opt
+__MVNW_QUIET_WGET=--quiet __MVNW_QUIET_CURL=--silent __MVNW_QUIET_UNZIP=-q __MVNW_QUIET_TAR=''
+[ "${MVNW_VERBOSE-}" != true ] || __MVNW_QUIET_WGET='' __MVNW_QUIET_CURL='' __MVNW_QUIET_UNZIP='' __MVNW_QUIET_TAR=v
+
+# normalize http auth
+case "${MVNW_PASSWORD:+has-password}" in
+'') MVNW_USERNAME='' MVNW_PASSWORD='' ;;
+has-password) [ -n "${MVNW_USERNAME-}" ] || MVNW_USERNAME='' MVNW_PASSWORD='' ;;
+esac
+
+if [ -z "${MVNW_USERNAME-}" ] && command -v wget >/dev/null; then
+  verbose "Found wget ... using wget"
+  wget ${__MVNW_QUIET_WGET:+"$__MVNW_QUIET_WGET"} "$distributionUrl" -O "$TMP_DOWNLOAD_DIR/$distributionUrlName" || die "wget: Failed to fetch $distributionUrl"
+elif [ -z "${MVNW_USERNAME-}" ] && command -v curl >/dev/null; then
+  verbose "Found curl ... using curl"
+  curl ${__MVNW_QUIET_CURL:+"$__MVNW_QUIET_CURL"} -f -L -o "$TMP_DOWNLOAD_DIR/$distributionUrlName" "$distributionUrl" || die "curl: Failed to fetch $distributionUrl"
+elif set_java_home; then
+  verbose "Falling back to use Java to download"
+  javaSource="$TMP_DOWNLOAD_DIR/Downloader.java"
+  targetZip="$TMP_DOWNLOAD_DIR/$distributionUrlName"
+  cat >"$javaSource" <<-END
+	public class Downloader extends java.net.Authenticator
+	{
+	  protected java.net.PasswordAuthentication getPasswordAuthentication()
+	  {
+	    return new java.net.PasswordAuthentication( System.getenv( "MVNW_USERNAME" ), System.getenv( "MVNW_PASSWORD" ).toCharArray() );
+	  }
+	  public static void main( String[] args ) throws Exception
+	  {
+	    setDefault( new Downloader() );
+	    java.nio.file.Files.copy( java.net.URI.create( args[0] ).toURL().openStream(), java.nio.file.Paths.get( args[1] ).toAbsolutePath().normalize() );
+	  }
+	}
+	END
+  # For Cygwin/MinGW, switch paths to Windows format before running javac and java
+  verbose " - Compiling Downloader.java ..."
+  "$(native_path "$JAVACCMD")" "$(native_path "$javaSource")" || die "Failed to compile Downloader.java"
+  verbose " - Running Downloader.java ..."
+  "$(native_path "$JAVACMD")" -cp "$(native_path "$TMP_DOWNLOAD_DIR")" Downloader "$distributionUrl" "$(native_path "$targetZip")"
+fi
+
+# If specified, validate the SHA-256 sum of the Maven distribution zip file
+if [ -n "${distributionSha256Sum-}" ]; then
+  distributionSha256Result=false
+  if [ "$MVN_CMD" = mvnd.sh ]; then
+    echo "Checksum validation is not supported for maven-mvnd." >&2
+    echo "Please disable validation by removing 'distributionSha256Sum' from your maven-wrapper.properties." >&2
+    exit 1
+  elif command -v sha256sum >/dev/null; then
+    if echo "$distributionSha256Sum  $TMP_DOWNLOAD_DIR/$distributionUrlName" | sha256sum -c - >/dev/null 2>&1; then
+      distributionSha256Result=true
+    fi
+  elif command -v shasum >/dev/null; then
+    if echo "$distributionSha256Sum  $TMP_DOWNLOAD_DIR/$distributionUrlName" | shasum -a 256 -c >/dev/null 2>&1; then
+      distributionSha256Result=true
+    fi
+  else
+    echo "Checksum validation was requested but neither 'sha256sum' or 'shasum' are available." >&2
+    echo "Please install either command, or disable validation by removing 'distributionSha256Sum' from your maven-wrapper.properties." >&2
+    exit 1
+  fi
+  if [ $distributionSha256Result = false ]; then
+    echo "Error: Failed to validate Maven distribution SHA-256, your Maven distribution might be compromised." >&2
+    echo "If you updated your Maven version, you need to update the specified distributionSha256Sum property." >&2
+    exit 1
+  fi
+fi
+
+# unzip and move
+if command -v unzip >/dev/null; then
+  unzip ${__MVNW_QUIET_UNZIP:+"$__MVNW_QUIET_UNZIP"} "$TMP_DOWNLOAD_DIR/$distributionUrlName" -d "$TMP_DOWNLOAD_DIR" || die "failed to unzip"
+else
+  tar xzf${__MVNW_QUIET_TAR:+"$__MVNW_QUIET_TAR"} "$TMP_DOWNLOAD_DIR/$distributionUrlName" -C "$TMP_DOWNLOAD_DIR" || die "failed to untar"
+fi
+
+# Find the actual extracted directory name (handles snapshots where filename != directory name)
+actualDistributionDir=""
+
+# First try the expected directory name (for regular distributions)
+if [ -d "$TMP_DOWNLOAD_DIR/$distributionUrlNameMain" ]; then
+  if [ -f "$TMP_DOWNLOAD_DIR/$distributionUrlNameMain/bin/$MVN_CMD" ]; then
+    actualDistributionDir="$distributionUrlNameMain"
+  fi
+fi
+
+# If not found, search for any directory with the Maven executable (for snapshots)
+if [ -z "$actualDistributionDir" ]; then
+  # enable globbing to iterate over items
+  set +f
+  for dir in "$TMP_DOWNLOAD_DIR"/*; do
+    if [ -d "$dir" ]; then
+      if [ -f "$dir/bin/$MVN_CMD" ]; then
+        actualDistributionDir="$(basename "$dir")"
+        break
+      fi
+    fi
+  done
+  set -f
+fi
+
+if [ -z "$actualDistributionDir" ]; then
+  verbose "Contents of $TMP_DOWNLOAD_DIR:"
+  verbose "$(ls -la "$TMP_DOWNLOAD_DIR")"
+  die "Could not find Maven distribution directory in extracted archive"
+fi
+
+verbose "Found extracted Maven distribution directory: $actualDistributionDir"
+printf %s\\n "$distributionUrl" >"$TMP_DOWNLOAD_DIR/$actualDistributionDir/mvnw.url"
+mv -- "$TMP_DOWNLOAD_DIR/$actualDistributionDir" "$MAVEN_HOME" || [ -d "$MAVEN_HOME" ] || die "fail to move MAVEN_HOME"
+
+clean || :
+exec_maven "$@"
+// END OF FILE: mvnw
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/mvnw.cmd
+
+<# : batch portion
+@REM ----------------------------------------------------------------------------
+@REM Licensed to the Apache Software Foundation (ASF) under one
+@REM or more contributor license agreements.  See the NOTICE file
+@REM distributed with this work for additional information
+@REM regarding copyright ownership.  The ASF licenses this file
+@REM to you under the Apache License, Version 2.0 (the
+@REM "License"); you may not use this file except in compliance
+@REM with the License.  You may obtain a copy of the License at
+@REM
+@REM    http://www.apache.org/licenses/LICENSE-2.0
+@REM
+@REM Unless required by applicable law or agreed to in writing,
+@REM software distributed under the License is distributed on an
+@REM "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+@REM KIND, either express or implied.  See the License for the
+@REM specific language governing permissions and limitations
+@REM under the License.
+@REM ----------------------------------------------------------------------------
+
+@REM ----------------------------------------------------------------------------
+@REM Apache Maven Wrapper startup batch script, version 3.3.4
+@REM
+@REM Optional ENV vars
+@REM   MVNW_REPOURL - repo url base for downloading maven distribution
+@REM   MVNW_USERNAME/MVNW_PASSWORD - user and password for downloading maven
+@REM   MVNW_VERBOSE - true: enable verbose log; others: silence the output
+@REM ----------------------------------------------------------------------------
+
+@IF "%__MVNW_ARG0_NAME__%"=="" (SET __MVNW_ARG0_NAME__=%~nx0)
+@SET __MVNW_CMD__=
+@SET __MVNW_ERROR__=
+@SET __MVNW_PSMODULEP_SAVE=%PSModulePath%
+@SET PSModulePath=
+@FOR /F "usebackq tokens=1* delims==" %%A IN (`powershell -noprofile "& {$scriptDir='%~dp0'; $script='%__MVNW_ARG0_NAME__%'; icm -ScriptBlock ([Scriptblock]::Create((Get-Content -Raw '%~f0'))) -NoNewScope}"`) DO @(
+  IF "%%A"=="MVN_CMD" (set __MVNW_CMD__=%%B) ELSE IF "%%B"=="" (echo %%A) ELSE (echo %%A=%%B)
+)
+@SET PSModulePath=%__MVNW_PSMODULEP_SAVE%
+@SET __MVNW_PSMODULEP_SAVE=
+@SET __MVNW_ARG0_NAME__=
+@SET MVNW_USERNAME=
+@SET MVNW_PASSWORD=
+@IF NOT "%__MVNW_CMD__%"=="" ("%__MVNW_CMD__%" %*)
+@echo Cannot start maven from wrapper >&2 && exit /b 1
+@GOTO :EOF
+: end batch / begin powershell #>
+
+$ErrorActionPreference = "Stop"
+if ($env:MVNW_VERBOSE -eq "true") {
+  $VerbosePreference = "Continue"
+}
+
+# calculate distributionUrl, requires .mvn/wrapper/maven-wrapper.properties
+$distributionUrl = (Get-Content -Raw "$scriptDir/.mvn/wrapper/maven-wrapper.properties" | ConvertFrom-StringData).distributionUrl
+if (!$distributionUrl) {
+  Write-Error "cannot read distributionUrl property in $scriptDir/.mvn/wrapper/maven-wrapper.properties"
+}
+
+switch -wildcard -casesensitive ( $($distributionUrl -replace '^.*/','') ) {
+  "maven-mvnd-*" {
+    $USE_MVND = $true
+    $distributionUrl = $distributionUrl -replace '-bin\.[^.]*$',"-windows-amd64.zip"
+    $MVN_CMD = "mvnd.cmd"
+    break
+  }
+  default {
+    $USE_MVND = $false
+    $MVN_CMD = $script -replace '^mvnw','mvn'
+    break
+  }
+}
+
+# apply MVNW_REPOURL and calculate MAVEN_HOME
+# maven home pattern: ~/.m2/wrapper/dists/{apache-maven-<version>,maven-mvnd-<version>-<platform>}/<hash>
+if ($env:MVNW_REPOURL) {
+  $MVNW_REPO_PATTERN = if ($USE_MVND -eq $False) { "/org/apache/maven/" } else { "/maven/mvnd/" }
+  $distributionUrl = "$env:MVNW_REPOURL$MVNW_REPO_PATTERN$($distributionUrl -replace "^.*$MVNW_REPO_PATTERN",'')"
+}
+$distributionUrlName = $distributionUrl -replace '^.*/',''
+$distributionUrlNameMain = $distributionUrlName -replace '\.[^.]*$','' -replace '-bin$',''
+
+$MAVEN_M2_PATH = "$HOME/.m2"
+if ($env:MAVEN_USER_HOME) {
+  $MAVEN_M2_PATH = "$env:MAVEN_USER_HOME"
+}
+
+if (-not (Test-Path -Path $MAVEN_M2_PATH)) {
+    New-Item -Path $MAVEN_M2_PATH -ItemType Directory | Out-Null
+}
+
+$MAVEN_WRAPPER_DISTS = $null
+if ((Get-Item $MAVEN_M2_PATH).Target[0] -eq $null) {
+  $MAVEN_WRAPPER_DISTS = "$MAVEN_M2_PATH/wrapper/dists"
+} else {
+  $MAVEN_WRAPPER_DISTS = (Get-Item $MAVEN_M2_PATH).Target[0] + "/wrapper/dists"
+}
+
+$MAVEN_HOME_PARENT = "$MAVEN_WRAPPER_DISTS/$distributionUrlNameMain"
+$MAVEN_HOME_NAME = ([System.Security.Cryptography.SHA256]::Create().ComputeHash([byte[]][char[]]$distributionUrl) | ForEach-Object {$_.ToString("x2")}) -join ''
+$MAVEN_HOME = "$MAVEN_HOME_PARENT/$MAVEN_HOME_NAME"
+
+if (Test-Path -Path "$MAVEN_HOME" -PathType Container) {
+  Write-Verbose "found existing MAVEN_HOME at $MAVEN_HOME"
+  Write-Output "MVN_CMD=$MAVEN_HOME/bin/$MVN_CMD"
+  exit $?
+}
+
+if (! $distributionUrlNameMain -or ($distributionUrlName -eq $distributionUrlNameMain)) {
+  Write-Error "distributionUrl is not valid, must end with *-bin.zip, but found $distributionUrl"
+}
+
+# prepare tmp dir
+$TMP_DOWNLOAD_DIR_HOLDER = New-TemporaryFile
+$TMP_DOWNLOAD_DIR = New-Item -Itemtype Directory -Path "$TMP_DOWNLOAD_DIR_HOLDER.dir"
+$TMP_DOWNLOAD_DIR_HOLDER.Delete() | Out-Null
+trap {
+  if ($TMP_DOWNLOAD_DIR.Exists) {
+    try { Remove-Item $TMP_DOWNLOAD_DIR -Recurse -Force | Out-Null }
+    catch { Write-Warning "Cannot remove $TMP_DOWNLOAD_DIR" }
+  }
+}
+
+New-Item -Itemtype Directory -Path "$MAVEN_HOME_PARENT" -Force | Out-Null
+
+# Download and Install Apache Maven
+Write-Verbose "Couldn't find MAVEN_HOME, downloading and installing it ..."
+Write-Verbose "Downloading from: $distributionUrl"
+Write-Verbose "Downloading to: $TMP_DOWNLOAD_DIR/$distributionUrlName"
+
+$webclient = New-Object System.Net.WebClient
+if ($env:MVNW_USERNAME -and $env:MVNW_PASSWORD) {
+  $webclient.Credentials = New-Object System.Net.NetworkCredential($env:MVNW_USERNAME, $env:MVNW_PASSWORD)
+}
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+$webclient.DownloadFile($distributionUrl, "$TMP_DOWNLOAD_DIR/$distributionUrlName") | Out-Null
+
+# If specified, validate the SHA-256 sum of the Maven distribution zip file
+$distributionSha256Sum = (Get-Content -Raw "$scriptDir/.mvn/wrapper/maven-wrapper.properties" | ConvertFrom-StringData).distributionSha256Sum
+if ($distributionSha256Sum) {
+  if ($USE_MVND) {
+    Write-Error "Checksum validation is not supported for maven-mvnd. `nPlease disable validation by removing 'distributionSha256Sum' from your maven-wrapper.properties."
+  }
+  Import-Module $PSHOME\Modules\Microsoft.PowerShell.Utility -Function Get-FileHash
+  if ((Get-FileHash "$TMP_DOWNLOAD_DIR/$distributionUrlName" -Algorithm SHA256).Hash.ToLower() -ne $distributionSha256Sum) {
+    Write-Error "Error: Failed to validate Maven distribution SHA-256, your Maven distribution might be compromised. If you updated your Maven version, you need to update the specified distributionSha256Sum property."
+  }
+}
+
+# unzip and move
+Expand-Archive "$TMP_DOWNLOAD_DIR/$distributionUrlName" -DestinationPath "$TMP_DOWNLOAD_DIR" | Out-Null
+
+# Find the actual extracted directory name (handles snapshots where filename != directory name)
+$actualDistributionDir = ""
+
+# First try the expected directory name (for regular distributions)
+$expectedPath = Join-Path "$TMP_DOWNLOAD_DIR" "$distributionUrlNameMain"
+$expectedMvnPath = Join-Path "$expectedPath" "bin/$MVN_CMD"
+if ((Test-Path -Path $expectedPath -PathType Container) -and (Test-Path -Path $expectedMvnPath -PathType Leaf)) {
+  $actualDistributionDir = $distributionUrlNameMain
+}
+
+# If not found, search for any directory with the Maven executable (for snapshots)
+if (!$actualDistributionDir) {
+  Get-ChildItem -Path "$TMP_DOWNLOAD_DIR" -Directory | ForEach-Object {
+    $testPath = Join-Path $_.FullName "bin/$MVN_CMD"
+    if (Test-Path -Path $testPath -PathType Leaf) {
+      $actualDistributionDir = $_.Name
+    }
+  }
+}
+
+if (!$actualDistributionDir) {
+  Write-Error "Could not find Maven distribution directory in extracted archive"
+}
+
+Write-Verbose "Found extracted Maven distribution directory: $actualDistributionDir"
+Rename-Item -Path "$TMP_DOWNLOAD_DIR/$actualDistributionDir" -NewName $MAVEN_HOME_NAME | Out-Null
+try {
+  Move-Item -Path "$TMP_DOWNLOAD_DIR/$MAVEN_HOME_NAME" -Destination $MAVEN_HOME_PARENT | Out-Null
+} catch {
+  if (! (Test-Path -Path "$MAVEN_HOME" -PathType Container)) {
+    Write-Error "fail to move MAVEN_HOME"
+  }
+} finally {
+  try { Remove-Item $TMP_DOWNLOAD_DIR -Recurse -Force | Out-Null }
+  catch { Write-Warning "Cannot remove $TMP_DOWNLOAD_DIR" }
+}
+
+Write-Output "MVN_CMD=$MAVEN_HOME/bin/$MVN_CMD"
+// END OF FILE: mvnw.cmd
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/pom.xml
+
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.1.1</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>com.excelisprepas</groupId>
+    <artifactId>backend</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>backend</name>
+    <description>backend</description>
+    <url/>
+    <licenses>
+        <license/>
+    </licenses>
+    <developers>
+        <developer/>
+    </developers>
+    <scm>
+        <connection/>
+        <developerConnection/>
+        <tag/>
+        <url/>
+    </scm>
+    <properties>
+        <java.version>21</java.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+            <version>1.6.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>3.1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId> <!-- Correction ici ! -->
+            <version>1.19.7</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>1.19.7</version> <!-- Et ajouter la version ici -->
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.mapstruct</groupId>
+                            <artifactId>mapstruct-processor</artifactId>
+                            <version>1.6.3</version>
+                        </path>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </path>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok-mapstruct-binding</artifactId>
+                            <version>0.2.0</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
+// END OF FILE: pom.xml
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/BackendApplication.java
+
+package com.excelisprepas.backend;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class BackendApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(BackendApplication.class, args);
+    }
+
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/BackendApplication.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/domain/exception/EmailDejaUtiliseException.java
+
+package com.excelisprepas.backend.personnel.domain.exception;
+
+public class EmailDejaUtiliseException extends RuntimeException {
+    public EmailDejaUtiliseException(String email) {
+        super("L'email '" + email + "' est déjà utilisé par un autre utilisateur");
+    }
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/domain/exception/EmailDejaUtiliseException.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/domain/exception/MatriculeDejaUtiliseException.java
+
+package com.excelisprepas.backend.personnel.domain.exception;
+
+public class MatriculeDejaUtiliseException extends RuntimeException {
+    public MatriculeDejaUtiliseException(String matricule) {
+        super("Le matricule '" + matricule + "' est déjà utilisé par un autre enseignant");
+    }
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/domain/exception/MatriculeDejaUtiliseException.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/domain/model/Enseignant.java
+
+package com.excelisprepas.backend.personnel.domain.model;
+
+
+import java.math.BigDecimal;
+import java.util.Objects;
+import java.util.UUID;
+
+/**
+ * Un Enseignant : membre du Personnel payé au coût par séance
+ * (sauf évolution future), identifié par un matricule.
+ */
+public class Enseignant extends Personnel {
+
+    private final String matricule;
+    private BigDecimal coutParSeance;
+
+    public Enseignant(UUID id, String nom, String prenom,
+                      String matricule, BigDecimal coutParSeance) {
+        super(id, nom, prenom,  ModeCalculPaie.PAR_SEANCE);
+        this.matricule = validerMatricule(matricule);
+        this.coutParSeance = validerCout(coutParSeance);
+    }
+
+    private static String validerMatricule(String matricule) {
+        if (matricule == null || matricule.isBlank()) {
+            throw new IllegalArgumentException("matricule ne peut pas être vide");
+        }
+        return matricule;
+    }
+
+    private static BigDecimal validerCout(BigDecimal cout) {
+        Objects.requireNonNull(cout, "coutParSeance ne peut pas être nul");
+        if (cout.signum() < 0) {
+            throw new IllegalArgumentException("coutParSeance ne peut pas être négatif");
+        }
+        return cout;
+    }
+
+    public void mettreAJourCoutParSeance(BigDecimal nouveauCout) {
+        this.coutParSeance = validerCout(nouveauCout);
+    }
+
+    public String getMatricule() {
+        return matricule;
+    }
+
+    public BigDecimal getCoutParSeance() {
+        return coutParSeance;
+    }
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/domain/model/Enseignant.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/domain/model/ModeCalculPaie.java
+
+package com.excelisprepas.backend.personnel.domain.model;
+
+public enum ModeCalculPaie {
+    FIXE,
+    PAR_SEANCE
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/domain/model/ModeCalculPaie.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/domain/model/Personnel.java
+
+package com.excelisprepas.backend.personnel.domain.model;
+
+import java.util.Objects;
+import java.util.UUID;
+
+public abstract class Personnel {
+    private final UUID id;
+    private   String nom;
+    private String prenom;
+    private final ModeCalculPaie modeCalculPaie;
+
+    protected Personnel(UUID id, String nom, String prenom,
+                        ModeCalculPaie modeCalculPaie) {
+        this.id = Objects.requireNonNull(id, "id ne peut pas être nul");
+        this.nom = validerNonVide(nom, "nom");
+        this.prenom = validerNonVide(prenom, "prenom");
+        this.modeCalculPaie = Objects.requireNonNull(modeCalculPaie, "modeCalculPaie ne peut pas être nul");
+    }
+
+    private static String validerNonVide(String valeur, String champ) {
+        if (valeur == null || valeur.isBlank()) {
+            throw new IllegalArgumentException(champ + " ne peut pas être vide");
+        }
+        return valeur;
+    }
+
+    public void renommer(String nouveauNom, String nouveauPrenom) {
+        this.nom = validerNonVide(nouveauNom, "nom");
+        this.prenom = validerNonVide(nouveauPrenom, "prenom");
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public String getNom() {
+        return nom;
+    }
+
+    public String getPrenom() {
+        return prenom;
+    }
+
+
+
+    public ModeCalculPaie getModeCalculPaie() {
+        return modeCalculPaie;
+    }
+
+    public String getNomComplet() {
+        return prenom + " " + nom;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Personnel)) return false;
+        Personnel that = (Personnel) o;
+        return id.equals(that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return id.hashCode();
+    }
+
+
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/domain/model/Personnel.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/domain/model/RoleUtilisateur.java
+
+package com.excelisprepas.backend.personnel.domain.model;
+
+public enum RoleUtilisateur {
+    DIRECTEUR,
+    DIRECTEUR_ACADEMIQUE,
+    CHEF_CENTRE,
+    CHEF_DEPARTEMENT,
+    CHARGE_DOSSIER,
+    SUPERVISEUR_DOSSIERS,
+    CAISSIER,
+    COMPTABLE
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/domain/model/RoleUtilisateur.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/domain/model/Utilisateur.java
+
+package com.excelisprepas.backend.personnel.domain.model;
+
+
+import java.util.Objects;
+import java.util.UUID;
+import java.util.regex.Pattern;
+
+/**
+ * Un Utilisateur : membre du Personnel administratif disposant d'un accès
+ * connecté au système, avec un rôle applicatif et, optionnellement,
+ * un centre de rattachement.
+ */
+public class Utilisateur extends Personnel {
+
+    private static final Pattern EMAIL_PATTERN =
+            Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+
+    private String email;
+    private String motDePasseHash;
+    private final RoleUtilisateur role;
+    private UUID centreId; // nullable : rattachement optionnel
+
+    public Utilisateur(UUID id, String nom, String prenom,
+                       String email, String motDePasseHash, RoleUtilisateur role) {
+        super(id, nom, prenom,  ModeCalculPaie.FIXE);
+        this.email = validerEmail(email);
+        this.motDePasseHash = validerMotDePasseHash(motDePasseHash);
+        this.role = Objects.requireNonNull(role, "role ne peut pas être nul");
+    }
+
+    private static String validerEmail(String email) {
+        if (email == null || !EMAIL_PATTERN.matcher(email).matches()) {
+            throw new IllegalArgumentException("email invalide : " + email);
+        }
+        return email;
+    }
+
+    private static String validerMotDePasseHash(String hash) {
+        if (hash == null || hash.isBlank()) {
+            throw new IllegalArgumentException("motDePasseHash ne peut pas être vide");
+        }
+        return hash;
+    }
+
+    public void changerEmail(String nouvelEmail) {
+        this.email = validerEmail(nouvelEmail);
+    }
+
+    public void changerMotDePasseHash(String nouveauHash) {
+        this.motDePasseHash = validerMotDePasseHash(nouveauHash);
+    }
+
+    public void rattacherACentre(UUID centreId) {
+        this.centreId = centreId;
+    }
+
+    public void detacherDuCentre() {
+        this.centreId = null;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public String getMotDePasseHash() {
+        return motDePasseHash;
+    }
+
+    public RoleUtilisateur getRole() {
+        return role;
+    }
+
+    public UUID getCentreId() {
+        return centreId;
+    }
+}// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/domain/model/Utilisateur.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/domain/port/in/CreerEnseignantUseCase.java
+
+package com.excelisprepas.backend.personnel.domain.port.in;
+
+import com.excelisprepas.backend.personnel.domain.model.Enseignant;
+
+import java.math.BigDecimal;
+
+public interface CreerEnseignantUseCase {
+    Enseignant creerEnseignant(String nom, String prenom, String matricule, BigDecimal coutParSeance);
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/domain/port/in/CreerEnseignantUseCase.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/domain/port/in/CreerUtilisateurUseCase.java
+
+package com.excelisprepas.backend.personnel.domain.port.in;
+
+import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
+import com.excelisprepas.backend.personnel.domain.model.Utilisateur;
+
+public interface CreerUtilisateurUseCase {
+
+    Utilisateur creerUtilisateur(String nom, String prenom, String email,
+                                 String motDePasseClair, RoleUtilisateur role);
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/domain/port/in/CreerUtilisateurUseCase.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/domain/port/out/EnseignantRepositoryPort.java
+
+package com.excelisprepas.backend.personnel.domain.port.out;
+
+import com.excelisprepas.backend.personnel.domain.model.Enseignant;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+public interface EnseignantRepositoryPort {
+
+    Enseignant save(Enseignant enseignant);
+
+    Optional<Enseignant> findById(UUID id);
+
+    Optional<Enseignant> findByMatricule(String matricule);
+
+    boolean existsByMatricule(String matricule);
+
+    List<Enseignant> findAll();
+
+    void deleteById(UUID id);
+}// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/domain/port/out/EnseignantRepositoryPort.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/domain/port/out/PasswordEncoderPort.java
+
+package com.excelisprepas.backend.personnel.domain.port.out;
+
+public interface PasswordEncoderPort {
+    String encoder(String motDePasseEnClair);
+
+    boolean correspond(String motDePasseEnClair, String motDePasseHash);
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/domain/port/out/PasswordEncoderPort.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/domain/port/out/UtilisateurRepositoryPort.java
+
+package com.excelisprepas.backend.personnel.domain.port.out;
+
+import com.excelisprepas.backend.personnel.domain.model.Utilisateur;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+public interface UtilisateurRepositoryPort {
+
+    Utilisateur save(Utilisateur utilisateur);
+
+    Optional<Utilisateur> findById(UUID id);
+
+    Optional<Utilisateur> findByEmail(String email);
+
+    boolean existsByEmail(String email);
+
+    List<Utilisateur> findAll();
+
+    void deleteById(UUID id);
+}// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/domain/port/out/UtilisateurRepositoryPort.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/domain/service/EnseignantService.java
+
+package com.excelisprepas.backend.personnel.domain.service;
+
+import com.excelisprepas.backend.personnel.domain.exception.MatriculeDejaUtiliseException;
+import com.excelisprepas.backend.personnel.domain.model.Enseignant;
+import com.excelisprepas.backend.personnel.domain.port.in.CreerEnseignantUseCase;
+import com.excelisprepas.backend.personnel.domain.port.out.EnseignantRepositoryPort;
+
+import java.math.BigDecimal;
+import java.util.UUID;
+
+public class EnseignantService implements CreerEnseignantUseCase {
+    private final EnseignantRepositoryPort repository;
+
+    public EnseignantService(EnseignantRepositoryPort repository) {
+        this.repository = repository;
+    }
+
+    @Override
+    public Enseignant creerEnseignant(String nom, String prenom, String matricule, BigDecimal coutParSeance) {
+        if (repository.existsByMatricule(matricule)) {
+            throw new MatriculeDejaUtiliseException(matricule);
+        }
+
+        Enseignant enseignant = new Enseignant(UUID.randomUUID(), nom, prenom, matricule, coutParSeance);
+        return repository.save(enseignant);
+    }
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/domain/service/EnseignantService.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/domain/service/UtilisateurService.java
+
+package com.excelisprepas.backend.personnel.domain.service;
+
+import com.excelisprepas.backend.personnel.domain.exception.EmailDejaUtiliseException;
+import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
+import com.excelisprepas.backend.personnel.domain.model.Utilisateur;
+import com.excelisprepas.backend.personnel.domain.port.in.CreerUtilisateurUseCase;
+import com.excelisprepas.backend.personnel.domain.port.out.PasswordEncoderPort;
+import com.excelisprepas.backend.personnel.domain.port.out.UtilisateurRepositoryPort;
+
+import java.util.UUID;
+
+public class UtilisateurService implements CreerUtilisateurUseCase {
+
+    private final UtilisateurRepositoryPort repository;
+    private final PasswordEncoderPort passwordEncoder;
+
+    public UtilisateurService(UtilisateurRepositoryPort repository, PasswordEncoderPort passwordEncoder) {
+        this.repository = repository;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    @Override
+    public Utilisateur creerUtilisateur(String nom, String prenom, String email,
+                                        String motDePasseClair, RoleUtilisateur role) {
+        if (repository.existsByEmail(email)) {
+            throw new EmailDejaUtiliseException(email);
+        }
+
+        String motDePasseHash = passwordEncoder.encoder(motDePasseClair);
+        Utilisateur utilisateur = new Utilisateur(UUID.randomUUID(), nom, prenom, email, motDePasseHash, role);
+        return repository.save(utilisateur);
+    }
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/domain/service/UtilisateurService.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/infrastructure/config/PersonnelBeanConfiguration.java
+
+package com.excelisprepas.backend.personnel.infrastructure.config;
+
+import com.excelisprepas.backend.personnel.domain.port.in.CreerEnseignantUseCase;
+import com.excelisprepas.backend.personnel.domain.port.in.CreerUtilisateurUseCase;
+import com.excelisprepas.backend.personnel.domain.port.out.EnseignantRepositoryPort;
+import com.excelisprepas.backend.personnel.domain.port.out.PasswordEncoderPort;
+import com.excelisprepas.backend.personnel.domain.port.out.UtilisateurRepositoryPort;
+import com.excelisprepas.backend.personnel.domain.service.EnseignantService;
+import com.excelisprepas.backend.personnel.domain.service.UtilisateurService;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class PersonnelBeanConfiguration {
+
+    @Bean
+    public CreerEnseignantUseCase creerEnseignantUseCase(EnseignantRepositoryPort enseignantRepositoryPort) {
+        return new EnseignantService(enseignantRepositoryPort);
+    }
+
+    @Bean
+    public CreerUtilisateurUseCase creerUtilisateurUseCase(UtilisateurRepositoryPort utilisateurRepositoryPort,
+                                                           PasswordEncoderPort passwordEncoderPort) {
+        return new UtilisateurService(utilisateurRepositoryPort, passwordEncoderPort);
+    }
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/infrastructure/config/PersonnelBeanConfiguration.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/infrastructure/in/web/dto/CreerEnseignantRequest.java
+
+package com.excelisprepas.backend.personnel.infrastructure.in.web.dto;
+
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+import java.math.BigDecimal;
+
+public record CreerEnseignantRequest(
+        @NotBlank(message = "Le nom est obligatoire") String nom,
+        @NotBlank(message = "Le prénom est obligatoire") String prenom,
+        @NotBlank(message = "Le matricule est obligatoire") String matricule,
+        @NotNull(message = "Le coût par séance est obligatoire")
+        @DecimalMin(value = "0.0", message = "Le coût par séance ne peut pas être négatif")
+        BigDecimal coutParSeance
+) {
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/infrastructure/in/web/dto/CreerEnseignantRequest.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/infrastructure/in/web/dto/EnseignantResponse.java
+
+package com.excelisprepas.backend.personnel.infrastructure.in.web.dto;
+
+import java.math.BigDecimal;
+import java.util.UUID;
+
+public record EnseignantResponse(
+        UUID id,
+        String nom,
+        String prenom,
+        String matricule,
+        BigDecimal coutParSeance
+) {
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/infrastructure/in/web/dto/EnseignantResponse.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/infrastructure/in/web/EnseignantController.java
+
+package com.excelisprepas.backend.personnel.infrastructure.in.web;
+
+
+import com.excelisprepas.backend.personnel.domain.model.Enseignant;
+import com.excelisprepas.backend.personnel.domain.port.in.CreerEnseignantUseCase;
+import com.excelisprepas.backend.personnel.infrastructure.in.web.dto.CreerEnseignantRequest;
+import com.excelisprepas.backend.personnel.infrastructure.in.web.dto.EnseignantResponse;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/enseignants")
+public class EnseignantController {
+
+    private final CreerEnseignantUseCase creerEnseignantUseCase;
+
+
+    public EnseignantController(CreerEnseignantUseCase creerEnseignantUseCase) {
+        this.creerEnseignantUseCase = creerEnseignantUseCase;
+    }
+
+    @PostMapping
+    public ResponseEntity<EnseignantResponse> creerEnseignant(@Valid @RequestBody CreerEnseignantRequest request) {
+        Enseignant enseignant = creerEnseignantUseCase.creerEnseignant(
+                request.nom(), request.prenom(), request.matricule(), request.coutParSeance());
+
+        EnseignantResponse response = new EnseignantResponse(
+                enseignant.getId(), enseignant.getNom(), enseignant.getPrenom(),
+                enseignant.getMatricule(), enseignant.getCoutParSeance());
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+}// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/infrastructure/in/web/EnseignantController.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/infrastructure/in/web/PersonnelExceptionHandler.java
+
+package com.excelisprepas.backend.personnel.infrastructure.in.web;
+
+import com.excelisprepas.backend.personnel.domain.exception.MatriculeDejaUtiliseException;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.time.Instant;
+import java.util.Map;
+
+
+@RestControllerAdvice
+public class PersonnelExceptionHandler {
+
+    @ExceptionHandler(MatriculeDejaUtiliseException.class)
+    public ResponseEntity<Map<String, Object>> gererMatriculeDejaUtilise(MatriculeDejaUtiliseException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                "timestamp", Instant.now().toString(),
+                "status", HttpStatus.CONFLICT.value(),
+                "error", "Conflict",
+                "message", ex.getMessage()
+        ));
+    }
+}// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/infrastructure/in/web/PersonnelExceptionHandler.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/EnseignantEntity.java
+
+package com.excelisprepas.backend.personnel.infrastructure.out.persistence;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.math.BigDecimal;
+
+@Entity
+@Table(name = "enseignants")
+@Getter
+@Setter
+@NoArgsConstructor
+public class EnseignantEntity extends PersonnelEntity {
+
+    @Column(nullable = false, unique = true)
+    private String matricule;
+
+    @Column(name = "cout_par_seance", nullable = false, precision = 12, scale = 2)
+    private BigDecimal coutParSeance;
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/EnseignantEntity.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/EnseignantJpaRepository.java
+
+package com.excelisprepas.backend.personnel.infrastructure.out.persistence;
+
+import com.excelisprepas.backend.personnel.domain.model.Enseignant;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+import java.util.UUID;
+
+public interface EnseignantJpaRepository extends JpaRepository<EnseignantEntity, UUID> {
+    Optional<EnseignantEntity> findByMatricule(String matricule);
+    boolean existsByMatricule(String matricule);
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/EnseignantJpaRepository.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/EnseignantPersistenceMapper.java
+
+package com.excelisprepas.backend.personnel.infrastructure.out.persistence;
+
+import com.excelisprepas.backend.personnel.domain.model.Enseignant;
+import org.mapstruct.Mapper;
+
+@Mapper(componentModel = "spring")
+public interface EnseignantPersistenceMapper {
+    EnseignantEntity toEntity(Enseignant domaine);
+
+    default Enseignant toDomain(EnseignantEntity entite) {
+        if (entite == null) {
+            return null;
+        }
+
+        return new Enseignant(
+                entite.getId(),
+                entite.getNom(),
+                entite.getPrenom(),
+                entite.getMatricule(),
+                entite.getCoutParSeance()
+        );
+    }
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/EnseignantPersistenceMapper.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/EnseignantRepositoryAdapter.java
+
+package com.excelisprepas.backend.personnel.infrastructure.out.persistence;
+
+import org.springframework.stereotype.Component;
+
+import com.excelisprepas.backend.personnel.domain.model.Enseignant;
+import com.excelisprepas.backend.personnel.domain.port.out.EnseignantRepositoryPort;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Component
+public class EnseignantRepositoryAdapter implements EnseignantRepositoryPort {
+
+    private final EnseignantJpaRepository jpaRepository;
+    private final EnseignantPersistenceMapper mapper;
+
+    public EnseignantRepositoryAdapter(EnseignantJpaRepository jpaRepository,
+                                       EnseignantPersistenceMapper mapper) {
+        this.jpaRepository = jpaRepository;
+        this.mapper = mapper;
+    }
+
+    @Override
+    public Enseignant save(Enseignant enseignant) {
+        EnseignantEntity entite = mapper.toEntity(enseignant);
+        EnseignantEntity sauvegarde = jpaRepository.save(entite);
+        return mapper.toDomain(sauvegarde);
+    }
+
+    @Override
+    public Optional<Enseignant> findById(UUID id) {
+        return jpaRepository.findById(id).map(mapper::toDomain);
+    }
+
+    @Override
+    public Optional<Enseignant> findByMatricule(String matricule) {
+        return jpaRepository.findByMatricule(matricule).map(mapper::toDomain);
+    }
+
+    @Override
+    public boolean existsByMatricule(String matricule) {
+        return jpaRepository.existsByMatricule(matricule);
+    }
+
+    @Override
+    public List<Enseignant> findAll() {
+        return jpaRepository.findAll().stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public void deleteById(UUID id) {
+        jpaRepository.deleteById(id);
+    }
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/EnseignantRepositoryAdapter.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/PersonnelEntity.java
+
+package com.excelisprepas.backend.personnel.infrastructure.out.persistence;
+
+import com.excelisprepas.backend.personnel.domain.model.ModeCalculPaie;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.util.UUID;
+
+@Entity
+@Table(name = "personnel")
+@Inheritance(strategy = InheritanceType.JOINED)
+@Getter
+@Setter
+@NoArgsConstructor
+public abstract  class PersonnelEntity {
+
+    @Id
+    private UUID id;
+
+    private  String nom;
+    private  String prenom;
+    @Enumerated(EnumType.STRING)
+    private ModeCalculPaie modeCalculPaie;
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/PersonnelEntity.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/UtilisateurEntity.java
+
+package com.excelisprepas.backend.personnel.infrastructure.out.persistence;
+
+import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.util.UUID;
+
+@Entity
+@Table(name = "utilisateurs")
+@Getter
+@Setter
+@NoArgsConstructor
+
+public class UtilisateurEntity extends PersonnelEntity {
+
+    @Column(nullable = false, unique = true)
+    private String email;
+
+    @Column(name = "mot_de_passe_hash", nullable = false)
+    private String motDePasseHash;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private RoleUtilisateur role;
+
+    @Column(name = "centre_id")
+    private UUID centreId; // nullable : rattachement optionnel
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/UtilisateurEntity.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/UtilisateurJpaRepository.java
+
+package com.excelisprepas.backend.personnel.infrastructure.out.persistence;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+import java.util.UUID;
+
+public interface UtilisateurJpaRepository extends JpaRepository<UtilisateurEntity, UUID> {
+    Optional<UtilisateurEntity> findByEmail(String email);
+
+    boolean existsByEmail(String email);
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/UtilisateurJpaRepository.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/UtilisateurPersistenceMapper.java
+
+package com.excelisprepas.backend.personnel.infrastructure.out.persistence;
+
+import com.excelisprepas.backend.personnel.domain.model.Utilisateur;
+import org.mapstruct.Mapper;
+
+@Mapper(componentModel = "spring")
+public interface UtilisateurPersistenceMapper {
+
+    default UtilisateurEntity toEntity(Utilisateur domaine) {
+        if (domaine == null) {
+            return null;
+        }
+        UtilisateurEntity entite = new UtilisateurEntity();
+        entite.setId(domaine.getId());
+        entite.setNom(domaine.getNom());
+        entite.setPrenom(domaine.getPrenom());
+        entite.setModeCalculPaie(domaine.getModeCalculPaie());
+        entite.setEmail(domaine.getEmail());
+        entite.setMotDePasseHash(domaine.getMotDePasseHash());
+        entite.setRole(domaine.getRole());
+        entite.setCentreId(domaine.getCentreId());
+        return entite;
+    }
+
+    default Utilisateur toDomain(UtilisateurEntity entite) {
+        if (entite == null) {
+            return null;
+        }
+        Utilisateur utilisateur = new Utilisateur(
+                entite.getId(),
+                entite.getNom(),
+                entite.getPrenom(),
+                entite.getEmail(),
+                entite.getMotDePasseHash(),
+                entite.getRole()
+        );
+        if (entite.getCentreId() != null) {
+            utilisateur.rattacherACentre(entite.getCentreId());
+        }
+        return utilisateur;
+    }
+}// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/UtilisateurPersistenceMapper.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/UtilisateurRepositoryAdapter.java
+
+package com.excelisprepas.backend.personnel.infrastructure.out.persistence;
+
+import com.excelisprepas.backend.personnel.domain.model.Utilisateur;
+import com.excelisprepas.backend.personnel.domain.port.out.UtilisateurRepositoryPort;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Component
+public class UtilisateurRepositoryAdapter implements UtilisateurRepositoryPort {
+
+    private final UtilisateurJpaRepository jpaRepository;
+    private final UtilisateurPersistenceMapper mapper;
+
+    public UtilisateurRepositoryAdapter(UtilisateurJpaRepository jpaRepository,
+                                        UtilisateurPersistenceMapper mapper) {
+        this.jpaRepository = jpaRepository;
+        this.mapper = mapper;
+    }
+
+    @Override
+    public Utilisateur save(Utilisateur utilisateur) {
+        UtilisateurEntity entite = mapper.toEntity(utilisateur);
+        UtilisateurEntity sauvegarde = jpaRepository.save(entite);
+        return mapper.toDomain(sauvegarde);
+    }
+
+    @Override
+    public Optional<Utilisateur> findById(UUID id) {
+        return jpaRepository.findById(id).map(mapper::toDomain);
+    }
+
+    @Override
+    public Optional<Utilisateur> findByEmail(String email) {
+        return jpaRepository.findByEmail(email).map(mapper::toDomain);
+    }
+
+    @Override
+    public boolean existsByEmail(String email) {
+        return jpaRepository.existsByEmail(email);
+    }
+
+    @Override
+    public List<Utilisateur> findAll() {
+        return jpaRepository.findAll().stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public void deleteById(UUID id) {
+        jpaRepository.deleteById(id);
+    }
+}// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/UtilisateurRepositoryAdapter.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/personnel/infrastructure/out/security/BCryptPasswordEncoderAdapter.java
+
+package com.excelisprepas.backend.personnel.infrastructure.out.security;
+
+
+import com.excelisprepas.backend.personnel.domain.port.out.PasswordEncoderPort;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Component;
+
+@Component
+public class BCryptPasswordEncoderAdapter implements PasswordEncoderPort {
+
+    private final BCryptPasswordEncoder delegate = new BCryptPasswordEncoder();
+
+    @Override
+    public String encoder(String motDePasseEnClair) {
+        return delegate.encode(motDePasseEnClair);
+    }
+
+    @Override
+    public boolean correspond(String motDePasseEnClair, String motDePasseHash) {
+        return delegate.matches(motDePasseEnClair, motDePasseHash);
+    }
+
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/personnel/infrastructure/out/security/BCryptPasswordEncoderAdapter.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/java/com/excelisprepas/backend/shared/config/OpenApiConfig.java
+
+package com.excelisprepas.backend.shared.config;
+
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.info.Info;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class OpenApiConfig {
+
+    @Bean
+    public OpenAPI excelisPrepasOpenAPI() {
+
+        return new OpenAPI()
+                .info(new Info()
+                        .title("EXCELIS PREPAS API")
+                        .description("API de gestion multi-centres excelis prepas")
+                        .version("v1"));
+    }
+}
+// END OF FILE: src/main/java/com/excelisprepas/backend/shared/config/OpenApiConfig.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/resources/application.yaml
+
+spring:
+  config:
+    import: "optional:file:../.env[.properties]"
+  application:
+    name: backend
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:excelis_prepas}
+    username: ${DB_USER:username}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: ${JPA_SHOW_SQL:true}
+    properties:
+      hibernate:
+        format_sql: true
+      jakarta:
+        persistence:
+          schema-generation:
+            scripts:
+              action: create
+              create-target: src/main/resources/db/migration/V2__init_schema.sql
+              create-source: metadata
+  flyway:
+    enabled: ${FLYWAY_ENABLED:false}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+    doc-expansion: none// END OF FILE: src/main/resources/application.yaml
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/resources/db/migration/V1__init_schema.sql
+
+
+    create table enseignants (
+        cout_par_seance numeric(12,2) not null,
+        id uuid not null,
+        matricule varchar(255) not null unique,
+        primary key (id)
+    );
+
+    create table personnel (
+        id uuid not null,
+        mode_calcul_paie varchar(255) check ((mode_calcul_paie in ('FIXE','PAR_SEANCE'))),
+        nom varchar(255),
+        prenom varchar(255),
+        primary key (id)
+    );
+
+    alter table if exists enseignants 
+       add constraint FKeuxc6j7dda1k7lioar5x54qbc 
+       foreign key (id) 
+       references personnel;
+
+    create table enseignants (
+        cout_par_seance numeric(12,2) not null,
+        id uuid not null,
+        matricule varchar(255) not null unique,
+        primary key (id)
+    );
+
+    create table personnel (
+        id uuid not null,
+        mode_calcul_paie varchar(255) check ((mode_calcul_paie in ('FIXE','PAR_SEANCE'))),
+        nom varchar(255),
+        prenom varchar(255),
+        primary key (id)
+    );
+
+    create table utilisateurs (
+        centre_id uuid,
+        id uuid not null,
+        email varchar(255) not null unique,
+        mot_de_passe_hash varchar(255) not null,
+        role varchar(255) not null check ((role in ('DIRECTEUR','DIRECTEUR_ACADEMIQUE','CHEF_CENTRE','CHEF_DEPARTEMENT','CHARGE_DOSSIER','SUPERVISEUR_DOSSIERS','CAISSIER','COMPTABLE'))),
+        primary key (id)
+    );
+
+    alter table if exists enseignants 
+       add constraint FKeuxc6j7dda1k7lioar5x54qbc 
+       foreign key (id) 
+       references personnel;
+
+    alter table if exists utilisateurs 
+       add constraint FKm6u31ywavy2xcrnp5l8aer4et 
+       foreign key (id) 
+       references personnel;
+
+    create table enseignants (
+        cout_par_seance numeric(12,2) not null,
+        id uuid not null,
+        matricule varchar(255) not null unique,
+        primary key (id)
+    );
+
+    create table personnel (
+        id uuid not null,
+        mode_calcul_paie varchar(255) check ((mode_calcul_paie in ('FIXE','PAR_SEANCE'))),
+        nom varchar(255),
+        prenom varchar(255),
+        primary key (id)
+    );
+
+    create table utilisateurs (
+        centre_id uuid,
+        id uuid not null,
+        email varchar(255) not null unique,
+        mot_de_passe_hash varchar(255) not null,
+        role varchar(255) not null check ((role in ('DIRECTEUR','DIRECTEUR_ACADEMIQUE','CHEF_CENTRE','CHEF_DEPARTEMENT','CHARGE_DOSSIER','SUPERVISEUR_DOSSIERS','CAISSIER','COMPTABLE'))),
+        primary key (id)
+    );
+
+    alter table if exists enseignants 
+       add constraint FKeuxc6j7dda1k7lioar5x54qbc 
+       foreign key (id) 
+       references personnel;
+
+    alter table if exists utilisateurs 
+       add constraint FKm6u31ywavy2xcrnp5l8aer4et 
+       foreign key (id) 
+       references personnel;
+// END OF FILE: src/main/resources/db/migration/V1__init_schema.sql
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/main/resources/db/migration/V2__init_schema.sql
+
+
+    create table enseignants (
+        cout_par_seance numeric(12,2) not null,
+        id uuid not null,
+        matricule varchar(255) not null unique,
+        primary key (id)
+    );
+
+    create table personnel (
+        id uuid not null,
+        mode_calcul_paie varchar(255) check ((mode_calcul_paie in ('FIXE','PAR_SEANCE'))),
+        nom varchar(255),
+        prenom varchar(255),
+        primary key (id)
+    );
+
+    create table utilisateurs (
+        centre_id uuid,
+        id uuid not null,
+        email varchar(255) not null unique,
+        mot_de_passe_hash varchar(255) not null,
+        role varchar(255) not null check ((role in ('DIRECTEUR','DIRECTEUR_ACADEMIQUE','CHEF_CENTRE','CHEF_DEPARTEMENT','CHARGE_DOSSIER','SUPERVISEUR_DOSSIERS','CAISSIER','COMPTABLE'))),
+        primary key (id)
+    );
+
+    alter table if exists enseignants 
+       add constraint FKeuxc6j7dda1k7lioar5x54qbc 
+       foreign key (id) 
+       references personnel;
+
+    alter table if exists utilisateurs 
+       add constraint FKm6u31ywavy2xcrnp5l8aer4et 
+       foreign key (id) 
+       references personnel;
+
+    create table enseignants (
+        cout_par_seance numeric(12,2) not null,
+        id uuid not null,
+        matricule varchar(255) not null unique,
+        primary key (id)
+    );
+
+    create table personnel (
+        id uuid not null,
+        mode_calcul_paie varchar(255) check ((mode_calcul_paie in ('FIXE','PAR_SEANCE'))),
+        nom varchar(255),
+        prenom varchar(255),
+        primary key (id)
+    );
+
+    create table utilisateurs (
+        centre_id uuid,
+        id uuid not null,
+        email varchar(255) not null unique,
+        mot_de_passe_hash varchar(255) not null,
+        role varchar(255) not null check ((role in ('DIRECTEUR','DIRECTEUR_ACADEMIQUE','CHEF_CENTRE','CHEF_DEPARTEMENT','CHARGE_DOSSIER','SUPERVISEUR_DOSSIERS','CAISSIER','COMPTABLE'))),
+        primary key (id)
+    );
+
+    alter table if exists enseignants 
+       add constraint FKeuxc6j7dda1k7lioar5x54qbc 
+       foreign key (id) 
+       references personnel;
+
+    alter table if exists utilisateurs 
+       add constraint FKm6u31ywavy2xcrnp5l8aer4et 
+       foreign key (id) 
+       references personnel;
+// END OF FILE: src/main/resources/db/migration/V2__init_schema.sql
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/test/java/com/excelisprepas/backend/BackendApplicationTests.java
+
+package com.excelisprepas.backend;
+
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+@Disabled("Remplacé par des tests d'intégration ciblés (Testcontainers) par module")
+class BackendApplicationTests {
+
+    @Test
+    void contextLoads() {
+    }
+
+}
+// END OF FILE: src/test/java/com/excelisprepas/backend/BackendApplicationTests.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/test/java/com/excelisprepas/backend/personnel/domain/model/EnseignantTest.java
+
+package com.excelisprepas.backend.personnel.domain.model;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+class EnseignantTest {
+
+    private static UUID unId() {
+        return UUID.randomUUID();
+    }
+
+    @Nested
+    @DisplayName("Création d'un Enseignant")
+    class Creation {
+
+        @Test
+        @DisplayName("crée un enseignant valide avec des données correctes")
+        void creeUnEnseignantValide() {
+            Enseignant enseignant = new Enseignant(
+                    unId(), "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
+
+            assertThat(enseignant.getNom()).isEqualTo("Ossegue");
+            assertThat(enseignant.getPrenom()).isEqualTo("Jean");
+            assertThat(enseignant.getMatricule()).isEqualTo("MAT-001");
+            assertThat(enseignant.getCoutParSeance()).isEqualByComparingTo("5000");
+            assertThat(enseignant.getModeCalculPaie()).isEqualTo(ModeCalculPaie.PAR_SEANCE);
+        }
+
+        @Test
+        @DisplayName("rejette un id nul")
+        void rejetteIdNul() {
+            assertThatThrownBy(() ->
+                    new Enseignant(null, "Ossegue", "Jean", "MAT-001", new BigDecimal("5000")))
+                    .isInstanceOf(NullPointerException.class);
+        }
+
+        @Test
+        @DisplayName("rejette un nom vide")
+        void rejetteNomVide() {
+            assertThatThrownBy(() ->
+                    new Enseignant(unId(), "", "Jean", "MAT-001", new BigDecimal("5000")))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("nom");
+        }
+
+        @Test
+        @DisplayName("rejette un nom nul")
+        void rejetteNomNul() {
+            assertThatThrownBy(() ->
+                    new Enseignant(unId(), null, "Jean", "MAT-001", new BigDecimal("5000")))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("nom");
+        }
+
+        @Test
+        @DisplayName("rejette un prénom vide")
+        void rejettePrenomVide() {
+            assertThatThrownBy(() ->
+                    new Enseignant(unId(), "Ossegue", "  ", "MAT-001", new BigDecimal("5000")))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("prenom");
+        }
+
+        @Test
+        @DisplayName("rejette un matricule vide")
+        void rejetteMatriculeVide() {
+            assertThatThrownBy(() ->
+                    new Enseignant(unId(), "Ossegue", "Jean", "", new BigDecimal("5000")))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("matricule");
+        }
+
+        @Test
+        @DisplayName("rejette un matricule nul")
+        void rejetteMatriculeNul() {
+            assertThatThrownBy(() ->
+                    new Enseignant(unId(), "Ossegue", "Jean", null, new BigDecimal("5000")))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("matricule");
+        }
+
+        @Test
+        @DisplayName("rejette un coût par séance nul")
+        void rejetteCoutNul() {
+            assertThatThrownBy(() ->
+                    new Enseignant(unId(), "Ossegue", "Jean", "MAT-001", null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessageContaining("coutParSeance");
+        }
+
+        @Test
+        @DisplayName("rejette un coût par séance négatif")
+        void rejetteCoutNegatif() {
+            assertThatThrownBy(() ->
+                    new Enseignant(unId(), "Ossegue", "Jean", "MAT-001", new BigDecimal("-100")))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("négatif");
+        }
+
+        @Test
+        @DisplayName("accepte un coût par séance à zéro (cas limite valide)")
+        void accepteCoutZero() {
+            Enseignant enseignant = new Enseignant(
+                    unId(), "Ossegue", "Jean", "MAT-001", BigDecimal.ZERO);
+
+            assertThat(enseignant.getCoutParSeance()).isEqualByComparingTo("0");
+        }
+    }
+
+    @Nested
+    @DisplayName("Comportements d'un Enseignant existant")
+    class Comportements {
+
+        private Enseignant unEnseignant() {
+            return new Enseignant(unId(), "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
+        }
+
+        @Test
+        @DisplayName("renommer met à jour nom et prénom")
+        void renommerMetAJourNomEtPrenom() {
+            Enseignant enseignant = unEnseignant();
+
+            enseignant.renommer("Soh", "Wilson");
+
+            assertThat(enseignant.getNom()).isEqualTo("Soh");
+            assertThat(enseignant.getPrenom()).isEqualTo("Wilson");
+        }
+
+        @Test
+        @DisplayName("renommer rejette un nouveau nom vide")
+        void renommerRejetteNomVide() {
+            Enseignant enseignant = unEnseignant();
+
+            assertThatThrownBy(() -> enseignant.renommer("", "Wilson"))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @DisplayName("mettreAJourCoutParSeance met à jour le coût")
+        void mettreAJourCoutParSeanceFonctionne() {
+            Enseignant enseignant = unEnseignant();
+
+            enseignant.mettreAJourCoutParSeance(new BigDecimal("6000"));
+
+            assertThat(enseignant.getCoutParSeance()).isEqualByComparingTo("6000");
+        }
+
+        @Test
+        @DisplayName("mettreAJourCoutParSeance rejette un coût négatif")
+        void mettreAJourCoutParSeanceRejetteNegatif() {
+            Enseignant enseignant = unEnseignant();
+
+            assertThatThrownBy(() -> enseignant.mettreAJourCoutParSeance(new BigDecimal("-1")))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @DisplayName("getNomComplet retourne 'prenom nom'")
+        void getNomCompletRetournePrenomNom() {
+            Enseignant enseignant = unEnseignant();
+
+            assertThat(enseignant.getNomComplet()).isEqualTo("Jean Ossegue");
+        }
+    }
+
+    @Nested
+    @DisplayName("Égalité entre Enseignants")
+    class Egalite {
+
+        @Test
+        @DisplayName("deux enseignants avec le même id sont égaux, même si le reste diffère")
+        void memeIdImpliqueEgalite() {
+            UUID id = unId();
+            Enseignant e1 = new Enseignant(id, "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
+            Enseignant e2 = new Enseignant(id, "Autre", "Nom", "MAT-999", new BigDecimal("1"));
+
+            assertThat(e1).isEqualTo(e2);
+            assertThat(e1.hashCode()).isEqualTo(e2.hashCode());
+        }
+
+        @Test
+        @DisplayName("deux enseignants avec des id différents ne sont pas égaux")
+        void idDifferentImpliqueInegalite() {
+            Enseignant e1 = new Enseignant(unId(), "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
+            Enseignant e2 = new Enseignant(unId(), "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
+
+            assertThat(e1).isNotEqualTo(e2);
+        }
+    }
+}// END OF FILE: src/test/java/com/excelisprepas/backend/personnel/domain/model/EnseignantTest.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/test/java/com/excelisprepas/backend/personnel/domain/model/UtilisateurTest.java
+
+package com.excelisprepas.backend.personnel.domain.model;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+class UtilisateurTest {
+
+    private static UUID unId() {
+        return UUID.randomUUID();
+    }
+
+    @Nested
+    @DisplayName("Création d'un Utilisateur")
+    class Creation {
+
+        @Test
+        @DisplayName("crée un utilisateur valide avec des données correctes")
+        void creeUnUtilisateurValide() {
+            Utilisateur utilisateur = new Utilisateur(
+                    unId(), "Abega", "Flore", "abega.flore@excelis.local",
+                    "hash-bcrypt-simule", RoleUtilisateur.CAISSIER);
+
+            assertThat(utilisateur.getNom()).isEqualTo("Abega");
+            assertThat(utilisateur.getEmail()).isEqualTo("abega.flore@excelis.local");
+            assertThat(utilisateur.getRole()).isEqualTo(RoleUtilisateur.CAISSIER);
+            assertThat(utilisateur.getModeCalculPaie()).isEqualTo(ModeCalculPaie.FIXE);
+            assertThat(utilisateur.getCentreId()).isNull();
+        }
+
+        @ParameterizedTest
+        @DisplayName("rejette les formats d'email invalides")
+        @ValueSource(strings = {"pasunemail", "sans-arobase.com", "@sansdebut.com", "email@", "email@sansdomaine"})
+        void rejetteEmailInvalide(String emailInvalide) {
+            assertThatThrownBy(() ->
+                    new Utilisateur(unId(), "Abega", "Flore", emailInvalide,
+                            "hash-bcrypt-simule", RoleUtilisateur.CAISSIER))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("email");
+        }
+
+        @Test
+        @DisplayName("rejette un email nul")
+        void rejetteEmailNul() {
+            assertThatThrownBy(() ->
+                    new Utilisateur(unId(), "Abega", "Flore", null,
+                            "hash-bcrypt-simule", RoleUtilisateur.CAISSIER))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("email");
+        }
+
+        @Test
+        @DisplayName("rejette un hash de mot de passe vide")
+        void rejetteMotDePasseHashVide() {
+            assertThatThrownBy(() ->
+                    new Utilisateur(unId(), "Abega", "Flore", "abega.flore@excelis.local",
+                            "", RoleUtilisateur.CAISSIER))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("motDePasseHash");
+        }
+
+        @Test
+        @DisplayName("rejette un rôle nul")
+        void rejetteRoleNul() {
+            assertThatThrownBy(() ->
+                    new Utilisateur(unId(), "Abega", "Flore", "abega.flore@excelis.local",
+                            "hash-bcrypt-simule", null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessageContaining("role");
+        }
+    }
+
+    @Nested
+    @DisplayName("Comportements d'un Utilisateur existant")
+    class Comportements {
+
+        private Utilisateur unUtilisateur() {
+            return new Utilisateur(unId(), "Abega", "Flore", "abega.flore@excelis.local",
+                    "hash-bcrypt-simule", RoleUtilisateur.CAISSIER);
+        }
+
+        @Test
+        @DisplayName("changerEmail met à jour l'email si valide")
+        void changerEmailFonctionne() {
+            Utilisateur utilisateur = unUtilisateur();
+
+            utilisateur.changerEmail("nouvel.email@excelis.local");
+
+            assertThat(utilisateur.getEmail()).isEqualTo("nouvel.email@excelis.local");
+        }
+
+        @Test
+        @DisplayName("changerEmail rejette un format invalide")
+        void changerEmailRejetteFormatInvalide() {
+            Utilisateur utilisateur = unUtilisateur();
+
+            assertThatThrownBy(() -> utilisateur.changerEmail("pasunemail"))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @DisplayName("changerMotDePasseHash met à jour le hash")
+        void changerMotDePasseHashFonctionne() {
+            Utilisateur utilisateur = unUtilisateur();
+
+            utilisateur.changerMotDePasseHash("nouveau-hash");
+
+            assertThat(utilisateur.getMotDePasseHash()).isEqualTo("nouveau-hash");
+        }
+
+        @Test
+        @DisplayName("rattacherACentre définit le centreId")
+        void rattacherACentreFonctionne() {
+            Utilisateur utilisateur = unUtilisateur();
+            UUID centreId = unId();
+
+            utilisateur.rattacherACentre(centreId);
+
+            assertThat(utilisateur.getCentreId()).isEqualTo(centreId);
+        }
+
+        @Test
+        @DisplayName("detacherDuCentre remet centreId à null")
+        void detacherDuCentreFonctionne() {
+            Utilisateur utilisateur = unUtilisateur();
+            utilisateur.rattacherACentre(unId());
+
+            utilisateur.detacherDuCentre();
+
+            assertThat(utilisateur.getCentreId()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("Égalité entre Utilisateurs")
+    class Egalite {
+
+        @Test
+        @DisplayName("deux utilisateurs avec le même id sont égaux, même si le reste diffère")
+        void memeIdImpliqueEgalite() {
+            // Given
+            UUID id = unId();
+            Utilisateur u1 = new Utilisateur(id, "Abega", "Flore", "abega.flore@excelis.local",
+                    "hash-1", RoleUtilisateur.CAISSIER);
+            Utilisateur u2 = new Utilisateur(id, "Autre", "Nom", "autre.email@excelis.local",
+                    "hash-2", RoleUtilisateur.DIRECTEUR);
+
+            // When / Then
+            assertThat(u1).isEqualTo(u2);
+            assertThat(u1.hashCode()).isEqualTo(u2.hashCode());
+        }
+
+        @Test
+        @DisplayName("deux utilisateurs avec des id différents ne sont pas égaux")
+        void idDifferentImpliqueInegalite() {
+            // Given
+            Utilisateur u1 = new Utilisateur(unId(), "Abega", "Flore", "abega.flore@excelis.local",
+                    "hash-1", RoleUtilisateur.CAISSIER);
+            Utilisateur u2 = new Utilisateur(unId(), "Abega", "Flore", "abega.flore@excelis.local",
+                    "hash-1", RoleUtilisateur.CAISSIER);
+
+            // When / Then
+            assertThat(u1).isNotEqualTo(u2);
+        }
+
+        @Test
+        @DisplayName("un utilisateur n'est jamais égal à null")
+        void nEstJamaisEgalANull() {
+            // Given
+            Utilisateur u1 = new Utilisateur(unId(), "Abega", "Flore", "abega.flore@excelis.local",
+                    "hash-1", RoleUtilisateur.CAISSIER);
+
+            // When / Then
+            assertThat(u1).isNotEqualTo(null);
+        }
+
+        @Test
+        @DisplayName("un utilisateur n'est jamais égal à un objet d'un autre type")
+        void nEstJamaisEgalAUnAutreType() {
+            // Given
+            Utilisateur u1 = new Utilisateur(unId(), "Abega", "Flore", "abega.flore@excelis.local",
+                    "hash-1", RoleUtilisateur.CAISSIER);
+
+            // When / Then
+            assertThat(u1).isNotEqualTo("une chaîne de caractères");
+        }
+    }
+
+}// END OF FILE: src/test/java/com/excelisprepas/backend/personnel/domain/model/UtilisateurTest.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/test/java/com/excelisprepas/backend/personnel/domain/service/EnseignantServiceTest.java
+
+package com.excelisprepas.backend.personnel.domain.service;
+
+import com.excelisprepas.backend.personnel.domain.exception.MatriculeDejaUtiliseException;
+import com.excelisprepas.backend.personnel.domain.model.Enseignant;
+import com.excelisprepas.backend.personnel.domain.port.out.EnseignantRepositoryPort;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+import java.math.BigDecimal;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+public class EnseignantServiceTest {
+
+    private EnseignantRepositoryPort repository;
+    private EnseignantService service;
+
+    @BeforeEach
+    void setUp() {
+        repository = mock(EnseignantRepositoryPort.class);
+        service = new EnseignantService(repository);
+    }
+
+
+    @Test
+    @DisplayName("crée un enseignant quand le matricule est libre")
+    void creeEnseignantSiMatriculeLibre() {
+        when(repository.existsByMatricule("MAT-001")).thenReturn(false);
+        when(repository.save(any(Enseignant.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Enseignant resultat = service.creerEnseignant("Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
+
+        assertThat(resultat.getMatricule()).isEqualTo("MAT-001");
+        assertThat(resultat.getNom()).isEqualTo("Ossegue");
+
+        ArgumentCaptor<Enseignant> captor = ArgumentCaptor.forClass(Enseignant.class);
+        verify(repository).save(captor.capture());
+        assertThat(captor.getValue().getMatricule()).isEqualTo("MAT-001");
+    }
+
+    @Test
+    @DisplayName("refuse de créer un enseignant si le matricule est déjà utilisé")
+    void refuseSiMatriculeDejaUtilise() {
+        when(repository.existsByMatricule("MAT-001")).thenReturn(true);
+
+        assertThatThrownBy(() ->
+                service.creerEnseignant("Ossegue", "Jean", "MAT-001", new BigDecimal("5000")))
+                .isInstanceOf(MatriculeDejaUtiliseException.class)
+                .hasMessageContaining("MAT-001");
+
+        verify(repository, never()).save(any(Enseignant.class));
+    }
+}
+// END OF FILE: src/test/java/com/excelisprepas/backend/personnel/domain/service/EnseignantServiceTest.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/test/java/com/excelisprepas/backend/personnel/domain/service/UtilisateurServiceTest.java
+
+package com.excelisprepas.backend.personnel.domain.service;
+
+import com.excelisprepas.backend.personnel.domain.exception.EmailDejaUtiliseException;
+import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
+import com.excelisprepas.backend.personnel.domain.model.Utilisateur;
+import com.excelisprepas.backend.personnel.domain.port.out.PasswordEncoderPort;
+import com.excelisprepas.backend.personnel.domain.port.out.UtilisateurRepositoryPort;
+import org.assertj.core.api.ThrowableAssert;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+public class UtilisateurServiceTest {
+
+    private UtilisateurRepositoryPort repository;
+    private PasswordEncoderPort passwordEncoder;
+    private UtilisateurService service;
+
+
+    @BeforeEach
+    void setUp() {
+
+        repository = mock(UtilisateurRepositoryPort.class);
+        passwordEncoder = mock(PasswordEncoderPort.class);
+        service = new UtilisateurService(repository, passwordEncoder);
+    }
+
+    @Test
+    @DisplayName("crée un utilisateur quand l'email est libre, avec le mot de passe haché")
+    void creeUtilisateurSiEmailLibre() {
+        // Given
+        when(repository.existsByEmail("abega.flore@excelis.local")).thenReturn(false);
+        when(passwordEncoder.encoder("motdepasseClair")).thenReturn("hash-encode");
+        when(repository.save(any(Utilisateur.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        Utilisateur resultat = service.creerUtilisateur(
+                "Abega", "Flore", "abega.flore@excelis.local",
+                "motdepasseClair", RoleUtilisateur.CAISSIER);
+
+        // Then
+        assertThat(resultat.getEmail()).isEqualTo("abega.flore@excelis.local");
+        assertThat(resultat.getMotDePasseHash()).isEqualTo("hash-encode");
+
+        ArgumentCaptor<Utilisateur> captor = ArgumentCaptor.forClass(Utilisateur.class);
+        verify(repository).save(captor.capture());
+        assertThat(captor.getValue().getMotDePasseHash()).isEqualTo("hash-encode");
+    }
+
+    @Test
+    @DisplayName("refuse de créer un utilisateur si l'email est déjà utilisé")
+    void refuseSiEmailDejaUtilise() {
+        // Given
+        when(repository.existsByEmail("abega.flore@excelis.local")).thenReturn(true);
+
+        // When
+        ThrowableAssert.ThrowingCallable creation = () -> service.creerUtilisateur(
+                "Abega", "Flore", "abega.flore@excelis.local",
+                "motdepasseClair", RoleUtilisateur.CAISSIER);
+
+        // Then
+        assertThatThrownBy(creation)
+                .isInstanceOf(EmailDejaUtiliseException.class)
+                .hasMessageContaining("abega.flore@excelis.local");
+        verify(repository, never()).save(any(Utilisateur.class));
+        verify(passwordEncoder, never()).encoder(anyString());
+    }
+}
+// END OF FILE: src/test/java/com/excelisprepas/backend/personnel/domain/service/UtilisateurServiceTest.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/test/java/com/excelisprepas/backend/personnel/infrastructure/in/web/EnseignantControllerTest.java
+
+package com.excelisprepas.backend.personnel.infrastructure.in.web;
+
+import com.excelisprepas.backend.personnel.domain.exception.MatriculeDejaUtiliseException;
+import com.excelisprepas.backend.personnel.domain.model.Enseignant;
+import com.excelisprepas.backend.personnel.domain.port.in.CreerEnseignantUseCase;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.math.BigDecimal;
+import java.util.UUID;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@WebMvcTest(EnseignantController.class)
+@DisplayName("EnseignantController")
+public class EnseignantControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockitoBean
+    private CreerEnseignantUseCase creerEnseignantUseCase;
+
+    @Test
+    @DisplayName("POST /api/enseignants avec des données valides retourne 201 et l'enseignant créé")
+    void creerEnseignant_donneesValides_retourne201() throws Exception {
+        Enseignant enseignantCree = new Enseignant(
+                UUID.randomUUID(), "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
+        when(creerEnseignantUseCase.creerEnseignant(anyString(), anyString(), anyString(), any(BigDecimal.class)))
+                .thenReturn(enseignantCree);
+
+        String jsonRequest = """
+                {
+                    "nom": "Ossegue",
+                    "prenom": "Jean",
+                    "matricule": "MAT-001",
+                    "coutParSeance": 5000
+                }
+                """;
+
+        mockMvc.perform(post("/api/enseignants")
+                        .contentType("application/json")
+                        .content(jsonRequest))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.matricule").value("MAT-001"))
+                .andExpect(jsonPath("$.nom").value("Ossegue"));
+    }
+
+
+    @Test
+    @DisplayName("POST /api/enseignants avec un coût négatif retourne 400 (Bean Validation)")
+    void creerEnseignant_coutNegatif_retourne400() throws Exception {
+        String jsonRequest = """
+                {
+                    "nom": "Ossegue",
+                    "prenom": "Jean",
+                    "matricule": "MAT-001",
+                    "coutParSeance": -100
+                }
+                """;
+
+        mockMvc.perform(post("/api/enseignants")
+                        .contentType("application/json")
+                        .content(jsonRequest))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("POST /api/enseignants avec un matricule déjà utilisé retourne 409")
+    void creerEnseignant_matriculeDejaUtilise_retourne409() throws Exception {
+        when(creerEnseignantUseCase.creerEnseignant(anyString(), anyString(), anyString(), any(BigDecimal.class)))
+                .thenThrow(new MatriculeDejaUtiliseException("MAT-001"));
+
+        String jsonRequest = """
+                {
+                    "nom": "Ossegue",
+                    "prenom": "Jean",
+                    "matricule": "MAT-001",
+                    "coutParSeance": 5000
+                }
+                """;
+
+        mockMvc.perform(post("/api/enseignants")
+                        .contentType("application/json")
+                        .content(jsonRequest))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(
+                        "Le matricule 'MAT-001' est déjà utilisé par un autre enseignant"));
+    }
+
+
+}
+// END OF FILE: src/test/java/com/excelisprepas/backend/personnel/infrastructure/in/web/EnseignantControllerTest.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/test/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/EnseignantRepositoryAdapterTest.java
+
+package com.excelisprepas.backend.personnel.infrastructure.out.persistence;
+
+import com.excelisprepas.backend.personnel.domain.model.Enseignant;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.TestPropertySource;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@Testcontainers
+@DataJpaTest
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@TestPropertySource(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
+@Import({EnseignantRepositoryAdapter.class, EnseignantPersistenceMapperImpl.class})
+@DisplayName("EnseignantRepositoryAdapter (test d'intégration avec vraie base PostgreSQL)")
+class EnseignantRepositoryAdapterTest {
+
+    @Container
+    @ServiceConnection
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:18")
+            .withDatabaseName("excelis_test")
+            .withUsername("test")
+            .withPassword("test");
+
+    // Plus besoin de @DynamicPropertySource : @ServiceConnection s'en charge,
+    // en garantissant que le conteneur est bien démarré avant que Spring lise
+    // les propriétés de connexion (url, username, password, driver).
+
+    @Autowired
+    private EnseignantRepositoryAdapter adapter;
+
+    private Enseignant unEnseignant(String matricule) {
+        return new Enseignant(UUID.randomUUID(), "Ossegue", "Jean", matricule, new BigDecimal("5000"));
+    }
+
+    @Test
+    @DisplayName("save() puis findById() retrouve le même enseignant")
+    void saveEtFindByIdRetrouveLEnseignant() {
+        Enseignant enseignant = unEnseignant("MAT-001");
+
+        adapter.save(enseignant);
+        Optional<Enseignant> retrouve = adapter.findById(enseignant.getId());
+
+        assertThat(retrouve).isPresent();
+        assertThat(retrouve.get().getId()).isEqualTo(enseignant.getId());
+        assertThat(retrouve.get().getMatricule()).isEqualTo("MAT-001");
+        assertThat(retrouve.get().getCoutParSeance()).isEqualByComparingTo("5000");
+    }
+
+    @Test
+    @DisplayName("findById() sur un id inexistant retourne Optional vide")
+    void findByIdInexistantRetourneVide() {
+        Optional<Enseignant> retrouve = adapter.findById(UUID.randomUUID());
+
+        assertThat(retrouve).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findByMatricule() retrouve l'enseignant correspondant")
+    void findByMatriculeRetrouveLEnseignant() {
+        adapter.save(unEnseignant("MAT-002"));
+
+        Optional<Enseignant> retrouve = adapter.findByMatricule("MAT-002");
+
+        assertThat(retrouve).isPresent();
+        assertThat(retrouve.get().getMatricule()).isEqualTo("MAT-002");
+    }
+
+    @Test
+    @DisplayName("existsByMatricule() retourne true si le matricule est pris")
+    void existsByMatriculeRetourneVraiSiPresent() {
+        adapter.save(unEnseignant("MAT-003"));
+
+        assertThat(adapter.existsByMatricule("MAT-003")).isTrue();
+    }
+
+    @Test
+    @DisplayName("existsByMatricule() retourne false si le matricule est libre")
+    void existsByMatriculeRetourneFauxSiAbsent() {
+        assertThat(adapter.existsByMatricule("MAT-INEXISTANT")).isFalse();
+    }
+
+    @Test
+    @DisplayName("findAll() retourne tous les enseignants enregistrés")
+    void findAllRetourneTousLesEnseignants() {
+        adapter.save(unEnseignant("MAT-004"));
+        adapter.save(unEnseignant("MAT-005"));
+
+        List<Enseignant> tous = adapter.findAll();
+
+        assertThat(tous).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("deleteById() supprime bien l'enseignant")
+    void deleteByIdSupprimeLEnseignant() {
+        Enseignant enseignant = unEnseignant("MAT-006");
+        adapter.save(enseignant);
+
+        adapter.deleteById(enseignant.getId());
+
+        assertThat(adapter.findById(enseignant.getId())).isEmpty();
+    }
+}// END OF FILE: src/test/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/EnseignantRepositoryAdapterTest.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/test/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/UtilisateurRepositoryAdapterTest.java
+
+package com.excelisprepas.backend.personnel.infrastructure.out.persistence;
+
+import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
+import com.excelisprepas.backend.personnel.domain.model.Utilisateur;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.TestPropertySource;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@Testcontainers
+@DataJpaTest
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@TestPropertySource(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
+@Import({UtilisateurRepositoryAdapter.class, UtilisateurPersistenceMapperImpl.class})
+@DisplayName("UtilisateurRepositoryAdapter (test d'intégration avec vraie base PostgreSQL)")
+class UtilisateurRepositoryAdapterTest {
+
+    @Container
+    @ServiceConnection
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:18")
+            .withDatabaseName("excelis_test")
+            .withUsername("test")
+            .withPassword("test");
+
+    @Autowired
+    private UtilisateurRepositoryAdapter adapter;
+
+    private Utilisateur unUtilisateur(String email) {
+        return new Utilisateur(UUID.randomUUID(), "Abega", "Flore", email,
+                "hash-simule", RoleUtilisateur.CAISSIER);
+    }
+
+    @Test
+    @DisplayName("save() puis findById() retrouve le même utilisateur")
+    void saveEtFindByIdRetrouveLUtilisateur() {
+        // Given
+        Utilisateur utilisateur = unUtilisateur("abega.flore@excelis.local");
+
+        // When
+        adapter.save(utilisateur);
+        Optional<Utilisateur> retrouve = adapter.findById(utilisateur.getId());
+
+        // Then
+        assertThat(retrouve).isPresent();
+        assertThat(retrouve.get().getId()).isEqualTo(utilisateur.getId());
+        assertThat(retrouve.get().getEmail()).isEqualTo("abega.flore@excelis.local");
+    }
+
+    @Test
+    @DisplayName("findById() sur un id inexistant retourne Optional vide")
+    void findByIdInexistantRetourneVide() {
+        // Given / When
+        Optional<Utilisateur> retrouve = adapter.findById(UUID.randomUUID());
+
+        // Then
+        assertThat(retrouve).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findByEmail() retrouve l'utilisateur correspondant")
+    void findByEmailRetrouveLUtilisateur() {
+        // Given
+        adapter.save(unUtilisateur("marie.ndongo@excelis.local"));
+
+        // When
+        Optional<Utilisateur> retrouve = adapter.findByEmail("marie.ndongo@excelis.local");
+
+        // Then
+        assertThat(retrouve).isPresent();
+        assertThat(retrouve.get().getEmail()).isEqualTo("marie.ndongo@excelis.local");
+    }
+
+    @Test
+    @DisplayName("existsByEmail() retourne true si l'email est pris")
+    void existsByEmailRetourneVraiSiPresent() {
+        // Given
+        adapter.save(unUtilisateur("paul.eyenga@excelis.local"));
+
+        // When
+        boolean existe = adapter.existsByEmail("paul.eyenga@excelis.local");
+
+        // Then
+        assertThat(existe).isTrue();
+    }
+
+    @Test
+    @DisplayName("existsByEmail() retourne false si l'email est libre")
+    void existsByEmailRetourneFauxSiAbsent() {
+        // Given / When
+        boolean existe = adapter.existsByEmail("inexistant@excelis.local");
+
+        // Then
+        assertThat(existe).isFalse();
+    }
+
+    @Test
+    @DisplayName("findAll() retourne tous les utilisateurs enregistrés")
+    void findAllRetourneTousLesUtilisateurs() {
+        // Given
+        adapter.save(unUtilisateur("un@excelis.local"));
+        adapter.save(unUtilisateur("deux@excelis.local"));
+
+        // When
+        List<Utilisateur> tous = adapter.findAll();
+
+        // Then
+        assertThat(tous).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("deleteById() supprime bien l'utilisateur")
+    void deleteByIdSupprimeLUtilisateur() {
+        // Given
+        Utilisateur utilisateur = unUtilisateur("asupprimer@excelis.local");
+        adapter.save(utilisateur);
+
+        // When
+        adapter.deleteById(utilisateur.getId());
+
+        // Then
+        assertThat(adapter.findById(utilisateur.getId())).isEmpty();
+    }
+}// END OF FILE: src/test/java/com/excelisprepas/backend/personnel/infrastructure/out/persistence/UtilisateurRepositoryAdapterTest.java
+
+//---> PATH: /home/ghost/Documents/EXCELIS/gesprepas/backend/src/test/java/com/excelisprepas/backend/personnel/infrastructure/out/security/BCryptPasswordEncoderAdapterTest.java
+
+package com.excelisprepas.backend.personnel.infrastructure.out.security;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+public class BCryptPasswordEncoderAdapterTest {
+    private final BCryptPasswordEncoderAdapter encoder = new BCryptPasswordEncoderAdapter();
+
+    @Test
+    @DisplayName("encoder() produit un hash différent du mot de passe en clair")
+    void encoderProduitUnHashDifferentDuClair() {
+        // Given
+
+        String motDePasseClair = "modepasseSecret123";
+
+        // When
+        String hash = encoder.encoder(motDePasseClair);
+
+        // Then
+        assertThat(hash).isNotEqualTo(motDePasseClair);
+        assertThat(hash).isNotBlank();
+    }
+
+    @Test
+    @DisplayName("correspond() retourne faux quand le mot de passe en clair ne correspond pas au hash")
+    void correspondRetourneFauxSiPasDeCorrespondance() {
+        // Given
+
+        String hash = encoder.encoder("motdepasseSecret123");
+
+        // When
+        boolean resultat = encoder.correspond("mauvaisMotDePasse", hash);
+
+        // Then
+        assertThat(resultat).isFalse();
+    }
+}
+// END OF FILE: src/test/java/com/excelisprepas/backend/personnel/infrastructure/out/security/BCryptPasswordEncoderAdapterTest.java
+

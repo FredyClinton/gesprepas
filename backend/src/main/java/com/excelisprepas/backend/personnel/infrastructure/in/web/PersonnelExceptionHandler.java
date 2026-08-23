@@ -1,5 +1,6 @@
 package com.excelisprepas.backend.personnel.infrastructure.in.web;
 
+import com.excelisprepas.backend.personnel.domain.exception.EmailDejaUtiliseException;
 import com.excelisprepas.backend.personnel.domain.exception.MatriculeDejaUtiliseException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +16,16 @@ public class PersonnelExceptionHandler {
 
     @ExceptionHandler(MatriculeDejaUtiliseException.class)
     public ResponseEntity<Map<String, Object>> gererMatriculeDejaUtilise(MatriculeDejaUtiliseException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                "timestamp", Instant.now().toString(),
+                "status", HttpStatus.CONFLICT.value(),
+                "error", "Conflict",
+                "message", ex.getMessage()
+        ));
+    }
+
+    @ExceptionHandler(EmailDejaUtiliseException.class)
+    public ResponseEntity<Map<String, Object>> gererEmailDejaUtilise(EmailDejaUtiliseException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
                 "timestamp", Instant.now().toString(),
                 "status", HttpStatus.CONFLICT.value(),
