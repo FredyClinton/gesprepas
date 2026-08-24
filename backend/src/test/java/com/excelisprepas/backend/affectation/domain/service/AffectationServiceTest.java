@@ -243,4 +243,59 @@ class AffectationServiceTest {
             verify(affectationRepository, never()).save(any(Affectation.class));
         }
     }
+
+    @Nested
+    @DisplayName("Cycle de vie")
+    class CycleDeVie {
+
+        @Test
+        @DisplayName("marquerEffectuee() réussit depuis ASSIGNEE")
+        void marquerEffectueeReussit() {
+            Affectation affectation = new Affectation(UUID.randomUUID(), centreId, formationId,
+                    salleId, matiereId, UUID.randomUUID(), 1, 1, StatutAffectation.ASSIGNEE);
+            when(affectationRepository.findById(affectation.getId())).thenReturn(Optional.of(affectation));
+            when(affectationRepository.save(any(Affectation.class))).thenAnswer(i -> i.getArgument(0));
+
+            Affectation resultat = service.marquerEffectuee(affectation.getId());
+
+            assertThat(resultat.getStatut()).isEqualTo(StatutAffectation.EFFECTUEE);
+        }
+
+        @Test
+        @DisplayName("marquerEffectuee() échoue depuis PLANIFIEE")
+        void marquerEffectueeEchoueDepuisPlanifiee() {
+            Affectation affectation = new Affectation(UUID.randomUUID(), centreId, formationId,
+                    salleId, matiereId, null, 1, 1, StatutAffectation.PLANIFIEE);
+            when(affectationRepository.findById(affectation.getId())).thenReturn(Optional.of(affectation));
+
+            ThrowingCallable action = () -> service.marquerEffectuee(affectation.getId());
+
+            assertThatThrownBy(action).isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("annulerAffectation() réussit depuis PLANIFIEE")
+        void annulerReussit() {
+            Affectation affectation = new Affectation(UUID.randomUUID(), centreId, formationId,
+                    salleId, matiereId, null, 1, 1, StatutAffectation.PLANIFIEE);
+            when(affectationRepository.findById(affectation.getId())).thenReturn(Optional.of(affectation));
+            when(affectationRepository.save(any(Affectation.class))).thenAnswer(i -> i.getArgument(0));
+
+            Affectation resultat = service.annulerAffectation(affectation.getId());
+
+            assertThat(resultat.getStatut()).isEqualTo(StatutAffectation.ANNULEE);
+        }
+
+        @Test
+        @DisplayName("annulerAffectation() échoue depuis EFFECTUEE")
+        void annulerEchoueDepuisEffectuee() {
+            Affectation affectation = new Affectation(UUID.randomUUID(), centreId, formationId,
+                    salleId, matiereId, UUID.randomUUID(), 1, 1, StatutAffectation.EFFECTUEE);
+            when(affectationRepository.findById(affectation.getId())).thenReturn(Optional.of(affectation));
+
+            ThrowingCallable action = () -> service.annulerAffectation(affectation.getId());
+
+            assertThatThrownBy(action).isInstanceOf(IllegalStateException.class);
+        }
+    }
 }
