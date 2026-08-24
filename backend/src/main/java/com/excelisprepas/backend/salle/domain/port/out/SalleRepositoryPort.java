@@ -11,4 +11,6 @@ public interface SalleRepositoryPort {
     Optional<Salle> findById(UUID id);
 
     boolean existsByCentreId(UUID centreId);
+
+    boolean existsByFormationId(UUID formationId);
 }

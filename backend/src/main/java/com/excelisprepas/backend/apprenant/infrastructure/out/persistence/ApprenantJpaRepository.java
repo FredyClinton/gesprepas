@@ -6,4 +6,6 @@ import java.util.UUID;
 
 public interface ApprenantJpaRepository extends JpaRepository<ApprenantEntity, UUID> {
     boolean existsByCentreId(UUID centreId);
+
+    boolean existsByFormationId(UUID formationId);
 }

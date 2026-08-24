@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -51,5 +52,30 @@ class SessionAcademiqueRepositoryAdapterTest extends AbstractIntegrationTest {
 
         // Then
         assertThat(retrouve).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findAll() retourne toutes les sessions enregistrées")
+    void findAllRetourneToutesLesSessions() {
+        adapter.save(new SessionAcademique(UUID.randomUUID(), "2025-2026",
+                LocalDate.of(2025, 9, 1), LocalDate.of(2026, 7, 31)));
+        adapter.save(new SessionAcademique(UUID.randomUUID(), "2026-2027",
+                LocalDate.of(2026, 9, 1), LocalDate.of(2027, 7, 31)));
+
+        List<SessionAcademique> resultat = adapter.findAll();
+
+        assertThat(resultat).hasSizeGreaterThanOrEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("deleteById() supprime la session")
+    void deleteByIdSupprimeLaSession() {
+        SessionAcademique session = new SessionAcademique(UUID.randomUUID(), "2027-2028",
+                LocalDate.of(2027, 9, 1), LocalDate.of(2028, 7, 31));
+        adapter.save(session);
+
+        adapter.deleteById(session.getId());
+
+        assertThat(adapter.findById(session.getId())).isEmpty();
     }
 }

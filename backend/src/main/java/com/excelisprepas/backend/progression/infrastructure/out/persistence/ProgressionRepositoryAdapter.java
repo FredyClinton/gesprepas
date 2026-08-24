@@ -34,4 +34,9 @@ public class ProgressionRepositoryAdapter implements ProgressionRepositoryPort {
         return jpaRepository.existsByFormationIdAndMatiereIdAndSemaineAndNumeroCours(
                 formationId, matiereId, semaine, numeroCours);
     }
+
+    @Override
+    public boolean existsByFormationId(UUID formationId) {
+        return jpaRepository.existsByFormationId(formationId);
+    }
 }

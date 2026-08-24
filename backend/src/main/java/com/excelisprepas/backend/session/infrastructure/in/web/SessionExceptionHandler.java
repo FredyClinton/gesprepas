@@ -1,7 +1,5 @@
-package com.excelisprepas.backend.formation.infrastructure.in.web;
+package com.excelisprepas.backend.session.infrastructure.in.web;
 
-import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
-import com.excelisprepas.backend.shared.exception.FormationIntrouvableException;
 import com.excelisprepas.backend.shared.exception.SessionIntrouvableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,12 +10,7 @@ import java.time.Instant;
 import java.util.Map;
 
 @RestControllerAdvice
-public class FormationExceptionHandler {
-
-    @ExceptionHandler(CentreIntrouvableException.class)
-    public ResponseEntity<Map<String, Object>> gererCentreIntrouvable(CentreIntrouvableException ex) {
-        return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
-    }
+public class SessionExceptionHandler {
 
     @ExceptionHandler(SessionIntrouvableException.class)
     public ResponseEntity<Map<String, Object>> gererSessionIntrouvable(SessionIntrouvableException ex) {
@@ -29,17 +22,10 @@ public class FormationExceptionHandler {
         return construireReponse(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
-    @ExceptionHandler(FormationIntrouvableException.class)
-    public ResponseEntity<Map<String, Object>> gererFormationIntrouvable(FormationIntrouvableException ex) {
-        return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
-    }
-    
-
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Map<String, Object>> gererEtatInvalide(IllegalStateException ex) {
         return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
     }
-
 
     private ResponseEntity<Map<String, Object>> construireReponse(HttpStatus statut, String message) {
         return ResponseEntity.status(statut).body(Map.of(

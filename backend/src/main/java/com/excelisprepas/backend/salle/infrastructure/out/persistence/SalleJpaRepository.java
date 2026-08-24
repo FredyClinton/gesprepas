@@ -6,4 +6,6 @@ import java.util.UUID;
 
 public interface SalleJpaRepository extends JpaRepository<SalleEntity, UUID> {
     boolean existsByCentreId(UUID centreId);
+
+    boolean existsByFormationId(UUID formationId);
 }

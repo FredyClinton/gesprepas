@@ -11,4 +11,6 @@ public interface ApprenantRepositoryPort {
     Optional<Apprenant> findById(UUID id);
 
     boolean existsByCentreId(UUID centreId);
+
+    boolean existsByFormationId(UUID formationId);
 }

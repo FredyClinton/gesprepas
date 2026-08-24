@@ -69,4 +69,18 @@ class FormationRepositoryAdapterTest extends AbstractIntegrationTest {
         assertThat(existe).isTrue();
         assertThat(nExistePas).isFalse();
     }
+
+    @Test
+    @DisplayName("existsBySessionId() détecte une formation rattachée à la session")
+    void existsBySessionIdDetecteUneReference() {
+        UUID sessionId = UUID.randomUUID();
+        Formation formation = new Formation(UUID.randomUUID(), "Ingénieurs", UUID.randomUUID(), sessionId);
+        adapter.save(formation);
+
+        boolean existe = adapter.existsBySessionId(sessionId);
+        boolean nExistePas = adapter.existsBySessionId(UUID.randomUUID());
+
+        assertThat(existe).isTrue();
+        assertThat(nExistePas).isFalse();
+    }
 }

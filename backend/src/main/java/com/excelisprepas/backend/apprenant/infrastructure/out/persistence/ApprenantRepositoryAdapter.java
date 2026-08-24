@@ -32,4 +32,9 @@ public class ApprenantRepositoryAdapter implements ApprenantRepositoryPort {
     public boolean existsByCentreId(UUID centreId) {
         return jpaRepository.existsByCentreId(centreId);
     }
+
+    @Override
+    public boolean existsByFormationId(UUID formationId) {
+        return jpaRepository.existsByFormationId(formationId);
+    }
 }

@@ -32,4 +32,9 @@ public class SalleRepositoryAdapter implements SalleRepositoryPort {
     public boolean existsByCentreId(UUID centreId) {
         return salleJpaRepository.existsByCentreId(centreId);
     }
+
+    @Override
+    public boolean existsByFormationId(UUID formationId) {
+        return salleJpaRepository.existsByFormationId(formationId);
+    }
 }
