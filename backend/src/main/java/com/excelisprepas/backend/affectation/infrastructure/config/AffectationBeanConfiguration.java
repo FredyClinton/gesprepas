@@ -1,7 +1,9 @@
 package com.excelisprepas.backend.affectation.infrastructure.config;
 
+import com.excelisprepas.backend.affectation.domain.port.in.AnnulerAffectationUseCase;
 import com.excelisprepas.backend.affectation.domain.port.in.AssignerEnseignantUseCase;
 import com.excelisprepas.backend.affectation.domain.port.in.CreerCreneauUseCase;
+import com.excelisprepas.backend.affectation.domain.port.in.MarquerEffectueeUseCase;
 import com.excelisprepas.backend.affectation.domain.port.out.AffectationRepositoryPort;
 import com.excelisprepas.backend.affectation.domain.service.AffectationService;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
@@ -33,6 +35,16 @@ public class AffectationBeanConfiguration {
 
     @Bean
     public AssignerEnseignantUseCase assignerEnseignantUseCase(AffectationService affectationService) {
+        return affectationService;
+    }
+
+    @Bean
+    public MarquerEffectueeUseCase marquerEffectueeUseCase(AffectationService affectationService) {
+        return affectationService;
+    }
+
+    @Bean
+    public AnnulerAffectationUseCase annulerAffectationUseCase(AffectationService affectationService) {
         return affectationService;
     }
 }

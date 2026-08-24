@@ -2,8 +2,10 @@ package com.excelisprepas.backend.affectation.infrastructure.in.web;
 
 import com.excelisprepas.backend.affectation.domain.model.Affectation;
 import com.excelisprepas.backend.affectation.domain.model.StatutAffectation;
+import com.excelisprepas.backend.affectation.domain.port.in.AnnulerAffectationUseCase;
 import com.excelisprepas.backend.affectation.domain.port.in.AssignerEnseignantUseCase;
 import com.excelisprepas.backend.affectation.domain.port.in.CreerCreneauUseCase;
+import com.excelisprepas.backend.affectation.domain.port.in.MarquerEffectueeUseCase;
 import com.excelisprepas.backend.shared.exception.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,6 +38,12 @@ class AffectationControllerTest {
 
     @MockitoBean
     private CreerCreneauUseCase creerCreneauUseCase;
+
+    @MockitoBean
+    private MarquerEffectueeUseCase marquerEffectueeUseCase;
+    
+    @MockitoBean
+    private AnnulerAffectationUseCase annulerAffectationUseCase;
 
     @MockitoBean
     private AssignerEnseignantUseCase assignerEnseignantUseCase;
@@ -198,5 +206,41 @@ class AffectationControllerTest {
                                 }
                                 """.formatted(enseignantId)))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/affectations/{id}/marquer-effectuee retourne 200")
+    void marquerEffectuee_retourne200() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(marquerEffectueeUseCase.marquerEffectuee(id)).thenReturn(
+                new Affectation(id, CENTRE_ID, FORMATION_ID, SALLE_ID, MATIERE_ID,
+                        UUID.randomUUID(), 1, 1, StatutAffectation.EFFECTUEE));
+
+        mockMvc.perform(patch("/api/affectations/" + id + "/marquer-effectuee"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statut").value("EFFECTUEE"));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/affectations/{id}/marquer-effectuee sur PLANIFIEE retourne 409")
+    void marquerEffectuee_planifiee_retourne409() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(marquerEffectueeUseCase.marquerEffectuee(id)).thenThrow(new IllegalStateException("invalide"));
+
+        mockMvc.perform(patch("/api/affectations/" + id + "/marquer-effectuee"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/affectations/{id}/annuler retourne 200")
+    void annuler_retourne200() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(annulerAffectationUseCase.annulerAffectation(id)).thenReturn(
+                new Affectation(id, CENTRE_ID, FORMATION_ID, SALLE_ID, MATIERE_ID,
+                        null, 1, 1, StatutAffectation.ANNULEE));
+
+        mockMvc.perform(patch("/api/affectations/" + id + "/annuler"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statut").value("ANNULEE"));
     }
 }

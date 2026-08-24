@@ -4,8 +4,10 @@ package com.excelisprepas.backend.affectation.domain.service;
 import com.excelisprepas.backend.affectation.domain.exception.EnseignantSuspenduException;
 import com.excelisprepas.backend.affectation.domain.model.Affectation;
 import com.excelisprepas.backend.affectation.domain.model.StatutAffectation;
+import com.excelisprepas.backend.affectation.domain.port.in.AnnulerAffectationUseCase;
 import com.excelisprepas.backend.affectation.domain.port.in.AssignerEnseignantUseCase;
 import com.excelisprepas.backend.affectation.domain.port.in.CreerCreneauUseCase;
+import com.excelisprepas.backend.affectation.domain.port.in.MarquerEffectueeUseCase;
 import com.excelisprepas.backend.affectation.domain.port.out.AffectationRepositoryPort;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
 import com.excelisprepas.backend.formation.domain.port.out.FormationRepositoryPort;
@@ -18,7 +20,7 @@ import com.excelisprepas.backend.shared.exception.*;
 
 import java.util.UUID;
 
-public class AffectationService implements CreerCreneauUseCase, AssignerEnseignantUseCase {
+public class AffectationService implements CreerCreneauUseCase, AssignerEnseignantUseCase, AnnulerAffectationUseCase, MarquerEffectueeUseCase {
 
     private final AffectationRepositoryPort affectationRepository;
     private final CentreRepositoryPort centreRepository;
@@ -81,5 +83,21 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
 
         affectation.assignerEnseignant(enseignantId);
         return affectationRepository.save(affectation);
+    }
+
+    @Override
+    public Affectation annulerAffectation(UUID affectationId) {
+        Affectation affectation = affectationRepository.findById(affectationId)
+                .orElseThrow(() -> new AffectationIntrouvableException(affectationId));
+        affectation.annuler();
+        return this.affectationRepository.save(affectation);
+    }
+
+    @Override
+    public Affectation marquerEffectuee(UUID affectationId) {
+        Affectation affectation = affectationRepository.findById(affectationId)
+                .orElseThrow(() -> new AffectationIntrouvableException(affectationId));
+        affectation.marquerEffectuee();
+        return this.affectationRepository.save(affectation);
     }
 }

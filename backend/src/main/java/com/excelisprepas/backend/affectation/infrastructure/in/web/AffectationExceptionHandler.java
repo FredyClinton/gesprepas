@@ -43,6 +43,11 @@ public class AffectationExceptionHandler {
         return construireReponse(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, Object>> gererEtatInvalide(IllegalStateException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     private ResponseEntity<Map<String, Object>> construireReponse(HttpStatus statut, String message) {
         return ResponseEntity.status(statut).body(Map.of(
                 "timestamp", Instant.now().toString(),
