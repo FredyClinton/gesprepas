@@ -1,8 +1,8 @@
 package com.excelisprepas.backend.personnel.infrastructure.in.web;
 
-import com.excelisprepas.backend.personnel.domain.exception.MatriculeDejaUtiliseException;
 import com.excelisprepas.backend.personnel.domain.model.Enseignant;
 import com.excelisprepas.backend.personnel.domain.port.in.CreerEnseignantUseCase;
+import com.excelisprepas.backend.shared.exception.MatriculeDejaUtiliseException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

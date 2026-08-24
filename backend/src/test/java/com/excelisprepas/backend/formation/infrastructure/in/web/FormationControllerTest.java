@@ -1,8 +1,8 @@
 package com.excelisprepas.backend.formation.infrastructure.in.web;
 
-import com.excelisprepas.backend.formation.domain.exception.CentreIntrouvableException;
 import com.excelisprepas.backend.formation.domain.model.Formation;
 import com.excelisprepas.backend.formation.domain.port.in.CreerFormationUseCase;
+import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

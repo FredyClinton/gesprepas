@@ -1,7 +1,7 @@
 package com.excelisprepas.backend.personnel.infrastructure.in.web;
 
-import com.excelisprepas.backend.personnel.domain.exception.EmailDejaUtiliseException;
-import com.excelisprepas.backend.personnel.domain.exception.MatriculeDejaUtiliseException;
+import com.excelisprepas.backend.shared.exception.EmailDejaUtiliseException;
+import com.excelisprepas.backend.shared.exception.MatriculeDejaUtiliseException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;

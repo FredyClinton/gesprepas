@@ -1,4 +1,4 @@
-package com.excelisprepas.backend.personnel.domain.exception;
+package com.excelisprepas.backend.shared.exception;
 
 public class EmailDejaUtiliseException extends RuntimeException {
     public EmailDejaUtiliseException(String email) {

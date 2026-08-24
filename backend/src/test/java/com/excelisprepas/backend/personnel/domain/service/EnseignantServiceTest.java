@@ -1,8 +1,8 @@
 package com.excelisprepas.backend.personnel.domain.service;
 
-import com.excelisprepas.backend.personnel.domain.exception.MatriculeDejaUtiliseException;
 import com.excelisprepas.backend.personnel.domain.model.Enseignant;
 import com.excelisprepas.backend.personnel.domain.port.out.EnseignantRepositoryPort;
+import com.excelisprepas.backend.shared.exception.MatriculeDejaUtiliseException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

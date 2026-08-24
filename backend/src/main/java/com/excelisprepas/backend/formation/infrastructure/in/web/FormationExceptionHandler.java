@@ -1,7 +1,7 @@
 package com.excelisprepas.backend.formation.infrastructure.in.web;
 
-import com.excelisprepas.backend.formation.domain.exception.CentreIntrouvableException;
-import com.excelisprepas.backend.formation.domain.exception.SessionIntrouvableException;
+import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
+import com.excelisprepas.backend.shared.exception.SessionIntrouvableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;

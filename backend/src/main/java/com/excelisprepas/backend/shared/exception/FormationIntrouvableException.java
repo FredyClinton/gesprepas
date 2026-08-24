@@ -1,4 +1,4 @@
-package com.excelisprepas.backend.apprenant.domain.exception;
+package com.excelisprepas.backend.shared.exception;
 
 import java.util.UUID;
 

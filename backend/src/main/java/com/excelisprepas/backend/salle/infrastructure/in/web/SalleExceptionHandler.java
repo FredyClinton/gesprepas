@@ -1,4 +1,4 @@
-package com.excelisprepas.backend.apprenant.infrastructure.in.web;
+package com.excelisprepas.backend.salle.infrastructure.in.web;
 
 import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
 import com.excelisprepas.backend.shared.exception.FormationIntrouvableException;
@@ -11,7 +11,7 @@ import java.time.Instant;
 import java.util.Map;
 
 @RestControllerAdvice
-public class ApprenantExceptionHandler {
+public class SalleExceptionHandler {
 
     @ExceptionHandler(CentreIntrouvableException.class)
     public ResponseEntity<Map<String, Object>> gererCentreIntrouvable(CentreIntrouvableException ex) {
