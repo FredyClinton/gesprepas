@@ -47,4 +47,14 @@ public class AffectationRepositoryAdapter implements AffectationRepositoryPort {
     public boolean existsByFormationId(UUID formationId) {
         return jpaRepository.existsByFormationId(formationId);
     }
+
+    @Override
+    public boolean existsByMatiereId(UUID matiereId) {
+        return jpaRepository.existsByMatiereId(matiereId);
+    }
+
+    @Override
+    public boolean existsBySalleId(UUID salleId) {
+        return jpaRepository.existsBySalleId(salleId);
+    }
 }

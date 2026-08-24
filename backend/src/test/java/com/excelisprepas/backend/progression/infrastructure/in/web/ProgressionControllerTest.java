@@ -1,10 +1,11 @@
 package com.excelisprepas.backend.progression.infrastructure.in.web;
 
 import com.excelisprepas.backend.progression.domain.model.Progression;
-import com.excelisprepas.backend.progression.domain.port.in.CreerProgressionUseCase;
+import com.excelisprepas.backend.progression.domain.port.in.*;
 import com.excelisprepas.backend.shared.exception.FormationIntrouvableException;
 import com.excelisprepas.backend.shared.exception.MatiereIntrouvableException;
 import com.excelisprepas.backend.shared.exception.NumeroCoursDejaUtiliseException;
+import com.excelisprepas.backend.shared.exception.ProgressionIntrouvableException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,12 +13,12 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -33,6 +34,14 @@ class ProgressionControllerTest {
 
     @MockitoBean
     private CreerProgressionUseCase creerProgressionUseCase;
+    @MockitoBean
+    private RecupererProgressionUseCase recupererProgressionUseCase;
+    @MockitoBean
+    private ListerProgressionsUseCase listerProgressionsUseCase;
+    @MockitoBean
+    private MettreAJourContenuUseCase mettreAJourContenuUseCase;
+    @MockitoBean
+    private SupprimerProgressionUseCase supprimerProgressionUseCase;
 
     private String jsonRequest() {
         return """
@@ -48,15 +57,17 @@ class ProgressionControllerTest {
                 """.formatted(FORMATION_ID, MATIERE_ID);
     }
 
+    private Progression uneProgression() {
+        return new Progression(UUID.randomUUID(), FORMATION_ID, MATIERE_ID, 1, 1,
+                "Algèbre linéaire", "Espaces vectoriels, applications linéaires", "Exercices 1 à 5");
+    }
+
     @Test
     @DisplayName("POST /api/progressions avec des données valides retourne 201")
     void creerProgression_donneesValides_retourne201() throws Exception {
-        // Given
         when(creerProgressionUseCase.creerProgression(any(), any(), anyInt(), anyInt(), any(), any(), any()))
-                .thenReturn(new Progression(UUID.randomUUID(), FORMATION_ID, MATIERE_ID, 1, 1,
-                        "Algèbre linéaire", "Espaces vectoriels, applications linéaires", "Exercices 1 à 5"));
+                .thenReturn(uneProgression());
 
-        // When / Then
         mockMvc.perform(post("/api/progressions")
                         .contentType("application/json")
                         .content(jsonRequest()))
@@ -67,7 +78,6 @@ class ProgressionControllerTest {
     @Test
     @DisplayName("POST /api/progressions avec un thème vide retourne 400")
     void creerProgression_themeVide_retourne400() throws Exception {
-        // When / Then
         mockMvc.perform(post("/api/progressions")
                         .contentType("application/json")
                         .content("""
@@ -86,11 +96,9 @@ class ProgressionControllerTest {
     @Test
     @DisplayName("POST /api/progressions avec une formation inexistante retourne 404")
     void creerProgression_formationInexistante_retourne404() throws Exception {
-        // Given
         when(creerProgressionUseCase.creerProgression(any(), any(), anyInt(), anyInt(), any(), any(), any()))
                 .thenThrow(new FormationIntrouvableException(FORMATION_ID));
 
-        // When / Then
         mockMvc.perform(post("/api/progressions")
                         .contentType("application/json")
                         .content(jsonRequest()))
@@ -100,11 +108,9 @@ class ProgressionControllerTest {
     @Test
     @DisplayName("POST /api/progressions avec une matière inexistante retourne 404")
     void creerProgression_matiereInexistante_retourne404() throws Exception {
-        // Given
         when(creerProgressionUseCase.creerProgression(any(), any(), anyInt(), anyInt(), any(), any(), any()))
                 .thenThrow(new MatiereIntrouvableException(MATIERE_ID));
 
-        // When / Then
         mockMvc.perform(post("/api/progressions")
                         .contentType("application/json")
                         .content(jsonRequest()))
@@ -114,14 +120,85 @@ class ProgressionControllerTest {
     @Test
     @DisplayName("POST /api/progressions avec un numéro de cours déjà utilisé retourne 409")
     void creerProgression_numeroCoursDejaUtilise_retourne409() throws Exception {
-        // Given
         when(creerProgressionUseCase.creerProgression(any(), any(), anyInt(), anyInt(), any(), any(), any()))
                 .thenThrow(new NumeroCoursDejaUtiliseException(FORMATION_ID, MATIERE_ID, 1, 1));
 
-        // When / Then
         mockMvc.perform(post("/api/progressions")
                         .contentType("application/json")
                         .content(jsonRequest()))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("GET /api/progressions/{id} retourne 200 si la progression existe")
+    void recupererProgression_existe_retourne200() throws Exception {
+        Progression progression = uneProgression();
+        when(recupererProgressionUseCase.recupererProgression(progression.getId())).thenReturn(progression);
+
+        mockMvc.perform(get("/api/progressions/" + progression.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.theme").value("Algèbre linéaire"));
+    }
+
+    @Test
+    @DisplayName("GET /api/progressions/{id} retourne 404 si absente")
+    void recupererProgression_inexistante_retourne404() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(recupererProgressionUseCase.recupererProgression(id))
+                .thenThrow(new ProgressionIntrouvableException(id));
+
+        mockMvc.perform(get("/api/progressions/" + id))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("GET /api/progressions retourne la liste")
+    void listerProgressions_retourneLaListe() throws Exception {
+        when(listerProgressionsUseCase.listerProgressions()).thenReturn(List.of(uneProgression(), uneProgression()));
+
+        mockMvc.perform(get("/api/progressions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/progressions/{id}/contenu retourne 200")
+    void mettreAJourContenu_retourne200() throws Exception {
+        Progression progression = uneProgression();
+        progression.mettreAJourContenu("Analyse", "Suites et séries", "Exercices 1 à 3");
+        when(mettreAJourContenuUseCase.mettreAJourContenu(any(UUID.class), any(), any(), any()))
+                .thenReturn(progression);
+
+        mockMvc.perform(patch("/api/progressions/" + progression.getId() + "/contenu")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                    "theme": "Analyse",
+                                    "contenu": "Suites et séries",
+                                    "exercices": "Exercices 1 à 3"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.theme").value("Analyse"));
+    }
+
+    @Test
+    @DisplayName("DELETE /api/progressions/{id} retourne 204")
+    void supprimerProgression_retourne204() throws Exception {
+        UUID id = UUID.randomUUID();
+        doNothing().when(supprimerProgressionUseCase).supprimerProgression(id);
+
+        mockMvc.perform(delete("/api/progressions/" + id))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/progressions/{id} inexistante retourne 404")
+    void supprimerProgression_inexistante_retourne404() throws Exception {
+        UUID id = UUID.randomUUID();
+        doThrow(new ProgressionIntrouvableException(id)).when(supprimerProgressionUseCase).supprimerProgression(id);
+
+        mockMvc.perform(delete("/api/progressions/" + id))
+                .andExpect(status().isNotFound());
     }
 }

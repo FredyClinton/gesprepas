@@ -105,4 +105,42 @@ class AffectationRepositoryAdapterTest extends AbstractIntegrationTest {
         assertThat(existe).isTrue();
         assertThat(nExistePas).isFalse();
     }
+
+    @Test
+    @DisplayName("existsByFormationId() détecte une affectation rattachée à la formation")
+    void existsByFormationIdDetecteUneReference() {
+        // Given
+        UUID formationId = UUID.randomUUID();
+        Affectation affectation = new Affectation(UUID.randomUUID(), UUID.randomUUID(), formationId,
+                UUID.randomUUID(), UUID.randomUUID(), null, 1, 1, StatutAffectation.PLANIFIEE);
+        adapter.save(affectation);
+
+        // When
+        boolean existe = adapter.existsByFormationId(formationId);
+        boolean nExistePas = adapter.existsByFormationId(UUID.randomUUID());
+
+        // Then
+        assertThat(existe).isTrue();
+        assertThat(nExistePas).isFalse();
+    }
+
+    @Test
+    @DisplayName("existsByMatiereId() détecte une affectation rattachée à la matière")
+    void existsByMatiereIdDetecteUneReference() {
+        UUID matiereId = UUID.randomUUID();
+        adapter.save(new Affectation(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                UUID.randomUUID(), matiereId, null, 1, 1, StatutAffectation.PLANIFIEE));
+        assertThat(adapter.existsByMatiereId(matiereId)).isTrue();
+        assertThat(adapter.existsByMatiereId(UUID.randomUUID())).isFalse();
+    }
+
+    @Test
+    @DisplayName("existsBySalleId() détecte une affectation rattachée à la salle")
+    void existsBySalleIdDetecteUneReference() {
+        UUID salleId = UUID.randomUUID();
+        adapter.save(new Affectation(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                salleId, UUID.randomUUID(), null, 2, 1, StatutAffectation.PLANIFIEE));
+        assertThat(adapter.existsBySalleId(salleId)).isTrue();
+        assertThat(adapter.existsBySalleId(UUID.randomUUID())).isFalse();
+    }
 }

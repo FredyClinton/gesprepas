@@ -10,6 +10,7 @@ import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabas
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -82,5 +83,27 @@ class FormationRepositoryAdapterTest extends AbstractIntegrationTest {
 
         assertThat(existe).isTrue();
         assertThat(nExistePas).isFalse();
+    }
+
+    @Test
+    @DisplayName("findAll() retourne toutes les formations enregistrées")
+    void findAllRetourneToutesLesFormations() {
+        adapter.save(new Formation(UUID.randomUUID(), "Ingénieurs", UUID.randomUUID(), UUID.randomUUID()));
+        adapter.save(new Formation(UUID.randomUUID(), "Santé", UUID.randomUUID(), UUID.randomUUID()));
+
+        List<Formation> resultat = adapter.findAll();
+
+        assertThat(resultat).hasSizeGreaterThanOrEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("deleteById() supprime la formation")
+    void deleteByIdSupprimeLaFormation() {
+        Formation formation = new Formation(UUID.randomUUID(), "À supprimer", UUID.randomUUID(), UUID.randomUUID());
+        adapter.save(formation);
+
+        adapter.deleteById(formation.getId());
+
+        assertThat(adapter.findById(formation.getId())).isEmpty();
     }
 }

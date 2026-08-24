@@ -74,4 +74,50 @@ class ProgressionRepositoryAdapterTest extends AbstractIntegrationTest {
         // Then
         assertThat(retrouve).isEmpty();
     }
+
+    @Test
+    @DisplayName("existsByFormationId() détecte une progression rattachée à la formation")
+    void existsByFormationIdDetecteUneReference() {
+        // Given
+        UUID formationId = UUID.randomUUID();
+        Progression progression = new Progression(UUID.randomUUID(), formationId, UUID.randomUUID(),
+                1, 1, "Algèbre linéaire", "Espaces vectoriels", null);
+        adapter.save(progression);
+
+        // When
+        boolean existe = adapter.existsByFormationId(formationId);
+        boolean nExistePas = adapter.existsByFormationId(UUID.randomUUID());
+
+        // Then
+        assertThat(existe).isTrue();
+        assertThat(nExistePas).isFalse();
+    }
+
+    @Test
+    @DisplayName("findAll() retourne toutes les progressions")
+    void findAllRetourneToutesLesProgressions() {
+        adapter.save(new Progression(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                1, 1, "Thème", "Contenu", null));
+        assertThat(adapter.findAll()).hasSizeGreaterThanOrEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("deleteById() supprime la progression")
+    void deleteByIdSupprimeLaProgression() {
+        Progression progression = new Progression(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                1, 1, "Thème", "Contenu", null);
+        adapter.save(progression);
+        adapter.deleteById(progression.getId());
+        assertThat(adapter.findById(progression.getId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("existsByMatiereId() détecte une progression rattachée à la matière")
+    void existsByMatiereIdDetecteUneReference() {
+        UUID matiereId = UUID.randomUUID();
+        adapter.save(new Progression(UUID.randomUUID(), UUID.randomUUID(), matiereId,
+                1, 1, "Thème", "Contenu", null));
+        assertThat(adapter.existsByMatiereId(matiereId)).isTrue();
+        assertThat(adapter.existsByMatiereId(UUID.randomUUID())).isFalse();
+    }
 }

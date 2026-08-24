@@ -4,37 +4,48 @@ import com.excelisprepas.backend.salle.domain.model.Salle;
 import com.excelisprepas.backend.salle.domain.port.out.SalleRepositoryPort;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 @Component
 public class SalleRepositoryAdapter implements SalleRepositoryPort {
 
-    private final SalleJpaRepository salleJpaRepository;
+    private final SalleJpaRepository jpaRepository;
     private final SallePersistenceMapper mapper;
 
     public SalleRepositoryAdapter(SalleJpaRepository jpaRepository, SallePersistenceMapper mapper) {
-        this.salleJpaRepository = jpaRepository;
+        this.jpaRepository = jpaRepository;
         this.mapper = mapper;
     }
 
     @Override
     public Salle save(Salle salle) {
-        return mapper.toDomain(salleJpaRepository.save(mapper.toEntity(salle)));
+        return mapper.toDomain(jpaRepository.save(mapper.toEntity(salle)));
     }
 
     @Override
     public Optional<Salle> findById(UUID id) {
-        return salleJpaRepository.findById(id).map(mapper::toDomain);
+        return jpaRepository.findById(id).map(mapper::toDomain);
+    }
+
+    @Override
+    public List<Salle> findAll() {
+        return jpaRepository.findAll().stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public void deleteById(UUID id) {
+        jpaRepository.deleteById(id);
     }
 
     @Override
     public boolean existsByCentreId(UUID centreId) {
-        return salleJpaRepository.existsByCentreId(centreId);
+        return jpaRepository.existsByCentreId(centreId);
     }
 
     @Override
     public boolean existsByFormationId(UUID formationId) {
-        return salleJpaRepository.existsByFormationId(formationId);
+        return jpaRepository.existsByFormationId(formationId);
     }
 }

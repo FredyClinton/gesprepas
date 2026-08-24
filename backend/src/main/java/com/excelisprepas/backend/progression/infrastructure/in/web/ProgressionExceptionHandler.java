@@ -3,6 +3,7 @@ package com.excelisprepas.backend.progression.infrastructure.in.web;
 import com.excelisprepas.backend.shared.exception.FormationIntrouvableException;
 import com.excelisprepas.backend.shared.exception.MatiereIntrouvableException;
 import com.excelisprepas.backend.shared.exception.NumeroCoursDejaUtiliseException;
+import com.excelisprepas.backend.shared.exception.ProgressionIntrouvableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -13,6 +14,11 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class ProgressionExceptionHandler {
+
+    @ExceptionHandler(ProgressionIntrouvableException.class)
+    public ResponseEntity<Map<String, Object>> gererProgressionIntrouvable(ProgressionIntrouvableException ex) {
+        return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
 
     @ExceptionHandler(FormationIntrouvableException.class)
     public ResponseEntity<Map<String, Object>> gererFormationIntrouvable(FormationIntrouvableException ex) {

@@ -12,4 +12,8 @@ public interface AffectationJpaRepository extends JpaRepository<AffectationEntit
     boolean existsByEnseignantId(UUID enseignantId);
 
     boolean existsByFormationId(UUID formationId);
+
+    boolean existsByMatiereId(UUID matiereId);
+
+    boolean existsBySalleId(UUID salleId);
 }
