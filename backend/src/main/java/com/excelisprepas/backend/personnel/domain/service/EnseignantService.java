@@ -1,9 +1,9 @@
 package com.excelisprepas.backend.personnel.domain.service;
 
-import com.excelisprepas.backend.personnel.domain.exception.MatriculeDejaUtiliseException;
 import com.excelisprepas.backend.personnel.domain.model.Enseignant;
 import com.excelisprepas.backend.personnel.domain.port.in.CreerEnseignantUseCase;
 import com.excelisprepas.backend.personnel.domain.port.out.EnseignantRepositoryPort;
+import com.excelisprepas.backend.shared.exception.MatriculeDejaUtiliseException;
 
 import java.math.BigDecimal;
 import java.util.UUID;

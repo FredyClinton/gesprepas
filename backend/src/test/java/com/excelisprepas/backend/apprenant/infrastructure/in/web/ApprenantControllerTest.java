@@ -1,8 +1,8 @@
 package com.excelisprepas.backend.apprenant.infrastructure.in.web;
 
-import com.excelisprepas.backend.apprenant.domain.exception.CentreIntrouvableException;
 import com.excelisprepas.backend.apprenant.domain.model.Apprenant;
 import com.excelisprepas.backend.apprenant.domain.port.in.InscrireApprenantUseCase;
+import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

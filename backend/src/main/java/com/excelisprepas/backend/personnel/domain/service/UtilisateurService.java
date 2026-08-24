@@ -1,11 +1,11 @@
 package com.excelisprepas.backend.personnel.domain.service;
 
-import com.excelisprepas.backend.personnel.domain.exception.EmailDejaUtiliseException;
 import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
 import com.excelisprepas.backend.personnel.domain.model.Utilisateur;
 import com.excelisprepas.backend.personnel.domain.port.in.CreerUtilisateurUseCase;
 import com.excelisprepas.backend.personnel.domain.port.out.PasswordEncoderPort;
 import com.excelisprepas.backend.personnel.domain.port.out.UtilisateurRepositoryPort;
+import com.excelisprepas.backend.shared.exception.EmailDejaUtiliseException;
 
 import java.util.UUID;
 

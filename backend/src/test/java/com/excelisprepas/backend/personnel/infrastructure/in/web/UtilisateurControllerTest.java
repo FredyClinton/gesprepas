@@ -1,9 +1,9 @@
 package com.excelisprepas.backend.personnel.infrastructure.in.web;
 
-import com.excelisprepas.backend.personnel.domain.exception.EmailDejaUtiliseException;
 import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
 import com.excelisprepas.backend.personnel.domain.model.Utilisateur;
 import com.excelisprepas.backend.personnel.domain.port.in.CreerUtilisateurUseCase;
+import com.excelisprepas.backend.shared.exception.EmailDejaUtiliseException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

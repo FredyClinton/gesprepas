@@ -2,12 +2,12 @@ package com.excelisprepas.backend.formation.domain.service;
 
 import com.excelisprepas.backend.centre.domain.model.Centre;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
-import com.excelisprepas.backend.formation.domain.exception.CentreIntrouvableException;
-import com.excelisprepas.backend.formation.domain.exception.SessionIntrouvableException;
 import com.excelisprepas.backend.formation.domain.model.Formation;
 import com.excelisprepas.backend.formation.domain.port.out.FormationRepositoryPort;
 import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
+import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
+import com.excelisprepas.backend.shared.exception.SessionIntrouvableException;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
