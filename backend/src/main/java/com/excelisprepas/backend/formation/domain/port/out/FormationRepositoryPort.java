@@ -11,4 +11,6 @@ public interface FormationRepositoryPort {
     Optional<Formation> findById(UUID id);
 
     boolean existsByCentreId(UUID centreId);
+
+    boolean existsBySessionId(UUID sessionId);
 }

@@ -87,4 +87,22 @@ class AffectationRepositoryAdapterTest extends AbstractIntegrationTest {
         assertThat(existe).isTrue();
         assertThat(nExistePas).isFalse();
     }
+
+    @Test
+    @DisplayName("existsByEnseignantId() détecte une affectation rattachée à l'enseignant")
+    void existsByEnseignantIdDetecteUneReference() {
+        // Given
+        UUID enseignantId = UUID.randomUUID();
+        Affectation affectation = new Affectation(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                UUID.randomUUID(), UUID.randomUUID(), enseignantId, 1, 1, StatutAffectation.ASSIGNEE);
+        adapter.save(affectation);
+
+        // When
+        boolean existe = adapter.existsByEnseignantId(enseignantId);
+        boolean nExistePas = adapter.existsByEnseignantId(UUID.randomUUID());
+
+        // Then
+        assertThat(existe).isTrue();
+        assertThat(nExistePas).isFalse();
+    }
 }

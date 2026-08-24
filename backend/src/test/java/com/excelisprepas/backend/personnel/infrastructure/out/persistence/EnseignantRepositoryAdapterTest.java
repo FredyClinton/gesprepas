@@ -1,6 +1,7 @@
 package com.excelisprepas.backend.personnel.infrastructure.out.persistence;
 
 import com.excelisprepas.backend.personnel.domain.model.Enseignant;
+import com.excelisprepas.backend.personnel.domain.model.StatutEnseignant;
 import com.excelisprepas.backend.shared.AbstractIntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -99,5 +100,18 @@ class EnseignantRepositoryAdapterTest extends AbstractIntegrationTest {
         adapter.deleteById(enseignant.getId());
 
         assertThat(adapter.findById(enseignant.getId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("save() après suspendre() persiste le statut SUSPENDU")
+    void saveApresSuspendrePersisteLeStatut() {
+        Enseignant enseignant = unEnseignant("MAT-007");
+        enseignant.suspendre();
+
+        adapter.save(enseignant);
+        Optional<Enseignant> retrouve = adapter.findById(enseignant.getId());
+
+        assertThat(retrouve).isPresent();
+        assertThat(retrouve.get().getStatut()).isEqualTo(StatutEnseignant.SUSPENDU);
     }
 }

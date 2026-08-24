@@ -1,8 +1,7 @@
 package com.excelisprepas.backend.personnel.infrastructure.out.persistence;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
+import com.excelisprepas.backend.personnel.domain.model.StatutEnseignant;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -21,4 +20,8 @@ public class EnseignantEntity extends PersonnelEntity {
 
     @Column(name = "cout_par_seance", nullable = false, precision = 12, scale = 2)
     private BigDecimal coutParSeance;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private StatutEnseignant statut;
 }

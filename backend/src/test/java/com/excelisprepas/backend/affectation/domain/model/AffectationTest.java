@@ -2,6 +2,7 @@ package com.excelisprepas.backend.affectation.domain.model;
 
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
@@ -157,5 +158,81 @@ class AffectationTest {
 
         // Then
         assertThat(affectation.getStatut()).isEqualTo(StatutAffectation.ANNULEE);
+    }
+
+    @Nested
+    @DisplayName("Transitions de statut invalides")
+    class TransitionsInvalides {
+
+        private Affectation uneAffectation(StatutAffectation statut, UUID enseignantId) {
+            return new Affectation(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                    UUID.randomUUID(), UUID.randomUUID(), enseignantId, 1, 1, statut);
+        }
+
+        @Test
+        @DisplayName("assignerEnseignant() sur une affectation EFFECTUEE lève une exception")
+        void assignerSurEffectueeLeveException() {
+            Affectation affectation = uneAffectation(StatutAffectation.EFFECTUEE, UUID.randomUUID());
+
+            assertThatThrownBy(() -> affectation.assignerEnseignant(UUID.randomUUID()))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("assignerEnseignant() sur une affectation ANNULEE lève une exception")
+        void assignerSurAnnuleeLeveException() {
+            Affectation affectation = uneAffectation(StatutAffectation.ANNULEE, null);
+
+            assertThatThrownBy(() -> affectation.assignerEnseignant(UUID.randomUUID()))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("assignerEnseignant() sur une affectation ASSIGNEE remplace l'enseignant (autorisé)")
+        void assignerSurAssigneeRemplaceLEnseignant() {
+            Affectation affectation = uneAffectation(StatutAffectation.ASSIGNEE, UUID.randomUUID());
+            UUID nouvelEnseignant = UUID.randomUUID();
+
+            affectation.assignerEnseignant(nouvelEnseignant);
+
+            assertThat(affectation.getEnseignantId()).isEqualTo(nouvelEnseignant);
+            assertThat(affectation.getStatut()).isEqualTo(StatutAffectation.ASSIGNEE);
+        }
+
+        @Test
+        @DisplayName("marquerEffectuee() sur une affectation PLANIFIEE (sans enseignant) lève une exception")
+        void marquerEffectueeSurPlanifieeLeveException() {
+            Affectation affectation = uneAffectation(StatutAffectation.PLANIFIEE, null);
+
+            assertThatThrownBy(affectation::marquerEffectuee)
+                    .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("marquerEffectuee() sur une affectation déjà ANNULEE lève une exception")
+        void marquerEffectueeSurAnnuleeLeveException() {
+            Affectation affectation = uneAffectation(StatutAffectation.ANNULEE, null);
+
+            assertThatThrownBy(affectation::marquerEffectuee)
+                    .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("annuler() sur une affectation déjà EFFECTUEE lève une exception")
+        void annulerSurEffectueeLeveException() {
+            Affectation affectation = uneAffectation(StatutAffectation.EFFECTUEE, UUID.randomUUID());
+
+            assertThatThrownBy(affectation::annuler)
+                    .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("annuler() sur une affectation déjà ANNULEE lève une exception")
+        void annulerSurAnnuleeLeveException() {
+            Affectation affectation = uneAffectation(StatutAffectation.ANNULEE, null);
+
+            assertThatThrownBy(affectation::annuler)
+                    .isInstanceOf(IllegalStateException.class);
+        }
     }
 }

@@ -13,4 +13,6 @@ public interface AffectationRepositoryPort {
     boolean existsBySalleIdAndSemaineAndSeance(UUID salleId, int semaine, int seance);
 
     boolean existsByCentreId(UUID centreId);
+
+    boolean existsByEnseignantId(UUID enseignantId);
 }

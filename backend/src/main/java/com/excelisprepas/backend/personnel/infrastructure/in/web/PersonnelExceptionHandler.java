@@ -1,7 +1,6 @@
 package com.excelisprepas.backend.personnel.infrastructure.in.web;
 
-import com.excelisprepas.backend.shared.exception.EmailDejaUtiliseException;
-import com.excelisprepas.backend.shared.exception.MatriculeDejaUtiliseException;
+import com.excelisprepas.backend.shared.exception.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -16,21 +15,40 @@ public class PersonnelExceptionHandler {
 
     @ExceptionHandler(MatriculeDejaUtiliseException.class)
     public ResponseEntity<Map<String, Object>> gererMatriculeDejaUtilise(MatriculeDejaUtiliseException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
-                "timestamp", Instant.now().toString(),
-                "status", HttpStatus.CONFLICT.value(),
-                "error", "Conflict",
-                "message", ex.getMessage()
-        ));
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler(EmailDejaUtiliseException.class)
     public ResponseEntity<Map<String, Object>> gererEmailDejaUtilise(EmailDejaUtiliseException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(UtilisateurIntrouvableException.class)
+    public ResponseEntity<Map<String, Object>> gererUtilisateurIntrouvable(UtilisateurIntrouvableException ex) {
+        return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(CentreIntrouvableException.class)
+    public ResponseEntity<Map<String, Object>> gererCentreIntrouvable(CentreIntrouvableException ex) {
+        return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    private ResponseEntity<Map<String, Object>> construireReponse(HttpStatus statut, String message) {
+        return ResponseEntity.status(statut).body(Map.of(
                 "timestamp", Instant.now().toString(),
-                "status", HttpStatus.CONFLICT.value(),
-                "error", "Conflict",
-                "message", ex.getMessage()
+                "status", statut.value(),
+                "error", statut.getReasonPhrase(),
+                "message", message
         ));
+    }
+
+    @ExceptionHandler(EnseignantIntrouvableException.class)
+    public ResponseEntity<Map<String, Object>> gererEnseignantIntrouvable(EnseignantIntrouvableException ex) {
+        return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, Object>> gererEtatInvalide(IllegalStateException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 }

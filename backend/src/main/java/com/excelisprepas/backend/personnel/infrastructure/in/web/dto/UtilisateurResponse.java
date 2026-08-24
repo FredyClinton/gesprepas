@@ -9,6 +9,7 @@ public record UtilisateurResponse(
         String nom,
         String prenom,
         String email,
-        RoleUtilisateur role
+        RoleUtilisateur role,
+        UUID centreId
 ) {
 }

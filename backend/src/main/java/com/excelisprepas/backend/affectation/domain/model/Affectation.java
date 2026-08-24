@@ -1,10 +1,13 @@
 package com.excelisprepas.backend.affectation.domain.model;
 
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 public class Affectation {
 
+    private static final Set<StatutAffectation> STATUTS_ASSIGNABLES =
+            Set.of(StatutAffectation.PLANIFIEE, StatutAffectation.ASSIGNEE);
     private final UUID id;
     private final UUID centreId;
     private final UUID formationId;
@@ -35,16 +38,45 @@ public class Affectation {
         return valeur;
     }
 
+    /**
+     * Assigne (ou réassigne/remplace) l'enseignant sur ce créneau.
+     * Autorisé depuis PLANIFIEE (première assignation) et depuis ASSIGNEE
+     * (remplacement — écrase l'ancien enseignant sans conserver d'historique,
+     * conforme à la logique hebdomadaire de réaffectation des enseignants).
+     * Refusé une fois le créneau EFFECTUEE ou ANNULEE.
+     */
     public void assignerEnseignant(UUID enseignantId) {
+        if (!STATUTS_ASSIGNABLES.contains(statut)) {
+            throw new IllegalStateException(
+                    "Impossible d'assigner un enseignant : le créneau est " + statut);
+        }
         this.enseignantId = Objects.requireNonNull(enseignantId, "enseignantId ne peut pas être nul");
         this.statut = StatutAffectation.ASSIGNEE;
     }
 
+    /**
+     * Marque le créneau comme effectué. Nécessite qu'un enseignant ait été
+     * assigné au préalable (statut ASSIGNEE) — un créneau sans enseignant
+     * ne peut pas avoir eu lieu.
+     */
     public void marquerEffectuee() {
+        if (statut != StatutAffectation.ASSIGNEE) {
+            throw new IllegalStateException(
+                    "Impossible de marquer effectuée : le créneau est " + statut
+                            + " (un enseignant doit être assigné au préalable)");
+        }
         this.statut = StatutAffectation.EFFECTUEE;
     }
 
+    /**
+     * Annule le créneau. Autorisé depuis PLANIFIEE ou ASSIGNEE.
+     * Refusé si déjà EFFECTUEE (déjà comptabilisé) ou déjà ANNULEE.
+     */
     public void annuler() {
+        if (statut == StatutAffectation.EFFECTUEE || statut == StatutAffectation.ANNULEE) {
+            throw new IllegalStateException(
+                    "Impossible d'annuler : le créneau est déjà " + statut);
+        }
         this.statut = StatutAffectation.ANNULEE;
     }
 

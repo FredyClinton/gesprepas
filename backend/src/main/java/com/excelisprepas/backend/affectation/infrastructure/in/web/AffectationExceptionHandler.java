@@ -51,4 +51,14 @@ public class AffectationExceptionHandler {
                 "message", message
         ));
     }
+
+    @ExceptionHandler(AffectationIntrouvableException.class)
+    public ResponseEntity<Map<String, Object>> gererAffectationIntrouvable(AffectationIntrouvableException ex) {
+        return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(EnseignantIntrouvableException.class)
+    public ResponseEntity<Map<String, Object>> gererEnseignantIntrouvable(EnseignantIntrouvableException ex) {
+        return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
 }

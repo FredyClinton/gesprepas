@@ -37,4 +37,9 @@ public class AffectationRepositoryAdapter implements AffectationRepositoryPort {
     public boolean existsByCentreId(UUID centreId) {
         return jpaRepository.existsByCentreId(centreId);
     }
+
+    @Override
+    public boolean existsByEnseignantId(UUID enseignantId) {
+        return jpaRepository.existsByEnseignantId(enseignantId);
+    }
 }
