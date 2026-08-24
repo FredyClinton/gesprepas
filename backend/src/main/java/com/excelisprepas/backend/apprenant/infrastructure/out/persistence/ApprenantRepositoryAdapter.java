@@ -27,4 +27,14 @@ public class ApprenantRepositoryAdapter implements ApprenantRepositoryPort {
     public Optional<Apprenant> findById(UUID id) {
         return jpaRepository.findById(id).map(mapper::toDomain);
     }
+
+    @Override
+    public boolean existsByCentreId(UUID centreId) {
+        return jpaRepository.existsByCentreId(centreId);
+    }
+
+    @Override
+    public boolean existsByFormationId(UUID formationId) {
+        return jpaRepository.existsByFormationId(formationId);
+    }
 }

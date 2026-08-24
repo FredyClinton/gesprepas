@@ -2,6 +2,7 @@ package com.excelisprepas.backend.affectation.infrastructure.in.web;
 
 import com.excelisprepas.backend.affectation.domain.model.Affectation;
 import com.excelisprepas.backend.affectation.domain.model.StatutAffectation;
+import com.excelisprepas.backend.affectation.domain.port.in.AssignerEnseignantUseCase;
 import com.excelisprepas.backend.affectation.domain.port.in.CreerCreneauUseCase;
 import com.excelisprepas.backend.shared.exception.*;
 import org.junit.jupiter.api.DisplayName;
@@ -16,6 +17,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -34,6 +36,9 @@ class AffectationControllerTest {
 
     @MockitoBean
     private CreerCreneauUseCase creerCreneauUseCase;
+
+    @MockitoBean
+    private AssignerEnseignantUseCase assignerEnseignantUseCase;
 
     private String jsonRequest() {
         return """
@@ -150,6 +155,48 @@ class AffectationControllerTest {
         mockMvc.perform(post("/api/affectations")
                         .contentType("application/json")
                         .content(jsonRequest()))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/affectations/{id}/assigner-enseignant retourne 200")
+    void assignerEnseignant_reussit_retourne200() throws Exception {
+        // Given
+        UUID affectationId = UUID.randomUUID();
+        UUID enseignantId = UUID.randomUUID();
+        when(assignerEnseignantUseCase.assignerEnseignant(any(UUID.class), any(UUID.class)))
+                .thenReturn(new Affectation(affectationId, CENTRE_ID, FORMATION_ID, SALLE_ID, MATIERE_ID,
+                        enseignantId, 1, 1, StatutAffectation.ASSIGNEE));
+
+        // When / Then
+        mockMvc.perform(patch("/api/affectations/" + affectationId + "/assigner-enseignant")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                    "enseignantId": "%s"
+                                }
+                                """.formatted(enseignantId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statut").value("ASSIGNEE"));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/affectations/{id}/assigner-enseignant avec enseignant suspendu retourne 409")
+    void assignerEnseignant_suspendu_retourne409() throws Exception {
+        // Given
+        UUID affectationId = UUID.randomUUID();
+        UUID enseignantId = UUID.randomUUID();
+        when(assignerEnseignantUseCase.assignerEnseignant(any(UUID.class), any(UUID.class)))
+                .thenThrow(new IllegalStateException("suspendu"));
+
+        // When / Then
+        mockMvc.perform(patch("/api/affectations/" + affectationId + "/assigner-enseignant")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                    "enseignantId": "%s"
+                                }
+                                """.formatted(enseignantId)))
                 .andExpect(status().isConflict());
     }
 }

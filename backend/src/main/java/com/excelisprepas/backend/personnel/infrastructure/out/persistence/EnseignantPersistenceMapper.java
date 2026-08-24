@@ -12,12 +12,13 @@ public interface EnseignantPersistenceMapper {
             return null;
         }
 
-        return new Enseignant(
+        return Enseignant.reconstituer(
                 entite.getId(),
                 entite.getNom(),
                 entite.getPrenom(),
                 entite.getMatricule(),
-                entite.getCoutParSeance()
+                entite.getCoutParSeance(),
+                entite.getStatut()
         );
     }
 }

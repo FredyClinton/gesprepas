@@ -27,4 +27,14 @@ public class SalleRepositoryAdapter implements SalleRepositoryPort {
     public Optional<Salle> findById(UUID id) {
         return salleJpaRepository.findById(id).map(mapper::toDomain);
     }
+
+    @Override
+    public boolean existsByCentreId(UUID centreId) {
+        return salleJpaRepository.existsByCentreId(centreId);
+    }
+
+    @Override
+    public boolean existsByFormationId(UUID formationId) {
+        return salleJpaRepository.existsByFormationId(formationId);
+    }
 }

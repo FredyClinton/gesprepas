@@ -11,4 +11,10 @@ public interface AffectationRepositoryPort {
     Optional<Affectation> findById(UUID id);
 
     boolean existsBySalleIdAndSemaineAndSeance(UUID salleId, int semaine, int seance);
+
+    boolean existsByCentreId(UUID centreId);
+
+    boolean existsByEnseignantId(UUID enseignantId);
+
+    boolean existsByFormationId(UUID formationId);
 }

@@ -12,4 +12,6 @@ public interface ProgressionRepositoryPort {
 
     boolean existsByFormationIdAndMatiereIdAndSemaineAndNumeroCours(
             UUID formationId, UUID matiereId, int semaine, int numeroCours);
+
+    boolean existsByFormationId(UUID formationId);
 }

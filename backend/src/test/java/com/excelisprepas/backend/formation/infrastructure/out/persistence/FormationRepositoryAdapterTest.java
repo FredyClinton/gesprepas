@@ -52,4 +52,35 @@ class FormationRepositoryAdapterTest extends AbstractIntegrationTest {
         // Then
         assertThat(retrouve).isEmpty();
     }
+
+    @Test
+    @DisplayName("existsByCentreId() détecte une formation rattachée au centre")
+    void existsByCentreIdDetecteUneReference() {
+        // Given
+        UUID centreId = UUID.randomUUID();
+        Formation salle = new Formation(UUID.randomUUID(), "ING", centreId, UUID.randomUUID());
+        adapter.save(salle);
+
+        // When
+        boolean existe = adapter.existsByCentreId(centreId);
+        boolean nExistePas = adapter.existsByCentreId(UUID.randomUUID());
+
+        // Then
+        assertThat(existe).isTrue();
+        assertThat(nExistePas).isFalse();
+    }
+
+    @Test
+    @DisplayName("existsBySessionId() détecte une formation rattachée à la session")
+    void existsBySessionIdDetecteUneReference() {
+        UUID sessionId = UUID.randomUUID();
+        Formation formation = new Formation(UUID.randomUUID(), "Ingénieurs", UUID.randomUUID(), sessionId);
+        adapter.save(formation);
+
+        boolean existe = adapter.existsBySessionId(sessionId);
+        boolean nExistePas = adapter.existsBySessionId(UUID.randomUUID());
+
+        assertThat(existe).isTrue();
+        assertThat(nExistePas).isFalse();
+    }
 }

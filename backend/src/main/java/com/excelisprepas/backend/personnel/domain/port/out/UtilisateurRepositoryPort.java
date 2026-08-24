@@ -19,4 +19,6 @@ public interface UtilisateurRepositoryPort {
     List<Utilisateur> findAll();
 
     void deleteById(UUID id);
+
+    boolean existsByCentreId(UUID centreId);
 }

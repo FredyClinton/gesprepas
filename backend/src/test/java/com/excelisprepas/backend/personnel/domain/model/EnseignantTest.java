@@ -194,4 +194,81 @@ class EnseignantTest {
             assertThat(e1).isNotEqualTo(e2);
         }
     }
+
+    @Nested
+    @DisplayName("Statut et suspension")
+    class Statut {
+
+        private Enseignant unEnseignant() {
+            return new Enseignant(unId(), "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
+        }
+
+        @Test
+        @DisplayName("un enseignant nouvellement créé est ACTIF")
+        void nouvelEnseignantEstActif() {
+            Enseignant enseignant = unEnseignant();
+
+            assertThat(enseignant.getStatut()).isEqualTo(StatutEnseignant.ACTIF);
+        }
+
+        @Test
+        @DisplayName("suspendre() passe le statut à SUSPENDU")
+        void suspendrePasseAuStatutSuspendu() {
+            Enseignant enseignant = unEnseignant();
+
+            enseignant.suspendre();
+
+            assertThat(enseignant.getStatut()).isEqualTo(StatutEnseignant.SUSPENDU);
+        }
+
+        @Test
+        @DisplayName("suspendre() un enseignant déjà suspendu lève une exception")
+        void suspendreDejaSuspenduLeveException() {
+            Enseignant enseignant = unEnseignant();
+            enseignant.suspendre();
+
+            assertThatThrownBy(enseignant::suspendre)
+                    .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("reactiver() repasse le statut à ACTIF")
+        void reactiverRepasseAuStatutActif() {
+            Enseignant enseignant = unEnseignant();
+            enseignant.suspendre();
+
+            enseignant.reactiver();
+
+            assertThat(enseignant.getStatut()).isEqualTo(StatutEnseignant.ACTIF);
+        }
+
+        @Test
+        @DisplayName("reactiver() un enseignant déjà actif lève une exception")
+        void reactiverDejaActifLeveException() {
+            Enseignant enseignant = unEnseignant();
+
+            assertThatThrownBy(enseignant::reactiver)
+                    .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("reconstituer() reconstruit un enseignant avec le statut fourni")
+        void reconstituerReconstruitAvecStatut() {
+            UUID id = unId();
+
+            Enseignant enseignant = Enseignant.reconstituer(
+                    id, "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"), StatutEnseignant.SUSPENDU);
+
+            assertThat(enseignant.getId()).isEqualTo(id);
+            assertThat(enseignant.getStatut()).isEqualTo(StatutEnseignant.SUSPENDU);
+        }
+
+        @Test
+        @DisplayName("reconstituer() rejette un statut nul")
+        void reconstituerRejetteStatutNul() {
+            assertThatThrownBy(() -> Enseignant.reconstituer(
+                    unId(), "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"), null))
+                    .isInstanceOf(NullPointerException.class);
+        }
+    }
 }

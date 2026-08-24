@@ -9,4 +9,8 @@ public interface ApprenantRepositoryPort {
     Apprenant save(Apprenant apprenant);
 
     Optional<Apprenant> findById(UUID id);
+
+    boolean existsByCentreId(UUID centreId);
+
+    boolean existsByFormationId(UUID formationId);
 }

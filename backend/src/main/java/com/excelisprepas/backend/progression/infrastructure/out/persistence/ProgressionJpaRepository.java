@@ -7,4 +7,6 @@ import java.util.UUID;
 public interface ProgressionJpaRepository extends JpaRepository<ProgressionEntity, UUID> {
     boolean existsByFormationIdAndMatiereIdAndSemaineAndNumeroCours(
             UUID formationId, UUID matiereId, int semaine, int numeroCours);
+
+    boolean existsByFormationId(UUID formationId);
 }

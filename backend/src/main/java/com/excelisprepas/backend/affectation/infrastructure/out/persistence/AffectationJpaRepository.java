@@ -6,4 +6,10 @@ import java.util.UUID;
 
 public interface AffectationJpaRepository extends JpaRepository<AffectationEntity, UUID> {
     boolean existsBySalleIdAndSemaineAndSeance(UUID salleId, int semaine, int seance);
+
+    boolean existsByCentreId(UUID centreId);
+
+    boolean existsByEnseignantId(UUID enseignantId);
+
+    boolean existsByFormationId(UUID formationId);
 }

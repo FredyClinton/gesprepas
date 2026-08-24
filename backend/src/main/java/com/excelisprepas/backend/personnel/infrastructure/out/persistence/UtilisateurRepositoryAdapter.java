@@ -53,4 +53,9 @@ public class UtilisateurRepositoryAdapter implements UtilisateurRepositoryPort {
     public void deleteById(UUID id) {
         jpaRepository.deleteById(id);
     }
+
+    @Override
+    public boolean existsByCentreId(UUID centreId) {
+        return jpaRepository.existsByCentreId(centreId);
+    }
 }

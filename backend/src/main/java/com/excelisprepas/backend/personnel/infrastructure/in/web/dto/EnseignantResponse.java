@@ -1,5 +1,7 @@
 package com.excelisprepas.backend.personnel.infrastructure.in.web.dto;
 
+import com.excelisprepas.backend.personnel.domain.model.StatutEnseignant;
+
 import java.math.BigDecimal;
 import java.util.UUID;
 
@@ -8,6 +10,7 @@ public record EnseignantResponse(
         String nom,
         String prenom,
         String matricule,
-        BigDecimal coutParSeance
+        BigDecimal coutParSeance,
+        StatutEnseignant statut
 ) {
 }

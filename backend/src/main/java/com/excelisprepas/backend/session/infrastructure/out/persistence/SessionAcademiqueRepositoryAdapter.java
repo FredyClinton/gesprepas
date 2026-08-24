@@ -34,4 +34,9 @@ public class SessionAcademiqueRepositoryAdapter implements SessionAcademiqueRepo
     public List<SessionAcademique> findAll() {
         return jpaRepository.findAll().stream().map(mapper::toDomain).toList();
     }
+
+    @Override
+    public void deleteById(UUID id) {
+        jpaRepository.deleteById(id);
+    }
 }

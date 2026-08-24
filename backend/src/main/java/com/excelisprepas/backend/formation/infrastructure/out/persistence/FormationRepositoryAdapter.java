@@ -5,6 +5,7 @@ import com.excelisprepas.backend.formation.domain.model.Formation;
 import com.excelisprepas.backend.formation.domain.port.out.FormationRepositoryPort;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -27,5 +28,25 @@ public class FormationRepositoryAdapter implements FormationRepositoryPort {
     @Override
     public Optional<Formation> findById(UUID id) {
         return jpaRepository.findById(id).map(mapper::toDomain);
+    }
+
+    @Override
+    public boolean existsByCentreId(UUID centreId) {
+        return jpaRepository.existsByCentreId(centreId);
+    }
+    
+    @Override
+    public boolean existsBySessionId(UUID sessionId) {
+        return jpaRepository.existsBySessionId(sessionId);
+    }
+
+    @Override
+    public List<Formation> findAll() {
+        return jpaRepository.findAll().stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public void deleteById(UUID id) {
+        jpaRepository.deleteById(id);
     }
 }

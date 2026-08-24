@@ -1,6 +1,5 @@
 package com.excelisprepas.backend.session.domain.port.out;
 
-
 import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 
 import java.util.List;
@@ -13,4 +12,6 @@ public interface SessionAcademiqueRepositoryPort {
     Optional<SessionAcademique> findById(UUID id);
 
     List<SessionAcademique> findAll();
+
+    void deleteById(UUID id);
 }

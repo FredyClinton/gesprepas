@@ -55,4 +55,23 @@ class ApprenantRepositoryAdapterTest extends AbstractIntegrationTest {
         // Then
         assertThat(retrouve).isEmpty();
     }
+
+    @Test
+    @DisplayName("existsByCentreId() détecte un apprenant rattaché au centre")
+    void existsByCentreIdDetecteUneReference() {
+        // Given
+        UUID centreId = UUID.randomUUID();
+        Apprenant apprenant = new Apprenant(UUID.randomUUID(), "OSSEGUE", "CALVIN",
+                LocalDate.now(), LocalDate.now(), new BigDecimal("50000"), LocalDate.now(),
+                centreId, UUID.randomUUID());
+        adapter.save(apprenant);
+
+        // When
+        boolean existe = adapter.existsByCentreId(centreId);
+        boolean nExistePas = adapter.existsByCentreId(UUID.randomUUID());
+
+        // Then
+        assertThat(existe).isTrue();
+        assertThat(nExistePas).isFalse();
+    }
 }

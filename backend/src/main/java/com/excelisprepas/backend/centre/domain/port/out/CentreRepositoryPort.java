@@ -13,4 +13,8 @@ public interface CentreRepositoryPort {
     Optional<Centre> findById(UUID id);
 
     List<Centre> findAll();
+
+    boolean existsByCentreId(UUID centreId);
+
+    void deleteById(UUID id);
 }
