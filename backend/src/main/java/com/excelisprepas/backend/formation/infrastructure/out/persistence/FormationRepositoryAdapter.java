@@ -28,4 +28,9 @@ public class FormationRepositoryAdapter implements FormationRepositoryPort {
     public Optional<Formation> findById(UUID id) {
         return jpaRepository.findById(id).map(mapper::toDomain);
     }
+
+    @Override
+    public boolean existsByCentreId(UUID centreId) {
+        return jpaRepository.existsByCentreId(centreId);
+    }
 }

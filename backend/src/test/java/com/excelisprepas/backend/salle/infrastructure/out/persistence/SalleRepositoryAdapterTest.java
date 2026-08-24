@@ -51,4 +51,21 @@ class SalleRepositoryAdapterTest extends AbstractIntegrationTest {
         // Then
         assertThat(retrouve).isEmpty();
     }
+
+    @Test
+    @DisplayName("existsByCentreId() détecte une salle rattachée au centre")
+    void existsByCentreIdDetecteUneReference() {
+        // Given
+        UUID centreId = UUID.randomUUID();
+        Salle salle = new Salle(UUID.randomUUID(), "SALLE ING 1", centreId, UUID.randomUUID());
+        adapter.save(salle);
+
+        // When
+        boolean existe = adapter.existsByCentreId(centreId);
+        boolean nExistePas = adapter.existsByCentreId(UUID.randomUUID());
+
+        // Then
+        assertThat(existe).isTrue();
+        assertThat(nExistePas).isFalse();
+    }
 }

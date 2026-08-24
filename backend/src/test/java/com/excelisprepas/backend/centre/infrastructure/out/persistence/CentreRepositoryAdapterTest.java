@@ -67,4 +67,32 @@ class CentreRepositoryAdapterTest extends AbstractIntegrationTest {
         // Then
         assertThat(retrouve).isEmpty();
     }
+
+    @Test
+    @DisplayName("findAll() retourne tous les centres sauvegardés")
+    void findAllRetourneTousLesCentres() {
+        // Given
+        adapter.save(new Centre(UUID.randomUUID(), "Centre A", "Adresse A", "Yaoundé"));
+        adapter.save(new Centre(UUID.randomUUID(), "Centre B", "Adresse B", "Douala"));
+
+        // When
+        var resultat = adapter.findAll();
+
+        // Then
+        assertThat(resultat).hasSizeGreaterThanOrEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("deleteById() supprime le centre")
+    void deleteByIdSupprimeLeCentre() {
+        // Given
+        Centre centre = new Centre(UUID.randomUUID(), "Centre à supprimer", "Adresse", "Yaoundé");
+        adapter.save(centre);
+
+        // When
+        adapter.deleteById(centre.getId());
+
+        // Then
+        assertThat(adapter.findById(centre.getId())).isEmpty();
+    }
 }

@@ -9,4 +9,6 @@ public interface FormationRepositoryPort {
     Formation save(Formation formation);
 
     Optional<Formation> findById(UUID id);
+
+    boolean existsByCentreId(UUID centreId);
 }

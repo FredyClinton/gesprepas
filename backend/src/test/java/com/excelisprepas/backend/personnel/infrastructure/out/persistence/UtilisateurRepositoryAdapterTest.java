@@ -124,4 +124,23 @@ class UtilisateurRepositoryAdapterTest extends AbstractIntegrationTest {
         // Then
         assertThat(adapter.findById(utilisateur.getId())).isEmpty();
     }
+
+    @Test
+    @DisplayName("existsByCentreId() détecte un utilisateur rattaché au centre")
+    void existsByCentreIdDetecteUneReference() {
+        // Given
+        UUID centreId = UUID.randomUUID();
+        Utilisateur utilisateur = new Utilisateur(UUID.randomUUID(), "BOUGANG", "Pascal",
+                "bouganapascal@gmail.com", "MotDePasseHash", RoleUtilisateur.CAISSIER);
+        utilisateur.rattacherACentre(centreId);
+        adapter.save(utilisateur);
+
+        // When
+        boolean existe = adapter.existsByCentreId(centreId);
+        boolean nExistePas = adapter.existsByCentreId(UUID.randomUUID());
+
+        // Then
+        assertThat(existe).isTrue();
+        assertThat(nExistePas).isFalse();
+    }
 }

@@ -9,4 +9,6 @@ public interface SalleRepositoryPort {
     Salle save(Salle salle);
 
     Optional<Salle> findById(UUID id);
+
+    boolean existsByCentreId(UUID centreId);
 }

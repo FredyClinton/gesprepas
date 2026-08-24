@@ -37,4 +37,14 @@ public class CentreRepositoryAdapter implements CentreRepositoryPort {
     public List<Centre> findAll() {
         return jpaRepository.findAll().stream().map(mapper::toDomain).toList();
     }
+
+    @Override
+    public boolean existsByCentreId(UUID centreId) {
+        return jpaRepository.existsById(centreId);
+    }
+
+    @Override
+    public void deleteById(UUID id) {
+        jpaRepository.deleteById(id);
+    }
 }

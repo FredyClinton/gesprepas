@@ -52,4 +52,21 @@ class FormationRepositoryAdapterTest extends AbstractIntegrationTest {
         // Then
         assertThat(retrouve).isEmpty();
     }
+
+    @Test
+    @DisplayName("existsByCentreId() détecte une formation rattachée au centre")
+    void existsByCentreIdDetecteUneReference() {
+        // Given
+        UUID centreId = UUID.randomUUID();
+        Formation salle = new Formation(UUID.randomUUID(), "ING", centreId, UUID.randomUUID());
+        adapter.save(salle);
+
+        // When
+        boolean existe = adapter.existsByCentreId(centreId);
+        boolean nExistePas = adapter.existsByCentreId(UUID.randomUUID());
+
+        // Then
+        assertThat(existe).isTrue();
+        assertThat(nExistePas).isFalse();
+    }
 }
