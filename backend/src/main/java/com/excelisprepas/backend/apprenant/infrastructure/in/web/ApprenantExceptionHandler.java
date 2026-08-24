@@ -1,5 +1,6 @@
 package com.excelisprepas.backend.apprenant.infrastructure.in.web;
 
+import com.excelisprepas.backend.shared.exception.ApprenantIntrouvableException;
 import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
 import com.excelisprepas.backend.shared.exception.FormationIntrouvableException;
 import org.springframework.http.HttpStatus;
@@ -28,6 +29,11 @@ public class ApprenantExceptionHandler {
         return construireReponse(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    @ExceptionHandler(ApprenantIntrouvableException.class)
+    public ResponseEntity<Map<String, Object>> gererApprenantIntrouvable(ApprenantIntrouvableException ex) {
+        return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
     private ResponseEntity<Map<String, Object>> construireReponse(HttpStatus statut, String message) {
         return ResponseEntity.status(statut).body(Map.of(
                 "timestamp", Instant.now().toString(),
@@ -36,4 +42,6 @@ public class ApprenantExceptionHandler {
                 "message", message
         ));
     }
+
+
 }

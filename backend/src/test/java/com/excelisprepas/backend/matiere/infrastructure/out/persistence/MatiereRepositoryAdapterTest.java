@@ -49,4 +49,21 @@ class MatiereRepositoryAdapterTest extends AbstractIntegrationTest {
         // Then
         assertThat(retrouve).isEmpty();
     }
+
+    @Test
+    @DisplayName("findAll() retourne toutes les matières")
+    void findAllRetourneToutesLesMatieres() {
+        adapter.save(new Matiere(UUID.randomUUID(), "Physique"));
+        adapter.save(new Matiere(UUID.randomUUID(), "Chimie"));
+        assertThat(adapter.findAll()).hasSizeGreaterThanOrEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("deleteById() supprime la matière")
+    void deleteByIdSupprimeLaMatiere() {
+        Matiere matiere = new Matiere(UUID.randomUUID(), "À supprimer");
+        adapter.save(matiere);
+        adapter.deleteById(matiere.getId());
+        assertThat(adapter.findById(matiere.getId())).isEmpty();
+    }
 }

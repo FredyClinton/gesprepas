@@ -4,6 +4,7 @@ import com.excelisprepas.backend.matiere.domain.model.Matiere;
 import com.excelisprepas.backend.matiere.domain.port.out.MatiereRepositoryPort;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -26,5 +27,15 @@ public class MatiereRepositoryAdapter implements MatiereRepositoryPort {
     @Override
     public Optional<Matiere> findById(UUID id) {
         return jpaRepository.findById(id).map(mapper::toDomain);
+    }
+
+    @Override
+    public List<Matiere> findAll() {
+        return jpaRepository.findAll().stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public void deleteById(UUID id) {
+        jpaRepository.deleteById(id);
     }
 }

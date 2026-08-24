@@ -109,4 +109,38 @@ class ApprenantTest {
             assertThat(apprenant.getFormationId()).isEqualTo(nouvelleFormationId);
         }
     }
+
+    @Nested
+    @DisplayName("Renégociation de contrat")
+    class RenegociationContrat {
+
+        @Test
+        @DisplayName("renegocierContrat() met à jour le montant et la date")
+        void renegocierContratMetAJourMontantEtDate() {
+            // Given
+            Apprenant apprenant = unApprenant();
+            LocalDate nouvelleDate = LocalDate.of(2027, 1, 15);
+
+            // When
+            apprenant.renegocierContrat(new BigDecimal("500000"), nouvelleDate);
+
+            // Then
+            assertThat(apprenant.getMontantContrat()).isEqualByComparingTo("500000");
+            assertThat(apprenant.getDateDefinitionContrat()).isEqualTo(nouvelleDate);
+        }
+
+        @Test
+        @DisplayName("renegocierContrat() rejette un montant négatif")
+        void renegocierContratRejetteMontantNegatif() {
+            // Given
+            Apprenant apprenant = unApprenant();
+
+            // When
+            ThrowingCallable renegociation = () -> apprenant.renegocierContrat(
+                    new BigDecimal("-100"), LocalDate.of(2027, 1, 15));
+
+            // Then
+            assertThatThrownBy(renegociation).isInstanceOf(IllegalArgumentException.class);
+        }
+    }
 }

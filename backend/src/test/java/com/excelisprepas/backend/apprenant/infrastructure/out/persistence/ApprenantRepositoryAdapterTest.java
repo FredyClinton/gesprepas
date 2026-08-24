@@ -12,6 +12,7 @@ import org.springframework.test.context.TestPropertySource;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -73,5 +74,52 @@ class ApprenantRepositoryAdapterTest extends AbstractIntegrationTest {
         // Then
         assertThat(existe).isTrue();
         assertThat(nExistePas).isFalse();
+    }
+
+    @Test
+    @DisplayName("existsByFormationId() détecte un apprenant rattaché à la formation")
+    void existsByFormationIdDetecteUneReference() {
+        // Given
+        UUID formationId = UUID.randomUUID();
+        Apprenant apprenant = new Apprenant(UUID.randomUUID(), "OSSEGUE", "CALVIN",
+                LocalDate.now(), LocalDate.now(), new BigDecimal("50000"), LocalDate.now(),
+                UUID.randomUUID(), formationId);
+        adapter.save(apprenant);
+
+        // When
+        boolean existe = adapter.existsByFormationId(formationId);
+        boolean nExistePas = adapter.existsByFormationId(UUID.randomUUID());
+
+        // Then
+        assertThat(existe).isTrue();
+        assertThat(nExistePas).isFalse();
+    }
+
+    @Test
+    @DisplayName("findAll() retourne tous les apprenants enregistrés")
+    void findAllRetourneTousLesApprenants() {
+        adapter.save(new Apprenant(UUID.randomUUID(), "Mballa", "Sophie",
+                LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
+                new BigDecimal("450000"), LocalDate.of(2026, 9, 1), UUID.randomUUID(), UUID.randomUUID()));
+        adapter.save(new Apprenant(UUID.randomUUID(), "Nkoulou", "Paul",
+                LocalDate.of(2004, 6, 20), LocalDate.of(2026, 9, 1),
+                new BigDecimal("400000"), LocalDate.of(2026, 9, 1), UUID.randomUUID(), UUID.randomUUID()));
+
+        List<Apprenant> resultat = adapter.findAll();
+
+        assertThat(resultat).hasSizeGreaterThanOrEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("deleteById() supprime l'apprenant")
+    void deleteByIdSupprimeLApprenant() {
+        Apprenant apprenant = new Apprenant(UUID.randomUUID(), "À supprimer", "Test",
+                LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
+                new BigDecimal("450000"), LocalDate.of(2026, 9, 1), UUID.randomUUID(), UUID.randomUUID());
+        adapter.save(apprenant);
+
+        adapter.deleteById(apprenant.getId());
+
+        assertThat(adapter.findById(apprenant.getId())).isEmpty();
     }
 }

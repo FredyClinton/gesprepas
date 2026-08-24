@@ -1,6 +1,6 @@
 package com.excelisprepas.backend.apprenant.infrastructure.config;
 
-import com.excelisprepas.backend.apprenant.domain.port.in.InscrireApprenantUseCase;
+import com.excelisprepas.backend.apprenant.domain.port.in.*;
 import com.excelisprepas.backend.apprenant.domain.port.out.ApprenantRepositoryPort;
 import com.excelisprepas.backend.apprenant.domain.service.ApprenantService;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
@@ -12,9 +12,44 @@ import org.springframework.context.annotation.Configuration;
 public class ApprenantBeanConfiguration {
 
     @Bean
-    public InscrireApprenantUseCase inscrireApprenantUseCase(ApprenantRepositoryPort apprenantRepository,
-                                                             CentreRepositoryPort centreRepository,
-                                                             FormationRepositoryPort formationRepository) {
+    public ApprenantService apprenantService(ApprenantRepositoryPort apprenantRepository,
+                                             CentreRepositoryPort centreRepository,
+                                             FormationRepositoryPort formationRepository) {
         return new ApprenantService(apprenantRepository, centreRepository, formationRepository);
+    }
+
+    @Bean
+    public InscrireApprenantUseCase inscrireApprenantUseCase(ApprenantService apprenantService) {
+        return apprenantService;
+    }
+
+    @Bean
+    public RecupererApprenantUseCase recupererApprenantUseCase(ApprenantService apprenantService) {
+        return apprenantService;
+    }
+
+    @Bean
+    public ListerApprenantsUseCase listerApprenantsUseCase(ApprenantService apprenantService) {
+        return apprenantService;
+    }
+
+    @Bean
+    public TransfererCentreUseCase transfererCentreUseCase(ApprenantService apprenantService) {
+        return apprenantService;
+    }
+
+    @Bean
+    public TransfererFormationUseCase transfererFormationUseCase(ApprenantService service) {
+        return service;
+    }
+
+    @Bean
+    public RenegocierContratUseCase renegocierContratUseCase(ApprenantService service) {
+        return service;
+    }
+
+    @Bean
+    public SupprimerApprenantUseCase supprimerApprenantUseCase(ApprenantService service) {
+        return service;
     }
 }

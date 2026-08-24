@@ -50,4 +50,29 @@ class DepartementRepositoryAdapterTest extends AbstractIntegrationTest {
         // Then
         assertThat(retrouve).isEmpty();
     }
+
+    @Test
+    @DisplayName("findAll() retourne tous les départements")
+    void findAllRetourneTousLesDepartements() {
+        adapter.save(new Departement(UUID.randomUUID(), "Physique-Chimie", UUID.randomUUID()));
+        assertThat(adapter.findAll()).hasSizeGreaterThanOrEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("deleteById() supprime le département")
+    void deleteByIdSupprimeLeDepartement() {
+        Departement departement = new Departement(UUID.randomUUID(), "À supprimer", UUID.randomUUID());
+        adapter.save(departement);
+        adapter.deleteById(departement.getId());
+        assertThat(adapter.findById(departement.getId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("existsByMatiereId() détecte un département rattaché à la matière")
+    void existsByMatiereIdDetecteUneReference() {
+        UUID matiereId = UUID.randomUUID();
+        adapter.save(new Departement(UUID.randomUUID(), "Maths", matiereId));
+        assertThat(adapter.existsByMatiereId(matiereId)).isTrue();
+        assertThat(adapter.existsByMatiereId(UUID.randomUUID())).isFalse();
+    }
 }

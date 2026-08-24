@@ -2,6 +2,7 @@ package com.excelisprepas.backend.salle.infrastructure.in.web;
 
 import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
 import com.excelisprepas.backend.shared.exception.FormationIntrouvableException;
+import com.excelisprepas.backend.shared.exception.SalleIntrouvableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -12,6 +13,11 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class SalleExceptionHandler {
+
+    @ExceptionHandler(SalleIntrouvableException.class)
+    public ResponseEntity<Map<String, Object>> gererSalleIntrouvable(SalleIntrouvableException ex) {
+        return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
 
     @ExceptionHandler(CentreIntrouvableException.class)
     public ResponseEntity<Map<String, Object>> gererCentreIntrouvable(CentreIntrouvableException ex) {
@@ -26,6 +32,11 @@ public class SalleExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> gererArgumentInvalide(IllegalArgumentException ex) {
         return construireReponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, Object>> gererEtatInvalide(IllegalStateException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
     private ResponseEntity<Map<String, Object>> construireReponse(HttpStatus statut, String message) {

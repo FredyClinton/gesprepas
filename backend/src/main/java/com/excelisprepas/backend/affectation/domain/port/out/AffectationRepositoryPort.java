@@ -17,4 +17,8 @@ public interface AffectationRepositoryPort {
     boolean existsByEnseignantId(UUID enseignantId);
 
     boolean existsByFormationId(UUID formationId);
+
+    boolean existsByMatiereId(UUID matiereId);
+
+    boolean existsBySalleId(UUID salleId);
 }

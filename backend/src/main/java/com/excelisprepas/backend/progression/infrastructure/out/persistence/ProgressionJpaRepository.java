@@ -9,4 +9,6 @@ public interface ProgressionJpaRepository extends JpaRepository<ProgressionEntit
             UUID formationId, UUID matiereId, int semaine, int numeroCours);
 
     boolean existsByFormationId(UUID formationId);
+
+    boolean existsByMatiereId(UUID matiereId);
 }

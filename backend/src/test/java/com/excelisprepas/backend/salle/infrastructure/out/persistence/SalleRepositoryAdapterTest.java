@@ -68,4 +68,37 @@ class SalleRepositoryAdapterTest extends AbstractIntegrationTest {
         assertThat(existe).isTrue();
         assertThat(nExistePas).isFalse();
     }
+
+    @Test
+    @DisplayName("existsByFormationId() détecte une salle rattachée à la formation")
+    void existsByFormationIdDetecteUneReference() {
+        // Given
+        UUID formationId = UUID.randomUUID();
+        Salle salle = new Salle(UUID.randomUUID(), "SALLE ING 1", UUID.randomUUID(), formationId);
+        adapter.save(salle);
+
+        // When
+        boolean existe = adapter.existsByFormationId(formationId);
+        boolean nExistePas = adapter.existsByFormationId(UUID.randomUUID());
+
+        // Then
+        assertThat(existe).isTrue();
+        assertThat(nExistePas).isFalse();
+    }
+
+    @Test
+    @DisplayName("findAll() retourne toutes les salles")
+    void findAllRetourneToutesLesSalles() {
+        adapter.save(new Salle(UUID.randomUUID(), "Salle B", UUID.randomUUID(), UUID.randomUUID()));
+        assertThat(adapter.findAll()).hasSizeGreaterThanOrEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("deleteById() supprime la salle")
+    void deleteByIdSupprimeLaSalle() {
+        Salle salle = new Salle(UUID.randomUUID(), "À supprimer", UUID.randomUUID(), UUID.randomUUID());
+        adapter.save(salle);
+        adapter.deleteById(salle.getId());
+        assertThat(adapter.findById(salle.getId())).isEmpty();
+    }
 }
