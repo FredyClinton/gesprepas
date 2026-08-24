@@ -17,32 +17,32 @@ public class SessionBeanConfiguration {
     }
 
     @Bean
-    public CreerSessionAcademiqueUseCase creerSessionAcademiqueUseCase(SessionAcademiqueService service) {
-        return service;
+    public CreerSessionAcademiqueUseCase creerSessionAcademiqueUseCase(SessionAcademiqueService sessionAcademiqueService) {
+        return sessionAcademiqueService;
     }
 
     @Bean
-    public RecupererSessionUseCase recupererSessionUseCase(SessionAcademiqueService service) {
-        return service;
+    public RecupererSessionUseCase recupererSessionUseCase(SessionAcademiqueService sessionAcademiqueService) {
+        return sessionAcademiqueService;
     }
 
     @Bean
-    public ListerSessionsUseCase listerSessionsUseCase(SessionAcademiqueService service) {
-        return service;
+    public ListerSessionsUseCase listerSessionsUseCase(SessionAcademiqueService sessionAcademiqueService) {
+        return sessionAcademiqueService;
     }
 
     @Bean
-    public DemarrerSessionUseCase demarrerSessionUseCase(SessionAcademiqueService service) {
-        return service;
+    public DemarrerSessionUseCase demarrerSessionUseCase(SessionAcademiqueService sessionAcademiqueService) {
+        return sessionAcademiqueService;
     }
 
     @Bean
-    public CloturerSessionUseCase cloturerSessionUseCase(SessionAcademiqueService service) {
-        return service;
+    public CloturerSessionUseCase cloturerSessionUseCase(SessionAcademiqueService sessionAcademiqueService) {
+        return sessionAcademiqueService;
     }
 
     @Bean
-    public SupprimerSessionUseCase supprimerSessionUseCase(SessionAcademiqueService service) {
-        return service;
+    public SupprimerSessionUseCase supprimerSessionUseCase(SessionAcademiqueService sessionAcademiqueService) {
+        return sessionAcademiqueService;
     }
 }

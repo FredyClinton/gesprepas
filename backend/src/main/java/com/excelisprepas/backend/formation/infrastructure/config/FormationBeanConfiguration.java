@@ -28,27 +28,27 @@ public class FormationBeanConfiguration {
     }
 
     @Bean
-    public CreerFormationUseCase creerFormationUseCase(FormationService service) {
-        return service;
+    public CreerFormationUseCase creerFormationUseCase(FormationService formationService) {
+        return formationService;
     }
 
     @Bean
-    public RecupererFormationUseCase recupererFormationUseCase(FormationService service) {
-        return service;
+    public RecupererFormationUseCase recupererFormationUseCase(FormationService formationService) {
+        return formationService;
     }
 
     @Bean
-    public ListerFormationsUseCase listerFormationsUseCase(FormationService service) {
-        return service;
+    public ListerFormationsUseCase listerFormationsUseCase(FormationService formationService) {
+        return formationService;
     }
 
     @Bean
-    public RenommerFormationUseCase renommerFormationUseCase(FormationService service) {
-        return service;
+    public RenommerFormationUseCase renommerFormationUseCase(FormationService formationService) {
+        return formationService;
     }
 
     @Bean
-    public SupprimerFormationUseCase supprimerFormationUseCase(FormationService service) {
-        return service;
+    public SupprimerFormationUseCase supprimerFormationUseCase(FormationService formationService) {
+        return formationService;
     }
 }
