@@ -29,4 +29,9 @@ public class CentreEntity {
 
     @OneToMany(mappedBy = "centre", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<LocalisationCentreEntity> localisations = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(name = "centre_sessions", joinColumns = @JoinColumn(name = "centre_id"))
+    @Column(name = "session_id")
+    private List<UUID> sessionIds = new ArrayList<>();
 }

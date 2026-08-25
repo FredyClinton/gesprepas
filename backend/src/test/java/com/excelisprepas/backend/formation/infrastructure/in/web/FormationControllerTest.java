@@ -3,6 +3,7 @@ package com.excelisprepas.backend.formation.infrastructure.in.web;
 import com.excelisprepas.backend.formation.domain.model.Formation;
 import com.excelisprepas.backend.formation.domain.port.in.*;
 import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
+import com.excelisprepas.backend.shared.exception.CentreNonParticipantSessionException;
 import com.excelisprepas.backend.shared.exception.FormationIntrouvableException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -172,5 +173,17 @@ class FormationControllerTest {
 
         mockMvc.perform(delete("/api/formations/" + id))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("POST /api/formations avec un centre non participant à la session retourne 409")
+    void creerFormation_centreNonParticipant_retourne409() throws Exception {
+        when(creerFormationUseCase.creerFormation(any(), any(), any()))
+                .thenThrow(new CentreNonParticipantSessionException(CENTRE_ID, SESSION_ID));
+
+        mockMvc.perform(post("/api/formations")
+                        .contentType("application/json")
+                        .content(jsonRequest()))
+                .andExpect(status().isConflict());
     }
 }

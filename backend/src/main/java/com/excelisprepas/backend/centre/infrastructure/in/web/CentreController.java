@@ -2,10 +2,7 @@ package com.excelisprepas.backend.centre.infrastructure.in.web;
 
 import com.excelisprepas.backend.centre.domain.model.Centre;
 import com.excelisprepas.backend.centre.domain.port.in.*;
-import com.excelisprepas.backend.centre.infrastructure.in.web.dto.CentreResponse;
-import com.excelisprepas.backend.centre.infrastructure.in.web.dto.CreerCentreRequest;
-import com.excelisprepas.backend.centre.infrastructure.in.web.dto.RelocaliserCentreRequest;
-import com.excelisprepas.backend.centre.infrastructure.in.web.dto.RenommerCentreRequest;
+import com.excelisprepas.backend.centre.infrastructure.in.web.dto.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -22,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
-@Tag(name = "Centres", description = "Gestion des centres : ouverture, fermeture, relocalisation et suppression")
+@Tag(name = "Centres", description = "Gestion des centres : ouverture, fermeture, relocalisation, rattachement à une session et suppression")
 @RestController
 @RequestMapping("/api/centres")
 public class CentreController {
@@ -35,6 +32,7 @@ public class CentreController {
     private final RenommerCentreUseCase renommerCentreUseCase;
     private final RelocaliserCentreUseCase relocaliserCentreUseCase;
     private final SupprimerCentreUseCase supprimerCentreUseCase;
+    private final RejoindreSessionUseCase rejoindreSessionUseCase;
 
     public CentreController(CreerCentreUseCase creerCentreUseCase,
                             RecupererCentreUseCase recupererCentreUseCase,
@@ -43,7 +41,8 @@ public class CentreController {
                             RouvrirCentreUseCase rouvrirCentreUseCase,
                             RenommerCentreUseCase renommerCentreUseCase,
                             RelocaliserCentreUseCase relocaliserCentreUseCase,
-                            SupprimerCentreUseCase supprimerCentreUseCase) {
+                            SupprimerCentreUseCase supprimerCentreUseCase,
+                            RejoindreSessionUseCase rejoindreSessionUseCase) {
         this.creerCentreUseCase = creerCentreUseCase;
         this.recupererCentreUseCase = recupererCentreUseCase;
         this.listerCentresUseCase = listerCentresUseCase;
@@ -52,13 +51,15 @@ public class CentreController {
         this.renommerCentreUseCase = renommerCentreUseCase;
         this.relocaliserCentreUseCase = relocaliserCentreUseCase;
         this.supprimerCentreUseCase = supprimerCentreUseCase;
+        this.rejoindreSessionUseCase = rejoindreSessionUseCase;
     }
 
     private static CentreResponse versReponse(Centre centre) {
         return new CentreResponse(
                 centre.getId(), centre.getNom(), centre.getStatut(),
                 centre.getLocalisationActuelle().getAdresse(),
-                centre.getLocalisationActuelle().getVille());
+                centre.getLocalisationActuelle().getVille(),
+                centre.getSessionIds());
     }
 
     @Operation(summary = "Créer un centre", description = "Crée un nouveau centre avec sa localisation initiale.")
@@ -149,6 +150,23 @@ public class CentreController {
             @Parameter(description = "Identifiant du centre") @PathVariable UUID id,
             @Valid @RequestBody RelocaliserCentreRequest request) {
         Centre centre = relocaliserCentreUseCase.relocaliserCentre(id, request.adresse(), request.ville());
+        return ResponseEntity.ok(versReponse(centre));
+    }
+
+    @Operation(summary = "Rattacher un centre à une session académique",
+            description = "Ajoute la session académique à la liste des sessions actives du centre.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Centre rattaché à la session",
+                    content = @Content(schema = @Schema(implementation = CentreResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Centre ou session introuvable", content = @Content),
+            @ApiResponse(responseCode = "409", description = "Centre déjà rattaché à cette session", content = @Content)
+    })
+    @PatchMapping("/{id}/rejoindre-session")
+    public ResponseEntity<CentreResponse> rejoindreSession(
+            @Parameter(description = "Identifiant du centre") @PathVariable UUID id,
+            @Valid @RequestBody RejoindreSessionRequest request) {
+        Centre centre = rejoindreSessionUseCase.rejoindreSession(id, request.sessionId());
         return ResponseEntity.ok(versReponse(centre));
     }
 

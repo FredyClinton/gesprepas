@@ -11,6 +11,7 @@ public class Centre {
 
     private final UUID id;
     private final List<LocalisationCentre> localisations = new ArrayList<>();
+    private final List<UUID> sessionIds = new ArrayList<>();
     private String nom;
     private StatutCentre statut;
 
@@ -22,11 +23,13 @@ public class Centre {
                 UUID.randomUUID(), adresseInitiale, villeInitiale, LocalDateTime.now(), null));
     }
 
-    private Centre(UUID id, String nom, StatutCentre statut, List<LocalisationCentre> localisations) {
+    private Centre(UUID id, String nom, StatutCentre statut, List<LocalisationCentre> localisations,
+                   List<UUID> sessionIds) {
         this.id = id;
         this.nom = nom;
         this.statut = statut;
         this.localisations.addAll(localisations);
+        this.sessionIds.addAll(sessionIds);
     }
 
     private static String validerChampObligatoire(String valeur, String nomChamp) {
@@ -42,14 +45,14 @@ public class Centre {
      * un nouveau Centre (utiliser le constructeur public pour ça).
      */
     public static Centre reconstituer(UUID id, String nom, StatutCentre statut,
-                                      List<LocalisationCentre> localisations) {
+                                      List<LocalisationCentre> localisations, List<UUID> sessionIds) {
         Objects.requireNonNull(id, "id ne peut pas être nul");
         Objects.requireNonNull(nom, "nom ne peut pas être nul");
         Objects.requireNonNull(statut, "statut ne peut pas être nul");
         if (localisations == null || localisations.isEmpty()) {
             throw new IllegalArgumentException("localisations ne peut pas être vide à la reconstitution");
         }
-        return new Centre(id, nom, statut, localisations);
+        return new Centre(id, nom, statut, localisations, sessionIds != null ? sessionIds : List.of());
     }
 
     public void relocaliser(String nouvelleAdresse, String nouvelleVille) {
@@ -80,6 +83,19 @@ public class Centre {
         this.nom = validerChampObligatoire(nouveauNom, "nom");
     }
 
+    /**
+     * Enregistre la participation du centre à une session. Idempotent —
+     * rejoindre une session déjà rejointe n'a aucun effet. C'est la trace
+     * qui permet de reconstituer l'historique d'un centre à travers les
+     * sessions, indépendamment de la création de Formations.
+     */
+    public void rejoindreSession(UUID sessionId) {
+        Objects.requireNonNull(sessionId, "sessionId ne peut pas être nul");
+        if (!sessionIds.contains(sessionId)) {
+            sessionIds.add(sessionId);
+        }
+    }
+
     public LocalisationCentre getLocalisationActuelle() {
         return localisations.stream()
                 .filter(LocalisationCentre::estActive)
@@ -89,6 +105,10 @@ public class Centre {
 
     public List<LocalisationCentre> getHistoriqueLocalisations() {
         return List.copyOf(localisations);
+    }
+
+    public List<UUID> getSessionIds() {
+        return List.copyOf(sessionIds);
     }
 
     public UUID getId() {

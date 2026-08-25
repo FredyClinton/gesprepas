@@ -2,6 +2,7 @@ package com.excelisprepas.backend.centre.infrastructure.in.web.dto;
 
 import com.excelisprepas.backend.centre.domain.model.StatutCentre;
 
+import java.util.List;
 import java.util.UUID;
 
 public record CentreResponse(
@@ -9,6 +10,7 @@ public record CentreResponse(
         String nom,
         StatutCentre statut,
         String adresseActuelle,
-        String villeActuelle
+        String villeActuelle,
+        List<UUID> sessionIds
 ) {
 }

@@ -95,4 +95,21 @@ class CentreRepositoryAdapterTest extends AbstractIntegrationTest {
         // Then
         assertThat(adapter.findById(centre.getId())).isEmpty();
     }
+
+    @Test
+    @DisplayName("save() après rejoindreSession() conserve la liste des sessions")
+    void saveApresRejoindreSessionConserveLesSessions() {
+        // Given
+        Centre centre = new Centre(UUID.randomUUID(), "Centre Yaoundé", "Avenue Kennedy", "Yaoundé");
+        UUID sessionId = UUID.randomUUID();
+        centre.rejoindreSession(sessionId);
+        adapter.save(centre);
+
+        // When
+        Optional<Centre> retrouve = adapter.findById(centre.getId());
+
+        // Then
+        assertThat(retrouve).isPresent();
+        assertThat(retrouve.get().getSessionIds()).containsExactly(sessionId);
+    }
 }

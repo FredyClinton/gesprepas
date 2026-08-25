@@ -143,4 +143,61 @@ class CentreTest {
             assertThatThrownBy(ouverture).isInstanceOf(IllegalStateException.class);
         }
     }
+
+    @Nested
+    @DisplayName("Participation aux sessions")
+    class ParticipationSession {
+
+        @Test
+        @DisplayName("rejoindreSession() ajoute la session à la liste")
+        void rejoindreSessionAjouteLaSession() {
+            // Given
+            Centre centre = new Centre(unId(), "Centre Yaoundé", "Avenue Kennedy", "Yaoundé");
+            UUID sessionId = unId();
+
+            // When
+            centre.rejoindreSession(sessionId);
+
+            // Then
+            assertThat(centre.getSessionIds()).containsExactly(sessionId);
+        }
+
+        @Test
+        @DisplayName("rejoindreSession() est idempotent")
+        void rejoindreSessionEstIdempotent() {
+            // Given
+            Centre centre = new Centre(unId(), "Centre Yaoundé", "Avenue Kennedy", "Yaoundé");
+            UUID sessionId = unId();
+
+            // When
+            centre.rejoindreSession(sessionId);
+            centre.rejoindreSession(sessionId);
+
+            // Then
+            assertThat(centre.getSessionIds()).containsExactly(sessionId);
+        }
+
+        @Test
+        @DisplayName("rejoindreSession() rejette un sessionId nul")
+        void rejoindreSessionRejetteSessionIdNul() {
+            // Given
+            Centre centre = new Centre(unId(), "Centre Yaoundé", "Avenue Kennedy", "Yaoundé");
+
+            // When
+            ThrowableAssert.ThrowingCallable action = () -> centre.rejoindreSession(null);
+
+            // Then
+            assertThatThrownBy(action).isInstanceOf(NullPointerException.class);
+        }
+
+        @Test
+        @DisplayName("un centre nouvellement créé n'a rejoint aucune session")
+        void nouveauCentreSansSession() {
+            // Given / When
+            Centre centre = new Centre(unId(), "Centre Yaoundé", "Avenue Kennedy", "Yaoundé");
+
+            // Then
+            assertThat(centre.getSessionIds()).isEmpty();
+        }
+    }
 }

@@ -4,6 +4,7 @@ import com.excelisprepas.backend.centre.domain.exception.CentreUtiliseException;
 import com.excelisprepas.backend.centre.domain.model.Centre;
 import com.excelisprepas.backend.centre.domain.port.in.*;
 import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
+import com.excelisprepas.backend.shared.exception.SessionNonUtilisableException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +45,8 @@ class CentreControllerTest {
     private RelocaliserCentreUseCase relocaliserCentreUseCase;
     @MockitoBean
     private SupprimerCentreUseCase supprimerCentreUseCase;
+    @MockitoBean
+    private RejoindreSessionUseCase rejoindreSessionUseCase;
 
     private Centre unCentre() {
         return new Centre(UUID.randomUUID(), "Centre Yaoundé", "Avenue Kennedy", "Yaoundé");
@@ -252,5 +255,46 @@ class CentreControllerTest {
         // When / Then
         mockMvc.perform(delete("/api/centres/" + id))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/centres/{id}/rejoindre-session retourne 200")
+    void rejoindreSession_reussit_retourne200() throws Exception {
+        // Given
+        Centre centre = unCentre();
+        UUID sessionId = UUID.randomUUID();
+        centre.rejoindreSession(sessionId);
+        when(rejoindreSessionUseCase.rejoindreSession(any(UUID.class), any(UUID.class))).thenReturn(centre);
+
+        // When / Then
+        mockMvc.perform(patch("/api/centres/" + centre.getId() + "/rejoindre-session")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                    "sessionId": "%s"
+                                }
+                                """.formatted(sessionId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sessionIds[0]").value(sessionId.toString()));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/centres/{id}/rejoindre-session avec session clôturée retourne 409")
+    void rejoindreSession_sessionCloturee_retourne409() throws Exception {
+        // Given
+        UUID id = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        when(rejoindreSessionUseCase.rejoindreSession(any(UUID.class), any(UUID.class)))
+                .thenThrow(new SessionNonUtilisableException(sessionId));
+
+        // When / Then
+        mockMvc.perform(patch("/api/centres/" + id + "/rejoindre-session")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                    "sessionId": "%s"
+                                }
+                                """.formatted(sessionId)))
+                .andExpect(status().isConflict());
     }
 }

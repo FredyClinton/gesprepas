@@ -2,6 +2,7 @@ package com.excelisprepas.backend.formation.domain.service;
 
 import com.excelisprepas.backend.affectation.domain.port.out.AffectationRepositoryPort;
 import com.excelisprepas.backend.apprenant.domain.port.out.ApprenantRepositoryPort;
+import com.excelisprepas.backend.centre.domain.model.Centre;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
 import com.excelisprepas.backend.formation.domain.exception.FormationUtiliseeException;
 import com.excelisprepas.backend.formation.domain.model.Formation;
@@ -11,6 +12,7 @@ import com.excelisprepas.backend.progression.domain.port.out.ProgressionReposito
 import com.excelisprepas.backend.salle.domain.port.out.SalleRepositoryPort;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
+import com.excelisprepas.backend.shared.exception.CentreNonParticipantSessionException;
 import com.excelisprepas.backend.shared.exception.FormationIntrouvableException;
 import com.excelisprepas.backend.shared.exception.SessionIntrouvableException;
 
@@ -46,11 +48,13 @@ public class FormationService implements CreerFormationUseCase, RecupererFormati
 
     @Override
     public Formation creerFormation(String nom, UUID centreId, UUID sessionId) {
-        if (centreRepository.findById(centreId).isEmpty()) {
-            throw new CentreIntrouvableException(centreId);
-        }
+        Centre centre = centreRepository.findById(centreId)
+                .orElseThrow(() -> new CentreIntrouvableException(centreId));
         if (sessionRepository.findById(sessionId).isEmpty()) {
             throw new SessionIntrouvableException(sessionId);
+        }
+        if (!centre.getSessionIds().contains(sessionId)) {
+            throw new CentreNonParticipantSessionException(centreId, sessionId);
         }
 
         Formation formation = new Formation(UUID.randomUUID(), nom, centreId, sessionId);
