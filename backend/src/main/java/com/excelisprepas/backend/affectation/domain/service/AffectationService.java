@@ -5,7 +5,10 @@ import com.excelisprepas.backend.affectation.domain.model.Affectation;
 import com.excelisprepas.backend.affectation.domain.model.StatutAffectation;
 import com.excelisprepas.backend.affectation.domain.port.in.*;
 import com.excelisprepas.backend.affectation.domain.port.out.AffectationRepositoryPort;
+import com.excelisprepas.backend.affectationdepartementale.domain.port.out.AffectationDepartementaleRepositoryPort;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
+import com.excelisprepas.backend.departement.domain.model.Departement;
+import com.excelisprepas.backend.departement.domain.port.out.DepartementRepositoryPort;
 import com.excelisprepas.backend.formation.domain.model.Formation;
 import com.excelisprepas.backend.formation.domain.port.out.FormationRepositoryPort;
 import com.excelisprepas.backend.matiere.domain.port.out.MatiereRepositoryPort;
@@ -31,6 +34,8 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
     private final MatiereRepositoryPort matiereRepository;
     private final EnseignantRepositoryPort enseignantRepository;
     private final SessionAcademiqueRepositoryPort sessionRepository;
+    private final DepartementRepositoryPort departementRepository;
+    private final AffectationDepartementaleRepositoryPort rosterRepository;
 
     public AffectationService(AffectationRepositoryPort affectationRepository,
                               CentreRepositoryPort centreRepository,
@@ -38,7 +43,9 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
                               SalleRepositoryPort salleRepository,
                               MatiereRepositoryPort matiereRepository,
                               EnseignantRepositoryPort enseignantRepository,
-                              SessionAcademiqueRepositoryPort sessionRepository) {
+                              SessionAcademiqueRepositoryPort sessionRepository,
+                              DepartementRepositoryPort departementRepository,
+                              AffectationDepartementaleRepositoryPort rosterRepository) {
         this.affectationRepository = affectationRepository;
         this.centreRepository = centreRepository;
         this.formationRepository = formationRepository;
@@ -46,6 +53,8 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
         this.matiereRepository = matiereRepository;
         this.enseignantRepository = enseignantRepository;
         this.sessionRepository = sessionRepository;
+        this.departementRepository = departementRepository;
+        this.rosterRepository = rosterRepository;
     }
 
     @Override
@@ -93,6 +102,15 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
 
         if (enseignant.getStatut() == StatutEnseignant.SUSPENDU) {
             throw new EnseignantSuspenduException(enseignantId);
+        }
+
+        Departement departement = departementRepository.findByMatiereId(affectation.getMatiereId())
+                .orElseThrow(() -> new MatiereNonRattacheeDepartementException(affectation.getMatiereId()));
+
+        if (!rosterRepository.existsByEnseignantIdAndSessionIdAndDepartementId(
+                enseignantId, affectation.getSessionId(), departement.getId())) {
+            throw new EnseignantNonRattacheDepartementException(
+                    enseignantId, affectation.getSessionId(), departement.getId());
         }
 
         affectation.assignerEnseignant(enseignantId);

@@ -3,7 +3,9 @@ package com.excelisprepas.backend.affectation.infrastructure.config;
 import com.excelisprepas.backend.affectation.domain.port.in.*;
 import com.excelisprepas.backend.affectation.domain.port.out.AffectationRepositoryPort;
 import com.excelisprepas.backend.affectation.domain.service.AffectationService;
+import com.excelisprepas.backend.affectationdepartementale.domain.port.out.AffectationDepartementaleRepositoryPort;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
+import com.excelisprepas.backend.departement.domain.port.out.DepartementRepositoryPort;
 import com.excelisprepas.backend.formation.domain.port.out.FormationRepositoryPort;
 import com.excelisprepas.backend.matiere.domain.port.out.MatiereRepositoryPort;
 import com.excelisprepas.backend.personnel.domain.port.out.EnseignantRepositoryPort;
@@ -22,9 +24,12 @@ public class AffectationBeanConfiguration {
                                                  SalleRepositoryPort salleRepository,
                                                  MatiereRepositoryPort matiereRepository,
                                                  EnseignantRepositoryPort enseignantRepository,
-                                                 SessionAcademiqueRepositoryPort sessionRepository) {
+                                                 SessionAcademiqueRepositoryPort sessionRepository,
+                                                 DepartementRepositoryPort departementRepository,
+                                                 AffectationDepartementaleRepositoryPort rosterRepository) {
         return new AffectationService(affectationRepository, centreRepository, formationRepository,
-                salleRepository, matiereRepository, enseignantRepository, sessionRepository);
+                salleRepository, matiereRepository, enseignantRepository, sessionRepository,
+                departementRepository, rosterRepository);
     }
 
     @Bean

@@ -16,4 +16,6 @@ public interface DepartementRepositoryPort {
     void deleteById(UUID id);
 
     boolean existsByMatiereId(UUID matiereId);
+
+    Optional<Departement> findByMatiereId(UUID matiereId);
 }
