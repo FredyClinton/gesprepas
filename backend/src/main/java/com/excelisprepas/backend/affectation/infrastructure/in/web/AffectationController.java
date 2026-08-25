@@ -1,10 +1,7 @@
 package com.excelisprepas.backend.affectation.infrastructure.in.web;
 
 import com.excelisprepas.backend.affectation.domain.model.Affectation;
-import com.excelisprepas.backend.affectation.domain.port.in.AnnulerAffectationUseCase;
-import com.excelisprepas.backend.affectation.domain.port.in.AssignerEnseignantUseCase;
-import com.excelisprepas.backend.affectation.domain.port.in.CreerCreneauUseCase;
-import com.excelisprepas.backend.affectation.domain.port.in.MarquerEffectueeUseCase;
+import com.excelisprepas.backend.affectation.domain.port.in.*;
 import com.excelisprepas.backend.affectation.infrastructure.in.web.dto.AffectationResponse;
 import com.excelisprepas.backend.affectation.infrastructure.in.web.dto.AssignerEnseignantRequest;
 import com.excelisprepas.backend.affectation.infrastructure.in.web.dto.CreerCreneauRequest;
@@ -20,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @Tag(name = "Affectations", description = "Gestion des créneaux d'affectation (salle/matière/enseignant) au sein d'une formation")
@@ -31,19 +29,44 @@ public class AffectationController {
     private final AssignerEnseignantUseCase assignerEnseignantUseCase;
     private final MarquerEffectueeUseCase marquerEffectueeUseCase;
     private final AnnulerAffectationUseCase annulerAffectationUseCase;
+    private final ListerAffectationUseCase listerAffectationUseCase;
 
-    public AffectationController(CreerCreneauUseCase creerCreneauUseCase, AssignerEnseignantUseCase assignerEnseignantUseCase, MarquerEffectueeUseCase marquerEffectueeUseCase, AnnulerAffectationUseCase annulerAffectationUseCase) {
+    public AffectationController(CreerCreneauUseCase creerCreneauUseCase,
+                                 AssignerEnseignantUseCase assignerEnseignantUseCase,
+                                 MarquerEffectueeUseCase marquerEffectueeUseCase,
+                                 AnnulerAffectationUseCase annulerAffectationUseCase,
+                                 ListerAffectationUseCase listerAffectationUseCase) {
         this.creerCreneauUseCase = creerCreneauUseCase;
         this.assignerEnseignantUseCase = assignerEnseignantUseCase;
         this.marquerEffectueeUseCase = marquerEffectueeUseCase;
         this.annulerAffectationUseCase = annulerAffectationUseCase;
+        this.listerAffectationUseCase = listerAffectationUseCase;
     }
 
     private static AffectationResponse versReponse(Affectation affectation) {
         return new AffectationResponse(
-                affectation.getId(), affectation.getCentreId(), affectation.getFormationId(),
+                affectation.getId(), affectation.getCentreId(), affectation.getSessionId(), affectation.getFormationId(),
                 affectation.getSalleId(), affectation.getMatiereId(), affectation.getEnseignantId(),
                 affectation.getSeance(), affectation.getSemaine(), affectation.getStatut());
+    }
+
+    @Operation(summary = "Lister les affectations",
+            description = "Liste les créneaux d'une session et d'une semaine données, avec filtres optionnels par centre et/ou matière.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Liste des créneaux",
+                    content = @Content(schema = @Schema(implementation = AffectationResponse.class)))
+    })
+    @GetMapping
+    public ResponseEntity<List<AffectationResponse>> listerAffectations(
+            @Parameter(description = "Session académique concernée") @RequestParam UUID sessionId,
+            @Parameter(description = "Filtre optionnel par centre") @RequestParam(required = false) UUID centreId,
+            @Parameter(description = "Filtre optionnel par matière (département)") @RequestParam(required = false) UUID matiereId,
+            @Parameter(description = "Semaine concernée") @RequestParam int semaine) {
+        List<AffectationResponse> reponses = listerAffectationUseCase
+                .listerAffectations(sessionId, centreId, matiereId, semaine).stream()
+                .map(AffectationController::versReponse)
+                .toList();
+        return ResponseEntity.ok(reponses);
     }
 
     @Operation(summary = "Assigner un enseignant à un créneau",
@@ -72,13 +95,13 @@ public class AffectationController {
             @ApiResponse(responseCode = "201", description = "Créneau créé",
                     content = @Content(schema = @Schema(implementation = AffectationResponse.class))),
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Centre, formation, salle ou matière introuvable", content = @Content),
-            @ApiResponse(responseCode = "409", description = "Salle déjà occupée sur ce créneau", content = @Content)
+            @ApiResponse(responseCode = "404", description = "Centre, session, formation, salle ou matière introuvable", content = @Content),
+            @ApiResponse(responseCode = "409", description = "Salle déjà occupée sur ce créneau, session clôturée, ou formation incohérente avec la session", content = @Content)
     })
     @PostMapping
     public ResponseEntity<AffectationResponse> creerCreneau(@Valid @RequestBody CreerCreneauRequest request) {
         Affectation affectation = creerCreneauUseCase.creerCreneau(
-                request.centreId(), request.formationId(), request.salleId(), request.matiereId(),
+                request.centreId(), request.sessionId(), request.formationId(), request.salleId(), request.matiereId(),
                 request.seance(), request.semaine());
 
         AffectationResponse response = versReponse(affectation);
@@ -115,5 +138,4 @@ public class AffectationController {
         Affectation affectation = annulerAffectationUseCase.annulerAffectation(id);
         return ResponseEntity.ok(versReponse(affectation));
     }
-
 }

@@ -19,6 +19,7 @@ public record CreerApprenantRequest(
         @DecimalMin(value = "0.0", message = "Le montant du contrat ne peut pas être négatif") BigDecimal montantContrat,
         @NotNull(message = "La date de définition du contrat est obligatoire") LocalDate dateDefinitionContrat,
         @NotNull(message = "Le centre est obligatoire") UUID centreId,
+        @NotNull(message = "La session est obligatoire") UUID sessionId,
         @NotNull(message = "La formation est obligatoire") UUID formationId
 ) {
 }

@@ -10,6 +10,7 @@ public class Apprenant {
     private final UUID id;
     private final LocalDate dateNaissance;
     private final LocalDate dateInscription;
+    private final UUID sessionId;
     private String nom;
     private String prenom;
     private BigDecimal montantContrat;
@@ -19,7 +20,7 @@ public class Apprenant {
 
     public Apprenant(UUID id, String nom, String prenom, LocalDate dateNaissance,
                      LocalDate dateInscription, BigDecimal montantContrat,
-                     LocalDate dateDefinitionContrat, UUID centreId, UUID formationId) {
+                     LocalDate dateDefinitionContrat, UUID centreId, UUID sessionId, UUID formationId) {
         this.id = Objects.requireNonNull(id, "id ne peut pas être nul");
         this.nom = validerChampObligatoire(nom, "nom");
         this.prenom = validerChampObligatoire(prenom, "prenom");
@@ -28,6 +29,7 @@ public class Apprenant {
         this.montantContrat = validerMontant(montantContrat);
         this.dateDefinitionContrat = Objects.requireNonNull(dateDefinitionContrat, "dateDefinitionContrat ne peut pas être nulle");
         this.centreId = Objects.requireNonNull(centreId, "centreId ne peut pas être nul");
+        this.sessionId = Objects.requireNonNull(sessionId, "sessionId ne peut pas être nul");
         this.formationId = Objects.requireNonNull(formationId, "formationId ne peut pas être nul");
     }
 
@@ -49,6 +51,12 @@ public class Apprenant {
         this.centreId = Objects.requireNonNull(nouveauCentreId, "centreId ne peut pas être nul");
     }
 
+    /**
+     * Change la formation de l'apprenant. sessionId reste inchangé — un apprenant
+     * est inscrit pour une session donnée et n'en change jamais ; la cohérence
+     * (nouvelle formation appartenant à la même session) est vérifiée en amont,
+     * dans ApprenantService, qui a accès au FormationRepositoryPort.
+     */
     public void changerFormation(UUID nouvelleFormationId) {
         this.formationId = Objects.requireNonNull(nouvelleFormationId, "formationId ne peut pas être nul");
     }
@@ -88,6 +96,10 @@ public class Apprenant {
 
     public UUID getCentreId() {
         return centreId;
+    }
+
+    public UUID getSessionId() {
+        return sessionId;
     }
 
     public UUID getFormationId() {

@@ -8,6 +8,7 @@ import java.util.UUID;
 public record CreerSalleRequest(
         @NotBlank(message = "Le nom est obligatoire") String nom,
         @NotNull(message = "Le centre est obligatoire") UUID centreId,
+        @NotNull(message = "La session est obligatoire") UUID sessionId,
         @NotNull(message = "La formation est obligatoire") UUID formationId
 ) {
 }

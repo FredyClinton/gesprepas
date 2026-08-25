@@ -2,10 +2,7 @@ package com.excelisprepas.backend.affectation.infrastructure.in.web;
 
 import com.excelisprepas.backend.affectation.domain.model.Affectation;
 import com.excelisprepas.backend.affectation.domain.model.StatutAffectation;
-import com.excelisprepas.backend.affectation.domain.port.in.AnnulerAffectationUseCase;
-import com.excelisprepas.backend.affectation.domain.port.in.AssignerEnseignantUseCase;
-import com.excelisprepas.backend.affectation.domain.port.in.CreerCreneauUseCase;
-import com.excelisprepas.backend.affectation.domain.port.in.MarquerEffectueeUseCase;
+import com.excelisprepas.backend.affectation.domain.port.in.*;
 import com.excelisprepas.backend.shared.exception.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,13 +11,13 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -29,6 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AffectationControllerTest {
 
     private static final UUID CENTRE_ID = UUID.randomUUID();
+    private static final UUID SESSION_ID = UUID.randomUUID();
     private static final UUID FORMATION_ID = UUID.randomUUID();
     private static final UUID SALLE_ID = UUID.randomUUID();
     private static final UUID MATIERE_ID = UUID.randomUUID();
@@ -41,32 +39,36 @@ class AffectationControllerTest {
 
     @MockitoBean
     private MarquerEffectueeUseCase marquerEffectueeUseCase;
-    
+
     @MockitoBean
     private AnnulerAffectationUseCase annulerAffectationUseCase;
 
     @MockitoBean
     private AssignerEnseignantUseCase assignerEnseignantUseCase;
 
+    @MockitoBean
+    private ListerAffectationUseCase listerAffectationUseCase;
+
     private String jsonRequest() {
         return """
                 {
                     "centreId": "%s",
+                    "sessionId": "%s",
                     "formationId": "%s",
                     "salleId": "%s",
                     "matiereId": "%s",
                     "seance": 1,
                     "semaine": 1
                 }
-                """.formatted(CENTRE_ID, FORMATION_ID, SALLE_ID, MATIERE_ID);
+                """.formatted(CENTRE_ID, SESSION_ID, FORMATION_ID, SALLE_ID, MATIERE_ID);
     }
 
     @Test
     @DisplayName("POST /api/affectations avec des données valides retourne 201")
     void creerCreneau_donneesValides_retourne201() throws Exception {
         // Given
-        when(creerCreneauUseCase.creerCreneau(any(), any(), any(), any(), anyInt(), anyInt()))
-                .thenReturn(new Affectation(UUID.randomUUID(), CENTRE_ID, FORMATION_ID, SALLE_ID, MATIERE_ID,
+        when(creerCreneauUseCase.creerCreneau(any(), any(), any(), any(), any(), anyInt(), anyInt()))
+                .thenReturn(new Affectation(UUID.randomUUID(), CENTRE_ID, SESSION_ID, FORMATION_ID, SALLE_ID, MATIERE_ID,
                         null, 1, 1, StatutAffectation.PLANIFIEE));
 
         // When / Then
@@ -86,13 +88,14 @@ class AffectationControllerTest {
                         .content("""
                                 {
                                     "centreId": "%s",
+                                    "sessionId": "%s",
                                     "formationId": "%s",
                                     "salleId": "%s",
                                     "matiereId": "%s",
                                     "seance": -1,
                                     "semaine": 1
                                 }
-                                """.formatted(CENTRE_ID, FORMATION_ID, SALLE_ID, MATIERE_ID)))
+                                """.formatted(CENTRE_ID, SESSION_ID, FORMATION_ID, SALLE_ID, MATIERE_ID)))
                 .andExpect(status().isBadRequest());
     }
 
@@ -100,7 +103,7 @@ class AffectationControllerTest {
     @DisplayName("POST /api/affectations avec un centre inexistant retourne 404")
     void creerCreneau_centreInexistant_retourne404() throws Exception {
         // Given
-        when(creerCreneauUseCase.creerCreneau(any(), any(), any(), any(), anyInt(), anyInt()))
+        when(creerCreneauUseCase.creerCreneau(any(), any(), any(), any(), any(), anyInt(), anyInt()))
                 .thenThrow(new CentreIntrouvableException(CENTRE_ID));
 
         // When / Then
@@ -114,7 +117,7 @@ class AffectationControllerTest {
     @DisplayName("POST /api/affectations avec une formation inexistante retourne 404")
     void creerCreneau_formationInexistante_retourne404() throws Exception {
         // Given
-        when(creerCreneauUseCase.creerCreneau(any(), any(), any(), any(), anyInt(), anyInt()))
+        when(creerCreneauUseCase.creerCreneau(any(), any(), any(), any(), any(), anyInt(), anyInt()))
                 .thenThrow(new FormationIntrouvableException(FORMATION_ID));
 
         // When / Then
@@ -128,7 +131,7 @@ class AffectationControllerTest {
     @DisplayName("POST /api/affectations avec une salle inexistante retourne 404")
     void creerCreneau_salleInexistante_retourne404() throws Exception {
         // Given
-        when(creerCreneauUseCase.creerCreneau(any(), any(), any(), any(), anyInt(), anyInt()))
+        when(creerCreneauUseCase.creerCreneau(any(), any(), any(), any(), any(), anyInt(), anyInt()))
                 .thenThrow(new SalleIntrouvableException(SALLE_ID));
 
         // When / Then
@@ -142,7 +145,7 @@ class AffectationControllerTest {
     @DisplayName("POST /api/affectations avec une matière inexistante retourne 404")
     void creerCreneau_matiereInexistante_retourne404() throws Exception {
         // Given
-        when(creerCreneauUseCase.creerCreneau(any(), any(), any(), any(), anyInt(), anyInt()))
+        when(creerCreneauUseCase.creerCreneau(any(), any(), any(), any(), any(), anyInt(), anyInt()))
                 .thenThrow(new MatiereIntrouvableException(MATIERE_ID));
 
         // When / Then
@@ -153,10 +156,38 @@ class AffectationControllerTest {
     }
 
     @Test
+    @DisplayName("POST /api/affectations avec une session clôturée retourne 409")
+    void creerCreneau_sessionCloturee_retourne409() throws Exception {
+        // Given
+        when(creerCreneauUseCase.creerCreneau(any(), any(), any(), any(), any(), anyInt(), anyInt()))
+                .thenThrow(new SessionNonUtilisableException(SESSION_ID));
+
+        // When / Then
+        mockMvc.perform(post("/api/affectations")
+                        .contentType("application/json")
+                        .content(jsonRequest()))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("POST /api/affectations avec une session incohérente avec la formation retourne 409")
+    void creerCreneau_sessionIncoherente_retourne409() throws Exception {
+        // Given
+        when(creerCreneauUseCase.creerCreneau(any(), any(), any(), any(), any(), anyInt(), anyInt()))
+                .thenThrow(new FormationSessionIncoherenteException(FORMATION_ID, SESSION_ID));
+
+        // When / Then
+        mockMvc.perform(post("/api/affectations")
+                        .contentType("application/json")
+                        .content(jsonRequest()))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
     @DisplayName("POST /api/affectations avec un créneau déjà pris retourne 409")
     void creerCreneau_creneauDejaPris_retourne409() throws Exception {
         // Given
-        when(creerCreneauUseCase.creerCreneau(any(), any(), any(), any(), anyInt(), anyInt()))
+        when(creerCreneauUseCase.creerCreneau(any(), any(), any(), any(), any(), anyInt(), anyInt()))
                 .thenThrow(new CreneauDejaPlanifieException(SALLE_ID, 1, 1));
 
         // When / Then
@@ -173,7 +204,7 @@ class AffectationControllerTest {
         UUID affectationId = UUID.randomUUID();
         UUID enseignantId = UUID.randomUUID();
         when(assignerEnseignantUseCase.assignerEnseignant(any(UUID.class), any(UUID.class)))
-                .thenReturn(new Affectation(affectationId, CENTRE_ID, FORMATION_ID, SALLE_ID, MATIERE_ID,
+                .thenReturn(new Affectation(affectationId, CENTRE_ID, SESSION_ID, FORMATION_ID, SALLE_ID, MATIERE_ID,
                         enseignantId, 1, 1, StatutAffectation.ASSIGNEE));
 
         // When / Then
@@ -213,7 +244,7 @@ class AffectationControllerTest {
     void marquerEffectuee_retourne200() throws Exception {
         UUID id = UUID.randomUUID();
         when(marquerEffectueeUseCase.marquerEffectuee(id)).thenReturn(
-                new Affectation(id, CENTRE_ID, FORMATION_ID, SALLE_ID, MATIERE_ID,
+                new Affectation(id, CENTRE_ID, SESSION_ID, FORMATION_ID, SALLE_ID, MATIERE_ID,
                         UUID.randomUUID(), 1, 1, StatutAffectation.EFFECTUEE));
 
         mockMvc.perform(patch("/api/affectations/" + id + "/marquer-effectuee"))
@@ -236,11 +267,43 @@ class AffectationControllerTest {
     void annuler_retourne200() throws Exception {
         UUID id = UUID.randomUUID();
         when(annulerAffectationUseCase.annulerAffectation(id)).thenReturn(
-                new Affectation(id, CENTRE_ID, FORMATION_ID, SALLE_ID, MATIERE_ID,
+                new Affectation(id, CENTRE_ID, SESSION_ID, FORMATION_ID, SALLE_ID, MATIERE_ID,
                         null, 1, 1, StatutAffectation.ANNULEE));
 
         mockMvc.perform(patch("/api/affectations/" + id + "/annuler"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.statut").value("ANNULEE"));
+    }
+
+    @Test
+    @DisplayName("GET /api/affectations?sessionId=&semaine= retourne 200 avec la liste")
+    void listerAffectations_parametresValides_retourne200() throws Exception {
+        when(listerAffectationUseCase.listerAffectations(SESSION_ID, null, null, 3)).thenReturn(List.of(
+                new Affectation(UUID.randomUUID(), CENTRE_ID, SESSION_ID, FORMATION_ID, SALLE_ID, MATIERE_ID,
+                        null, 1, 3, StatutAffectation.PLANIFIEE)));
+
+        mockMvc.perform(get("/api/affectations").param("sessionId", SESSION_ID.toString()).param("semaine", "3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].sessionId").value(SESSION_ID.toString()));
+    }
+
+    @Test
+    @DisplayName("GET /api/affectations?centreId=&sessionId=&semaine= filtre par centre")
+    void listerAffectations_avecCentreId_filtreParCentre() throws Exception {
+        when(listerAffectationUseCase.listerAffectations(SESSION_ID, CENTRE_ID, null, 3)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/affectations")
+                        .param("sessionId", SESSION_ID.toString())
+                        .param("centreId", CENTRE_ID.toString())
+                        .param("semaine", "3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
+    }
+
+    @Test
+    @DisplayName("GET /api/affectations sans sessionId retourne 400")
+    void listerAffectations_sansSessionId_retourne400() throws Exception {
+        mockMvc.perform(get("/api/affectations").param("semaine", "3"))
+                .andExpect(status().isBadRequest());
     }
 }

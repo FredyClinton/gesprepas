@@ -17,6 +17,7 @@ public interface ApprenantPersistenceMapper {
         entite.setMontantContrat(domaine.getMontantContrat());
         entite.setDateDefinitionContrat(domaine.getDateDefinitionContrat());
         entite.setCentreId(domaine.getCentreId());
+        entite.setSessionId(domaine.getSessionId());
         entite.setFormationId(domaine.getFormationId());
         return entite;
     }
@@ -26,6 +27,6 @@ public interface ApprenantPersistenceMapper {
         return new Apprenant(entite.getId(), entite.getNom(), entite.getPrenom(),
                 entite.getDateNaissance(), entite.getDateInscription(),
                 entite.getMontantContrat(), entite.getDateDefinitionContrat(),
-                entite.getCentreId(), entite.getFormationId());
+                entite.getCentreId(), entite.getSessionId(), entite.getFormationId());
     }
 }

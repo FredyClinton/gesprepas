@@ -6,14 +6,16 @@ import java.util.UUID;
 public class Salle {
 
     private final UUID id;
+    private final UUID centreId;
+    private final UUID sessionId;
     private String nom;
-    private UUID centreId;
     private UUID formationId;
 
-    public Salle(UUID id, String nom, UUID centreId, UUID formationId) {
+    public Salle(UUID id, String nom, UUID centreId, UUID sessionId, UUID formationId) {
         this.id = Objects.requireNonNull(id, "id ne peut pas être nul");
         this.nom = validerNom(nom);
         this.centreId = Objects.requireNonNull(centreId, "centreId ne peut pas être nul");
+        this.sessionId = Objects.requireNonNull(sessionId, "sessionId ne peut pas être nul");
         this.formationId = Objects.requireNonNull(formationId, "formationId ne peut pas être nul");
     }
 
@@ -28,6 +30,12 @@ public class Salle {
         this.nom = validerNom(nouveauNom);
     }
 
+    /**
+     * Réaffecte la salle à une nouvelle formation. sessionId reste inchangé —
+     * une salle est créée pour une session donnée et n'en change jamais ;
+     * la cohérence (nouvelle formation appartenant à la même session) est
+     * vérifiée en amont, dans SalleService, qui a accès au FormationRepositoryPort.
+     */
     public void reaffecterFormation(UUID nouvelleFormationId) {
         this.formationId = Objects.requireNonNull(nouvelleFormationId, "formationId ne peut pas être nul");
     }
@@ -42,6 +50,10 @@ public class Salle {
 
     public UUID getCentreId() {
         return centreId;
+    }
+
+    public UUID getSessionId() {
+        return sessionId;
     }
 
     public UUID getFormationId() {

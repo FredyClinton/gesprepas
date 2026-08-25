@@ -6,6 +6,7 @@ public record SalleResponse(
         UUID id,
         String nom,
         UUID centreId,
+        UUID sessionId,
         UUID formationId
 ) {
 }

@@ -17,27 +17,27 @@ public class DepartementBeanConfiguration {
     }
 
     @Bean
-    public CreerDepartementUseCase creerDepartementUseCase(DepartementService service) {
-        return service;
+    public CreerDepartementUseCase creerDepartementUseCase(DepartementService departementService) {
+        return departementService;
     }
 
     @Bean
-    public RecupererDepartementUseCase recupererDepartementUseCase(DepartementService service) {
-        return service;
+    public RecupererDepartementUseCase recupererDepartementUseCase(DepartementService departementService) {
+        return departementService;
     }
 
     @Bean
-    public ListerDepartementsUseCase listerDepartementsUseCase(DepartementService service) {
-        return service;
+    public ListerDepartementsUseCase listerDepartementsUseCase(DepartementService departementService) {
+        return departementService;
     }
 
     @Bean
-    public RenommerDepartementUseCase renommerDepartementUseCase(DepartementService service) {
-        return service;
+    public RenommerDepartementUseCase renommerDepartementUseCase(DepartementService departementService) {
+        return departementService;
     }
 
     @Bean
-    public SupprimerDepartementUseCase supprimerDepartementUseCase(DepartementService service) {
-        return service;
+    public SupprimerDepartementUseCase supprimerDepartementUseCase(DepartementService departementService) {
+        return departementService;
     }
 }

@@ -2,10 +2,7 @@ package com.excelisprepas.backend.progression.infrastructure.in.web;
 
 import com.excelisprepas.backend.progression.domain.model.Progression;
 import com.excelisprepas.backend.progression.domain.port.in.*;
-import com.excelisprepas.backend.shared.exception.FormationIntrouvableException;
-import com.excelisprepas.backend.shared.exception.MatiereIntrouvableException;
-import com.excelisprepas.backend.shared.exception.NumeroCoursDejaUtiliseException;
-import com.excelisprepas.backend.shared.exception.ProgressionIntrouvableException;
+import com.excelisprepas.backend.shared.exception.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +14,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -27,6 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ProgressionControllerTest {
 
     private static final UUID FORMATION_ID = UUID.randomUUID();
+    private static final UUID SESSION_ID = UUID.randomUUID();
     private static final UUID MATIERE_ID = UUID.randomUUID();
 
     @Autowired
@@ -47,6 +46,7 @@ class ProgressionControllerTest {
         return """
                 {
                     "formationId": "%s",
+                    "sessionId": "%s",
                     "matiereId": "%s",
                     "semaine": 1,
                     "numeroCours": 1,
@@ -54,18 +54,18 @@ class ProgressionControllerTest {
                     "contenu": "Espaces vectoriels, applications linéaires",
                     "exercices": "Exercices 1 à 5"
                 }
-                """.formatted(FORMATION_ID, MATIERE_ID);
+                """.formatted(FORMATION_ID, SESSION_ID, MATIERE_ID);
     }
 
     private Progression uneProgression() {
-        return new Progression(UUID.randomUUID(), FORMATION_ID, MATIERE_ID, 1, 1,
+        return new Progression(UUID.randomUUID(), FORMATION_ID, SESSION_ID, MATIERE_ID, 1, 1,
                 "Algèbre linéaire", "Espaces vectoriels, applications linéaires", "Exercices 1 à 5");
     }
 
     @Test
     @DisplayName("POST /api/progressions avec des données valides retourne 201")
     void creerProgression_donneesValides_retourne201() throws Exception {
-        when(creerProgressionUseCase.creerProgression(any(), any(), anyInt(), anyInt(), any(), any(), any()))
+        when(creerProgressionUseCase.creerProgression(any(), any(), any(), anyInt(), anyInt(), any(), any(), any()))
                 .thenReturn(uneProgression());
 
         mockMvc.perform(post("/api/progressions")
@@ -83,20 +83,21 @@ class ProgressionControllerTest {
                         .content("""
                                 {
                                     "formationId": "%s",
+                                    "sessionId": "%s",
                                     "matiereId": "%s",
                                     "semaine": 1,
                                     "numeroCours": 1,
                                     "theme": "",
                                     "contenu": "Contenu"
                                 }
-                                """.formatted(FORMATION_ID, MATIERE_ID)))
+                                """.formatted(FORMATION_ID, SESSION_ID, MATIERE_ID)))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     @DisplayName("POST /api/progressions avec une formation inexistante retourne 404")
     void creerProgression_formationInexistante_retourne404() throws Exception {
-        when(creerProgressionUseCase.creerProgression(any(), any(), anyInt(), anyInt(), any(), any(), any()))
+        when(creerProgressionUseCase.creerProgression(any(), any(), any(), anyInt(), anyInt(), any(), any(), any()))
                 .thenThrow(new FormationIntrouvableException(FORMATION_ID));
 
         mockMvc.perform(post("/api/progressions")
@@ -108,7 +109,7 @@ class ProgressionControllerTest {
     @Test
     @DisplayName("POST /api/progressions avec une matière inexistante retourne 404")
     void creerProgression_matiereInexistante_retourne404() throws Exception {
-        when(creerProgressionUseCase.creerProgression(any(), any(), anyInt(), anyInt(), any(), any(), any()))
+        when(creerProgressionUseCase.creerProgression(any(), any(), any(), anyInt(), anyInt(), any(), any(), any()))
                 .thenThrow(new MatiereIntrouvableException(MATIERE_ID));
 
         mockMvc.perform(post("/api/progressions")
@@ -118,9 +119,33 @@ class ProgressionControllerTest {
     }
 
     @Test
+    @DisplayName("POST /api/progressions avec une session clôturée retourne 409")
+    void creerProgression_sessionCloturee_retourne409() throws Exception {
+        when(creerProgressionUseCase.creerProgression(any(), any(), any(), anyInt(), anyInt(), any(), any(), any()))
+                .thenThrow(new SessionNonUtilisableException(SESSION_ID));
+
+        mockMvc.perform(post("/api/progressions")
+                        .contentType("application/json")
+                        .content(jsonRequest()))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("POST /api/progressions avec une session incohérente avec la formation retourne 409")
+    void creerProgression_sessionIncoherente_retourne409() throws Exception {
+        when(creerProgressionUseCase.creerProgression(any(), any(), any(), anyInt(), anyInt(), any(), any(), any()))
+                .thenThrow(new FormationSessionIncoherenteException(FORMATION_ID, SESSION_ID));
+
+        mockMvc.perform(post("/api/progressions")
+                        .contentType("application/json")
+                        .content(jsonRequest()))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
     @DisplayName("POST /api/progressions avec un numéro de cours déjà utilisé retourne 409")
     void creerProgression_numeroCoursDejaUtilise_retourne409() throws Exception {
-        when(creerProgressionUseCase.creerProgression(any(), any(), anyInt(), anyInt(), any(), any(), any()))
+        when(creerProgressionUseCase.creerProgression(any(), any(), any(), anyInt(), anyInt(), any(), any(), any()))
                 .thenThrow(new NumeroCoursDejaUtiliseException(FORMATION_ID, MATIERE_ID, 1, 1));
 
         mockMvc.perform(post("/api/progressions")

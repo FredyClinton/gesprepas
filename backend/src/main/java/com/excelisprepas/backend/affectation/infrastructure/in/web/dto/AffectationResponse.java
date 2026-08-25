@@ -7,6 +7,7 @@ import java.util.UUID;
 public record AffectationResponse(
         UUID id,
         UUID centreId,
+        UUID sessionId,
         UUID formationId,
         UUID salleId,
         UUID matiereId,

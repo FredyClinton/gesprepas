@@ -5,6 +5,7 @@ import java.util.UUID;
 public record ProgressionResponse(
         UUID id,
         UUID formationId,
+        UUID sessionId,
         UUID matiereId,
         int semaine,
         int numeroCours,

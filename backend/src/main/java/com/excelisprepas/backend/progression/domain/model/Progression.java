@@ -8,6 +8,7 @@ public class Progression {
 
     private final UUID id;
     private final UUID formationId;
+    private final UUID sessionId;
     private final UUID matiereId;
     private final int semaine;
     private final int numeroCours;
@@ -15,10 +16,11 @@ public class Progression {
     private String contenu;
     private String exercices; // optionnel
 
-    public Progression(UUID id, UUID formationId, UUID matiereId, int semaine, int numeroCours,
+    public Progression(UUID id, UUID formationId, UUID sessionId, UUID matiereId, int semaine, int numeroCours,
                        String theme, String contenu, String exercices) {
         this.id = Objects.requireNonNull(id, "id ne peut pas être nul");
         this.formationId = Objects.requireNonNull(formationId, "formationId ne peut pas être nul");
+        this.sessionId = Objects.requireNonNull(sessionId, "sessionId ne peut pas être nul");
         this.matiereId = Objects.requireNonNull(matiereId, "matiereId ne peut pas être nul");
         this.semaine = validerPositif(semaine, "semaine");
         this.numeroCours = validerPositif(numeroCours, "numeroCours");
@@ -53,6 +55,10 @@ public class Progression {
 
     public UUID getFormationId() {
         return formationId;
+    }
+
+    public UUID getSessionId() {
+        return sessionId;
     }
 
     public UUID getMatiereId() {

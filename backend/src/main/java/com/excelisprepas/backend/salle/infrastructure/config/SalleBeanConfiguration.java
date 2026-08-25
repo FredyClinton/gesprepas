@@ -6,6 +6,7 @@ import com.excelisprepas.backend.formation.domain.port.out.FormationRepositoryPo
 import com.excelisprepas.backend.salle.domain.port.in.*;
 import com.excelisprepas.backend.salle.domain.port.out.SalleRepositoryPort;
 import com.excelisprepas.backend.salle.domain.service.SalleService;
+import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -16,37 +17,39 @@ public class SalleBeanConfiguration {
     public SalleService salleService(SalleRepositoryPort salleRepository,
                                      CentreRepositoryPort centreRepository,
                                      FormationRepositoryPort formationRepository,
-                                     AffectationRepositoryPort affectationRepository) {
-        return new SalleService(salleRepository, centreRepository, formationRepository, affectationRepository);
+                                     AffectationRepositoryPort affectationRepository,
+                                     SessionAcademiqueRepositoryPort sessionRepository) {
+        return new SalleService(salleRepository, centreRepository, formationRepository,
+                affectationRepository, sessionRepository);
     }
 
     @Bean
-    public CreerSalleUseCase creerSalleUseCase(SalleService service) {
-        return service;
+    public CreerSalleUseCase creerSalleUseCase(SalleService salleService) {
+        return salleService;
     }
 
     @Bean
-    public RecupererSalleUseCase recupererSalleUseCase(SalleService service) {
-        return service;
+    public RecupererSalleUseCase recupererSalleUseCase(SalleService salleService) {
+        return salleService;
     }
 
     @Bean
-    public ListerSallesUseCase listerSallesUseCase(SalleService service) {
-        return service;
+    public ListerSallesUseCase listerSallesUseCase(SalleService salleService) {
+        return salleService;
     }
 
     @Bean
-    public RenommerSalleUseCase renommerSalleUseCase(SalleService service) {
-        return service;
+    public RenommerSalleUseCase renommerSalleUseCase(SalleService salleService) {
+        return salleService;
     }
 
     @Bean
-    public ReaffecterFormationUseCase reaffecterFormationUseCase(SalleService service) {
-        return service;
+    public ReaffecterFormationUseCase reaffecterFormationUseCase(SalleService salleService) {
+        return salleService;
     }
 
     @Bean
-    public SupprimerSalleUseCase supprimerSalleUseCase(SalleService service) {
-        return service;
+    public SupprimerSalleUseCase supprimerSalleUseCase(SalleService salleService) {
+        return salleService;
     }
 }

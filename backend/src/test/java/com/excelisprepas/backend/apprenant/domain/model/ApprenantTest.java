@@ -22,7 +22,7 @@ class ApprenantTest {
         return new Apprenant(unId(), "Mballa", "Sophie",
                 LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
                 new BigDecimal("450000"), LocalDate.of(2026, 9, 1),
-                unId(), unId());
+                unId(), unId(), unId());
     }
 
     @Nested
@@ -35,18 +35,20 @@ class ApprenantTest {
             // Given
             UUID id = unId();
             UUID centreId = unId();
+            UUID sessionId = unId();
             UUID formationId = unId();
 
             // When
             Apprenant apprenant = new Apprenant(id, "Mballa", "Sophie",
                     LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
                     new BigDecimal("450000"), LocalDate.of(2026, 9, 1),
-                    centreId, formationId);
+                    centreId, sessionId, formationId);
 
             // Then
             assertThat(apprenant.getNom()).isEqualTo("Mballa");
             assertThat(apprenant.getMontantContrat()).isEqualByComparingTo("450000");
             assertThat(apprenant.getCentreId()).isEqualTo(centreId);
+            assertThat(apprenant.getSessionId()).isEqualTo(sessionId);
             assertThat(apprenant.getFormationId()).isEqualTo(formationId);
         }
 
@@ -57,7 +59,7 @@ class ApprenantTest {
             ThrowingCallable creation = () -> new Apprenant(unId(), "Mballa", "Sophie",
                     LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
                     new BigDecimal("-100"), LocalDate.of(2026, 9, 1),
-                    unId(), unId());
+                    unId(), unId(), unId());
 
             // Then
             assertThatThrownBy(creation).isInstanceOf(IllegalArgumentException.class);
@@ -70,10 +72,23 @@ class ApprenantTest {
             ThrowingCallable creation = () -> new Apprenant(unId(), "  ", "Sophie",
                     LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
                     new BigDecimal("450000"), LocalDate.of(2026, 9, 1),
-                    unId(), unId());
+                    unId(), unId(), unId());
 
             // Then
             assertThatThrownBy(creation).isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @DisplayName("rejette un sessionId nul")
+        void rejetteSessionIdNul() {
+            // Given / When
+            ThrowingCallable creation = () -> new Apprenant(unId(), "Mballa", "Sophie",
+                    LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
+                    new BigDecimal("450000"), LocalDate.of(2026, 9, 1),
+                    unId(), null, unId());
+
+            // Then
+            assertThatThrownBy(creation).isInstanceOf(NullPointerException.class);
         }
     }
 
@@ -96,10 +111,11 @@ class ApprenantTest {
         }
 
         @Test
-        @DisplayName("changerFormation() met à jour le formationId")
+        @DisplayName("changerFormation() met à jour le formationId, sessionId reste inchangé")
         void changerFormationMetAJourFormationId() {
             // Given
             Apprenant apprenant = unApprenant();
+            UUID sessionIdInitial = apprenant.getSessionId();
             UUID nouvelleFormationId = unId();
 
             // When
@@ -107,6 +123,7 @@ class ApprenantTest {
 
             // Then
             assertThat(apprenant.getFormationId()).isEqualTo(nouvelleFormationId);
+            assertThat(apprenant.getSessionId()).isEqualTo(sessionIdInitial);
         }
     }
 

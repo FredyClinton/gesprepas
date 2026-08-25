@@ -30,8 +30,9 @@ class ProgressionRepositoryAdapterTest extends AbstractIntegrationTest {
     void saveEtFindByIdRetrouveLaProgression() {
         // Given
         UUID formationId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
         UUID matiereId = UUID.randomUUID();
-        Progression progression = new Progression(UUID.randomUUID(), formationId, matiereId, 1, 1,
+        Progression progression = new Progression(UUID.randomUUID(), formationId, sessionId, matiereId, 1, 1,
                 "Algèbre linéaire", "Espaces vectoriels", "Exercices 1 à 5");
 
         // When
@@ -41,6 +42,7 @@ class ProgressionRepositoryAdapterTest extends AbstractIntegrationTest {
         // Then
         assertThat(retrouve).isPresent();
         assertThat(retrouve.get().getTheme()).isEqualTo("Algèbre linéaire");
+        assertThat(retrouve.get().getSessionId()).isEqualTo(sessionId);
         assertThat(retrouve.get().getExercices()).contains("Exercices 1 à 5");
     }
 
@@ -50,7 +52,7 @@ class ProgressionRepositoryAdapterTest extends AbstractIntegrationTest {
         // Given
         UUID formationId = UUID.randomUUID();
         UUID matiereId = UUID.randomUUID();
-        Progression progression = new Progression(UUID.randomUUID(), formationId, matiereId, 1, 1,
+        Progression progression = new Progression(UUID.randomUUID(), formationId, UUID.randomUUID(), matiereId, 1, 1,
                 "Algèbre linéaire", "Espaces vectoriels", null);
         adapter.save(progression);
 
@@ -80,7 +82,7 @@ class ProgressionRepositoryAdapterTest extends AbstractIntegrationTest {
     void existsByFormationIdDetecteUneReference() {
         // Given
         UUID formationId = UUID.randomUUID();
-        Progression progression = new Progression(UUID.randomUUID(), formationId, UUID.randomUUID(),
+        Progression progression = new Progression(UUID.randomUUID(), formationId, UUID.randomUUID(), UUID.randomUUID(),
                 1, 1, "Algèbre linéaire", "Espaces vectoriels", null);
         adapter.save(progression);
 
@@ -96,7 +98,7 @@ class ProgressionRepositoryAdapterTest extends AbstractIntegrationTest {
     @Test
     @DisplayName("findAll() retourne toutes les progressions")
     void findAllRetourneToutesLesProgressions() {
-        adapter.save(new Progression(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+        adapter.save(new Progression(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
                 1, 1, "Thème", "Contenu", null));
         assertThat(adapter.findAll()).hasSizeGreaterThanOrEqualTo(1);
     }
@@ -104,7 +106,7 @@ class ProgressionRepositoryAdapterTest extends AbstractIntegrationTest {
     @Test
     @DisplayName("deleteById() supprime la progression")
     void deleteByIdSupprimeLaProgression() {
-        Progression progression = new Progression(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+        Progression progression = new Progression(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
                 1, 1, "Thème", "Contenu", null);
         adapter.save(progression);
         adapter.deleteById(progression.getId());
@@ -115,7 +117,7 @@ class ProgressionRepositoryAdapterTest extends AbstractIntegrationTest {
     @DisplayName("existsByMatiereId() détecte une progression rattachée à la matière")
     void existsByMatiereIdDetecteUneReference() {
         UUID matiereId = UUID.randomUUID();
-        adapter.save(new Progression(UUID.randomUUID(), UUID.randomUUID(), matiereId,
+        adapter.save(new Progression(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), matiereId,
                 1, 1, "Thème", "Contenu", null));
         assertThat(adapter.existsByMatiereId(matiereId)).isTrue();
         assertThat(adapter.existsByMatiereId(UUID.randomUUID())).isFalse();

@@ -1,26 +1,28 @@
 package com.excelisprepas.backend.affectation.domain.service;
 
-
 import com.excelisprepas.backend.affectation.domain.exception.EnseignantSuspenduException;
 import com.excelisprepas.backend.affectation.domain.model.Affectation;
 import com.excelisprepas.backend.affectation.domain.model.StatutAffectation;
-import com.excelisprepas.backend.affectation.domain.port.in.AnnulerAffectationUseCase;
-import com.excelisprepas.backend.affectation.domain.port.in.AssignerEnseignantUseCase;
-import com.excelisprepas.backend.affectation.domain.port.in.CreerCreneauUseCase;
-import com.excelisprepas.backend.affectation.domain.port.in.MarquerEffectueeUseCase;
+import com.excelisprepas.backend.affectation.domain.port.in.*;
 import com.excelisprepas.backend.affectation.domain.port.out.AffectationRepositoryPort;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
+import com.excelisprepas.backend.formation.domain.model.Formation;
 import com.excelisprepas.backend.formation.domain.port.out.FormationRepositoryPort;
 import com.excelisprepas.backend.matiere.domain.port.out.MatiereRepositoryPort;
 import com.excelisprepas.backend.personnel.domain.model.Enseignant;
 import com.excelisprepas.backend.personnel.domain.model.StatutEnseignant;
 import com.excelisprepas.backend.personnel.domain.port.out.EnseignantRepositoryPort;
 import com.excelisprepas.backend.salle.domain.port.out.SalleRepositoryPort;
+import com.excelisprepas.backend.session.domain.model.SessionAcademique;
+import com.excelisprepas.backend.session.domain.model.StatutSession;
+import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import com.excelisprepas.backend.shared.exception.*;
 
+import java.util.List;
 import java.util.UUID;
 
-public class AffectationService implements CreerCreneauUseCase, AssignerEnseignantUseCase, AnnulerAffectationUseCase, MarquerEffectueeUseCase {
+public class AffectationService implements CreerCreneauUseCase, AssignerEnseignantUseCase,
+        AnnulerAffectationUseCase, MarquerEffectueeUseCase, ListerAffectationUseCase {
 
     private final AffectationRepositoryPort affectationRepository;
     private final CentreRepositoryPort centreRepository;
@@ -28,42 +30,54 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
     private final SalleRepositoryPort salleRepository;
     private final MatiereRepositoryPort matiereRepository;
     private final EnseignantRepositoryPort enseignantRepository;
+    private final SessionAcademiqueRepositoryPort sessionRepository;
 
     public AffectationService(AffectationRepositoryPort affectationRepository,
                               CentreRepositoryPort centreRepository,
                               FormationRepositoryPort formationRepository,
                               SalleRepositoryPort salleRepository,
                               MatiereRepositoryPort matiereRepository,
-                              EnseignantRepositoryPort enseignantRepository) {
+                              EnseignantRepositoryPort enseignantRepository,
+                              SessionAcademiqueRepositoryPort sessionRepository) {
         this.affectationRepository = affectationRepository;
         this.centreRepository = centreRepository;
         this.formationRepository = formationRepository;
         this.salleRepository = salleRepository;
         this.matiereRepository = matiereRepository;
         this.enseignantRepository = enseignantRepository;
+        this.sessionRepository = sessionRepository;
     }
 
     @Override
-    public Affectation creerCreneau(UUID centreId, UUID formationId, UUID salleId, UUID matiereId,
+    public Affectation creerCreneau(UUID centreId, UUID sessionId, UUID formationId, UUID salleId, UUID matiereId,
                                     int seance, int semaine) {
         if (centreRepository.findById(centreId).isEmpty()) {
             throw new CentreIntrouvableException(centreId);
         }
-        if (formationRepository.findById(formationId).isEmpty()) {
-            throw new FormationIntrouvableException(formationId);
-        }
+        Formation formation = formationRepository.findById(formationId)
+                .orElseThrow(() -> new FormationIntrouvableException(formationId));
         if (salleRepository.findById(salleId).isEmpty()) {
             throw new SalleIntrouvableException(salleId);
         }
         if (matiereRepository.findById(matiereId).isEmpty()) {
             throw new MatiereIntrouvableException(matiereId);
         }
+
+        SessionAcademique session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new SessionIntrouvableException(sessionId));
+        if (session.getStatut() == StatutSession.CLOTUREE) {
+            throw new SessionNonUtilisableException(sessionId);
+        }
+        if (!formation.getSessionId().equals(sessionId)) {
+            throw new FormationSessionIncoherenteException(formationId, sessionId);
+        }
+
         if (affectationRepository.existsBySalleIdAndSemaineAndSeance(salleId, semaine, seance)) {
             throw new CreneauDejaPlanifieException(salleId, semaine, seance);
         }
 
         Affectation affectation = new Affectation(
-                UUID.randomUUID(), centreId, formationId, salleId, matiereId,
+                UUID.randomUUID(), centreId, sessionId, formationId, salleId, matiereId,
                 null, seance, semaine, StatutAffectation.PLANIFIEE);
 
         return affectationRepository.save(affectation);
@@ -99,5 +113,20 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
                 .orElseThrow(() -> new AffectationIntrouvableException(affectationId));
         affectation.marquerEffectuee();
         return this.affectationRepository.save(affectation);
+    }
+
+    @Override
+    public List<Affectation> listerAffectations(UUID sessionId, UUID centreId, UUID matiereId, int semaine) {
+        if (centreId != null && matiereId != null) {
+            return affectationRepository.findBySessionIdAndMatiereIdAndCentreIdAndSemaine(
+                    sessionId, matiereId, centreId, semaine);
+        }
+        if (centreId != null) {
+            return affectationRepository.findBySessionIdAndCentreIdAndSemaine(sessionId, centreId, semaine);
+        }
+        if (matiereId != null) {
+            return affectationRepository.findBySessionIdAndMatiereIdAndSemaine(sessionId, matiereId, semaine);
+        }
+        return affectationRepository.findBySessionIdAndSemaine(sessionId, semaine);
     }
 }

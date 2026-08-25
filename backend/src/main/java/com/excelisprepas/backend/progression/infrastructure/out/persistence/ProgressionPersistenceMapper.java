@@ -11,6 +11,7 @@ public interface ProgressionPersistenceMapper {
         ProgressionEntity entite = new ProgressionEntity();
         entite.setId(domaine.getId());
         entite.setFormationId(domaine.getFormationId());
+        entite.setSessionId(domaine.getSessionId());
         entite.setMatiereId(domaine.getMatiereId());
         entite.setSemaine(domaine.getSemaine());
         entite.setNumeroCours(domaine.getNumeroCours());
@@ -22,7 +23,7 @@ public interface ProgressionPersistenceMapper {
 
     default Progression toDomain(ProgressionEntity entite) {
         if (entite == null) return null;
-        return new Progression(entite.getId(), entite.getFormationId(), entite.getMatiereId(),
+        return new Progression(entite.getId(), entite.getFormationId(), entite.getSessionId(), entite.getMatiereId(),
                 entite.getSemaine(), entite.getNumeroCours(), entite.getTheme(), entite.getContenu(),
                 entite.getExercices());
     }

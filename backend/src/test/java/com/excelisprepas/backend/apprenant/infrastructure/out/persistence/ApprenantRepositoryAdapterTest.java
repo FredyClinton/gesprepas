@@ -35,7 +35,7 @@ class ApprenantRepositoryAdapterTest extends AbstractIntegrationTest {
         Apprenant apprenant = new Apprenant(UUID.randomUUID(), "Mballa", "Sophie",
                 LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
                 new BigDecimal("450000"), LocalDate.of(2026, 9, 1),
-                UUID.randomUUID(), UUID.randomUUID());
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
 
         // When
         adapter.save(apprenant);
@@ -44,6 +44,7 @@ class ApprenantRepositoryAdapterTest extends AbstractIntegrationTest {
         // Then
         assertThat(retrouve).isPresent();
         assertThat(retrouve.get().getNom()).isEqualTo("Mballa");
+        assertThat(retrouve.get().getSessionId()).isEqualTo(apprenant.getSessionId());
         assertThat(retrouve.get().getMontantContrat()).isEqualByComparingTo("450000");
     }
 
@@ -64,7 +65,7 @@ class ApprenantRepositoryAdapterTest extends AbstractIntegrationTest {
         UUID centreId = UUID.randomUUID();
         Apprenant apprenant = new Apprenant(UUID.randomUUID(), "OSSEGUE", "CALVIN",
                 LocalDate.now(), LocalDate.now(), new BigDecimal("50000"), LocalDate.now(),
-                centreId, UUID.randomUUID());
+                centreId, UUID.randomUUID(), UUID.randomUUID());
         adapter.save(apprenant);
 
         // When
@@ -83,7 +84,7 @@ class ApprenantRepositoryAdapterTest extends AbstractIntegrationTest {
         UUID formationId = UUID.randomUUID();
         Apprenant apprenant = new Apprenant(UUID.randomUUID(), "OSSEGUE", "CALVIN",
                 LocalDate.now(), LocalDate.now(), new BigDecimal("50000"), LocalDate.now(),
-                UUID.randomUUID(), formationId);
+                UUID.randomUUID(), UUID.randomUUID(), formationId);
         adapter.save(apprenant);
 
         // When
@@ -100,10 +101,12 @@ class ApprenantRepositoryAdapterTest extends AbstractIntegrationTest {
     void findAllRetourneTousLesApprenants() {
         adapter.save(new Apprenant(UUID.randomUUID(), "Mballa", "Sophie",
                 LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
-                new BigDecimal("450000"), LocalDate.of(2026, 9, 1), UUID.randomUUID(), UUID.randomUUID()));
+                new BigDecimal("450000"), LocalDate.of(2026, 9, 1),
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()));
         adapter.save(new Apprenant(UUID.randomUUID(), "Nkoulou", "Paul",
                 LocalDate.of(2004, 6, 20), LocalDate.of(2026, 9, 1),
-                new BigDecimal("400000"), LocalDate.of(2026, 9, 1), UUID.randomUUID(), UUID.randomUUID()));
+                new BigDecimal("400000"), LocalDate.of(2026, 9, 1),
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()));
 
         List<Apprenant> resultat = adapter.findAll();
 
@@ -115,7 +118,8 @@ class ApprenantRepositoryAdapterTest extends AbstractIntegrationTest {
     void deleteByIdSupprimeLApprenant() {
         Apprenant apprenant = new Apprenant(UUID.randomUUID(), "À supprimer", "Test",
                 LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
-                new BigDecimal("450000"), LocalDate.of(2026, 9, 1), UUID.randomUUID(), UUID.randomUUID());
+                new BigDecimal("450000"), LocalDate.of(2026, 9, 1),
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
         adapter.save(apprenant);
 
         adapter.deleteById(apprenant.getId());
