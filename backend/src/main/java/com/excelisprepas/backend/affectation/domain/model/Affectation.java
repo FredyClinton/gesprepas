@@ -10,6 +10,7 @@ public class Affectation {
             Set.of(StatutAffectation.PLANIFIEE, StatutAffectation.ASSIGNEE);
     private final UUID id;
     private final UUID centreId;
+    private final UUID sessionId;
     private final UUID formationId;
     private final UUID salleId;
     private final UUID matiereId;
@@ -18,10 +19,11 @@ public class Affectation {
     private UUID enseignantId;
     private StatutAffectation statut;
 
-    public Affectation(UUID id, UUID centreId, UUID formationId, UUID salleId, UUID matiereId,
+    public Affectation(UUID id, UUID centreId, UUID sessionId, UUID formationId, UUID salleId, UUID matiereId,
                        UUID enseignantId, int seance, int semaine, StatutAffectation statut) {
         this.id = Objects.requireNonNull(id, "id ne peut pas être nul");
         this.centreId = Objects.requireNonNull(centreId, "centreId ne peut pas être nul");
+        this.sessionId = Objects.requireNonNull(sessionId, "sessionId ne peut pas être nul");
         this.formationId = Objects.requireNonNull(formationId, "formationId ne peut pas être nul");
         this.salleId = Objects.requireNonNull(salleId, "salleId ne peut pas être nul");
         this.matiereId = Objects.requireNonNull(matiereId, "matiereId ne peut pas être nul");
@@ -38,13 +40,6 @@ public class Affectation {
         return valeur;
     }
 
-    /**
-     * Assigne (ou réassigne/remplace) l'enseignant sur ce créneau.
-     * Autorisé depuis PLANIFIEE (première assignation) et depuis ASSIGNEE
-     * (remplacement — écrase l'ancien enseignant sans conserver d'historique,
-     * conforme à la logique hebdomadaire de réaffectation des enseignants).
-     * Refusé une fois le créneau EFFECTUEE ou ANNULEE.
-     */
     public void assignerEnseignant(UUID enseignantId) {
         if (!STATUTS_ASSIGNABLES.contains(statut)) {
             throw new IllegalStateException(
@@ -54,11 +49,6 @@ public class Affectation {
         this.statut = StatutAffectation.ASSIGNEE;
     }
 
-    /**
-     * Marque le créneau comme effectué. Nécessite qu'un enseignant ait été
-     * assigné au préalable (statut ASSIGNEE) — un créneau sans enseignant
-     * ne peut pas avoir eu lieu.
-     */
     public void marquerEffectuee() {
         if (statut != StatutAffectation.ASSIGNEE) {
             throw new IllegalStateException(
@@ -68,10 +58,6 @@ public class Affectation {
         this.statut = StatutAffectation.EFFECTUEE;
     }
 
-    /**
-     * Annule le créneau. Autorisé depuis PLANIFIEE ou ASSIGNEE.
-     * Refusé si déjà EFFECTUEE (déjà comptabilisé) ou déjà ANNULEE.
-     */
     public void annuler() {
         if (statut == StatutAffectation.EFFECTUEE || statut == StatutAffectation.ANNULEE) {
             throw new IllegalStateException(
@@ -86,6 +72,10 @@ public class Affectation {
 
     public UUID getCentreId() {
         return centreId;
+    }
+
+    public UUID getSessionId() {
+        return sessionId;
     }
 
     public UUID getFormationId() {

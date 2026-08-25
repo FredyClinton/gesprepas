@@ -39,17 +39,17 @@ public class ApprenantBeanConfiguration {
     }
 
     @Bean
-    public TransfererFormationUseCase transfererFormationUseCase(ApprenantService service) {
-        return service;
+    public TransfererFormationUseCase transfererFormationUseCase(ApprenantService apprenantService) {
+        return apprenantService;
     }
 
     @Bean
-    public RenegocierContratUseCase renegocierContratUseCase(ApprenantService service) {
-        return service;
+    public RenegocierContratUseCase renegocierContratUseCase(ApprenantService apprenantService) {
+        return apprenantService;
     }
 
     @Bean
-    public SupprimerApprenantUseCase supprimerApprenantUseCase(ApprenantService service) {
-        return service;
+    public SupprimerApprenantUseCase supprimerApprenantUseCase(ApprenantService apprenantService) {
+        return apprenantService;
     }
 }

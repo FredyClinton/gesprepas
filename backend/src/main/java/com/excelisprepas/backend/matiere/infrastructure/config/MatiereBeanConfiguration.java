@@ -21,27 +21,27 @@ public class MatiereBeanConfiguration {
     }
 
     @Bean
-    public CreerMatiereUseCase creerMatiereUseCase(MatiereService service) {
-        return service;
+    public CreerMatiereUseCase creerMatiereUseCase(MatiereService matiereService) {
+        return matiereService;
     }
 
     @Bean
-    public RecupererMatiereUseCase recupererMatiereUseCase(MatiereService service) {
-        return service;
+    public RecupererMatiereUseCase recupererMatiereUseCase(MatiereService matiereService) {
+        return matiereService;
     }
 
     @Bean
-    public ListerMatieresUseCase listerMatieresUseCase(MatiereService service) {
-        return service;
+    public ListerMatieresUseCase listerMatieresUseCase(MatiereService matiereService) {
+        return matiereService;
     }
 
     @Bean
-    public RenommerMatiereUseCase renommerMatiereUseCase(MatiereService service) {
-        return service;
+    public RenommerMatiereUseCase renommerMatiereUseCase(MatiereService matiereService) {
+        return matiereService;
     }
 
     @Bean
-    public SupprimerMatiereUseCase supprimerMatiereUseCase(MatiereService service) {
-        return service;
+    public SupprimerMatiereUseCase supprimerMatiereUseCase(MatiereService matiereService) {
+        return matiereService;
     }
 }

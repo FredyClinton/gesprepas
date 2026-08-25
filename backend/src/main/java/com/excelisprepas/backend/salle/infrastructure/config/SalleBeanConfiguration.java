@@ -21,32 +21,32 @@ public class SalleBeanConfiguration {
     }
 
     @Bean
-    public CreerSalleUseCase creerSalleUseCase(SalleService service) {
-        return service;
+    public CreerSalleUseCase creerSalleUseCase(SalleService salleService) {
+        return salleService;
     }
 
     @Bean
-    public RecupererSalleUseCase recupererSalleUseCase(SalleService service) {
-        return service;
+    public RecupererSalleUseCase recupererSalleUseCase(SalleService salleService) {
+        return salleService;
     }
 
     @Bean
-    public ListerSallesUseCase listerSallesUseCase(SalleService service) {
-        return service;
+    public ListerSallesUseCase listerSallesUseCase(SalleService salleService) {
+        return salleService;
     }
 
     @Bean
-    public RenommerSalleUseCase renommerSalleUseCase(SalleService service) {
-        return service;
+    public RenommerSalleUseCase renommerSalleUseCase(SalleService salleService) {
+        return salleService;
     }
 
     @Bean
-    public ReaffecterFormationUseCase reaffecterFormationUseCase(SalleService service) {
-        return service;
+    public ReaffecterFormationUseCase reaffecterFormationUseCase(SalleService salleService) {
+        return salleService;
     }
 
     @Bean
-    public SupprimerSalleUseCase supprimerSalleUseCase(SalleService service) {
-        return service;
+    public SupprimerSalleUseCase supprimerSalleUseCase(SalleService salleService) {
+        return salleService;
     }
 }

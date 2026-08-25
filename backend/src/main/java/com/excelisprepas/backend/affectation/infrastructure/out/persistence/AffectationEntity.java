@@ -22,6 +22,9 @@ public class AffectationEntity {
     @Column(name = "centre_id", nullable = false)
     private UUID centreId; // référence brute — module centre
 
+    @Column(name = "session_id", nullable = false)
+    private UUID sessionId; // référence brute, dénormalisée depuis Formation — module session
+
     @Column(name = "formation_id", nullable = false)
     private UUID formationId; // référence brute — module formation
 

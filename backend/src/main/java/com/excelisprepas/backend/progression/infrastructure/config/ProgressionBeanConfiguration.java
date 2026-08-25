@@ -19,27 +19,27 @@ public class ProgressionBeanConfiguration {
     }
 
     @Bean
-    public CreerProgressionUseCase creerProgressionUseCase(ProgressionService service) {
-        return service;
+    public CreerProgressionUseCase creerProgressionUseCase(ProgressionService progressionService) {
+        return progressionService;
     }
 
     @Bean
-    public RecupererProgressionUseCase recupererProgressionUseCase(ProgressionService service) {
-        return service;
+    public RecupererProgressionUseCase recupererProgressionUseCase(ProgressionService progressionService) {
+        return progressionService;
     }
 
     @Bean
-    public ListerProgressionsUseCase listerProgressionsUseCase(ProgressionService service) {
-        return service;
+    public ListerProgressionsUseCase listerProgressionsUseCase(ProgressionService progressionService) {
+        return progressionService;
     }
 
     @Bean
-    public MettreAJourContenuUseCase mettreAJourContenuUseCase(ProgressionService service) {
-        return service;
+    public MettreAJourContenuUseCase mettreAJourContenuUseCase(ProgressionService progressionService) {
+        return progressionService;
     }
 
     @Bean
-    public SupprimerProgressionUseCase supprimerProgressionUseCase(ProgressionService service) {
-        return service;
+    public SupprimerProgressionUseCase supprimerProgressionUseCase(ProgressionService progressionService) {
+        return progressionService;
     }
 }

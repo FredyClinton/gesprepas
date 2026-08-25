@@ -4,6 +4,7 @@ import com.excelisprepas.backend.affectation.domain.model.Affectation;
 import com.excelisprepas.backend.affectation.domain.port.out.AffectationRepositoryPort;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -56,5 +57,29 @@ public class AffectationRepositoryAdapter implements AffectationRepositoryPort {
     @Override
     public boolean existsBySalleId(UUID salleId) {
         return jpaRepository.existsBySalleId(salleId);
+    }
+
+    @Override
+    public List<Affectation> findBySessionIdAndCentreIdAndSemaine(UUID sessionId, UUID centreId, int semaine) {
+        return jpaRepository.findBySessionIdAndCentreIdAndSemaine(sessionId, centreId, semaine).stream()
+                .map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Affectation> findBySessionIdAndSemaine(UUID sessionId, int semaine) {
+        return jpaRepository.findBySessionIdAndSemaine(sessionId, semaine).stream()
+                .map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Affectation> findBySessionIdAndMatiereIdAndSemaine(UUID sessionId, UUID matiereId, int semaine) {
+        return jpaRepository.findBySessionIdAndMatiereIdAndSemaine(sessionId, matiereId, semaine).stream()
+                .map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Affectation> findBySessionIdAndMatiereIdAndCentreIdAndSemaine(UUID sessionId, UUID matiereId, UUID centreId, int semaine) {
+        return jpaRepository.findBySessionIdAndMatiereIdAndCentreIdAndSemaine(sessionId, matiereId, centreId, semaine).stream()
+                .map(mapper::toDomain).toList();
     }
 }
