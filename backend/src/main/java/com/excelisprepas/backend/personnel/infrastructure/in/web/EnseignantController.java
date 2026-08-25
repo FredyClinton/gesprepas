@@ -6,6 +6,14 @@ import com.excelisprepas.backend.personnel.infrastructure.in.web.dto.CreerEnseig
 import com.excelisprepas.backend.personnel.infrastructure.in.web.dto.EnseignantResponse;
 import com.excelisprepas.backend.personnel.infrastructure.in.web.dto.ModifierCoutParSeanceRequest;
 import com.excelisprepas.backend.personnel.infrastructure.in.web.dto.RenommerEnseignantRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
+@Tag(name = "Enseignants", description = "Gestion du personnel enseignant : rémunération, suspension et réactivation")
 @RestController
 @RequestMapping("/api/enseignants")
 public class EnseignantController {
@@ -49,6 +58,12 @@ public class EnseignantController {
                 enseignant.getMatricule(), enseignant.getCoutParSeance(), enseignant.getStatut());
     }
 
+    @Operation(summary = "Créer un enseignant", description = "Crée un nouvel enseignant avec son coût par séance.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Enseignant créé",
+                    content = @Content(schema = @Schema(implementation = EnseignantResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content)
+    })
     @PostMapping
     public ResponseEntity<EnseignantResponse> creerEnseignant(@Valid @RequestBody CreerEnseignantRequest request) {
         Enseignant enseignant = creerEnseignantUseCase.creerEnseignant(
@@ -56,11 +71,21 @@ public class EnseignantController {
         return ResponseEntity.status(HttpStatus.CREATED).body(versReponse(enseignant));
     }
 
+    @Operation(summary = "Récupérer un enseignant", description = "Retourne un enseignant par son identifiant.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Enseignant trouvé",
+                    content = @Content(schema = @Schema(implementation = EnseignantResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Enseignant introuvable", content = @Content)
+    })
     @GetMapping("/{id}")
-    public ResponseEntity<EnseignantResponse> recupererEnseignant(@PathVariable UUID id) {
+    public ResponseEntity<EnseignantResponse> recupererEnseignant(
+            @Parameter(description = "Identifiant de l'enseignant") @PathVariable UUID id) {
         return ResponseEntity.ok(versReponse(recupererEnseignantUseCase.recupererEnseignant(id)));
     }
 
+    @Operation(summary = "Lister les enseignants", description = "Retourne la liste complète des enseignants.")
+    @ApiResponse(responseCode = "200", description = "Liste des enseignants",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = EnseignantResponse.class))))
     @GetMapping
     public ResponseEntity<List<EnseignantResponse>> listerEnseignants() {
         List<EnseignantResponse> reponses = listerEnseignantsUseCase.listerEnseignants().stream()
@@ -69,33 +94,73 @@ public class EnseignantController {
         return ResponseEntity.ok(reponses);
     }
 
+    @Operation(summary = "Renommer un enseignant", description = "Change le nom et le prénom de l'enseignant.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Enseignant renommé",
+                    content = @Content(schema = @Schema(implementation = EnseignantResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Enseignant introuvable", content = @Content)
+    })
     @PatchMapping("/{id}/renommer")
-    public ResponseEntity<EnseignantResponse> renommerEnseignant(@PathVariable UUID id,
-                                                                 @Valid @RequestBody RenommerEnseignantRequest request) {
+    public ResponseEntity<EnseignantResponse> renommerEnseignant(
+            @Parameter(description = "Identifiant de l'enseignant") @PathVariable UUID id,
+            @Valid @RequestBody RenommerEnseignantRequest request) {
         Enseignant enseignant = renommerEnseignantUseCase.renommerEnseignant(id, request.nom(), request.prenom());
         return ResponseEntity.ok(versReponse(enseignant));
     }
 
+    @Operation(summary = "Modifier le coût par séance d'un enseignant",
+            description = "Met à jour le tarif appliqué par séance pour cet enseignant.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Coût par séance modifié",
+                    content = @Content(schema = @Schema(implementation = EnseignantResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Enseignant introuvable", content = @Content)
+    })
     @PatchMapping("/{id}/cout-par-seance")
     public ResponseEntity<EnseignantResponse> modifierCoutParSeance(
-            @PathVariable UUID id, @Valid @RequestBody ModifierCoutParSeanceRequest request) {
+            @Parameter(description = "Identifiant de l'enseignant") @PathVariable UUID id,
+            @Valid @RequestBody ModifierCoutParSeanceRequest request) {
         Enseignant enseignant = modifierCoutParSeanceUseCase.modifierCoutParSeance(id, request.coutParSeance());
         return ResponseEntity.ok(versReponse(enseignant));
     }
 
+    @Operation(summary = "Supprimer un enseignant", description = "Supprime définitivement un enseignant.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Enseignant supprimé", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Enseignant introuvable", content = @Content),
+            @ApiResponse(responseCode = "409", description = "Enseignant encore référencé par des affectations", content = @Content)
+    })
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> supprimerEnseignant(@PathVariable UUID id) {
+    public ResponseEntity<Void> supprimerEnseignant(
+            @Parameter(description = "Identifiant de l'enseignant") @PathVariable UUID id) {
         supprimerEnseignantUseCase.supprimerEnseignant(id);
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "Suspendre un enseignant", description = "Bascule le statut de l'enseignant à \"suspendu\".")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Enseignant suspendu",
+                    content = @Content(schema = @Schema(implementation = EnseignantResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Enseignant introuvable", content = @Content),
+            @ApiResponse(responseCode = "409", description = "Transition d'état invalide", content = @Content)
+    })
     @PatchMapping("/{id}/suspendre")
-    public ResponseEntity<EnseignantResponse> suspendreEnseignant(@PathVariable UUID id) {
+    public ResponseEntity<EnseignantResponse> suspendreEnseignant(
+            @Parameter(description = "Identifiant de l'enseignant") @PathVariable UUID id) {
         return ResponseEntity.ok(versReponse(suspendreEnseignantUseCase.suspendreEnseignant(id)));
     }
 
+    @Operation(summary = "Réactiver un enseignant", description = "Bascule le statut de l'enseignant à \"actif\".")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Enseignant réactivé",
+                    content = @Content(schema = @Schema(implementation = EnseignantResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Enseignant introuvable", content = @Content),
+            @ApiResponse(responseCode = "409", description = "Transition d'état invalide", content = @Content)
+    })
     @PatchMapping("/{id}/reactiver")
-    public ResponseEntity<EnseignantResponse> reactiverEnseignant(@PathVariable UUID id) {
+    public ResponseEntity<EnseignantResponse> reactiverEnseignant(
+            @Parameter(description = "Identifiant de l'enseignant") @PathVariable UUID id) {
         return ResponseEntity.ok(versReponse(reactiverEnseignantUseCase.reactiverEnseignant(id)));
     }
 }
