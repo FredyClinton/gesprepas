@@ -43,4 +43,9 @@ public class DepartementRepositoryAdapter implements DepartementRepositoryPort {
     public boolean existsByMatiereId(UUID matiereId) {
         return jpaRepository.existsByMatiereId(matiereId);
     }
+
+    @Override
+    public Optional<Departement> findByMatiereId(UUID matiereId) {
+        return jpaRepository.findByMatiereId(matiereId);
+    }
 }
