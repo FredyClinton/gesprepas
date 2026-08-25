@@ -4,6 +4,7 @@ import com.excelisprepas.backend.centre.domain.model.Centre;
 import com.excelisprepas.backend.centre.domain.model.LocalisationCentre;
 import org.mapstruct.Mapper;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Mapper(componentModel = "spring")
@@ -32,6 +33,8 @@ public interface CentrePersistenceMapper {
         entite.getLocalisations().clear();
         entite.getLocalisations().addAll(localisationEntities);
 
+        entite.setSessionIds(new ArrayList<>(domaine.getSessionIds()));
+
         return entite;
     }
 
@@ -44,6 +47,7 @@ public interface CentrePersistenceMapper {
                         locEntite.getDateDebutValidite(), locEntite.getDateFinValidite()))
                 .toList();
 
-        return Centre.reconstituer(entite.getId(), entite.getNom(), entite.getStatut(), localisations);
+        return Centre.reconstituer(entite.getId(), entite.getNom(), entite.getStatut(),
+                localisations, entite.getSessionIds());
     }
 }

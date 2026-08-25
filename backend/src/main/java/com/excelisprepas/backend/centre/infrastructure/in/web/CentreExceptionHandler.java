@@ -1,6 +1,8 @@
 package com.excelisprepas.backend.centre.infrastructure.in.web;
 
 import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
+import com.excelisprepas.backend.shared.exception.SessionIntrouvableException;
+import com.excelisprepas.backend.shared.exception.SessionNonUtilisableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -14,31 +16,35 @@ public class CentreExceptionHandler {
 
     @ExceptionHandler(CentreIntrouvableException.class)
     public ResponseEntity<Map<String, Object>> gererCentreIntrouvable(CentreIntrouvableException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
-                "timestamp", Instant.now().toString(),
-                "status", HttpStatus.NOT_FOUND.value(),
-                "error", "Not Found",
-                "message", ex.getMessage()
-        ));
+        return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(SessionIntrouvableException.class)
+    public ResponseEntity<Map<String, Object>> gererSessionIntrouvable(SessionIntrouvableException ex) {
+        return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(SessionNonUtilisableException.class)
+    public ResponseEntity<Map<String, Object>> gererSessionNonUtilisable(SessionNonUtilisableException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> gererArgumentInvalide(IllegalArgumentException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
-                "timestamp", Instant.now().toString(),
-                "status", HttpStatus.BAD_REQUEST.value(),
-                "error", "Bad Request",
-                "message", ex.getMessage()
-        ));
+        return construireReponse(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Map<String, Object>> gererEtatInvalide(IllegalStateException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    private ResponseEntity<Map<String, Object>> construireReponse(HttpStatus statut, String message) {
+        return ResponseEntity.status(statut).body(Map.of(
                 "timestamp", Instant.now().toString(),
-                "status", HttpStatus.CONFLICT.value(),
-                "error", "Conflict",
-                "message", ex.getMessage()
+                "status", statut.value(),
+                "error", statut.getReasonPhrase(),
+                "message", message
         ));
     }
 }

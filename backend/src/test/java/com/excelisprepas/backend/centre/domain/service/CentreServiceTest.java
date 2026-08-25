@@ -9,13 +9,19 @@ import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
 import com.excelisprepas.backend.formation.domain.port.out.FormationRepositoryPort;
 import com.excelisprepas.backend.personnel.domain.port.out.UtilisateurRepositoryPort;
 import com.excelisprepas.backend.salle.domain.port.out.SalleRepositoryPort;
+import com.excelisprepas.backend.session.domain.model.SessionAcademique;
+import com.excelisprepas.backend.session.domain.model.StatutSession;
+import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
+import com.excelisprepas.backend.shared.exception.SessionIntrouvableException;
+import com.excelisprepas.backend.shared.exception.SessionNonUtilisableException;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -33,6 +39,7 @@ class CentreServiceTest {
     private SalleRepositoryPort salleRepository;
     private AffectationRepositoryPort affectationRepository;
     private UtilisateurRepositoryPort utilisateurRepository;
+    private SessionAcademiqueRepositoryPort sessionRepository;
     private CentreService service;
 
     @BeforeEach
@@ -43,8 +50,9 @@ class CentreServiceTest {
         salleRepository = mock(SalleRepositoryPort.class);
         affectationRepository = mock(AffectationRepositoryPort.class);
         utilisateurRepository = mock(UtilisateurRepositoryPort.class);
+        sessionRepository = mock(SessionAcademiqueRepositoryPort.class);
         service = new CentreService(centreRepository, formationRepository, apprenantRepository,
-                salleRepository, affectationRepository, utilisateurRepository);
+                salleRepository, affectationRepository, utilisateurRepository, sessionRepository);
     }
 
     private Centre unCentre() {
@@ -255,6 +263,65 @@ class CentreServiceTest {
 
             // Then
             assertThatThrownBy(suppression).isInstanceOf(CentreIntrouvableException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("Rejoindre une session")
+    class RejoindreSession {
+
+        @Test
+        @DisplayName("rejoindreSession() ajoute la session et sauvegarde")
+        void rejoindreSessionReussit() {
+            // Given
+            Centre centre = unCentre();
+            UUID sessionId = UUID.randomUUID();
+            when(centreRepository.findById(centre.getId())).thenReturn(Optional.of(centre));
+            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(
+                    SessionAcademique.reconstituer(sessionId, "2026-2027",
+                            LocalDate.of(2026, 9, 1), LocalDate.of(2027, 6, 30), StatutSession.EN_COURS)));
+            when(centreRepository.save(any(Centre.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            // When
+            Centre resultat = service.rejoindreSession(centre.getId(), sessionId);
+
+            // Then
+            assertThat(resultat.getSessionIds()).contains(sessionId);
+        }
+
+        @Test
+        @DisplayName("rejoindreSession() refuse si la session n'existe pas")
+        void rejoindreSessionRefuseSiSessionIntrouvable() {
+            // Given
+            Centre centre = unCentre();
+            UUID sessionId = UUID.randomUUID();
+            when(centreRepository.findById(centre.getId())).thenReturn(Optional.of(centre));
+            when(sessionRepository.findById(sessionId)).thenReturn(Optional.empty());
+
+            // When
+            ThrowingCallable action = () -> service.rejoindreSession(centre.getId(), sessionId);
+
+            // Then
+            assertThatThrownBy(action).isInstanceOf(SessionIntrouvableException.class);
+        }
+
+        @Test
+        @DisplayName("rejoindreSession() refuse si la session est clôturée")
+        void rejoindreSessionRefuseSiSessionCloturee() {
+            // Given
+            Centre centre = unCentre();
+            UUID sessionId = UUID.randomUUID();
+            when(centreRepository.findById(centre.getId())).thenReturn(Optional.of(centre));
+            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(
+                    SessionAcademique.reconstituer(sessionId, "2025-2026",
+                            LocalDate.of(2025, 9, 1), LocalDate.of(2026, 6, 30), StatutSession.CLOTUREE)));
+
+            // When
+            ThrowingCallable action = () -> service.rejoindreSession(centre.getId(), sessionId);
+
+            // Then
+            assertThatThrownBy(action).isInstanceOf(SessionNonUtilisableException.class);
+            verify(centreRepository, never()).save(any(Centre.class));
         }
     }
 }

@@ -12,6 +12,7 @@ import com.excelisprepas.backend.salle.domain.port.out.SalleRepositoryPort;
 import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
+import com.excelisprepas.backend.shared.exception.CentreNonParticipantSessionException;
 import com.excelisprepas.backend.shared.exception.FormationIntrouvableException;
 import com.excelisprepas.backend.shared.exception.SessionIntrouvableException;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
@@ -66,10 +67,11 @@ class FormationServiceTest {
     class Creation {
 
         @Test
-        @DisplayName("crée une formation quand le centre et la session existent")
+        @DisplayName("crée une formation quand le centre et la session existent et que le centre a rejoint la session")
         void creeFormationQuandCentreEtSessionExistent() {
-            when(centreRepository.findById(centreId)).thenReturn(Optional.of(
-                    new Centre(centreId, "Centre Yaoundé", "Avenue Kennedy", "Yaoundé")));
+            Centre centre = new Centre(centreId, "Centre Yaoundé", "Avenue Kennedy", "Yaoundé");
+            centre.rejoindreSession(sessionId);
+            when(centreRepository.findById(centreId)).thenReturn(Optional.of(centre));
             when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(
                     new SessionAcademique(sessionId, "2026-2027",
                             LocalDate.of(2026, 9, 1), LocalDate.of(2027, 7, 31))));
@@ -79,6 +81,21 @@ class FormationServiceTest {
 
             assertThat(resultat.getNom()).isEqualTo("Ingénieurs");
             verify(formationRepository).save(any(Formation.class));
+        }
+
+        @Test
+        @DisplayName("refuse la création si le centre n'a pas rejoint la session")
+        void refuseCreationSiCentreNonParticipant() {
+            Centre centre = new Centre(centreId, "Centre Yaoundé", "Avenue Kennedy", "Yaoundé"); // n'a rejoint aucune session
+            when(centreRepository.findById(centreId)).thenReturn(Optional.of(centre));
+            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(
+                    new SessionAcademique(sessionId, "2026-2027",
+                            LocalDate.of(2026, 9, 1), LocalDate.of(2027, 7, 31))));
+
+            ThrowingCallable creation = () -> service.creerFormation("Ingénieurs", centreId, sessionId);
+
+            assertThatThrownBy(creation).isInstanceOf(CentreNonParticipantSessionException.class);
+            verify(formationRepository, never()).save(any(Formation.class));
         }
 
         @Test
@@ -219,4 +236,6 @@ class FormationServiceTest {
             assertThatThrownBy(suppression).isInstanceOf(FormationIntrouvableException.class);
         }
     }
+
+
 }

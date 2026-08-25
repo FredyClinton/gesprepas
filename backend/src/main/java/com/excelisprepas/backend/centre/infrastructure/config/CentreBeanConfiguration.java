@@ -8,6 +8,7 @@ import com.excelisprepas.backend.centre.domain.service.CentreService;
 import com.excelisprepas.backend.formation.domain.port.out.FormationRepositoryPort;
 import com.excelisprepas.backend.personnel.domain.port.out.UtilisateurRepositoryPort;
 import com.excelisprepas.backend.salle.domain.port.out.SalleRepositoryPort;
+import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -20,9 +21,10 @@ public class CentreBeanConfiguration {
                                        ApprenantRepositoryPort apprenantRepository,
                                        SalleRepositoryPort salleRepository,
                                        AffectationRepositoryPort affectationRepository,
-                                       UtilisateurRepositoryPort utilisateurRepository) {
+                                       UtilisateurRepositoryPort utilisateurRepository,
+                                       SessionAcademiqueRepositoryPort sessionRepository) {
         return new CentreService(centreRepository, formationRepository, apprenantRepository,
-                salleRepository, affectationRepository, utilisateurRepository);
+                salleRepository, affectationRepository, utilisateurRepository, sessionRepository);
     }
 
     @Bean
@@ -62,6 +64,11 @@ public class CentreBeanConfiguration {
 
     @Bean
     public SupprimerCentreUseCase supprimerCentreUseCase(CentreService centreService) {
+        return centreService;
+    }
+
+    @Bean
+    public RejoindreSessionUseCase rejoindreSessionUseCase(CentreService centreService) {
         return centreService;
     }
 }
