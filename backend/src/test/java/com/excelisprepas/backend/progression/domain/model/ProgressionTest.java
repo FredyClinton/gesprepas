@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ProgressionTest {
 
     private final UUID formationId = UUID.randomUUID();
+    private final UUID sessionId = UUID.randomUUID();
     private final UUID matiereId = UUID.randomUUID();
 
     @Test
@@ -21,12 +22,13 @@ class ProgressionTest {
         UUID id = UUID.randomUUID();
 
         // When
-        Progression progression = new Progression(id, formationId, matiereId, 1, 1,
+        Progression progression = new Progression(id, formationId, sessionId, matiereId, 1, 1,
                 "Algèbre linéaire", "Espaces vectoriels, applications linéaires", "Exercices 1 à 5");
 
         // Then
         assertThat(progression.getId()).isEqualTo(id);
         assertThat(progression.getFormationId()).isEqualTo(formationId);
+        assertThat(progression.getSessionId()).isEqualTo(sessionId);
         assertThat(progression.getMatiereId()).isEqualTo(matiereId);
         assertThat(progression.getSemaine()).isEqualTo(1);
         assertThat(progression.getNumeroCours()).isEqualTo(1);
@@ -39,7 +41,7 @@ class ProgressionTest {
     @DisplayName("accepte des exercices nuls (champ optionnel)")
     void accepteExercicesNuls() {
         // Given / When
-        Progression progression = new Progression(UUID.randomUUID(), formationId, matiereId, 1, 1,
+        Progression progression = new Progression(UUID.randomUUID(), formationId, sessionId, matiereId, 1, 1,
                 "Algèbre linéaire", "Espaces vectoriels", null);
 
         // Then
@@ -51,7 +53,18 @@ class ProgressionTest {
     void rejetteFormationIdNul() {
         // Given / When
         ThrowingCallable creation = () -> new Progression(
-                UUID.randomUUID(), null, matiereId, 1, 1, "Thème", "Contenu", null);
+                UUID.randomUUID(), null, sessionId, matiereId, 1, 1, "Thème", "Contenu", null);
+
+        // Then
+        assertThatThrownBy(creation).isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("rejette un sessionId nul")
+    void rejetteSessionIdNul() {
+        // Given / When
+        ThrowingCallable creation = () -> new Progression(
+                UUID.randomUUID(), formationId, null, matiereId, 1, 1, "Thème", "Contenu", null);
 
         // Then
         assertThatThrownBy(creation).isInstanceOf(NullPointerException.class);
@@ -62,7 +75,7 @@ class ProgressionTest {
     void rejetteMatiereIdNul() {
         // Given / When
         ThrowingCallable creation = () -> new Progression(
-                UUID.randomUUID(), formationId, null, 1, 1, "Thème", "Contenu", null);
+                UUID.randomUUID(), formationId, sessionId, null, 1, 1, "Thème", "Contenu", null);
 
         // Then
         assertThatThrownBy(creation).isInstanceOf(NullPointerException.class);
@@ -73,7 +86,7 @@ class ProgressionTest {
     void rejetteSemaineNegativeOuNulle() {
         // Given / When
         ThrowingCallable creation = () -> new Progression(
-                UUID.randomUUID(), formationId, matiereId, 0, 1, "Thème", "Contenu", null);
+                UUID.randomUUID(), formationId, sessionId, matiereId, 0, 1, "Thème", "Contenu", null);
 
         // Then
         assertThatThrownBy(creation).isInstanceOf(IllegalArgumentException.class);
@@ -84,7 +97,7 @@ class ProgressionTest {
     void rejetteNumeroCoursNegatifOuNul() {
         // Given / When
         ThrowingCallable creation = () -> new Progression(
-                UUID.randomUUID(), formationId, matiereId, 1, 0, "Thème", "Contenu", null);
+                UUID.randomUUID(), formationId, sessionId, matiereId, 1, 0, "Thème", "Contenu", null);
 
         // Then
         assertThatThrownBy(creation).isInstanceOf(IllegalArgumentException.class);
@@ -95,7 +108,7 @@ class ProgressionTest {
     void rejetteThemeVide() {
         // Given / When
         ThrowingCallable creation = () -> new Progression(
-                UUID.randomUUID(), formationId, matiereId, 1, 1, "  ", "Contenu", null);
+                UUID.randomUUID(), formationId, sessionId, matiereId, 1, 1, "  ", "Contenu", null);
 
         // Then
         assertThatThrownBy(creation).isInstanceOf(IllegalArgumentException.class);
@@ -106,7 +119,7 @@ class ProgressionTest {
     void rejetteContenuVide() {
         // Given / When
         ThrowingCallable creation = () -> new Progression(
-                UUID.randomUUID(), formationId, matiereId, 1, 1, "Thème", "  ", null);
+                UUID.randomUUID(), formationId, sessionId, matiereId, 1, 1, "Thème", "  ", null);
 
         // Then
         assertThatThrownBy(creation).isInstanceOf(IllegalArgumentException.class);
@@ -116,7 +129,7 @@ class ProgressionTest {
     @DisplayName("met à jour le contenu")
     void metAJourLeContenu() {
         // Given
-        Progression progression = new Progression(UUID.randomUUID(), formationId, matiereId, 1, 1,
+        Progression progression = new Progression(UUID.randomUUID(), formationId, sessionId, matiereId, 1, 1,
                 "Algèbre linéaire", "Espaces vectoriels", null);
 
         // When

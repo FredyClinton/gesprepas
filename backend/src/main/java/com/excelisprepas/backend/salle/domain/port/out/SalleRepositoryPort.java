@@ -18,4 +18,10 @@ public interface SalleRepositoryPort {
     boolean existsByCentreId(UUID centreId);
 
     boolean existsByFormationId(UUID formationId);
+
+    List<Salle> findByCentreId(UUID centreId);
+
+    List<Salle> findBySessionId(UUID sessionId);
+
+    List<Salle> findByCentreIdAndSessionId(UUID centreId, UUID sessionId);
 }

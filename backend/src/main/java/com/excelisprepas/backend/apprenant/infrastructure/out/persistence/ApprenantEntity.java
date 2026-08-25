@@ -43,6 +43,9 @@ public class ApprenantEntity {
     @Column(name = "centre_id", nullable = false)
     private UUID centreId; // référence brute — pas de @ManyToOne (bounded context séparé)
 
+    @Column(name = "session_id", nullable = false)
+    private UUID sessionId; // référence brute, dénormalisée depuis Formation, figée à l'inscription — module session
+
     @Column(name = "formation_id", nullable = false)
     private UUID formationId; // idem
 }

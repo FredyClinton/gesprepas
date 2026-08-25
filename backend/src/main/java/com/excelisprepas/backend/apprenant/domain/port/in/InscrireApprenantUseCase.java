@@ -9,5 +9,5 @@ import java.util.UUID;
 public interface InscrireApprenantUseCase {
     Apprenant inscrireApprenant(String nom, String prenom, LocalDate dateNaissance,
                                 LocalDate dateInscription, BigDecimal montantContrat,
-                                LocalDate dateDefinitionContrat, UUID centreId, UUID formationId);
+                                LocalDate dateDefinitionContrat, UUID centreId, UUID sessionId, UUID formationId);
 }

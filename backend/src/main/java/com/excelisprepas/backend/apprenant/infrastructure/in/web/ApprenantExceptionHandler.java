@@ -1,8 +1,6 @@
 package com.excelisprepas.backend.apprenant.infrastructure.in.web;
 
-import com.excelisprepas.backend.shared.exception.ApprenantIntrouvableException;
-import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
-import com.excelisprepas.backend.shared.exception.FormationIntrouvableException;
+import com.excelisprepas.backend.shared.exception.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -24,6 +22,21 @@ public class ApprenantExceptionHandler {
         return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
+    @ExceptionHandler(SessionIntrouvableException.class)
+    public ResponseEntity<Map<String, Object>> gererSessionIntrouvable(SessionIntrouvableException ex) {
+        return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(SessionNonUtilisableException.class)
+    public ResponseEntity<Map<String, Object>> gererSessionNonUtilisable(SessionNonUtilisableException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(FormationSessionIncoherenteException.class)
+    public ResponseEntity<Map<String, Object>> gererFormationSessionIncoherente(FormationSessionIncoherenteException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> gererArgumentInvalide(IllegalArgumentException ex) {
         return construireReponse(HttpStatus.BAD_REQUEST, ex.getMessage());
@@ -42,6 +55,4 @@ public class ApprenantExceptionHandler {
                 "message", message
         ));
     }
-
-
 }

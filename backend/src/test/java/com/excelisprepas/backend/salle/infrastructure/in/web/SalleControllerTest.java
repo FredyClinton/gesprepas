@@ -3,9 +3,7 @@ package com.excelisprepas.backend.salle.infrastructure.in.web;
 import com.excelisprepas.backend.salle.domain.exception.SalleUtiliseeException;
 import com.excelisprepas.backend.salle.domain.model.Salle;
 import com.excelisprepas.backend.salle.domain.port.in.*;
-import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
-import com.excelisprepas.backend.shared.exception.FormationIntrouvableException;
-import com.excelisprepas.backend.shared.exception.SalleIntrouvableException;
+import com.excelisprepas.backend.shared.exception.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class SalleControllerTest {
 
     private static final UUID CENTRE_ID = UUID.randomUUID();
+    private static final UUID SESSION_ID = UUID.randomUUID();
     private static final UUID FORMATION_ID = UUID.randomUUID();
 
     @Autowired
@@ -50,19 +49,20 @@ class SalleControllerTest {
                 {
                     "nom": "SALLE ING 1",
                     "centreId": "%s",
+                    "sessionId": "%s",
                     "formationId": "%s"
                 }
-                """.formatted(CENTRE_ID, FORMATION_ID);
+                """.formatted(CENTRE_ID, SESSION_ID, FORMATION_ID);
     }
 
     private Salle uneSalle() {
-        return new Salle(UUID.randomUUID(), "SALLE ING 1", CENTRE_ID, FORMATION_ID);
+        return new Salle(UUID.randomUUID(), "SALLE ING 1", CENTRE_ID, SESSION_ID, FORMATION_ID);
     }
 
     @Test
     @DisplayName("POST /api/salles avec des données valides retourne 201")
     void creerSalle_donneesValides_retourne201() throws Exception {
-        when(creerSalleUseCase.creerSalle(any(), any(), any())).thenReturn(uneSalle());
+        when(creerSalleUseCase.creerSalle(any(), any(), any(), any())).thenReturn(uneSalle());
 
         mockMvc.perform(post("/api/salles")
                         .contentType("application/json")
@@ -80,16 +80,17 @@ class SalleControllerTest {
                                 {
                                     "nom": "",
                                     "centreId": "%s",
+                                    "sessionId": "%s",
                                     "formationId": "%s"
                                 }
-                                """.formatted(CENTRE_ID, FORMATION_ID)))
+                                """.formatted(CENTRE_ID, SESSION_ID, FORMATION_ID)))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     @DisplayName("POST /api/salles avec un centre inexistant retourne 404")
     void creerSalle_centreInexistant_retourne404() throws Exception {
-        when(creerSalleUseCase.creerSalle(any(), any(), any()))
+        when(creerSalleUseCase.creerSalle(any(), any(), any(), any()))
                 .thenThrow(new CentreIntrouvableException(CENTRE_ID));
 
         mockMvc.perform(post("/api/salles")
@@ -101,13 +102,37 @@ class SalleControllerTest {
     @Test
     @DisplayName("POST /api/salles avec une formation inexistante retourne 404")
     void creerSalle_formationInexistante_retourne404() throws Exception {
-        when(creerSalleUseCase.creerSalle(any(), any(), any()))
+        when(creerSalleUseCase.creerSalle(any(), any(), any(), any()))
                 .thenThrow(new FormationIntrouvableException(FORMATION_ID));
 
         mockMvc.perform(post("/api/salles")
                         .contentType("application/json")
                         .content(jsonRequest()))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("POST /api/salles avec une session clôturée retourne 409")
+    void creerSalle_sessionCloturee_retourne409() throws Exception {
+        when(creerSalleUseCase.creerSalle(any(), any(), any(), any()))
+                .thenThrow(new SessionNonUtilisableException(SESSION_ID));
+
+        mockMvc.perform(post("/api/salles")
+                        .contentType("application/json")
+                        .content(jsonRequest()))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("POST /api/salles avec une session incohérente avec la formation retourne 409")
+    void creerSalle_sessionIncoherente_retourne409() throws Exception {
+        when(creerSalleUseCase.creerSalle(any(), any(), any(), any()))
+                .thenThrow(new FormationSessionIncoherenteException(FORMATION_ID, SESSION_ID));
+
+        mockMvc.perform(post("/api/salles")
+                        .contentType("application/json")
+                        .content(jsonRequest()))
+                .andExpect(status().isConflict());
     }
 
     @Test
@@ -132,13 +157,23 @@ class SalleControllerTest {
     }
 
     @Test
-    @DisplayName("GET /api/salles retourne la liste")
-    void listerSalles_retourneLaListe() throws Exception {
-        when(listerSallesUseCase.listerSalles()).thenReturn(List.of(uneSalle(), uneSalle()));
+    @DisplayName("GET /api/salles sans filtre retourne la liste complète")
+    void listerSalles_sansFiltre_retourneLaListe() throws Exception {
+        when(listerSallesUseCase.listerSalles(null, null)).thenReturn(List.of(uneSalle(), uneSalle()));
 
         mockMvc.perform(get("/api/salles"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
+    @DisplayName("GET /api/salles?centreId= filtre par centre")
+    void listerSalles_avecCentreId_filtreParCentre() throws Exception {
+        when(listerSallesUseCase.listerSalles(CENTRE_ID, null)).thenReturn(List.of(uneSalle()));
+
+        mockMvc.perform(get("/api/salles").param("centreId", CENTRE_ID.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
     }
 
     @Test
@@ -163,7 +198,7 @@ class SalleControllerTest {
     @DisplayName("PATCH /api/salles/{id}/reaffecter-formation retourne 200")
     void reaffecterFormation_retourne200() throws Exception {
         UUID nouvelleFormationId = UUID.randomUUID();
-        Salle salle = new Salle(UUID.randomUUID(), "SALLE ING 1", CENTRE_ID, nouvelleFormationId);
+        Salle salle = new Salle(UUID.randomUUID(), "SALLE ING 1", CENTRE_ID, SESSION_ID, nouvelleFormationId);
         when(reaffecterFormationUseCase.reaffecterFormation(any(UUID.class), any(UUID.class))).thenReturn(salle);
 
         mockMvc.perform(patch("/api/salles/" + salle.getId() + "/reaffecter-formation")
@@ -175,6 +210,24 @@ class SalleControllerTest {
                                 """.formatted(nouvelleFormationId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.formationId").value(nouvelleFormationId.toString()));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/salles/{id}/reaffecter-formation avec formation d'une autre session retourne 409")
+    void reaffecterFormation_sessionIncoherente_retourne409() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID nouvelleFormationId = UUID.randomUUID();
+        when(reaffecterFormationUseCase.reaffecterFormation(any(UUID.class), any(UUID.class)))
+                .thenThrow(new FormationSessionIncoherenteException(nouvelleFormationId, SESSION_ID));
+
+        mockMvc.perform(patch("/api/salles/" + id + "/reaffecter-formation")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                    "formationId": "%s"
+                                }
+                                """.formatted(nouvelleFormationId)))
+                .andExpect(status().isConflict());
     }
 
     @Test

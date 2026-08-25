@@ -6,14 +6,6 @@ import com.excelisprepas.backend.salle.infrastructure.in.web.dto.CreerSalleReque
 import com.excelisprepas.backend.salle.infrastructure.in.web.dto.ReaffecterFormationRequest;
 import com.excelisprepas.backend.salle.infrastructure.in.web.dto.RenommerSalleRequest;
 import com.excelisprepas.backend.salle.infrastructure.in.web.dto.SalleResponse;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.ArraySchema;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,7 +14,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
-@Tag(name = "Salles", description = "Gestion des salles d'un centre et de leur affectation à une formation")
 @RestController
 @RequestMapping("/api/salles")
 public class SalleController {
@@ -49,84 +40,47 @@ public class SalleController {
     }
 
     private static SalleResponse versReponse(Salle salle) {
-        return new SalleResponse(salle.getId(), salle.getNom(), salle.getCentreId(), salle.getFormationId());
+        return new SalleResponse(salle.getId(), salle.getNom(), salle.getCentreId(),
+                salle.getSessionId(), salle.getFormationId());
     }
 
-    @Operation(summary = "Créer une salle", description = "Crée une nouvelle salle rattachée à un centre et, optionnellement, une formation.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Salle créée",
-                    content = @Content(schema = @Schema(implementation = SalleResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Centre ou formation introuvable", content = @Content)
-    })
     @PostMapping
     public ResponseEntity<SalleResponse> creerSalle(@Valid @RequestBody CreerSalleRequest request) {
-        Salle salle = creerSalleUseCase.creerSalle(request.nom(), request.centreId(), request.formationId());
+        Salle salle = creerSalleUseCase.creerSalle(
+                request.nom(), request.centreId(), request.sessionId(), request.formationId());
         return ResponseEntity.status(HttpStatus.CREATED).body(versReponse(salle));
     }
 
-    @Operation(summary = "Récupérer une salle", description = "Retourne une salle par son identifiant.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Salle trouvée",
-                    content = @Content(schema = @Schema(implementation = SalleResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Salle introuvable", content = @Content)
-    })
     @GetMapping("/{id}")
-    public ResponseEntity<SalleResponse> recupererSalle(
-            @Parameter(description = "Identifiant de la salle") @PathVariable UUID id) {
+    public ResponseEntity<SalleResponse> recupererSalle(@PathVariable UUID id) {
         return ResponseEntity.ok(versReponse(recupererSalleUseCase.recupererSalle(id)));
     }
 
-    @Operation(summary = "Lister les salles", description = "Retourne la liste complète des salles.")
-    @ApiResponse(responseCode = "200", description = "Liste des salles",
-            content = @Content(array = @ArraySchema(schema = @Schema(implementation = SalleResponse.class))))
     @GetMapping
-    public ResponseEntity<List<SalleResponse>> listerSalles() {
-        List<SalleResponse> reponses = listerSallesUseCase.listerSalles().stream()
+    public ResponseEntity<List<SalleResponse>> listerSalles(
+            @RequestParam(required = false) UUID centreId,
+            @RequestParam(required = false) UUID sessionId) {
+        List<SalleResponse> reponses = listerSallesUseCase.listerSalles(centreId, sessionId).stream()
                 .map(SalleController::versReponse)
                 .toList();
         return ResponseEntity.ok(reponses);
     }
 
-    @Operation(summary = "Renommer une salle", description = "Change le nom de la salle.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Salle renommée",
-                    content = @Content(schema = @Schema(implementation = SalleResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Salle introuvable", content = @Content)
-    })
     @PatchMapping("/{id}/renommer")
-    public ResponseEntity<SalleResponse> renommerSalle(
-            @Parameter(description = "Identifiant de la salle") @PathVariable UUID id,
-            @Valid @RequestBody RenommerSalleRequest request) {
+    public ResponseEntity<SalleResponse> renommerSalle(@PathVariable UUID id,
+                                                       @Valid @RequestBody RenommerSalleRequest request) {
         return ResponseEntity.ok(versReponse(renommerSalleUseCase.renommerSalle(id, request.nom())));
     }
 
-    @Operation(summary = "Réaffecter une salle à une autre formation",
-            description = "Change la formation à laquelle la salle est rattachée.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Salle réaffectée",
-                    content = @Content(schema = @Schema(implementation = SalleResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Salle ou formation introuvable", content = @Content)
-    })
     @PatchMapping("/{id}/reaffecter-formation")
     public ResponseEntity<SalleResponse> reaffecterFormation(
-            @Parameter(description = "Identifiant de la salle") @PathVariable UUID id,
-            @Valid @RequestBody ReaffecterFormationRequest request) {
+            @PathVariable UUID id, @Valid @RequestBody ReaffecterFormationRequest request) {
         Salle salle = reaffecterFormationUseCase.reaffecterFormation(id, request.formationId());
         return ResponseEntity.ok(versReponse(salle));
     }
 
-    @Operation(summary = "Supprimer une salle", description = "Supprime définitivement une salle.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Salle supprimée", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Salle introuvable", content = @Content),
-            @ApiResponse(responseCode = "409", description = "Salle encore référencée par des affectations", content = @Content)
-    })
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> supprimerSalle(
-            @Parameter(description = "Identifiant de la salle") @PathVariable UUID id) {
+    public ResponseEntity<Void> supprimerSalle(@PathVariable UUID id) {
         supprimerSalleUseCase.supprimerSalle(id);
         return ResponseEntity.noContent().build();
     }

@@ -74,7 +74,7 @@ class AffectationServiceTest {
         when(formationRepository.findById(formationId)).thenReturn(Optional.of(
                 new Formation(formationId, "Ingénieurs", centreId, sessionId)));
         when(salleRepository.findById(salleId)).thenReturn(Optional.of(
-                new Salle(salleId, "SALLE ING 1", centreId, formationId)));
+                new Salle(salleId, "SALLE ING 1", centreId, sessionId, formationId)));
         when(matiereRepository.findById(matiereId)).thenReturn(Optional.of(
                 new Matiere(matiereId, "Mathématiques")));
         when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(
@@ -175,7 +175,7 @@ class AffectationServiceTest {
         when(formationRepository.findById(formationId)).thenReturn(Optional.of(
                 new Formation(formationId, "Ingénieurs", centreId, sessionId)));
         when(salleRepository.findById(salleId)).thenReturn(Optional.of(
-                new Salle(salleId, "SALLE ING 1", centreId, formationId)));
+                new Salle(salleId, "SALLE ING 1", centreId, sessionId, formationId)));
         when(matiereRepository.findById(matiereId)).thenReturn(Optional.empty());
 
         // When
@@ -195,7 +195,7 @@ class AffectationServiceTest {
         when(formationRepository.findById(formationId)).thenReturn(Optional.of(
                 new Formation(formationId, "Ingénieurs", centreId, sessionId)));
         when(salleRepository.findById(salleId)).thenReturn(Optional.of(
-                new Salle(salleId, "SALLE ING 1", centreId, formationId)));
+                new Salle(salleId, "SALLE ING 1", centreId, sessionId, formationId)));
         when(matiereRepository.findById(matiereId)).thenReturn(Optional.of(
                 new Matiere(matiereId, "Mathématiques")));
         when(sessionRepository.findById(sessionId)).thenReturn(Optional.empty());
@@ -217,7 +217,7 @@ class AffectationServiceTest {
         when(formationRepository.findById(formationId)).thenReturn(Optional.of(
                 new Formation(formationId, "Ingénieurs", centreId, sessionId)));
         when(salleRepository.findById(salleId)).thenReturn(Optional.of(
-                new Salle(salleId, "SALLE ING 1", centreId, formationId)));
+                new Salle(salleId, "SALLE ING 1", centreId, sessionId, formationId)));
         when(matiereRepository.findById(matiereId)).thenReturn(Optional.of(
                 new Matiere(matiereId, "Mathématiques")));
         when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(
@@ -242,7 +242,7 @@ class AffectationServiceTest {
         when(formationRepository.findById(formationId)).thenReturn(Optional.of(
                 new Formation(formationId, "Ingénieurs", centreId, sessionId))); // formation liée à `sessionId`
         when(salleRepository.findById(salleId)).thenReturn(Optional.of(
-                new Salle(salleId, "SALLE ING 1", centreId, formationId)));
+                new Salle(salleId, "SALLE ING 1", centreId, sessionId, formationId)));
         when(matiereRepository.findById(matiereId)).thenReturn(Optional.of(
                 new Matiere(matiereId, "Mathématiques")));
         when(sessionRepository.findById(autreSessionId)).thenReturn(Optional.of(

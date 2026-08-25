@@ -5,6 +5,7 @@ import com.excelisprepas.backend.apprenant.domain.port.out.ApprenantRepositoryPo
 import com.excelisprepas.backend.apprenant.domain.service.ApprenantService;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
 import com.excelisprepas.backend.formation.domain.port.out.FormationRepositoryPort;
+import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,8 +15,9 @@ public class ApprenantBeanConfiguration {
     @Bean
     public ApprenantService apprenantService(ApprenantRepositoryPort apprenantRepository,
                                              CentreRepositoryPort centreRepository,
-                                             FormationRepositoryPort formationRepository) {
-        return new ApprenantService(apprenantRepository, centreRepository, formationRepository);
+                                             FormationRepositoryPort formationRepository,
+                                             SessionAcademiqueRepositoryPort sessionRepository) {
+        return new ApprenantService(apprenantRepository, centreRepository, formationRepository, sessionRepository);
     }
 
     @Bean

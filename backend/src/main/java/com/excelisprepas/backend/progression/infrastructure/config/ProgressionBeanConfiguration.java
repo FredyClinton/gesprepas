@@ -5,6 +5,7 @@ import com.excelisprepas.backend.matiere.domain.port.out.MatiereRepositoryPort;
 import com.excelisprepas.backend.progression.domain.port.in.*;
 import com.excelisprepas.backend.progression.domain.port.out.ProgressionRepositoryPort;
 import com.excelisprepas.backend.progression.domain.service.ProgressionService;
+import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,8 +15,9 @@ public class ProgressionBeanConfiguration {
     @Bean
     public ProgressionService progressionService(ProgressionRepositoryPort progressionRepository,
                                                  FormationRepositoryPort formationRepository,
-                                                 MatiereRepositoryPort matiereRepository) {
-        return new ProgressionService(progressionRepository, formationRepository, matiereRepository);
+                                                 MatiereRepositoryPort matiereRepository,
+                                                 SessionAcademiqueRepositoryPort sessionRepository) {
+        return new ProgressionService(progressionRepository, formationRepository, matiereRepository, sessionRepository);
     }
 
     @Bean

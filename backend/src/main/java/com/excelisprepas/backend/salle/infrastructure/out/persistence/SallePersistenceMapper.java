@@ -12,12 +12,14 @@ public interface SallePersistenceMapper {
         entite.setId(domaine.getId());
         entite.setNom(domaine.getNom());
         entite.setCentreId(domaine.getCentreId());
+        entite.setSessionId(domaine.getSessionId());
         entite.setFormationId(domaine.getFormationId());
         return entite;
     }
 
     default Salle toDomain(SalleEntity entite) {
         if (entite == null) return null;
-        return new Salle(entite.getId(), entite.getNom(), entite.getCentreId(), entite.getFormationId());
+        return new Salle(entite.getId(), entite.getNom(), entite.getCentreId(),
+                entite.getSessionId(), entite.getFormationId());
     }
 }
