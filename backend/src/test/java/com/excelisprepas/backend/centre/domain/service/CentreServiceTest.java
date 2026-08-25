@@ -7,7 +7,7 @@ import com.excelisprepas.backend.centre.domain.model.Centre;
 import com.excelisprepas.backend.centre.domain.model.StatutCentre;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
 import com.excelisprepas.backend.formation.domain.port.out.FormationRepositoryPort;
-import com.excelisprepas.backend.personnel.domain.port.out.UtilisateurRepositoryPort;
+import com.excelisprepas.backend.rattachement.domain.port.out.RattachementCentreRepositoryPort;
 import com.excelisprepas.backend.salle.domain.port.out.SalleRepositoryPort;
 import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.model.StatutSession;
@@ -38,9 +38,9 @@ class CentreServiceTest {
     private ApprenantRepositoryPort apprenantRepository;
     private SalleRepositoryPort salleRepository;
     private AffectationRepositoryPort affectationRepository;
-    private UtilisateurRepositoryPort utilisateurRepository;
     private SessionAcademiqueRepositoryPort sessionRepository;
     private CentreService service;
+    private RattachementCentreRepositoryPort rattachementRepository;
 
     @BeforeEach
     void setUp() {
@@ -49,10 +49,10 @@ class CentreServiceTest {
         apprenantRepository = mock(ApprenantRepositoryPort.class);
         salleRepository = mock(SalleRepositoryPort.class);
         affectationRepository = mock(AffectationRepositoryPort.class);
-        utilisateurRepository = mock(UtilisateurRepositoryPort.class);
+        rattachementRepository = mock(RattachementCentreRepositoryPort.class);
         sessionRepository = mock(SessionAcademiqueRepositoryPort.class);
         service = new CentreService(centreRepository, formationRepository, apprenantRepository,
-                salleRepository, affectationRepository, utilisateurRepository, sessionRepository);
+                salleRepository, affectationRepository, rattachementRepository, sessionRepository);
     }
 
     private Centre unCentre() {
@@ -206,7 +206,7 @@ class CentreServiceTest {
             when(apprenantRepository.existsByCentreId(centre.getId())).thenReturn(false);
             when(salleRepository.existsByCentreId(centre.getId())).thenReturn(false);
             when(affectationRepository.existsByCentreId(centre.getId())).thenReturn(false);
-            when(utilisateurRepository.existsByCentreId(centre.getId())).thenReturn(false);
+            when(rattachementRepository.existsByCentreId(centre.getId())).thenReturn(false);
 
             // When
             service.supprimerCentre(centre.getId());
@@ -233,7 +233,7 @@ class CentreServiceTest {
 
         @Test
         @DisplayName("supprimerCentre() refuse si un Utilisateur référence encore le centre")
-        void supprimerCentreAvecUtilisateurRefuse() {
+        void supprimerCentreAvecRattachementRefuse() {
             // Given
             Centre centre = unCentre();
             when(centreRepository.findById(centre.getId())).thenReturn(Optional.of(centre));
@@ -241,7 +241,7 @@ class CentreServiceTest {
             when(apprenantRepository.existsByCentreId(centre.getId())).thenReturn(false);
             when(salleRepository.existsByCentreId(centre.getId())).thenReturn(false);
             when(affectationRepository.existsByCentreId(centre.getId())).thenReturn(false);
-            when(utilisateurRepository.existsByCentreId(centre.getId())).thenReturn(true);
+            when(rattachementRepository.existsByCentreId(centre.getId())).thenReturn(true);
 
             // When
             ThrowingCallable suppression = () -> service.supprimerCentre(centre.getId());

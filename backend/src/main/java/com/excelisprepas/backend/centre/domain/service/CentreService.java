@@ -8,7 +8,7 @@ import com.excelisprepas.backend.centre.domain.model.Centre;
 import com.excelisprepas.backend.centre.domain.port.in.*;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
 import com.excelisprepas.backend.formation.domain.port.out.FormationRepositoryPort;
-import com.excelisprepas.backend.personnel.domain.port.out.UtilisateurRepositoryPort;
+import com.excelisprepas.backend.rattachement.domain.port.out.RattachementCentreRepositoryPort;
 import com.excelisprepas.backend.salle.domain.port.out.SalleRepositoryPort;
 import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.model.StatutSession;
@@ -30,19 +30,20 @@ public class CentreService implements CreerCentreUseCase, RecupererCentreUseCase
     private final ApprenantRepositoryPort apprenantRepository;
     private final SalleRepositoryPort salleRepository;
     private final AffectationRepositoryPort affectationRepository;
-    private final UtilisateurRepositoryPort utilisateurRepository;
+    private final RattachementCentreRepositoryPort rattachementRepository;
     private final SessionAcademiqueRepositoryPort sessionRepository;
 
     public CentreService(CentreRepositoryPort centreRepository, FormationRepositoryPort formationRepository,
                          ApprenantRepositoryPort apprenantRepository, SalleRepositoryPort salleRepository,
-                         AffectationRepositoryPort affectationRepository, UtilisateurRepositoryPort utilisateurRepository,
+                         AffectationRepositoryPort affectationRepository,
+                         RattachementCentreRepositoryPort rattachementRepository,
                          SessionAcademiqueRepositoryPort sessionRepository) {
         this.centreRepository = centreRepository;
         this.formationRepository = formationRepository;
         this.apprenantRepository = apprenantRepository;
         this.salleRepository = salleRepository;
         this.affectationRepository = affectationRepository;
-        this.utilisateurRepository = utilisateurRepository;
+        this.rattachementRepository = rattachementRepository;
         this.sessionRepository = sessionRepository;
     }
 
@@ -94,7 +95,7 @@ public class CentreService implements CreerCentreUseCase, RecupererCentreUseCase
                 || apprenantRepository.existsByCentreId(id)
                 || salleRepository.existsByCentreId(id)
                 || affectationRepository.existsByCentreId(id)
-                || utilisateurRepository.existsByCentreId(id);
+                || rattachementRepository.existsByCentreId(id);
 
         if (referencerAilleurs) {
             throw new CentreUtiliseException(id);
