@@ -69,7 +69,7 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
 
     @Override
     public Entree saisirEntree(UUID sessionId, UUID motifId, BigDecimal montant, LocalDate date,
-                               UUID saisiParUtilisateurId, UUID centreId, UUID apprenantId) {
+                               UUID saisiParUtilisateurId, UUID centreId, UUID apprenantId, UUID dossierConcoursId) {
         verifierMotif(motifId, TypeMotif.ENTREE);
         verifierSessionUtilisable(sessionId);
         if (centreRepository.findById(centreId).isEmpty()) {
@@ -84,7 +84,7 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
         }
 
         Entree entree = new Entree(UUID.randomUUID(), sessionId, motifId, montant, date,
-                saisiParUtilisateurId, centreId, apprenantId, formationId);
+                saisiParUtilisateurId, centreId, apprenantId, formationId, dossierConcoursId);
         return entreeRepository.save(entree);
     }
 

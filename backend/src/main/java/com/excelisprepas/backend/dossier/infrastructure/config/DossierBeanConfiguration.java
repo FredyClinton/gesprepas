@@ -4,8 +4,11 @@ import com.excelisprepas.backend.apprenant.domain.port.out.ApprenantRepositoryPo
 import com.excelisprepas.backend.dossier.domain.port.in.*;
 import com.excelisprepas.backend.dossier.domain.port.out.*;
 import com.excelisprepas.backend.dossier.domain.service.ConcoursService;
+import com.excelisprepas.backend.dossier.domain.service.DossierFinancierService;
 import com.excelisprepas.backend.dossier.domain.service.DossierService;
 import com.excelisprepas.backend.dossier.domain.service.PieceRequiseService;
+import com.excelisprepas.backend.financier.domain.port.in.SaisirEntreeUseCase;
+import com.excelisprepas.backend.financier.domain.port.out.EntreeRepositoryPort;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -146,5 +149,30 @@ public class DossierBeanConfiguration {
     @Bean
     public CloturerDossierUseCase cloturerDossierUseCase(DossierService dossierService) {
         return dossierService;
+    }
+
+    @Bean
+    public DossierFinancierService dossierFinancierService(DossierConcoursRepositoryPort dossierConcoursRepository,
+                                                           DossierRepositoryPort dossierRepository,
+                                                           ConcoursRepositoryPort concoursRepository,
+                                                           SaisirEntreeUseCase saisirEntreeUseCase,
+                                                           EntreeRepositoryPort entreeRepository) {
+        return new DossierFinancierService(dossierConcoursRepository, dossierRepository, concoursRepository,
+                saisirEntreeUseCase, entreeRepository);
+    }
+
+    @Bean
+    public EnregistrerPaiementDossierUseCase enregistrerPaiementDossierUseCase(DossierFinancierService dossierFinancierService) {
+        return dossierFinancierService;
+    }
+
+    @Bean
+    public ConsulterSoldeDossierConcoursUseCase consulterSoldeDossierConcoursUseCase(DossierFinancierService dossierFinancierService) {
+        return dossierFinancierService;
+    }
+
+    @Bean
+    public ObtenirStatistiquesDossiersUseCase obtenirStatistiquesDossiersUseCase(DossierFinancierService dossierFinancierService) {
+        return dossierFinancierService;
     }
 }

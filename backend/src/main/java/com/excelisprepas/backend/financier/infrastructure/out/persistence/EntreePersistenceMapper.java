@@ -20,6 +20,7 @@ public interface EntreePersistenceMapper {
         entite.setApprenantId(domaine.getApprenantId().orElse(null));
         entite.setFormationId(domaine.getFormationId().orElse(null));
         entite.setBilanJournalierId(domaine.getBilanJournalierId().orElse(null));
+        entite.setDossierConcoursId(domaine.getDossierConcoursId().orElse(null));
         return entite;
     }
 
@@ -27,6 +28,6 @@ public interface EntreePersistenceMapper {
         if (entite == null) return null;
         return Entree.reconstituer(entite.getId(), entite.getSessionId(), entite.getMotifId(), entite.getMontant(),
                 entite.getDate(), entite.getSaisiParUtilisateurId(), entite.getStatut(), entite.getCentreId(),
-                entite.getApprenantId(), entite.getFormationId(), entite.getBilanJournalierId());
+                entite.getApprenantId(), entite.getFormationId(), entite.getBilanJournalierId(), entite.getDossierConcoursId());
     }
 }

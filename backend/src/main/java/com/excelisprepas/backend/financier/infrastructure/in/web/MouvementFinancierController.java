@@ -43,9 +43,19 @@ public class MouvementFinancierController {
     }
 
     private static EntreeResponse versReponse(Entree entree) {
-        return new EntreeResponse(entree.getId(), entree.getSessionId(), entree.getMotifId(), entree.getMontant(),
-                entree.getDate(), entree.getSaisiParUtilisateurId(), entree.getStatut(), entree.getCentreId(),
-                entree.getApprenantId().orElse(null), entree.getFormationId().orElse(null));
+        return new EntreeResponse(
+                entree.getId(),
+                entree.getSessionId(),
+                entree.getMotifId(),
+                entree.getMontant(),
+                entree.getDate(),
+                entree.getSaisiParUtilisateurId(),
+                entree.getStatut(),
+                entree.getCentreId(),
+                entree.getApprenantId().orElse(null),
+                entree.getFormationId().orElse(null),
+                entree.getDossierConcoursId().orElse(null)
+        );
     }
 
     private static SortieResponse versReponse(Sortie sortie) {
@@ -79,7 +89,7 @@ public class MouvementFinancierController {
     @PostMapping("/api/entrees")
     public ResponseEntity<EntreeResponse> saisirEntree(@Valid @RequestBody SaisirEntreeRequest request) {
         Entree entree = saisirEntreeUseCase.saisirEntree(request.sessionId(), request.motifId(), request.montant(),
-                request.date(), request.saisiParUtilisateurId(), request.centreId(), request.apprenantId());
+                request.date(), request.saisiParUtilisateurId(), request.centreId(), request.apprenantId(), null);
         return ResponseEntity.status(HttpStatus.CREATED).body(versReponse(entree));
     }
 

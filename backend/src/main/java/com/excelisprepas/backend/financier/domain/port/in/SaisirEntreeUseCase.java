@@ -8,5 +8,5 @@ import java.util.UUID;
 
 public interface SaisirEntreeUseCase {
     Entree saisirEntree(UUID sessionId, UUID motifId, BigDecimal montant, LocalDate date,
-                        UUID saisiParUtilisateurId, UUID centreId, UUID apprenantId);
+                        UUID saisiParUtilisateurId, UUID centreId, UUID apprenantId, UUID dossierConcoursId);
 }
