@@ -18,4 +18,12 @@ public interface EntreeRepositoryPort {
     List<Entree> findByCentreIdAndSessionIdAndDateAndStatut(UUID centreId, UUID sessionId, LocalDate date, StatutMouvement statut);
 
     List<Entree> findByBilanJournalierId(UUID bilanJournalierId);
+
+    List<Entree> findBySessionId(UUID sessionId);
+
+    List<Entree> findBySessionIdAndCentreId(UUID sessionId, UUID centreId);
+
+    List<Entree> findBySessionIdAndStatut(UUID sessionId, StatutMouvement statut);
+
+    List<Entree> findBySessionIdAndCentreIdAndStatut(UUID sessionId, UUID centreId, StatutMouvement statut);
 }

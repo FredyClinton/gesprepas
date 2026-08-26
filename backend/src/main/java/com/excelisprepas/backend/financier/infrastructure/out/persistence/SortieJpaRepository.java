@@ -9,4 +9,12 @@ import java.util.UUID;
 
 public interface SortieJpaRepository extends JpaRepository<SortieEntity, UUID> {
     List<SortieEntity> findByCentreIdAndSessionIdAndDateAndStatut(UUID centreId, UUID sessionId, LocalDate date, StatutMouvement statut);
+
+    List<SortieEntity> findBySessionId(UUID sessionId);
+
+    List<SortieEntity> findBySessionIdAndCentreId(UUID sessionId, UUID centreId);
+
+    List<SortieEntity> findBySessionIdAndStatut(UUID sessionId, StatutMouvement statut);
+
+    List<SortieEntity> findBySessionIdAndCentreIdAndStatut(UUID sessionId, UUID centreId, StatutMouvement statut);
 }

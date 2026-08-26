@@ -14,4 +14,12 @@ public interface EntreeJpaRepository extends JpaRepository<EntreeEntity, UUID> {
     List<EntreeEntity> findByCentreIdAndSessionIdAndDateAndStatut(UUID centreId, UUID sessionId, LocalDate date, StatutMouvement statut);
 
     List<EntreeEntity> findByBilanJournalierId(UUID bilanJournalierId);
+
+    List<EntreeEntity> findBySessionId(UUID sessionId);
+
+    List<EntreeEntity> findBySessionIdAndCentreId(UUID sessionId, UUID centreId);
+
+    List<EntreeEntity> findBySessionIdAndStatut(UUID sessionId, StatutMouvement statut);
+
+    List<EntreeEntity> findBySessionIdAndCentreIdAndStatut(UUID sessionId, UUID centreId, StatutMouvement statut);
 }

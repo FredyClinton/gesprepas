@@ -14,4 +14,12 @@ public interface SortieRepositoryPort {
     Optional<Sortie> findById(UUID id);
 
     List<Sortie> findByCentreIdAndSessionIdAndDateAndStatut(UUID centreId, UUID sessionId, LocalDate date, StatutMouvement statut);
+
+    List<Sortie> findBySessionId(UUID sessionId);
+
+    List<Sortie> findBySessionIdAndCentreId(UUID sessionId, UUID centreId);
+
+    List<Sortie> findBySessionIdAndStatut(UUID sessionId, StatutMouvement statut);
+
+    List<Sortie> findBySessionIdAndCentreIdAndStatut(UUID sessionId, UUID centreId, StatutMouvement statut);
 }

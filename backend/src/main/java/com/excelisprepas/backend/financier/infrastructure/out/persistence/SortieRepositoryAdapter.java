@@ -36,4 +36,28 @@ public class SortieRepositoryAdapter implements SortieRepositoryPort {
         return jpaRepository.findByCentreIdAndSessionIdAndDateAndStatut(centreId, sessionId, date, statut).stream()
                 .map(mapper::toDomain).toList();
     }
+
+    @Override
+    public List<Sortie> findBySessionId(UUID sessionId) {
+        return jpaRepository.findBySessionId(sessionId).stream()
+                .map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Sortie> findBySessionIdAndCentreId(UUID sessionId, UUID centreId) {
+        return jpaRepository.findBySessionIdAndCentreId(sessionId, centreId)
+                .stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Sortie> findBySessionIdAndStatut(UUID sessionId, StatutMouvement statut) {
+        return jpaRepository.findBySessionIdAndStatut(sessionId, statut)
+                .stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Sortie> findBySessionIdAndCentreIdAndStatut(UUID sessionId, UUID centreId, StatutMouvement statut) {
+        return jpaRepository.findBySessionIdAndCentreIdAndStatut(sessionId, centreId, statut)
+                .stream().map(mapper::toDomain).toList();
+    }
 }
