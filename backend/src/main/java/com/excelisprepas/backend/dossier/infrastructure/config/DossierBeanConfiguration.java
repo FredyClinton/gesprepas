@@ -1,10 +1,10 @@
 package com.excelisprepas.backend.dossier.infrastructure.config;
 
+import com.excelisprepas.backend.apprenant.domain.port.out.ApprenantRepositoryPort;
 import com.excelisprepas.backend.dossier.domain.port.in.*;
-import com.excelisprepas.backend.dossier.domain.port.out.ConcoursPieceRequiseRepositoryPort;
-import com.excelisprepas.backend.dossier.domain.port.out.ConcoursRepositoryPort;
-import com.excelisprepas.backend.dossier.domain.port.out.PieceRequiseRepositoryPort;
+import com.excelisprepas.backend.dossier.domain.port.out.*;
 import com.excelisprepas.backend.dossier.domain.service.ConcoursService;
+import com.excelisprepas.backend.dossier.domain.service.DossierService;
 import com.excelisprepas.backend.dossier.domain.service.PieceRequiseService;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import org.springframework.context.annotation.Bean;
@@ -79,5 +79,72 @@ public class DossierBeanConfiguration {
     @Bean
     public ListerPiecesDuConcoursUseCase listerPiecesDuConcoursUseCase(ConcoursService concoursService) {
         return concoursService;
+    }
+
+    @Bean
+    public DossierService dossierService(DossierRepositoryPort dossierRepository,
+                                         DossierConcoursRepositoryPort dossierConcoursRepository,
+                                         PieceDossierRepositoryPort pieceDossierRepository,
+                                         ApprenantRepositoryPort apprenantRepository,
+                                         ConcoursRepositoryPort concoursRepository,
+                                         ConcoursPieceRequiseRepositoryPort concoursPieceRequiseRepository,
+                                         PieceRequiseRepositoryPort pieceRequiseRepository) {
+        return new DossierService(dossierRepository, dossierConcoursRepository, pieceDossierRepository,
+                apprenantRepository, concoursRepository, concoursPieceRequiseRepository, pieceRequiseRepository);
+    }
+
+    @Bean
+    public OuvrirDossierUseCase ouvrirDossierUseCase(DossierService dossierService) {
+        return dossierService;
+    }
+
+    @Bean
+    public RecupererDossierUseCase recupererDossierUseCase(DossierService dossierService) {
+        return dossierService;
+    }
+
+    @Bean
+    public RecupererDossierParApprenantUseCase recupererDossierParApprenantUseCase(DossierService dossierService) {
+        return dossierService;
+    }
+
+    @Bean
+    public ModifierObservationUseCase modifierObservationUseCase(DossierService dossierService) {
+        return dossierService;
+    }
+
+    @Bean
+    public AjouterConcoursAuDossierUseCase ajouterConcoursAuDossierUseCase(DossierService dossierService) {
+        return dossierService;
+    }
+
+    @Bean
+    public AjouterPieceADossierConcoursUseCase ajouterPieceADossierConcoursUseCase(DossierService dossierService) {
+        return dossierService;
+    }
+
+    @Bean
+    public ListerDossierConcoursUseCase listerDossierConcoursUseCase(DossierService dossierService) {
+        return dossierService;
+    }
+
+    @Bean
+    public ListerPiecesDossierUseCase listerPiecesDossierUseCase(DossierService dossierService) {
+        return dossierService;
+    }
+
+    @Bean
+    public ValiderPieceDeposeeUseCase validerPieceDeposeeUseCase(DossierService dossierService) {
+        return dossierService;
+    }
+
+    @Bean
+    public SignalerDossierCompletUseCase signalerDossierCompletUseCase(DossierService dossierService) {
+        return dossierService;
+    }
+
+    @Bean
+    public CloturerDossierUseCase cloturerDossierUseCase(DossierService dossierService) {
+        return dossierService;
     }
 }
