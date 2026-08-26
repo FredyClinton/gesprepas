@@ -5,6 +5,7 @@ import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
 import com.excelisprepas.backend.financier.domain.port.in.*;
 import com.excelisprepas.backend.financier.domain.port.out.EntreeRepositoryPort;
 import com.excelisprepas.backend.financier.domain.port.out.MotifRepositoryPort;
+import com.excelisprepas.backend.financier.domain.port.out.MouvementFinancierRepositoryPort;
 import com.excelisprepas.backend.financier.domain.port.out.SortieRepositoryPort;
 import com.excelisprepas.backend.financier.domain.service.MotifService;
 import com.excelisprepas.backend.financier.domain.service.MouvementFinancierService;
@@ -51,11 +52,27 @@ public class FinancierBeanConfiguration {
                                                                MotifRepositoryPort motifRepository,
                                                                CentreRepositoryPort centreRepository,
                                                                ApprenantRepositoryPort apprenantRepository,
-                                                               SessionAcademiqueRepositoryPort sessionRepository) {
+                                                               SessionAcademiqueRepositoryPort sessionRepository,
+                                                               MouvementFinancierRepositoryPort mouvementRepository) {
         return new MouvementFinancierService(entreeRepository, sortieRepository, motifRepository,
-                centreRepository, apprenantRepository, sessionRepository);
+                centreRepository, apprenantRepository, sessionRepository, mouvementRepository);
     }
 
+
+    @Bean
+    public RecupererMouvementUseCase recupererMouvementUseCase(MouvementFinancierService mouvementFinancierService) {
+        return mouvementFinancierService;
+    }
+
+    @Bean
+    public ListerMouvementsUseCase listerMouvementsUseCase(MouvementFinancierService mouvementFinancierService) {
+        return mouvementFinancierService;
+    }
+
+    @Bean
+    public ListerVersementsApprenantUseCase listerVersementsApprenantUseCase(MouvementFinancierService mouvementFinancierService) {
+        return mouvementFinancierService;
+    }
     @Bean
     public SaisirEntreeUseCase saisirEntreeUseCase(MouvementFinancierService motifService) {
         return motifService;

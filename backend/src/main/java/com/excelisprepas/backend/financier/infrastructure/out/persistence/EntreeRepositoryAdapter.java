@@ -47,4 +47,25 @@ public class EntreeRepositoryAdapter implements EntreeRepositoryPort {
         return jpaRepository.findByBilanJournalierId(bilanJournalierId).stream()
                 .map(mapper::toDomain).toList();
     }
+
+    @Override
+    public List<Entree> findBySessionId(UUID sessionId) {
+        return jpaRepository.findBySessionId(sessionId).stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Entree> findBySessionIdAndCentreId(UUID sessionId, UUID centreId) {
+        return jpaRepository.findBySessionIdAndCentreId(sessionId, centreId).stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Entree> findBySessionIdAndStatut(UUID sessionId, StatutMouvement statut) {
+        return jpaRepository.findBySessionIdAndStatut(sessionId, statut).stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Entree> findBySessionIdAndCentreIdAndStatut(UUID sessionId, UUID centreId, StatutMouvement statut) {
+        return jpaRepository.findBySessionIdAndCentreIdAndStatut(sessionId, centreId, statut).stream()
+                .map(mapper::toDomain).toList();
+    }
 }
