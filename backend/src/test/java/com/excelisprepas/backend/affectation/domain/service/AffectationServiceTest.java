@@ -4,8 +4,11 @@ import com.excelisprepas.backend.affectation.domain.exception.EnseignantSuspendu
 import com.excelisprepas.backend.affectation.domain.model.Affectation;
 import com.excelisprepas.backend.affectation.domain.model.StatutAffectation;
 import com.excelisprepas.backend.affectation.domain.port.out.AffectationRepositoryPort;
+import com.excelisprepas.backend.affectationdepartementale.domain.port.out.AffectationDepartementaleRepositoryPort;
 import com.excelisprepas.backend.centre.domain.model.Centre;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
+import com.excelisprepas.backend.departement.domain.model.Departement;
+import com.excelisprepas.backend.departement.domain.port.out.DepartementRepositoryPort;
 import com.excelisprepas.backend.formation.domain.model.Formation;
 import com.excelisprepas.backend.formation.domain.port.out.FormationRepositoryPort;
 import com.excelisprepas.backend.matiere.domain.model.Matiere;
@@ -50,6 +53,8 @@ class AffectationServiceTest {
     private MatiereRepositoryPort matiereRepository;
     private EnseignantRepositoryPort enseignantRepository;
     private SessionAcademiqueRepositoryPort sessionRepository;
+    private DepartementRepositoryPort departementRepository;
+    private AffectationDepartementaleRepositoryPort rosterRepository;
     private AffectationService service;
 
     @BeforeEach
@@ -61,8 +66,11 @@ class AffectationServiceTest {
         matiereRepository = mock(MatiereRepositoryPort.class);
         enseignantRepository = mock(EnseignantRepositoryPort.class);
         sessionRepository = mock(SessionAcademiqueRepositoryPort.class);
+        departementRepository = mock(DepartementRepositoryPort.class);
+        rosterRepository = mock(AffectationDepartementaleRepositoryPort.class);
         service = new AffectationService(affectationRepository, centreRepository, formationRepository,
-                salleRepository, matiereRepository, enseignantRepository, sessionRepository);
+                salleRepository, matiereRepository, enseignantRepository, sessionRepository,
+                departementRepository, rosterRepository);
     }
 
     // La formation est toujours construite avec `sessionId` (le champ de classe) :
@@ -273,6 +281,49 @@ class AffectationServiceTest {
         verify(affectationRepository, never()).save(any(Affectation.class));
     }
 
+    @Test
+    @DisplayName("refuse si aucun département n'est rattaché à la matière du créneau")
+    void refuseSiAucunDepartementRattacheALaMatiere() {
+        // Given
+        Affectation affectation = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
+                salleId, matiereId, null, 1, 1, StatutAffectation.PLANIFIEE);
+        Enseignant enseignant = new Enseignant(UUID.randomUUID(), "Ossegue", "Jean", "MAT-001",
+                new BigDecimal("5000"));
+        when(affectationRepository.findById(affectation.getId())).thenReturn(Optional.of(affectation));
+        when(enseignantRepository.findById(enseignant.getId())).thenReturn(Optional.of(enseignant));
+        when(departementRepository.findByMatiereId(matiereId)).thenReturn(Optional.empty());
+
+        // When
+        ThrowingCallable assignation = () -> service.assignerEnseignant(affectation.getId(), enseignant.getId());
+
+        // Then
+        assertThatThrownBy(assignation).isInstanceOf(MatiereNonRattacheeDepartementException.class);
+        verify(affectationRepository, never()).save(any(Affectation.class));
+    }
+
+    @Test
+    @DisplayName("refuse si l'enseignant ne fait pas partie du roster du département pour cette session")
+    void refuseSiEnseignantNonDansLeRoster() {
+        // Given
+        Affectation affectation = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
+                salleId, matiereId, null, 1, 1, StatutAffectation.PLANIFIEE);
+        Enseignant enseignant = new Enseignant(UUID.randomUUID(), "Ossegue", "Jean", "MAT-001",
+                new BigDecimal("5000"));
+        Departement departement = new Departement(UUID.randomUUID(), "Sciences Physiques", matiereId);
+        when(affectationRepository.findById(affectation.getId())).thenReturn(Optional.of(affectation));
+        when(enseignantRepository.findById(enseignant.getId())).thenReturn(Optional.of(enseignant));
+        when(departementRepository.findByMatiereId(matiereId)).thenReturn(Optional.of(departement));
+        when(rosterRepository.existsByEnseignantIdAndSessionIdAndDepartementId(
+                enseignant.getId(), sessionId, departement.getId())).thenReturn(false);
+
+        // When
+        ThrowingCallable assignation = () -> service.assignerEnseignant(affectation.getId(), enseignant.getId());
+
+        // Then
+        assertThatThrownBy(assignation).isInstanceOf(EnseignantNonRattacheDepartementException.class);
+        verify(affectationRepository, never()).save(any(Affectation.class));
+    }
+
     @Nested
     @DisplayName("Assignation d'enseignant")
     class AssignationEnseignant {
@@ -285,6 +336,10 @@ class AffectationServiceTest {
                     salleId, matiereId, null, 1, 1, StatutAffectation.PLANIFIEE);
             Enseignant enseignant = new Enseignant(UUID.randomUUID(), "Ossegue", "Jean", "MAT-001",
                     new BigDecimal("5000"));
+            Departement departement = new Departement(UUID.randomUUID(), "Sciences Physiques", matiereId);
+            when(departementRepository.findByMatiereId(matiereId)).thenReturn(Optional.of(departement));
+            when(rosterRepository.existsByEnseignantIdAndSessionIdAndDepartementId(
+                    enseignant.getId(), affectation.getSessionId(), departement.getId())).thenReturn(true);
             when(affectationRepository.findById(affectation.getId())).thenReturn(Optional.of(affectation));
             when(enseignantRepository.findById(enseignant.getId())).thenReturn(Optional.of(enseignant));
             when(affectationRepository.save(any(Affectation.class))).thenAnswer(invocation -> invocation.getArgument(0));
