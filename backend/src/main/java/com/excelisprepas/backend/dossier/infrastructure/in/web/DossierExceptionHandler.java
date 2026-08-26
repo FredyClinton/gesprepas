@@ -57,6 +57,66 @@ public class DossierExceptionHandler {
         return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
+    @ExceptionHandler(DossierDejaExistantException.class)
+    public ResponseEntity<Map<String, Object>> gererDossierDejaExistant(DossierDejaExistantException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(DossierIntrouvableException.class)
+    public ResponseEntity<Map<String, Object>> gererDossierIntrouvable(DossierIntrouvableException ex) {
+        return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(DossierIntrouvablePourApprenantException.class)
+    public ResponseEntity<Map<String, Object>> gererDossierIntrouvablePourApprenant(DossierIntrouvablePourApprenantException ex) {
+        return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(DossierNonOuvertException.class)
+    public ResponseEntity<Map<String, Object>> gererDossierNonOuvert(DossierNonOuvertException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(DossierClotureException.class)
+    public ResponseEntity<Map<String, Object>> gererDossierCloture(DossierClotureException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(DossierSansConcoursException.class)
+    public ResponseEntity<Map<String, Object>> gererDossierSansConcours(DossierSansConcoursException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(PiecesNonToutesValideesException.class)
+    public ResponseEntity<Map<String, Object>> gererPiecesNonToutesValidees(PiecesNonToutesValideesException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(ConcoursDateLimiteDepasseeException.class)
+    public ResponseEntity<Map<String, Object>> gererConcoursDateLimiteDepassee(ConcoursDateLimiteDepasseeException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(ConcoursDejaAjouteAuDossierException.class)
+    public ResponseEntity<Map<String, Object>> gererConcoursDejaAjoute(ConcoursDejaAjouteAuDossierException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(DossierConcoursIntrouvableException.class)
+    public ResponseEntity<Map<String, Object>> gererDossierConcoursIntrouvable(DossierConcoursIntrouvableException ex) {
+        return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(PieceDossierIntrouvableException.class)
+    public ResponseEntity<Map<String, Object>> gererPieceDossierIntrouvable(PieceDossierIntrouvableException ex) {
+        return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(ApprenantIntrouvableException.class)
+    public ResponseEntity<Map<String, Object>> gererApprenantIntrouvable(ApprenantIntrouvableException ex) {
+        return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
     private ResponseEntity<Map<String, Object>> construireReponse(HttpStatus statut, String message) {
         return ResponseEntity.status(statut).body(Map.of(
                 "timestamp", Instant.now().toString(),
