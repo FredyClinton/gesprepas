@@ -34,7 +34,7 @@ class MouvementFinancierRepositoryAdapterTest extends AbstractIntegrationTest {
     @DisplayName("findById() sur une Entree la retrouve correctement typée")
     void findByIdSurUneEntreeLaRetrouve() {
         Entree entree = new Entree(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("45000"),
-                LocalDate.of(2026, 9, 15), UUID.randomUUID(), UUID.randomUUID(), null, null);
+                LocalDate.of(2026, 9, 15), UUID.randomUUID(), UUID.randomUUID(), null, null, null);
         adapter.save(entree);
 
         Optional<MouvementFinancier> retrouve = adapter.findById(entree.getId());
@@ -62,7 +62,7 @@ class MouvementFinancierRepositoryAdapterTest extends AbstractIntegrationTest {
     @DisplayName("save() persiste le changement de statut sur un mouvement générique")
     void savePersisteLeChangementDeStatut() {
         Entree entree = new Entree(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("45000"),
-                LocalDate.of(2026, 9, 15), UUID.randomUUID(), UUID.randomUUID(), null, null);
+                LocalDate.of(2026, 9, 15), UUID.randomUUID(), UUID.randomUUID(), null, null, null);
         adapter.save(entree);
 
         entree.appliquerDecision(com.excelisprepas.backend.financier.domain.model.StatutMouvement.VALIDE);

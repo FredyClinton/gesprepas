@@ -1,4 +1,3 @@
-// dossier/infrastructure/out/persistence/DossierRepositoryAdapter.java
 package com.excelisprepas.backend.dossier.infrastructure.out.persistence;
 
 import com.excelisprepas.backend.dossier.domain.model.Dossier;

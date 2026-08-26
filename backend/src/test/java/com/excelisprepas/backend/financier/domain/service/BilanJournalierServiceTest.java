@@ -74,7 +74,7 @@ class BilanJournalierServiceTest {
 
     private Entree uneEntreeValidee(BigDecimal montant, UUID formationId) {
         Entree entree = new Entree(UUID.randomUUID(), sessionId, motifId, montant, date,
-                saisiParUtilisateurId, centreId, null, formationId);
+                saisiParUtilisateurId, centreId, null, formationId, null);
         entree.appliquerDecision(StatutMouvement.VALIDE);
         return entree;
     }
