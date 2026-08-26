@@ -26,4 +26,6 @@ public interface EntreeRepositoryPort {
     List<Entree> findBySessionIdAndStatut(UUID sessionId, StatutMouvement statut);
 
     List<Entree> findBySessionIdAndCentreIdAndStatut(UUID sessionId, UUID centreId, StatutMouvement statut);
+
+    List<Entree> findByDossierConcoursId(UUID dossierConcoursId);
 }

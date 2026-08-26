@@ -8,6 +8,7 @@ import java.util.UUID;
 
 public record EntreeResponse(
         UUID id, UUID sessionId, UUID motifId, BigDecimal montant, LocalDate date,
-        UUID saisiParUtilisateurId, StatutMouvement statut, UUID centreId, UUID apprenantId, UUID formationId
+        UUID saisiParUtilisateurId, StatutMouvement statut, UUID centreId, UUID apprenantId, UUID formationId,
+        UUID dossierConcoursId
 ) {
 }

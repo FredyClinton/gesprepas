@@ -24,4 +24,6 @@ public class EntreeEntity extends MouvementFinancierEntity {
 
     @Column(name = "formation_id")
     private UUID formationId;
+    @Column(name = "dossier_concours_id")
+    private UUID dossierConcoursId;
 }
