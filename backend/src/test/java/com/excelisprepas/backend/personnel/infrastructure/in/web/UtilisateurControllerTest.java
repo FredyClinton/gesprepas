@@ -67,7 +67,7 @@ class UtilisateurControllerTest {
                                     "nom": "Bougang",
                                     "prenom": "Pascal",
                                     "email": "pascal@excelis.cm",
-                                    "motDePasseClair": "motDePasse123",
+                                    "password": "motDePasse123",
                                     "role": "CAISSIER"
                                 }
                                 """))
@@ -90,7 +90,7 @@ class UtilisateurControllerTest {
                                     "nom": "Bougang",
                                     "prenom": "Pascal",
                                     "email": "pascal@excelis.cm",
-                                    "motDePasseClair": "motDePasse123",
+                                    "password": "motDePasse123",
                                     "role": "CAISSIER"
                                 }
                                 """))
@@ -185,7 +185,7 @@ class UtilisateurControllerTest {
                         .contentType("application/json")
                         .content("""
                                 {
-                                    "motDePasseClair": "nouveauMotDePasse123"
+                                    "password": "nouveauMotDePasse123"
                                 }
                                 """))
                 .andExpect(status().isNoContent());

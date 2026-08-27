@@ -8,7 +8,7 @@ public record CreerUtilisateurRequest(
         @NotBlank(message = "Le nom est obligatoire") String nom,
         @NotBlank(message = "Le prénom est obligatoire") String prenom,
         @NotBlank(message = "L'email est obligatoire") String email,
-        @NotBlank(message = "Le mot de passe est obligatoire") String motDePasseClair,
+        @NotBlank(message = "Le mot de passe est obligatoire") String password,
         @NotNull(message = "Le rôle est obligatoire") RoleUtilisateur role
 ) {
 }
