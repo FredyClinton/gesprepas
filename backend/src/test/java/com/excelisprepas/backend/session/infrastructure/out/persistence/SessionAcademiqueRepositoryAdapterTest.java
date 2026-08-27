@@ -2,6 +2,7 @@ package com.excelisprepas.backend.session.infrastructure.out.persistence;
 
 
 import com.excelisprepas.backend.session.domain.model.SessionAcademique;
+import com.excelisprepas.backend.session.domain.model.StatutSession;
 import com.excelisprepas.backend.shared.AbstractIntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -77,5 +78,37 @@ class SessionAcademiqueRepositoryAdapterTest extends AbstractIntegrationTest {
         adapter.deleteById(session.getId());
 
         assertThat(adapter.findById(session.getId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findEnCours() retourne la session dont le statut est EN_COURS")
+    void findEnCoursRetourneLaSessionEnCours() {
+        // Given
+        SessionAcademique session = SessionAcademique.reconstituer(UUID.randomUUID(), "2028-2029",
+                LocalDate.of(2028, 9, 1), LocalDate.of(2029, 7, 31), StatutSession.EN_COURS);
+        adapter.save(session);
+
+        // When
+        Optional<SessionAcademique> retrouve = adapter.findEnCours();
+
+        // Then
+        assertThat(retrouve).isPresent();
+        assertThat(retrouve.get().getId()).isEqualTo(session.getId());
+        assertThat(retrouve.get().getStatut()).isEqualTo(StatutSession.EN_COURS);
+    }
+
+    @Test
+    @DisplayName("findEnCours() retourne Optional vide si aucune session n'est EN_COURS")
+    void findEnCoursAucuneEnCoursRetourneVide() {
+        // Given
+        SessionAcademique session = new SessionAcademique(UUID.randomUUID(), "2029-2030",
+                LocalDate.of(2029, 9, 1), LocalDate.of(2030, 7, 31));
+        adapter.save(session);
+
+        // When
+        Optional<SessionAcademique> retrouve = adapter.findEnCours();
+
+        // Then
+        assertThat(retrouve).isEmpty();
     }
 }

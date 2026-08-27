@@ -2,6 +2,7 @@ package com.excelisprepas.backend.session.infrastructure.out.persistence;
 
 
 import com.excelisprepas.backend.session.domain.model.SessionAcademique;
+import com.excelisprepas.backend.session.domain.model.StatutSession;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import org.springframework.stereotype.Component;
 
@@ -38,5 +39,10 @@ public class SessionAcademiqueRepositoryAdapter implements SessionAcademiqueRepo
     @Override
     public void deleteById(UUID id) {
         jpaRepository.deleteById(id);
+    }
+
+    @Override
+    public Optional<SessionAcademique> findEnCours() {
+        return jpaRepository.findByStatut(StatutSession.EN_COURS).map(mapper::toDomain);
     }
 }
