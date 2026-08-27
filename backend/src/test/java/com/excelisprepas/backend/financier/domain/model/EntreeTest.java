@@ -28,7 +28,7 @@ class EntreeTest {
 
         // When
         Entree entree = new Entree(id, sessionId, motifId, new BigDecimal("45000"), LocalDate.of(2026, 9, 15),
-                saisiParUtilisateurId, centreId, apprenantId, formationId);
+                saisiParUtilisateurId, centreId, apprenantId, formationId, null);
 
         // Then
         assertThat(entree.getId()).isEqualTo(id);
@@ -44,7 +44,7 @@ class EntreeTest {
     @DisplayName("accepte apprenantId et formationId nuls (recette générale)")
     void accepteApprenantEtFormationNuls() {
         Entree entree = new Entree(UUID.randomUUID(), sessionId, motifId, new BigDecimal("300000"),
-                LocalDate.of(2026, 9, 15), saisiParUtilisateurId, centreId, null, null);
+                LocalDate.of(2026, 9, 15), saisiParUtilisateurId, centreId, null, null, null);
 
         assertThat(entree.getApprenantId()).isEmpty();
         assertThat(entree.getFormationId()).isEmpty();
@@ -54,7 +54,7 @@ class EntreeTest {
     @DisplayName("rejette un centreId nul")
     void rejetteCentreIdNul() {
         ThrowingCallable creation = () -> new Entree(UUID.randomUUID(), sessionId, motifId, new BigDecimal("10000"),
-                LocalDate.of(2026, 9, 15), saisiParUtilisateurId, null, null, null);
+                LocalDate.of(2026, 9, 15), saisiParUtilisateurId, null, null, null, null);
 
         assertThatThrownBy(creation).isInstanceOf(NullPointerException.class);
     }
@@ -63,7 +63,7 @@ class EntreeTest {
     @DisplayName("rejette un montant négatif ou nul")
     void rejetteMontantNegatifOuNul() {
         ThrowingCallable creation = () -> new Entree(UUID.randomUUID(), sessionId, motifId, BigDecimal.ZERO,
-                LocalDate.of(2026, 9, 15), saisiParUtilisateurId, centreId, null, null);
+                LocalDate.of(2026, 9, 15), saisiParUtilisateurId, centreId, null, null, null);
 
         assertThatThrownBy(creation).isInstanceOf(IllegalArgumentException.class);
     }
@@ -72,7 +72,7 @@ class EntreeTest {
     @DisplayName("appliquerDecision passe le statut à VALIDE")
     void appliquerDecisionPasseAValide() {
         Entree entree = new Entree(UUID.randomUUID(), sessionId, motifId, new BigDecimal("10000"),
-                LocalDate.of(2026, 9, 15), saisiParUtilisateurId, centreId, null, null);
+                LocalDate.of(2026, 9, 15), saisiParUtilisateurId, centreId, null, null, null);
 
         entree.appliquerDecision(StatutMouvement.VALIDE);
 
@@ -83,7 +83,7 @@ class EntreeTest {
     @DisplayName("appliquerDecision refuse si déjà traité")
     void appliquerDecisionRefuseSiDejaTraite() {
         Entree entree = new Entree(UUID.randomUUID(), sessionId, motifId, new BigDecimal("10000"),
-                LocalDate.of(2026, 9, 15), saisiParUtilisateurId, centreId, null, null);
+                LocalDate.of(2026, 9, 15), saisiParUtilisateurId, centreId, null, null, null);
         entree.appliquerDecision(StatutMouvement.VALIDE);
 
         ThrowingCallable action = () -> entree.appliquerDecision(StatutMouvement.REJETE);
@@ -95,7 +95,7 @@ class EntreeTest {
     @DisplayName("appliquerDecision refuse EN_ATTENTE comme décision")
     void appliquerDecisionRefuseEnAttente() {
         Entree entree = new Entree(UUID.randomUUID(), sessionId, motifId, new BigDecimal("10000"),
-                LocalDate.of(2026, 9, 15), saisiParUtilisateurId, centreId, null, null);
+                LocalDate.of(2026, 9, 15), saisiParUtilisateurId, centreId, null, null, null);
 
         ThrowingCallable action = () -> entree.appliquerDecision(StatutMouvement.EN_ATTENTE);
 
@@ -106,7 +106,7 @@ class EntreeTest {
     @DisplayName("rattacherABilan rattache un mouvement VALIDE")
     void rattacherABilanRattacheUnMouvementValide() {
         Entree entree = new Entree(UUID.randomUUID(), sessionId, motifId, new BigDecimal("10000"),
-                LocalDate.of(2026, 9, 15), saisiParUtilisateurId, centreId, null, null);
+                LocalDate.of(2026, 9, 15), saisiParUtilisateurId, centreId, null, null, null);
         entree.appliquerDecision(StatutMouvement.VALIDE);
         UUID bilanId = UUID.randomUUID();
 
@@ -119,7 +119,7 @@ class EntreeTest {
     @DisplayName("rattacherABilan refuse un mouvement pas encore VALIDE")
     void rattacherABilanRefuseSiPasValide() {
         Entree entree = new Entree(UUID.randomUUID(), sessionId, motifId, new BigDecimal("10000"),
-                LocalDate.of(2026, 9, 15), saisiParUtilisateurId, centreId, null, null);
+                LocalDate.of(2026, 9, 15), saisiParUtilisateurId, centreId, null, null, null);
 
         ThrowingCallable action = () -> entree.rattacherABilan(UUID.randomUUID());
 
@@ -130,7 +130,7 @@ class EntreeTest {
     @DisplayName("rattacherABilan refuse un mouvement déjà rattaché")
     void rattacherABilanRefuseSiDejaRattache() {
         Entree entree = new Entree(UUID.randomUUID(), sessionId, motifId, new BigDecimal("10000"),
-                LocalDate.of(2026, 9, 15), saisiParUtilisateurId, centreId, null, null);
+                LocalDate.of(2026, 9, 15), saisiParUtilisateurId, centreId, null, null, null);
         entree.appliquerDecision(StatutMouvement.VALIDE);
         entree.rattacherABilan(UUID.randomUUID());
 
@@ -147,7 +147,7 @@ class EntreeTest {
 
         Entree entree = Entree.reconstituer(id, sessionId, motifId, new BigDecimal("45000"),
                 LocalDate.of(2026, 9, 15), saisiParUtilisateurId, StatutMouvement.VALIDE, centreId,
-                UUID.randomUUID(), UUID.randomUUID(), bilanId);
+                UUID.randomUUID(), UUID.randomUUID(), bilanId, null);
 
         assertThat(entree.getStatut()).isEqualTo(StatutMouvement.VALIDE);
         assertThat(entree.getBilanJournalierId()).contains(bilanId);

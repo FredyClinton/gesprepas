@@ -48,7 +48,7 @@ class ValidationMouvementServiceTest {
 
     private Entree uneEntreeEnAttente() {
         return new Entree(UUID.randomUUID(), sessionId, motifId, new BigDecimal("45000"),
-                LocalDate.of(2026, 9, 15), saisiParUtilisateurId, centreId, null, null);
+                LocalDate.of(2026, 9, 15), saisiParUtilisateurId, centreId, null, null, null);
     }
 
     private Utilisateur unUtilisateur() {

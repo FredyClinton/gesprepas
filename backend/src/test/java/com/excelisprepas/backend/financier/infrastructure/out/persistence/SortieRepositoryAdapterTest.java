@@ -66,4 +66,66 @@ class SortieRepositoryAdapterTest extends AbstractIntegrationTest {
         assertThat(resultat).hasSize(1);
         assertThat(resultat.get(0).getMontant()).isEqualByComparingTo("200000");
     }
+
+    @Test
+    @DisplayName("findBySessionId() retourne toutes les sorties de la session")
+    void findBySessionIdRetourneToutesLesSorties() {
+        UUID sessionId = UUID.randomUUID();
+        adapter.save(new Sortie(UUID.randomUUID(), sessionId, UUID.randomUUID(), new BigDecimal("10000"),
+                LocalDate.of(2026, 9, 15), UUID.randomUUID(), UUID.randomUUID(), "Ordonnateur A"));
+        adapter.save(new Sortie(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("20000"),
+                LocalDate.of(2026, 9, 15), UUID.randomUUID(), UUID.randomUUID(), "Ordonnateur B")); // autre session
+
+        List<Sortie> resultat = adapter.findBySessionId(sessionId);
+
+        assertThat(resultat).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("findBySessionIdAndCentreId() filtre par centre")
+    void findBySessionIdAndCentreIdFiltreParCentre() {
+        UUID sessionId = UUID.randomUUID();
+        UUID centreId = UUID.randomUUID();
+        adapter.save(new Sortie(UUID.randomUUID(), sessionId, UUID.randomUUID(), new BigDecimal("10000"),
+                LocalDate.of(2026, 9, 15), UUID.randomUUID(), centreId, "Ordonnateur A"));
+        adapter.save(new Sortie(UUID.randomUUID(), sessionId, UUID.randomUUID(), new BigDecimal("20000"),
+                LocalDate.of(2026, 9, 15), UUID.randomUUID(), null, "Ordonnateur B")); // organisationnelle
+
+        List<Sortie> resultat = adapter.findBySessionIdAndCentreId(sessionId, centreId);
+
+        assertThat(resultat).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("findBySessionIdAndStatut() filtre par statut")
+    void findBySessionIdAndStatutFiltreParStatut() {
+        UUID sessionId = UUID.randomUUID();
+        Sortie validee = new Sortie(UUID.randomUUID(), sessionId, UUID.randomUUID(), new BigDecimal("10000"),
+                LocalDate.of(2026, 9, 15), UUID.randomUUID(), UUID.randomUUID(), "Ordonnateur A");
+        validee.appliquerDecision(StatutMouvement.VALIDE);
+        adapter.save(validee);
+        adapter.save(new Sortie(UUID.randomUUID(), sessionId, UUID.randomUUID(), new BigDecimal("20000"),
+                LocalDate.of(2026, 9, 15), UUID.randomUUID(), UUID.randomUUID(), "Ordonnateur B")); // reste EN_ATTENTE
+
+        List<Sortie> resultat = adapter.findBySessionIdAndStatut(sessionId, StatutMouvement.EN_ATTENTE);
+
+        assertThat(resultat).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("findBySessionIdAndCentreIdAndStatut() combine les trois filtres")
+    void findBySessionIdAndCentreIdAndStatutCombineLesFiltres() {
+        UUID sessionId = UUID.randomUUID();
+        UUID centreId = UUID.randomUUID();
+        Sortie correspondante = new Sortie(UUID.randomUUID(), sessionId, UUID.randomUUID(), new BigDecimal("10000"),
+                LocalDate.of(2026, 9, 15), UUID.randomUUID(), centreId, "Ordonnateur A");
+        correspondante.appliquerDecision(StatutMouvement.VALIDE);
+        adapter.save(correspondante);
+        adapter.save(new Sortie(UUID.randomUUID(), sessionId, UUID.randomUUID(), new BigDecimal("20000"),
+                LocalDate.of(2026, 9, 15), UUID.randomUUID(), centreId, "Ordonnateur B")); // reste EN_ATTENTE
+
+        List<Sortie> resultat = adapter.findBySessionIdAndCentreIdAndStatut(sessionId, centreId, StatutMouvement.VALIDE);
+
+        assertThat(resultat).hasSize(1);
+    }
 }

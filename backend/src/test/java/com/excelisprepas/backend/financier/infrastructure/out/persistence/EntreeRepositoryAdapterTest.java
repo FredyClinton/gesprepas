@@ -35,7 +35,7 @@ class EntreeRepositoryAdapterTest extends AbstractIntegrationTest {
         UUID apprenantId = UUID.randomUUID();
         UUID formationId = UUID.randomUUID();
         Entree entree = new Entree(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("45000"),
-                LocalDate.of(2026, 9, 15), UUID.randomUUID(), UUID.randomUUID(), apprenantId, formationId);
+                LocalDate.of(2026, 9, 15), UUID.randomUUID(), UUID.randomUUID(), apprenantId, formationId, null);
 
         adapter.save(entree);
         Optional<Entree> retrouve = adapter.findById(entree.getId());
@@ -56,11 +56,11 @@ class EntreeRepositoryAdapterTest extends AbstractIntegrationTest {
         UUID saisiPar = UUID.randomUUID();
 
         adapter.save(new Entree(UUID.randomUUID(), sessionId, motifId, new BigDecimal("20000"),
-                LocalDate.of(2026, 9, 1), saisiPar, centreId, apprenantId, null));
+                LocalDate.of(2026, 9, 1), saisiPar, centreId, apprenantId, null, null));
         adapter.save(new Entree(UUID.randomUUID(), sessionId, motifId, new BigDecimal("15000"),
-                LocalDate.of(2026, 10, 1), saisiPar, centreId, apprenantId, null));
+                LocalDate.of(2026, 10, 1), saisiPar, centreId, apprenantId, null, null));
         adapter.save(new Entree(UUID.randomUUID(), sessionId, motifId, new BigDecimal("10000"),
-                LocalDate.of(2026, 9, 1), saisiPar, centreId, UUID.randomUUID(), null)); // autre apprenant
+                LocalDate.of(2026, 9, 1), saisiPar, centreId, UUID.randomUUID(), null, null)); // autre apprenant
 
         List<Entree> resultat = adapter.findByApprenantId(apprenantId);
 
@@ -75,16 +75,16 @@ class EntreeRepositoryAdapterTest extends AbstractIntegrationTest {
         LocalDate date = LocalDate.of(2026, 9, 15);
 
         Entree valideCeJour = new Entree(UUID.randomUUID(), sessionId, UUID.randomUUID(), new BigDecimal("100000"),
-                date, UUID.randomUUID(), centreId, null, null);
+                date, UUID.randomUUID(), centreId, null, null, null);
         valideCeJour.appliquerDecision(StatutMouvement.VALIDE);
         adapter.save(valideCeJour);
 
         Entree enAttenteCeJour = new Entree(UUID.randomUUID(), sessionId, UUID.randomUUID(), new BigDecimal("50000"),
-                date, UUID.randomUUID(), centreId, null, null); // reste EN_ATTENTE
+                date, UUID.randomUUID(), centreId, null, null, null); // reste EN_ATTENTE
         adapter.save(enAttenteCeJour);
 
         Entree valideAutreJour = new Entree(UUID.randomUUID(), sessionId, UUID.randomUUID(), new BigDecimal("70000"),
-                LocalDate.of(2026, 9, 16), UUID.randomUUID(), centreId, null, null);
+                LocalDate.of(2026, 9, 16), UUID.randomUUID(), centreId, null, null, null);
         valideAutreJour.appliquerDecision(StatutMouvement.VALIDE);
         adapter.save(valideAutreJour);
 
@@ -99,7 +99,7 @@ class EntreeRepositoryAdapterTest extends AbstractIntegrationTest {
     @DisplayName("save() après rattacherABilan() persiste le rattachement, findByBilanJournalierId() le retrouve")
     void saveApresRattacherABilanPersisteEtRetrouve() {
         Entree entree = new Entree(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("45000"),
-                LocalDate.of(2026, 9, 15), UUID.randomUUID(), UUID.randomUUID(), null, null);
+                LocalDate.of(2026, 9, 15), UUID.randomUUID(), UUID.randomUUID(), null, null, null);
         entree.appliquerDecision(StatutMouvement.VALIDE);
         UUID bilanId = UUID.randomUUID();
         entree.rattacherABilan(bilanId);
@@ -109,5 +109,69 @@ class EntreeRepositoryAdapterTest extends AbstractIntegrationTest {
 
         assertThat(resultat).hasSize(1);
         assertThat(resultat.get(0).getId()).isEqualTo(entree.getId());
+    }
+
+    @Test
+    @DisplayName("findBySessionId() retourne toutes les entrees de la session")
+    void findBySessionIdRetourneToutesLesEntrees() {
+        UUID sessionId = UUID.randomUUID();
+        adapter.save(new Entree(UUID.randomUUID(), sessionId, UUID.randomUUID(), new BigDecimal("10000"),
+                LocalDate.of(2026, 9, 15), UUID.randomUUID(), UUID.randomUUID(), null, null, null));
+        adapter.save(new Entree(UUID.randomUUID(), sessionId, UUID.randomUUID(), new BigDecimal("20000"),
+                LocalDate.of(2026, 9, 16), UUID.randomUUID(), UUID.randomUUID(), null, null, null));
+        adapter.save(new Entree(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("30000"),
+                LocalDate.of(2026, 9, 15), UUID.randomUUID(), UUID.randomUUID(), null, null, null)); // autre session
+
+        List<Entree> resultat = adapter.findBySessionId(sessionId);
+
+        assertThat(resultat).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("findBySessionIdAndCentreId() filtre par centre")
+    void findBySessionIdAndCentreIdFiltreParCentre() {
+        UUID sessionId = UUID.randomUUID();
+        UUID centreId = UUID.randomUUID();
+        adapter.save(new Entree(UUID.randomUUID(), sessionId, UUID.randomUUID(), new BigDecimal("10000"),
+                LocalDate.of(2026, 9, 15), UUID.randomUUID(), centreId, null, null, null));
+        adapter.save(new Entree(UUID.randomUUID(), sessionId, UUID.randomUUID(), new BigDecimal("20000"),
+                LocalDate.of(2026, 9, 15), UUID.randomUUID(), UUID.randomUUID(), null, null, null)); // autre centre
+
+        List<Entree> resultat = adapter.findBySessionIdAndCentreId(sessionId, centreId);
+
+        assertThat(resultat).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("findBySessionIdAndStatut() filtre par statut")
+    void findBySessionIdAndStatutFiltreParStatut() {
+        UUID sessionId = UUID.randomUUID();
+        Entree valide = new Entree(UUID.randomUUID(), sessionId, UUID.randomUUID(), new BigDecimal("10000"),
+                LocalDate.of(2026, 9, 15), UUID.randomUUID(), UUID.randomUUID(), null, null, null);
+        valide.appliquerDecision(StatutMouvement.VALIDE);
+        adapter.save(valide);
+        adapter.save(new Entree(UUID.randomUUID(), sessionId, UUID.randomUUID(), new BigDecimal("20000"),
+                LocalDate.of(2026, 9, 15), UUID.randomUUID(), UUID.randomUUID(), null, null, null)); // reste EN_ATTENTE
+
+        List<Entree> resultat = adapter.findBySessionIdAndStatut(sessionId, StatutMouvement.EN_ATTENTE);
+
+        assertThat(resultat).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("findBySessionIdAndCentreIdAndStatut() combine les trois filtres")
+    void findBySessionIdAndCentreIdAndStatutCombineLesFiltres() {
+        UUID sessionId = UUID.randomUUID();
+        UUID centreId = UUID.randomUUID();
+        Entree correspondante = new Entree(UUID.randomUUID(), sessionId, UUID.randomUUID(), new BigDecimal("10000"),
+                LocalDate.of(2026, 9, 15), UUID.randomUUID(), centreId, null, null, null);
+        correspondante.appliquerDecision(StatutMouvement.VALIDE);
+        adapter.save(correspondante);
+        adapter.save(new Entree(UUID.randomUUID(), sessionId, UUID.randomUUID(), new BigDecimal("20000"),
+                LocalDate.of(2026, 9, 15), UUID.randomUUID(), centreId, null, null, null)); // reste EN_ATTENTE
+
+        List<Entree> resultat = adapter.findBySessionIdAndCentreIdAndStatut(sessionId, centreId, StatutMouvement.VALIDE);
+
+        assertThat(resultat).hasSize(1);
     }
 }

@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* Police */
+  --font-sans: var(--font-montserrat);
+
+  /* Charte graphique EXCELIS PRÉPAS — tokens `brand.*` (ex. bg-brand-orange).
+     Valeurs synchronisées avec src/shared/config/brand.ts. */
+  --color-brand-orange: #f7931e;
+  --color-brand-anthracite: #1a1a1a;
+  --color-brand-blue: #2d2e80;
+  --color-brand-white: #ffffff;
+  --color-brand-gray: #606060;
+  --color-brand-black: #000000;
+}
+
+body {
+  background: var(--color-brand-white);
+  color: var(--color-brand-black);
+}
