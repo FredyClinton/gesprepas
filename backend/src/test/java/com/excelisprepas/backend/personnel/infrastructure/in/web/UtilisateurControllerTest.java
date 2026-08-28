@@ -4,6 +4,7 @@ import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
 import com.excelisprepas.backend.personnel.domain.model.Utilisateur;
 import com.excelisprepas.backend.personnel.domain.port.in.*;
 import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
+import com.excelisprepas.backend.shared.exception.DepartementIntrouvableException;
 import com.excelisprepas.backend.shared.exception.EmailDejaUtiliseException;
 import com.excelisprepas.backend.shared.exception.UtilisateurIntrouvableException;
 import org.junit.jupiter.api.DisplayName;
@@ -44,6 +45,10 @@ class UtilisateurControllerTest {
     private RattacherCentreUseCase rattacherCentreUseCase;
     @MockitoBean
     private DetacherCentreUseCase detacherCentreUseCase;
+    @MockitoBean
+    private RattacherDepartementUseCase rattacherDepartementUseCase;
+    @MockitoBean
+    private DetacherDepartementUseCase detacherDepartementUseCase;
     @MockitoBean
     private SupprimerUtilisateurUseCase supprimerUtilisateurUseCase;
 
@@ -241,6 +246,59 @@ class UtilisateurControllerTest {
 
         // When / Then
         mockMvc.perform(patch("/api/utilisateurs/" + utilisateur.getId() + "/detacher-centre"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/utilisateurs/{id}/rattacher-departement retourne 200")
+    void rattacherDepartement_retourne200() throws Exception {
+        // Given
+        Utilisateur utilisateur = unUtilisateur();
+        UUID departementId = UUID.randomUUID();
+        utilisateur.rattacherADepartement(departementId);
+        when(rattacherDepartementUseCase.rattacherDepartement(any(UUID.class), any(UUID.class))).thenReturn(utilisateur);
+
+        // When / Then
+        mockMvc.perform(patch("/api/utilisateurs/" + utilisateur.getId() + "/rattacher-departement")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                    "departementId": "%s"
+                                }
+                                """.formatted(departementId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.departementId").value(departementId.toString()));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/utilisateurs/{id}/rattacher-departement avec département inexistant retourne 404")
+    void rattacherDepartement_departementInexistant_retourne404() throws Exception {
+        // Given
+        UUID id = UUID.randomUUID();
+        UUID departementId = UUID.randomUUID();
+        when(rattacherDepartementUseCase.rattacherDepartement(any(UUID.class), any(UUID.class)))
+                .thenThrow(new DepartementIntrouvableException(departementId));
+
+        // When / Then
+        mockMvc.perform(patch("/api/utilisateurs/" + id + "/rattacher-departement")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                    "departementId": "%s"
+                                }
+                                """.formatted(departementId)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/utilisateurs/{id}/detacher-departement retourne 200")
+    void detacherDepartement_retourne200() throws Exception {
+        // Given
+        Utilisateur utilisateur = unUtilisateur();
+        when(detacherDepartementUseCase.detacherDepartement(utilisateur.getId())).thenReturn(utilisateur);
+
+        // When / Then
+        mockMvc.perform(patch("/api/utilisateurs/" + utilisateur.getId() + "/detacher-departement"))
                 .andExpect(status().isOk());
     }
 

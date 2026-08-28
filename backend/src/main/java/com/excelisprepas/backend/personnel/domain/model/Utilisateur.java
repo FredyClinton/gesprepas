@@ -19,6 +19,7 @@ public class Utilisateur extends Personnel {
     private String motDePasseHash;
     private final RoleUtilisateur role;
     private UUID centreId; // nullable : rattachement optionnel
+    private UUID departementId; // nullable : rattachement optionnel
 
     public Utilisateur(UUID id, String nom, String prenom,
                        String email, String motDePasseHash, RoleUtilisateur role) {
@@ -58,6 +59,14 @@ public class Utilisateur extends Personnel {
         this.centreId = null;
     }
 
+    public void rattacherADepartement(UUID departementId) {
+        this.departementId = departementId;
+    }
+
+    public void detacherDuDepartement() {
+        this.departementId = null;
+    }
+
     public String getEmail() {
         return email;
     }
@@ -72,5 +81,9 @@ public class Utilisateur extends Personnel {
 
     public UUID getCentreId() {
         return centreId;
+    }
+
+    public UUID getDepartementId() {
+        return departementId;
     }
 }

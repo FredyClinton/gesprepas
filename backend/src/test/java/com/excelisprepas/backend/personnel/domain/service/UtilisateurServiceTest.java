@@ -2,11 +2,14 @@ package com.excelisprepas.backend.personnel.domain.service;
 
 import com.excelisprepas.backend.centre.domain.model.Centre;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
+import com.excelisprepas.backend.departement.domain.model.Departement;
+import com.excelisprepas.backend.departement.domain.port.out.DepartementRepositoryPort;
 import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
 import com.excelisprepas.backend.personnel.domain.model.Utilisateur;
 import com.excelisprepas.backend.personnel.domain.port.out.PasswordEncoderPort;
 import com.excelisprepas.backend.personnel.domain.port.out.UtilisateurRepositoryPort;
 import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
+import com.excelisprepas.backend.shared.exception.DepartementIntrouvableException;
 import com.excelisprepas.backend.shared.exception.EmailDejaUtiliseException;
 import com.excelisprepas.backend.shared.exception.UtilisateurIntrouvableException;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
@@ -30,6 +33,7 @@ class UtilisateurServiceTest {
     private UtilisateurRepositoryPort repository;
     private PasswordEncoderPort passwordEncoder;
     private CentreRepositoryPort centreRepository;
+    private DepartementRepositoryPort departementRepository;
     private UtilisateurService service;
 
     @BeforeEach
@@ -37,7 +41,8 @@ class UtilisateurServiceTest {
         repository = mock(UtilisateurRepositoryPort.class);
         passwordEncoder = mock(PasswordEncoderPort.class);
         centreRepository = mock(CentreRepositoryPort.class);
-        service = new UtilisateurService(repository, passwordEncoder, centreRepository);
+        departementRepository = mock(DepartementRepositoryPort.class);
+        service = new UtilisateurService(repository, passwordEncoder, centreRepository, departementRepository);
     }
 
     private Utilisateur unUtilisateur() {
@@ -228,6 +233,55 @@ class UtilisateurServiceTest {
 
             // Then
             assertThat(resultat.getCentreId()).isNull();
+        }
+
+        @Test
+        @DisplayName("rattacherDepartement() rattache l'utilisateur si le département existe")
+        void rattacherDepartementReussit() {
+            // Given
+            Utilisateur utilisateur = unUtilisateur();
+            Departement departement = new Departement(UUID.randomUUID(), "Mathématiques", UUID.randomUUID());
+            when(repository.findById(utilisateur.getId())).thenReturn(Optional.of(utilisateur));
+            when(departementRepository.findById(departement.getId())).thenReturn(Optional.of(departement));
+            when(repository.save(any(Utilisateur.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            // When
+            Utilisateur resultat = service.rattacherDepartement(utilisateur.getId(), departement.getId());
+
+            // Then
+            assertThat(resultat.getDepartementId()).isEqualTo(departement.getId());
+        }
+
+        @Test
+        @DisplayName("rattacherDepartement() refuse si le département n'existe pas")
+        void rattacherDepartementRefuseSiDepartementInexistant() {
+            // Given
+            Utilisateur utilisateur = unUtilisateur();
+            UUID departementId = UUID.randomUUID();
+            when(repository.findById(utilisateur.getId())).thenReturn(Optional.of(utilisateur));
+            when(departementRepository.findById(departementId)).thenReturn(Optional.empty());
+
+            // When
+            ThrowingCallable rattachement = () -> service.rattacherDepartement(utilisateur.getId(), departementId);
+
+            // Then
+            assertThatThrownBy(rattachement).isInstanceOf(DepartementIntrouvableException.class);
+        }
+
+        @Test
+        @DisplayName("detacherDepartement() retire le rattachement")
+        void detacherDepartementReussit() {
+            // Given
+            Utilisateur utilisateur = unUtilisateur();
+            utilisateur.rattacherADepartement(UUID.randomUUID());
+            when(repository.findById(utilisateur.getId())).thenReturn(Optional.of(utilisateur));
+            when(repository.save(any(Utilisateur.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            // When
+            Utilisateur resultat = service.detacherDepartement(utilisateur.getId());
+
+            // Then
+            assertThat(resultat.getDepartementId()).isNull();
         }
     }
 

@@ -10,6 +10,7 @@ public record UtilisateurResponse(
         String prenom,
         String email,
         RoleUtilisateur role,
-        UUID centreId
+        UUID centreId,
+        UUID departementId
 ) {
 }
