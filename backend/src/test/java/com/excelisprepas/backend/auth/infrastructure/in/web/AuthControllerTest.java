@@ -12,7 +12,6 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.Mockito.when;
@@ -39,8 +38,7 @@ class AuthControllerTest {
     @DisplayName("POST /api/auth/login avec des identifiants valides retourne 200")
     void login_identifiantsValides_retourne200() throws Exception {
         // Given
-        ResultatConnexion resultat = new ResultatConnexion(
-                "un-token-opaque", unUtilisateur(), List.of(RoleUtilisateur.CAISSIER));
+        ResultatConnexion resultat = new ResultatConnexion("un-token-opaque", unUtilisateur());
         when(seConnecterUseCase.seConnecter("pascal@excelis.cm", "password")).thenReturn(resultat);
 
         // When / Then
@@ -55,7 +53,7 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").value("un-token-opaque"))
                 .andExpect(jsonPath("$.utilisateur.email").value("pascal@excelis.cm"))
-                .andExpect(jsonPath("$.utilisateur.roles[0]").value("CAISSIER"));
+                .andExpect(jsonPath("$.utilisateur.role").value("CAISSIER"));
     }
 
     @Test

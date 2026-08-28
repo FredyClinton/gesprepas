@@ -35,7 +35,7 @@ public class AuthController {
                 resultat.getUtilisateur().getNom(),
                 resultat.getUtilisateur().getPrenom(),
                 resultat.getUtilisateur().getEmail(),
-                resultat.getRoles(),
+                resultat.getUtilisateur().getRole(),
                 resultat.getUtilisateur().getCentreId());
     }
 
