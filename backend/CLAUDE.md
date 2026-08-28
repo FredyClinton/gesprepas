@@ -35,45 +35,78 @@ Repository-adapter tests use Testcontainers (real Postgres in a container), so D
 
 ## Architecture
 
-The codebase follows **hexagonal architecture (ports & adapters)**, organized by business module rather than technical
-layer. Currently there is one module, `personnel`, under `src/main/java/com/excelisprepas/backend/personnel/`, plus a
-`shared/` package for cross-cutting config (e.g. `shared/config/OpenApiConfig.java`). New business modules should follow
-the same package shape:
+The codebase follows **hexagonal architecture (ports & adapters)**, organized by business module under
+`src/main/java/com/excelisprepas/backend/`, plus a `shared/` package for cross-cutting concerns
+(`shared/config/OpenApiConfig.java` and, for most modules, their exceptions — see below). Each module follows the
+same package shape:
 
 ```
 <module>/
   domain/
     model/       # plain Java domain objects, no framework annotations
-    exception/   # domain-specific exceptions
+    exception/   # domain-specific exceptions (older modules only — see note below)
     port/in/     # use-case interfaces the module exposes (driven by web/etc.)
     port/out/    # interfaces the domain needs from infrastructure (persistence, encoding, ...)
     service/     # use-case implementations, depend only on port/out interfaces
   infrastructure/
     config/      # Spring @Configuration wiring domain services to their ports (manual `new`, not @Service)
-    in/web/      # @RestController, DTOs (Java records), @RestControllerAdvice exception handlers
+    in/web/      # @RestController, DTOs (Java records), @RestControllerAdvice exception handler
     out/persistence/  # JPA entities, Spring Data repositories, MapStruct mappers, port adapters
 ```
+
+Existing modules (roughly in dependency order — later ones depend on earlier ones' `port/out` interfaces):
+`personnel` (Enseignant, Utilisateur — staff and system users), `session` (SessionAcademique, the academic-year
+container almost everything else is scoped to), `centre`, `departement`, `matiere`, `formation`, `salle`,
+`apprenant` (students), `affectation` (teaching-slot scheduling), `affectationdepartementale` (per-department
+teacher roster per session), `rattachement` (attaching a `Utilisateur` to a `centre` with roles), `progression`
+(curriculum tracking), `financier` (entrées/sorties, motifs, bilans journaliers, validation workflow), `dossier`
+(admission concours, required pieces, a student's dossier and its financial paiement/solde tracking — depends on
+`financier` for payments and on `session`/`apprenant`).
 
 Key conventions to preserve when extending this:
 
 - **Domain services are plain classes**, not Spring beans. They're instantiated manually inside an
   `infrastructure/config/*BeanConfiguration` class (e.g. `PersonnelBeanConfiguration`) and exposed only through their
-  `port/in` interface. Domain code has zero Spring/JPA/Jakarta dependencies.
+  `port/in` interfaces. A module can have more than one `BeanConfiguration`/service pair when it has clearly separate
+  sub-features (see `financier`, which has `FinancierBeanConfiguration`, `BilanJournalierBeanConfiguration`, and
+  `ValidationMouvementBeanConfiguration` alongside `MouvementFinancierService`, `BilanJournalierService`,
+  `ValidationMouvementService`, `MotifService`).
+- **Cross-module composition happens in the domain layer, not just at wiring time**: a module's domain `service`
+  routinely takes other modules' `port/out` repository interfaces as constructor dependencies (and reads their
+  domain models) to validate invariants — e.g. `AffectationService` depends on `CentreRepositoryPort`,
+  `FormationRepositoryPort`, `SalleRepositoryPort`, `EnseignantRepositoryPort`, `SessionAcademiqueRepositoryPort`,
+  etc. The isolation boundary is "depend only on `port/out` interfaces of any module," not "never reference another
+  module." When adding a new module that needs data from an existing one, inject that other module's `*RepositoryPort`
+  rather than reaching into its service or infrastructure.
 - **Domain models are framework-free** and self-validating: constructors/setters throw `IllegalArgumentException`/
   `NullPointerException` on invalid state (see `Personnel`, `Enseignant`, `Utilisateur`). `Personnel` is an abstract
   base class; `Enseignant` and `Utilisateur` extend it and fix their `ModeCalculPaie` (`PAR_SEANCE` vs `FIXE`).
-- **Persistence uses class-table inheritance**: `PersonnelEntity` is `@Entity` with
-  `@Inheritance(strategy = InheritanceType.JOINED)`; `EnseignantEntity` extends it (backed by an `enseignants` table
-  joined to `personnel`). A `Utilisateur` entity/table would follow the same pattern.
+- **Persistence uses class-table inheritance** for `Personnel`: `PersonnelEntity` is `@Entity` with
+  `@Inheritance(strategy = InheritanceType.JOINED)`; `EnseignantEntity`/`UtilisateurEntity` extend it (backed by
+  joined tables).
 - **MapStruct** (`componentModel = "spring"`) maps between domain models and JPA entities in `*PersistenceMapper`
   interfaces; adapters (`*RepositoryAdapter`) implement the `domain/port/out` repository interface using the JPA
   repository + mapper.
 - **Web layer**: controllers depend only on `port/in` use-case interfaces (never on domain services directly), use
   `@Valid @RequestBody` records for input, and translate domain exceptions to HTTP responses via a module-level
-  `@RestControllerAdvice` (`PersonnelExceptionHandler`) returning a `Map`-based error body (`timestamp`, `status`,
-  `error`, `message`).
-- **Domain/business text (field names, validation messages, entity/exception names) is in French**; keep new domain code
-  consistent with this.
+  `@RestControllerAdvice` (e.g. `PersonnelExceptionHandler`, `DossierExceptionHandler`) returning a `Map`-based error
+  body (`timestamp`, `status`, `error`, `message`). A module can have more than one `@RestController` when it exposes
+  more than one resource (e.g. `dossier` has `ConcoursController`, `PieceRequiseController`, `DossierController`,
+  `DossierConcoursController`, `PieceDossierController`, `StatistiquesDossierController`, all sharing
+  `DossierExceptionHandler`).
+- **All REST endpoints are documented with springdoc/OpenAPI annotations**: a class-level `@Tag(name=..., description=...)`
+  on the controller, and per-method `@Operation(summary=..., description=...)` plus `@ApiResponses`/`@ApiResponse`
+  listing every realistic status code (400/404/409 as applicable) with its `@Content`/`@Schema` (use `@ArraySchema`
+  for list responses). Keep new endpoints consistent with this — check `Swagger UI` output when in doubt.
+- **Exception location is inconsistent across the codebase and both are in active use**: older modules
+  (`personnel`, `affectation`, `centre`, `matiere`, `session`, `formation`, `salle`) keep their exceptions under
+  their own `domain/exception/` package; every module added since keeps its exceptions in the shared
+  `shared/exception/` package instead (there is no per-module `domain/exception` directory for `departement`,
+  `apprenant`, `progression`, `rattachement`, `affectationdepartementale`, `financier`, `dossier`). When adding
+  exceptions to one of the newer modules, put them in `shared/exception/`; don't create a new `domain/exception`
+  package for them.
+- **Domain/business text (field names, validation messages, entity/exception names) is in French**; keep new domain
+  code consistent with this.
 
 Tests mirror the module structure under `src/test/java`, one test class per production class, using JUnit 5 + Mockito
 for domain/service/controller tests (`@WebMvcTest` for controllers with `@MockitoBean` for the use-case) and
