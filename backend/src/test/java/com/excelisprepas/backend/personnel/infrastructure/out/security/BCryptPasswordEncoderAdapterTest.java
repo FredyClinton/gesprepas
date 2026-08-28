@@ -13,13 +13,13 @@ public class BCryptPasswordEncoderAdapterTest {
     void encoderProduitUnHashDifferentDuClair() {
         // Given
 
-        String motDePasseClair = "modepasseSecret123";
+        String password = "modepasseSecret123";
 
         // When
-        String hash = encoder.encoder(motDePasseClair);
+        String hash = encoder.encoder(password);
 
         // Then
-        assertThat(hash).isNotEqualTo(motDePasseClair);
+        assertThat(hash).isNotEqualTo(password);
         assertThat(hash).isNotBlank();
     }
 

@@ -59,11 +59,11 @@ class UtilisateurServiceTest {
 
             // When
             Utilisateur resultat = service.creerUtilisateur("Bougang", "Pascal",
-                    "pascal@excelis.cm", "motDePasseClair", RoleUtilisateur.CAISSIER);
+                    "pascal@excelis.cm", "password", RoleUtilisateur.CAISSIER);
 
             // Then
             assertThat(resultat.getEmail()).isEqualTo("pascal@excelis.cm");
-            verify(passwordEncoder).encoder("motDePasseClair");
+            verify(passwordEncoder).encoder("password");
             verify(repository).save(any(Utilisateur.class));
         }
 
@@ -75,7 +75,7 @@ class UtilisateurServiceTest {
 
             // When
             ThrowingCallable creation = () -> service.creerUtilisateur("Bougang", "Pascal",
-                    "pascal@excelis.cm", "motDePasseClair", RoleUtilisateur.CAISSIER);
+                    "pascal@excelis.cm", "password", RoleUtilisateur.CAISSIER);
 
             // Then
             assertThatThrownBy(creation).isInstanceOf(EmailDejaUtiliseException.class);

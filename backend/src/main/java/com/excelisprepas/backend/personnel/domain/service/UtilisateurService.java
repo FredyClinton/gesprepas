@@ -30,12 +30,12 @@ public class UtilisateurService implements CreerUtilisateurUseCase, RecupererUti
 
     @Override
     public Utilisateur creerUtilisateur(String nom, String prenom, String email,
-                                        String motDePasseClair, RoleUtilisateur role) {
+                                        String password, RoleUtilisateur role) {
         if (repository.existsByEmail(email)) {
             throw new EmailDejaUtiliseException(email);
         }
 
-        String motDePasseHash = passwordEncoder.encoder(motDePasseClair);
+        String motDePasseHash = passwordEncoder.encoder(password);
         Utilisateur utilisateur = new Utilisateur(UUID.randomUUID(), nom, prenom, email, motDePasseHash, role);
         return repository.save(utilisateur);
     }
@@ -62,9 +62,9 @@ public class UtilisateurService implements CreerUtilisateurUseCase, RecupererUti
     }
 
     @Override
-    public void changerMotDePasse(UUID id, String nouveauMotDePasseClair) {
+    public void changerMotDePasse(UUID id, String nouveauPassword) {
         Utilisateur utilisateur = recupererUtilisateur(id);
-        utilisateur.changerMotDePasseHash(passwordEncoder.encoder(nouveauMotDePasseClair));
+        utilisateur.changerMotDePasseHash(passwordEncoder.encoder(nouveauPassword));
         repository.save(utilisateur);
     }
 

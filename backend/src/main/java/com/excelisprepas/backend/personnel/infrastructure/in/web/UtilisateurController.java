@@ -68,7 +68,7 @@ public class UtilisateurController {
     public ResponseEntity<UtilisateurResponse> creerUtilisateur(@Valid @RequestBody CreerUtilisateurRequest request) {
         Utilisateur utilisateur = creerUtilisateurUseCase.creerUtilisateur(
                 request.nom(), request.prenom(), request.email(),
-                request.motDePasseClair(), request.role());
+                request.password(), request.role());
         return ResponseEntity.status(HttpStatus.CREATED).body(versReponse(utilisateur));
     }
 
@@ -120,7 +120,7 @@ public class UtilisateurController {
     public ResponseEntity<Void> changerMotDePasse(
             @Parameter(description = "Identifiant de l'utilisateur") @PathVariable UUID id,
             @Valid @RequestBody ChangerMotDePasseRequest request) {
-        changerMotDePasseUseCase.changerMotDePasse(id, request.motDePasseClair());
+        changerMotDePasseUseCase.changerMotDePasse(id, request.password());
         return ResponseEntity.noContent().build();
     }
 

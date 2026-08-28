@@ -14,4 +14,6 @@ public interface SessionAcademiqueRepositoryPort {
     List<SessionAcademique> findAll();
 
     void deleteById(UUID id);
+
+    Optional<SessionAcademique> findEnCours();
 }
