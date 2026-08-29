@@ -1,5 +1,6 @@
 package com.excelisprepas.backend.affectation.infrastructure.in.web.dto;
 
+import com.excelisprepas.backend.affectation.domain.model.Jour;
 import com.excelisprepas.backend.affectation.domain.model.StatutAffectation;
 
 import java.util.UUID;
@@ -12,6 +13,7 @@ public record AffectationResponse(
         UUID salleId,
         UUID matiereId,
         UUID enseignantId,
+        Jour jour,
         int seance,
         int semaine,
         StatutAffectation statut

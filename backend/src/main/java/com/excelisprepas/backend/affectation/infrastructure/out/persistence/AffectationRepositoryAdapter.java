@@ -1,6 +1,7 @@
 package com.excelisprepas.backend.affectation.infrastructure.out.persistence;
 
 import com.excelisprepas.backend.affectation.domain.model.Affectation;
+import com.excelisprepas.backend.affectation.domain.model.Jour;
 import com.excelisprepas.backend.affectation.domain.port.out.AffectationRepositoryPort;
 import org.springframework.stereotype.Component;
 
@@ -30,8 +31,8 @@ public class AffectationRepositoryAdapter implements AffectationRepositoryPort {
     }
 
     @Override
-    public boolean existsBySalleIdAndSemaineAndSeance(UUID salleId, int semaine, int seance) {
-        return jpaRepository.existsBySalleIdAndSemaineAndSeance(salleId, semaine, seance);
+    public boolean existsBySalleIdAndJourAndSemaineAndSeance(UUID salleId, Jour jour, int semaine, int seance) {
+        return jpaRepository.existsBySalleIdAndJourAndSemaineAndSeance(salleId, jour, semaine, seance);
     }
 
     @Override

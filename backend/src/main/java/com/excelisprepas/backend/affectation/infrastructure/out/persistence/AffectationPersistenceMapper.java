@@ -16,6 +16,7 @@ public interface AffectationPersistenceMapper {
         entite.setSalleId(domaine.getSalleId());
         entite.setMatiereId(domaine.getMatiereId());
         entite.setEnseignantId(domaine.getEnseignantId());
+        entite.setJour(domaine.getJour());
         entite.setSeance(domaine.getSeance());
         entite.setSemaine(domaine.getSemaine());
         entite.setStatut(domaine.getStatut());
@@ -25,7 +26,7 @@ public interface AffectationPersistenceMapper {
     default Affectation toDomain(AffectationEntity entite) {
         if (entite == null) return null;
         return new Affectation(entite.getId(), entite.getCentreId(), entite.getSessionId(), entite.getFormationId(),
-                entite.getSalleId(), entite.getMatiereId(), entite.getEnseignantId(),
+                entite.getSalleId(), entite.getMatiereId(), entite.getEnseignantId(), entite.getJour(),
                 entite.getSeance(), entite.getSemaine(), entite.getStatut());
     }
 }

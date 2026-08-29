@@ -1,6 +1,7 @@
 package com.excelisprepas.backend.affectation.infrastructure.out.persistence;
 
 import com.excelisprepas.backend.affectation.domain.model.Affectation;
+import com.excelisprepas.backend.affectation.domain.model.Jour;
 import com.excelisprepas.backend.affectation.domain.model.StatutAffectation;
 import com.excelisprepas.backend.shared.AbstractIntegrationTest;
 import org.junit.jupiter.api.DisplayName;
@@ -32,7 +33,7 @@ class AffectationRepositoryAdapterTest extends AbstractIntegrationTest {
     void saveEtFindByIdRetrouveLAffectation() {
         // Given
         Affectation affectation = new Affectation(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), null, 1, 1, StatutAffectation.PLANIFIEE);
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
 
         // When
         adapter.save(affectation);
@@ -41,21 +42,22 @@ class AffectationRepositoryAdapterTest extends AbstractIntegrationTest {
         // Then
         assertThat(retrouve).isPresent();
         assertThat(retrouve.get().getStatut()).isEqualTo(StatutAffectation.PLANIFIEE);
+        assertThat(retrouve.get().getJour()).isEqualTo(Jour.LUNDI);
         assertThat(retrouve.get().getEnseignantId()).isNull();
     }
 
     @Test
-    @DisplayName("existsBySalleIdAndSemaineAndSeance détecte un créneau déjà pris")
+    @DisplayName("existsBySalleIdAndJourAndSemaineAndSeance détecte un créneau déjà pris")
     void existsDetecteUnCreneauDejaPris() {
         // Given
         UUID salleId = UUID.randomUUID();
         Affectation affectation = new Affectation(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-                UUID.randomUUID(), salleId, UUID.randomUUID(), null, 1, 1, StatutAffectation.PLANIFIEE);
+                UUID.randomUUID(), salleId, UUID.randomUUID(), null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
         adapter.save(affectation);
 
         // When
-        boolean pris = adapter.existsBySalleIdAndSemaineAndSeance(salleId, 1, 1);
-        boolean libre = adapter.existsBySalleIdAndSemaineAndSeance(salleId, 1, 2);
+        boolean pris = adapter.existsBySalleIdAndJourAndSemaineAndSeance(salleId, Jour.LUNDI, 1, 1);
+        boolean libre = adapter.existsBySalleIdAndJourAndSemaineAndSeance(salleId, Jour.LUNDI, 1, 2);
 
         // Then
         assertThat(pris).isTrue();
@@ -78,7 +80,7 @@ class AffectationRepositoryAdapterTest extends AbstractIntegrationTest {
         // Given
         UUID centreId = UUID.randomUUID();
         Affectation affectation = new Affectation(UUID.randomUUID(), centreId, UUID.randomUUID(), UUID.randomUUID(),
-                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 1, 1, StatutAffectation.ASSIGNEE);
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), Jour.LUNDI, 1, 1, StatutAffectation.ASSIGNEE);
         adapter.save(affectation);
 
         // When
@@ -96,7 +98,7 @@ class AffectationRepositoryAdapterTest extends AbstractIntegrationTest {
         // Given
         UUID enseignantId = UUID.randomUUID();
         Affectation affectation = new Affectation(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), enseignantId, 1, 1, StatutAffectation.ASSIGNEE);
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), enseignantId, Jour.LUNDI, 1, 1, StatutAffectation.ASSIGNEE);
         adapter.save(affectation);
 
         // When
@@ -114,7 +116,7 @@ class AffectationRepositoryAdapterTest extends AbstractIntegrationTest {
         // Given
         UUID formationId = UUID.randomUUID();
         Affectation affectation = new Affectation(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-                formationId, UUID.randomUUID(), UUID.randomUUID(), null, 1, 1, StatutAffectation.PLANIFIEE);
+                formationId, UUID.randomUUID(), UUID.randomUUID(), null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
         adapter.save(affectation);
 
         // When
@@ -131,7 +133,7 @@ class AffectationRepositoryAdapterTest extends AbstractIntegrationTest {
     void existsByMatiereIdDetecteUneReference() {
         UUID matiereId = UUID.randomUUID();
         adapter.save(new Affectation(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-                UUID.randomUUID(), UUID.randomUUID(), matiereId, null, 1, 1, StatutAffectation.PLANIFIEE));
+                UUID.randomUUID(), UUID.randomUUID(), matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE));
         assertThat(adapter.existsByMatiereId(matiereId)).isTrue();
         assertThat(adapter.existsByMatiereId(UUID.randomUUID())).isFalse();
     }
@@ -141,7 +143,7 @@ class AffectationRepositoryAdapterTest extends AbstractIntegrationTest {
     void existsBySalleIdDetecteUneReference() {
         UUID salleId = UUID.randomUUID();
         adapter.save(new Affectation(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-                UUID.randomUUID(), salleId, UUID.randomUUID(), null, 2, 1, StatutAffectation.PLANIFIEE));
+                UUID.randomUUID(), salleId, UUID.randomUUID(), null, Jour.LUNDI, 2, 1, StatutAffectation.PLANIFIEE));
         assertThat(adapter.existsBySalleId(salleId)).isTrue();
         assertThat(adapter.existsBySalleId(UUID.randomUUID())).isFalse();
     }
@@ -154,9 +156,9 @@ class AffectationRepositoryAdapterTest extends AbstractIntegrationTest {
         UUID sessionA = UUID.randomUUID();
         UUID sessionB = UUID.randomUUID();
         adapter.save(new Affectation(UUID.randomUUID(), centreId, sessionA, UUID.randomUUID(), UUID.randomUUID(),
-                UUID.randomUUID(), null, 1, 3, StatutAffectation.PLANIFIEE));
+                UUID.randomUUID(), null, Jour.LUNDI, 1, 3, StatutAffectation.PLANIFIEE));
         adapter.save(new Affectation(UUID.randomUUID(), centreId, sessionB, UUID.randomUUID(), UUID.randomUUID(),
-                UUID.randomUUID(), null, 1, 3, StatutAffectation.PLANIFIEE)); // même centre/semaine, autre session
+                UUID.randomUUID(), null, Jour.LUNDI, 1, 3, StatutAffectation.PLANIFIEE)); // même centre/semaine, autre session
 
         // When
         List<Affectation> resultat = adapter.findBySessionIdAndCentreIdAndSemaine(sessionA, centreId, 3);
@@ -171,11 +173,11 @@ class AffectationRepositoryAdapterTest extends AbstractIntegrationTest {
     void findBySessionIdAndSemaineRetourneTousLesCentresDeLaSession() {
         UUID sessionId = UUID.randomUUID();
         adapter.save(new Affectation(UUID.randomUUID(), UUID.randomUUID(), sessionId, UUID.randomUUID(),
-                UUID.randomUUID(), UUID.randomUUID(), null, 1, 5, StatutAffectation.PLANIFIEE));
+                UUID.randomUUID(), UUID.randomUUID(), null, Jour.LUNDI, 1, 5, StatutAffectation.PLANIFIEE));
         adapter.save(new Affectation(UUID.randomUUID(), UUID.randomUUID(), sessionId, UUID.randomUUID(),
-                UUID.randomUUID(), UUID.randomUUID(), null, 2, 5, StatutAffectation.PLANIFIEE));
+                UUID.randomUUID(), UUID.randomUUID(), null, Jour.LUNDI, 2, 5, StatutAffectation.PLANIFIEE));
         adapter.save(new Affectation(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-                UUID.randomUUID(), UUID.randomUUID(), null, 1, 5, StatutAffectation.PLANIFIEE)); // autre session
+                UUID.randomUUID(), UUID.randomUUID(), null, Jour.LUNDI, 1, 5, StatutAffectation.PLANIFIEE)); // autre session
 
         List<Affectation> resultat = adapter.findBySessionIdAndSemaine(sessionId, 5);
 
@@ -188,11 +190,11 @@ class AffectationRepositoryAdapterTest extends AbstractIntegrationTest {
         UUID sessionId = UUID.randomUUID();
         UUID matiereId = UUID.randomUUID();
         adapter.save(new Affectation(UUID.randomUUID(), UUID.randomUUID(), sessionId, UUID.randomUUID(),
-                UUID.randomUUID(), matiereId, null, 1, 7, StatutAffectation.PLANIFIEE));
+                UUID.randomUUID(), matiereId, null, Jour.LUNDI, 1, 7, StatutAffectation.PLANIFIEE));
         adapter.save(new Affectation(UUID.randomUUID(), UUID.randomUUID(), sessionId, UUID.randomUUID(),
-                UUID.randomUUID(), matiereId, null, 2, 7, StatutAffectation.PLANIFIEE));
+                UUID.randomUUID(), matiereId, null, Jour.LUNDI, 2, 7, StatutAffectation.PLANIFIEE));
         adapter.save(new Affectation(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-                UUID.randomUUID(), matiereId, null, 1, 7, StatutAffectation.PLANIFIEE)); // autre session
+                UUID.randomUUID(), matiereId, null, Jour.LUNDI, 1, 7, StatutAffectation.PLANIFIEE)); // autre session
 
         List<Affectation> resultat = adapter.findBySessionIdAndMatiereIdAndSemaine(sessionId, matiereId, 7);
 
@@ -206,9 +208,9 @@ class AffectationRepositoryAdapterTest extends AbstractIntegrationTest {
         UUID matiereId = UUID.randomUUID();
         UUID centreId = UUID.randomUUID();
         adapter.save(new Affectation(UUID.randomUUID(), centreId, sessionId, UUID.randomUUID(), UUID.randomUUID(),
-                matiereId, null, 1, 8, StatutAffectation.PLANIFIEE));
+                matiereId, null, Jour.LUNDI, 1, 8, StatutAffectation.PLANIFIEE));
         adapter.save(new Affectation(UUID.randomUUID(), UUID.randomUUID(), sessionId, UUID.randomUUID(),
-                UUID.randomUUID(), matiereId, null, 2, 8, StatutAffectation.PLANIFIEE)); // autre centre
+                UUID.randomUUID(), matiereId, null, Jour.LUNDI, 2, 8, StatutAffectation.PLANIFIEE)); // autre centre
 
         List<Affectation> resultat = adapter.findBySessionIdAndMatiereIdAndCentreIdAndSemaine(sessionId, matiereId, centreId, 8);
 

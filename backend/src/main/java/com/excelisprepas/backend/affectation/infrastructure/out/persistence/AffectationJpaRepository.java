@@ -1,12 +1,13 @@
 package com.excelisprepas.backend.affectation.infrastructure.out.persistence;
 
+import com.excelisprepas.backend.affectation.domain.model.Jour;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 import java.util.UUID;
 
 public interface AffectationJpaRepository extends JpaRepository<AffectationEntity, UUID> {
-    boolean existsBySalleIdAndSemaineAndSeance(UUID salleId, int semaine, int seance);
+    boolean existsBySalleIdAndJourAndSemaineAndSeance(UUID salleId, Jour jour, int semaine, int seance);
 
     boolean existsByCentreId(UUID centreId);
 

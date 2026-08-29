@@ -1,6 +1,7 @@
 package com.excelisprepas.backend.affectation.domain.port.out;
 
 import com.excelisprepas.backend.affectation.domain.model.Affectation;
+import com.excelisprepas.backend.affectation.domain.model.Jour;
 
 import java.util.List;
 import java.util.Optional;
@@ -11,7 +12,7 @@ public interface AffectationRepositoryPort {
 
     Optional<Affectation> findById(UUID id);
 
-    boolean existsBySalleIdAndSemaineAndSeance(UUID salleId, int semaine, int seance);
+    boolean existsBySalleIdAndJourAndSemaineAndSeance(UUID salleId, Jour jour, int semaine, int seance);
 
     boolean existsByCentreId(UUID centreId);
 

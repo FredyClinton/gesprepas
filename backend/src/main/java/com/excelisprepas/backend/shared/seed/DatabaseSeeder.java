@@ -1,5 +1,6 @@
 package com.excelisprepas.backend.shared.seed;
 
+import com.excelisprepas.backend.affectation.domain.model.Jour;
 import com.excelisprepas.backend.affectation.domain.port.in.AssignerEnseignantUseCase;
 import com.excelisprepas.backend.affectation.domain.port.in.CreerCreneauUseCase;
 import com.excelisprepas.backend.affectationdepartementale.domain.port.in.AjouterEnseignantUseCase;
@@ -10,16 +11,11 @@ import com.excelisprepas.backend.centre.domain.port.in.CreerCentreUseCase;
 import com.excelisprepas.backend.centre.domain.port.in.RejoindreSessionUseCase;
 import com.excelisprepas.backend.departement.domain.model.Departement;
 import com.excelisprepas.backend.departement.domain.port.in.CreerDepartementUseCase;
-import com.excelisprepas.backend.dossier.domain.port.in.AjouterConcoursAuDossierUseCase;
-import com.excelisprepas.backend.dossier.domain.port.in.AjouterPieceAuConcoursUseCase;
-import com.excelisprepas.backend.dossier.domain.port.in.CreerConcoursUseCase;
-import com.excelisprepas.backend.dossier.domain.port.in.CreerPieceRequiseUseCase;
-import com.excelisprepas.backend.dossier.domain.port.in.EnregistrerPaiementDossierUseCase;
-import com.excelisprepas.backend.dossier.domain.port.in.OuvrirDossierUseCase;
 import com.excelisprepas.backend.dossier.domain.model.Concours;
 import com.excelisprepas.backend.dossier.domain.model.Dossier;
 import com.excelisprepas.backend.dossier.domain.model.PieceRequise;
 import com.excelisprepas.backend.dossier.domain.model.SelectionPiece;
+import com.excelisprepas.backend.dossier.domain.port.in.*;
 import com.excelisprepas.backend.financier.domain.model.Motif;
 import com.excelisprepas.backend.financier.domain.model.TypeMotif;
 import com.excelisprepas.backend.financier.domain.port.in.CreerMotifUseCase;
@@ -61,7 +57,7 @@ import java.util.UUID;
  * Peuple la base avec un jeu de données cohérent pour le développement/la démo.
  * N'est jamais actif en production : ne tourne qu'avec le profil Spring "seed"
  * (SPRING_PROFILES_ACTIVE=seed). Passe exclusivement par les UseCase existants
- * pour bénéficier des mêmes validations métier qu'un appel HTTP réel.
+ * pour bénéficier des mêmes validations métier qu'cdun appel HTTP réel.
  */
 @Component
 @Profile("seed")
@@ -155,15 +151,6 @@ public class DatabaseSeeder implements CommandLineRunner {
         this.ouvrirDossierUseCase = ouvrirDossierUseCase;
         this.ajouterConcoursAuDossierUseCase = ajouterConcoursAuDossierUseCase;
         this.enregistrerPaiementDossierUseCase = enregistrerPaiementDossierUseCase;
-    }
-
-    private record DepartementSeed(UUID departementId, UUID matiereId, String nom) {
-    }
-
-    private record CentreSeed(UUID centreId, String nom, UUID caissierId) {
-    }
-
-    private record FormationSeed(UUID formationId, UUID salleId, UUID centreId, String nomCentre) {
     }
 
     @Override
@@ -369,7 +356,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         int enseignantIndex = 0;
         for (FormationSeed formation : formations) {
             var affectation = creerCreneauUseCase.creerCreneau(formation.centreId(), sessionEnCoursId,
-                    formation.formationId(), formation.salleId(), mathematiques.matiereId(), 1, 1);
+                    formation.formationId(), formation.salleId(), mathematiques.matiereId(), Jour.LUNDI, 1, 1);
             UUID enseignantId = enseignantsMaths.get(enseignantIndex % enseignantsMaths.size());
             assignerEnseignantUseCase.assignerEnseignant(affectation.getId(), enseignantId);
             enseignantIndex++;
@@ -412,5 +399,14 @@ public class DatabaseSeeder implements CommandLineRunner {
                         BigDecimal.valueOf(15_000), LocalDate.of(2026, 11, 10), caissierId);
             }
         }
+    }
+
+    private record DepartementSeed(UUID departementId, UUID matiereId, String nom) {
+    }
+
+    private record CentreSeed(UUID centreId, String nom, UUID caissierId) {
+    }
+
+    private record FormationSeed(UUID formationId, UUID salleId, UUID centreId, String nomCentre) {
     }
 }
