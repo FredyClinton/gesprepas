@@ -32,6 +32,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             email: utilisateur.email,
             role: utilisateur.role,
             centreId: utilisateur.centreId,
+            departementId: utilisateur.departementId,
             backendToken: token,
           };
         } catch (erreur) {
@@ -50,6 +51,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.role = user.role;
         token.centreId = user.centreId;
+        token.departementId = user.departementId;
         token.backendToken = user.backendToken;
       }
       return token;
@@ -59,6 +61,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.id = token.sub!;
       session.user.role = token.role;
       session.user.centreId = token.centreId;
+      session.user.departementId = token.departementId;
       return session;
     },
     authorized: ({ auth }) => !!auth,

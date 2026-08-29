@@ -1,6 +1,6 @@
 export type StatutEnseignant = "ACTIF" | "SUSPENDU";
 
-// Miroir de `EnseignantResponse` (backend, module personnel).
+
 export type Enseignant = {
     id: string;
     nom: string;

@@ -10,12 +10,14 @@ declare module "next-auth" {
     user: {
       role: Role;
       centreId: string | null;
+      departementId: string | null;
     } & DefaultSession["user"];
   }
 
   interface User {
     role: Role;
     centreId: string | null;
+    departementId: string | null;
     //
     backendToken: string;
   }
@@ -25,6 +27,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     role: Role;
     centreId: string | null;
+    departementId: string | null;
     backendToken: string;
   }
 }

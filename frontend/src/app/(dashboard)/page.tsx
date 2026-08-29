@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { DirecteurDashboard } from "./_dashboards/directeur";
 import { ChefCentreDashboard } from "./_dashboards/chef-centre";
 import { DirecteurAcademiqueDashboard } from "./_dashboards/directeur-academique";
+import { ChefDepartementDashboard } from "./_dashboards/chef-departement";
 
 
 
@@ -20,6 +21,10 @@ export default async function DashboardPage() {
             return <ChefCentreDashboard centreId={utilisateur.centreId!} />;
         case "DIRECTEUR_ACADEMIQUE":
             return <DirecteurAcademiqueDashboard />;
+        case "CHEF_DEPARTEMENT":
+            return (
+                <ChefDepartementDashboard departementId={utilisateur.departementId!} />
+            );
         default:
             // Rôles sans maquette confirmée — même logique que la nav par défaut
             // (shared/layout/nav-items.ts) : pas de contenu inventé.
