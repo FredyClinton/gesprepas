@@ -26,7 +26,7 @@ class AffectationTest {
 
         // When
         Affectation affectation = new Affectation(id, centreId, sessionId, formationId, salleId, matiereId,
-                null, 1, 1, StatutAffectation.PLANIFIEE);
+                null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
 
         // Then
         assertThat(affectation.getId()).isEqualTo(id);
@@ -36,6 +36,7 @@ class AffectationTest {
         assertThat(affectation.getSalleId()).isEqualTo(salleId);
         assertThat(affectation.getMatiereId()).isEqualTo(matiereId);
         assertThat(affectation.getEnseignantId()).isNull();
+        assertThat(affectation.getJour()).isEqualTo(Jour.LUNDI);
         assertThat(affectation.getSeance()).isEqualTo(1);
         assertThat(affectation.getSemaine()).isEqualTo(1);
         assertThat(affectation.getStatut()).isEqualTo(StatutAffectation.PLANIFIEE);
@@ -45,7 +46,7 @@ class AffectationTest {
     @DisplayName("rejette un centreId nul")
     void rejetteCentreIdNul() {
         ThrowingCallable creation = () -> new Affectation(UUID.randomUUID(), null, sessionId, formationId, salleId,
-                matiereId, null, 1, 1, StatutAffectation.PLANIFIEE);
+                matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
 
         assertThatThrownBy(creation).isInstanceOf(NullPointerException.class);
     }
@@ -54,7 +55,7 @@ class AffectationTest {
     @DisplayName("rejette un sessionId nul")
     void rejetteSessionIdNul() {
         ThrowingCallable creation = () -> new Affectation(UUID.randomUUID(), centreId, null, formationId, salleId,
-                matiereId, null, 1, 1, StatutAffectation.PLANIFIEE);
+                matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
 
         assertThatThrownBy(creation).isInstanceOf(NullPointerException.class);
     }
@@ -63,7 +64,7 @@ class AffectationTest {
     @DisplayName("rejette un formationId nul")
     void rejetteFormationIdNul() {
         ThrowingCallable creation = () -> new Affectation(UUID.randomUUID(), centreId, sessionId, null, salleId,
-                matiereId, null, 1, 1, StatutAffectation.PLANIFIEE);
+                matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
 
         assertThatThrownBy(creation).isInstanceOf(NullPointerException.class);
     }
@@ -72,7 +73,7 @@ class AffectationTest {
     @DisplayName("rejette un salleId nul")
     void rejetteSalleIdNul() {
         ThrowingCallable creation = () -> new Affectation(UUID.randomUUID(), centreId, sessionId, formationId, null,
-                matiereId, null, 1, 1, StatutAffectation.PLANIFIEE);
+                matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
 
         assertThatThrownBy(creation).isInstanceOf(NullPointerException.class);
     }
@@ -81,7 +82,16 @@ class AffectationTest {
     @DisplayName("rejette un matiereId nul")
     void rejetteMatiereIdNul() {
         ThrowingCallable creation = () -> new Affectation(UUID.randomUUID(), centreId, sessionId, formationId, salleId,
-                null, null, 1, 1, StatutAffectation.PLANIFIEE);
+                null, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
+
+        assertThatThrownBy(creation).isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("rejette un jour nul")
+    void rejetteJourNul() {
+        ThrowingCallable creation = () -> new Affectation(UUID.randomUUID(), centreId, sessionId, formationId, salleId,
+                matiereId, null, null, 1, 1, StatutAffectation.PLANIFIEE);
 
         assertThatThrownBy(creation).isInstanceOf(NullPointerException.class);
     }
@@ -90,7 +100,7 @@ class AffectationTest {
     @DisplayName("rejette une seance négative ou nulle")
     void rejetteSeanceNegativeOuNulle() {
         ThrowingCallable creation = () -> new Affectation(UUID.randomUUID(), centreId, sessionId, formationId, salleId,
-                matiereId, null, 0, 1, StatutAffectation.PLANIFIEE);
+                matiereId, null, Jour.LUNDI, 0, 1, StatutAffectation.PLANIFIEE);
 
         assertThatThrownBy(creation).isInstanceOf(IllegalArgumentException.class);
     }
@@ -99,7 +109,7 @@ class AffectationTest {
     @DisplayName("rejette une semaine négative ou nulle")
     void rejetteSemaineNegativeOuNulle() {
         ThrowingCallable creation = () -> new Affectation(UUID.randomUUID(), centreId, sessionId, formationId, salleId,
-                matiereId, null, 1, 0, StatutAffectation.PLANIFIEE);
+                matiereId, null, Jour.LUNDI, 1, 0, StatutAffectation.PLANIFIEE);
 
         assertThatThrownBy(creation).isInstanceOf(IllegalArgumentException.class);
     }
@@ -108,7 +118,7 @@ class AffectationTest {
     @DisplayName("rejette un statut nul")
     void rejetteStatutNul() {
         ThrowingCallable creation = () -> new Affectation(UUID.randomUUID(), centreId, sessionId, formationId, salleId,
-                matiereId, null, 1, 1, null);
+                matiereId, null, Jour.LUNDI, 1, 1, null);
 
         assertThatThrownBy(creation).isInstanceOf(NullPointerException.class);
     }
@@ -117,7 +127,7 @@ class AffectationTest {
     @DisplayName("assignerEnseignant passe le statut à ASSIGNEE")
     void assignerEnseignantPasseLeStatutAAssignee() {
         Affectation affectation = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId, salleId,
-                matiereId, null, 1, 1, StatutAffectation.PLANIFIEE);
+                matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
         UUID enseignantId = UUID.randomUUID();
 
         affectation.assignerEnseignant(enseignantId);
@@ -130,7 +140,7 @@ class AffectationTest {
     @DisplayName("marquerEffectuee passe le statut à EFFECTUEE")
     void marquerEffectueePasseLeStatutAEffectuee() {
         Affectation affectation = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId, salleId,
-                matiereId, UUID.randomUUID(), 1, 1, StatutAffectation.ASSIGNEE);
+                matiereId, UUID.randomUUID(), Jour.LUNDI, 1, 1, StatutAffectation.ASSIGNEE);
 
         affectation.marquerEffectuee();
 
@@ -141,7 +151,7 @@ class AffectationTest {
     @DisplayName("annuler passe le statut à ANNULEE")
     void annulerPasseLeStatutAAnnulee() {
         Affectation affectation = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId, salleId,
-                matiereId, null, 1, 1, StatutAffectation.PLANIFIEE);
+                matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
 
         affectation.annuler();
 
@@ -154,7 +164,7 @@ class AffectationTest {
 
         private Affectation uneAffectation(StatutAffectation statut, UUID enseignantId) {
             return new Affectation(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-                    UUID.randomUUID(), UUID.randomUUID(), enseignantId, 1, 1, statut);
+                    UUID.randomUUID(), UUID.randomUUID(), enseignantId, Jour.LUNDI, 1, 1, statut);
         }
 
         @Test

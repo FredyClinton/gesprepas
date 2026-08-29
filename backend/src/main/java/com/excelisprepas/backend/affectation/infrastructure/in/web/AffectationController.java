@@ -47,7 +47,7 @@ public class AffectationController {
         return new AffectationResponse(
                 affectation.getId(), affectation.getCentreId(), affectation.getSessionId(), affectation.getFormationId(),
                 affectation.getSalleId(), affectation.getMatiereId(), affectation.getEnseignantId(),
-                affectation.getSeance(), affectation.getSemaine(), affectation.getStatut());
+                affectation.getJour(), affectation.getSeance(), affectation.getSemaine(), affectation.getStatut());
     }
 
     @Operation(summary = "Lister les affectations",
@@ -102,7 +102,7 @@ public class AffectationController {
     public ResponseEntity<AffectationResponse> creerCreneau(@Valid @RequestBody CreerCreneauRequest request) {
         Affectation affectation = creerCreneauUseCase.creerCreneau(
                 request.centreId(), request.sessionId(), request.formationId(), request.salleId(), request.matiereId(),
-                request.seance(), request.semaine());
+                request.jour(), request.seance(), request.semaine());
 
         AffectationResponse response = versReponse(affectation);
 

@@ -2,6 +2,7 @@ package com.excelisprepas.backend.affectation.domain.service;
 
 import com.excelisprepas.backend.affectation.domain.exception.EnseignantSuspenduException;
 import com.excelisprepas.backend.affectation.domain.model.Affectation;
+import com.excelisprepas.backend.affectation.domain.model.Jour;
 import com.excelisprepas.backend.affectation.domain.model.StatutAffectation;
 import com.excelisprepas.backend.affectation.domain.port.out.AffectationRepositoryPort;
 import com.excelisprepas.backend.affectationdepartementale.domain.port.out.AffectationDepartementaleRepositoryPort;
@@ -95,11 +96,11 @@ class AffectationServiceTest {
     void creeCreneauQuandToutExisteEtLibre() {
         // Given
         stubToutExiste();
-        when(affectationRepository.existsBySalleIdAndSemaineAndSeance(salleId, 1, 1)).thenReturn(false);
+        when(affectationRepository.existsBySalleIdAndJourAndSemaineAndSeance(salleId, Jour.LUNDI, 1, 1)).thenReturn(false);
         when(affectationRepository.save(any(Affectation.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // When
-        Affectation resultat = service.creerCreneau(centreId, sessionId, formationId, salleId, matiereId, 1, 1);
+        Affectation resultat = service.creerCreneau(centreId, sessionId, formationId, salleId, matiereId, Jour.LUNDI, 1, 1);
 
         // Then
         assertThat(resultat.getStatut()).isEqualTo(StatutAffectation.PLANIFIEE);
@@ -116,11 +117,11 @@ class AffectationServiceTest {
         when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(
                 SessionAcademique.reconstituer(sessionId, "2026-2027",
                         LocalDate.of(2026, 9, 1), LocalDate.of(2027, 6, 30), StatutSession.PLANIFIEE)));
-        when(affectationRepository.existsBySalleIdAndSemaineAndSeance(salleId, 1, 1)).thenReturn(false);
+        when(affectationRepository.existsBySalleIdAndJourAndSemaineAndSeance(salleId, Jour.LUNDI, 1, 1)).thenReturn(false);
         when(affectationRepository.save(any(Affectation.class))).thenAnswer(i -> i.getArgument(0));
 
         // When
-        Affectation resultat = service.creerCreneau(centreId, sessionId, formationId, salleId, matiereId, 1, 1);
+        Affectation resultat = service.creerCreneau(centreId, sessionId, formationId, salleId, matiereId, Jour.LUNDI, 1, 1);
 
         // Then
         assertThat(resultat.getSessionId()).isEqualTo(sessionId);
@@ -133,7 +134,7 @@ class AffectationServiceTest {
         when(centreRepository.findById(centreId)).thenReturn(Optional.empty());
 
         // When
-        ThrowingCallable creation = () -> service.creerCreneau(centreId, sessionId, formationId, salleId, matiereId, 1, 1);
+        ThrowingCallable creation = () -> service.creerCreneau(centreId, sessionId, formationId, salleId, matiereId, Jour.LUNDI, 1, 1);
 
         // Then
         assertThatThrownBy(creation).isInstanceOf(CentreIntrouvableException.class);
@@ -149,7 +150,7 @@ class AffectationServiceTest {
         when(formationRepository.findById(formationId)).thenReturn(Optional.empty());
 
         // When
-        ThrowingCallable creation = () -> service.creerCreneau(centreId, sessionId, formationId, salleId, matiereId, 1, 1);
+        ThrowingCallable creation = () -> service.creerCreneau(centreId, sessionId, formationId, salleId, matiereId, Jour.LUNDI, 1, 1);
 
         // Then
         assertThatThrownBy(creation).isInstanceOf(FormationIntrouvableException.class);
@@ -167,7 +168,7 @@ class AffectationServiceTest {
         when(salleRepository.findById(salleId)).thenReturn(Optional.empty());
 
         // When
-        ThrowingCallable creation = () -> service.creerCreneau(centreId, sessionId, formationId, salleId, matiereId, 1, 1);
+        ThrowingCallable creation = () -> service.creerCreneau(centreId, sessionId, formationId, salleId, matiereId, Jour.LUNDI, 1, 1);
 
         // Then
         assertThatThrownBy(creation).isInstanceOf(SalleIntrouvableException.class);
@@ -187,7 +188,7 @@ class AffectationServiceTest {
         when(matiereRepository.findById(matiereId)).thenReturn(Optional.empty());
 
         // When
-        ThrowingCallable creation = () -> service.creerCreneau(centreId, sessionId, formationId, salleId, matiereId, 1, 1);
+        ThrowingCallable creation = () -> service.creerCreneau(centreId, sessionId, formationId, salleId, matiereId, Jour.LUNDI, 1, 1);
 
         // Then
         assertThatThrownBy(creation).isInstanceOf(MatiereIntrouvableException.class);
@@ -209,7 +210,7 @@ class AffectationServiceTest {
         when(sessionRepository.findById(sessionId)).thenReturn(Optional.empty());
 
         // When
-        ThrowingCallable creation = () -> service.creerCreneau(centreId, sessionId, formationId, salleId, matiereId, 1, 1);
+        ThrowingCallable creation = () -> service.creerCreneau(centreId, sessionId, formationId, salleId, matiereId, Jour.LUNDI, 1, 1);
 
         // Then
         assertThatThrownBy(creation).isInstanceOf(SessionIntrouvableException.class);
@@ -233,7 +234,7 @@ class AffectationServiceTest {
                         LocalDate.of(2025, 9, 1), LocalDate.of(2026, 6, 30), StatutSession.CLOTUREE)));
 
         // When
-        ThrowingCallable creation = () -> service.creerCreneau(centreId, sessionId, formationId, salleId, matiereId, 1, 1);
+        ThrowingCallable creation = () -> service.creerCreneau(centreId, sessionId, formationId, salleId, matiereId, Jour.LUNDI, 1, 1);
 
         // Then
         assertThatThrownBy(creation).isInstanceOf(SessionNonUtilisableException.class);
@@ -259,7 +260,7 @@ class AffectationServiceTest {
 
         // When — le client envoie autreSessionId, mais la formation appartient à sessionId
         ThrowingCallable creation = () ->
-                service.creerCreneau(centreId, autreSessionId, formationId, salleId, matiereId, 1, 1);
+                service.creerCreneau(centreId, autreSessionId, formationId, salleId, matiereId, Jour.LUNDI, 1, 1);
 
         // Then
         assertThatThrownBy(creation).isInstanceOf(FormationSessionIncoherenteException.class);
@@ -271,10 +272,10 @@ class AffectationServiceTest {
     void refuseCreationSiCreneauDejaPris() {
         // Given
         stubToutExiste();
-        when(affectationRepository.existsBySalleIdAndSemaineAndSeance(salleId, 1, 1)).thenReturn(true);
+        when(affectationRepository.existsBySalleIdAndJourAndSemaineAndSeance(salleId, Jour.LUNDI, 1, 1)).thenReturn(true);
 
         // When
-        ThrowingCallable creation = () -> service.creerCreneau(centreId, sessionId, formationId, salleId, matiereId, 1, 1);
+        ThrowingCallable creation = () -> service.creerCreneau(centreId, sessionId, formationId, salleId, matiereId, Jour.LUNDI, 1, 1);
 
         // Then
         assertThatThrownBy(creation).isInstanceOf(CreneauDejaPlanifieException.class);
@@ -282,11 +283,30 @@ class AffectationServiceTest {
     }
 
     @Test
+    @DisplayName("autorise deux créneaux avec la même salle/semaine/séance sur des jours différents")
+    void autoriseMemeSalleSemaineSeanceSurJoursDifferents() {
+        // Given
+        stubToutExiste();
+        when(affectationRepository.existsBySalleIdAndJourAndSemaineAndSeance(salleId, Jour.LUNDI, 1, 1)).thenReturn(false);
+        when(affectationRepository.existsBySalleIdAndJourAndSemaineAndSeance(salleId, Jour.MARDI, 1, 1)).thenReturn(false);
+        when(affectationRepository.save(any(Affectation.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        Affectation creneauLundi = service.creerCreneau(centreId, sessionId, formationId, salleId, matiereId, Jour.LUNDI, 1, 1);
+        Affectation creneauMardi = service.creerCreneau(centreId, sessionId, formationId, salleId, matiereId, Jour.MARDI, 1, 1);
+
+        // Then
+        assertThat(creneauLundi.getJour()).isEqualTo(Jour.LUNDI);
+        assertThat(creneauMardi.getJour()).isEqualTo(Jour.MARDI);
+        verify(affectationRepository, times(2)).save(any(Affectation.class));
+    }
+
+    @Test
     @DisplayName("refuse si aucun département n'est rattaché à la matière du créneau")
     void refuseSiAucunDepartementRattacheALaMatiere() {
         // Given
         Affectation affectation = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
-                salleId, matiereId, null, 1, 1, StatutAffectation.PLANIFIEE);
+                salleId, matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
         Enseignant enseignant = new Enseignant(UUID.randomUUID(), "Ossegue", "Jean", "MAT-001",
                 new BigDecimal("5000"));
         when(affectationRepository.findById(affectation.getId())).thenReturn(Optional.of(affectation));
@@ -306,7 +326,7 @@ class AffectationServiceTest {
     void refuseSiEnseignantNonDansLeRoster() {
         // Given
         Affectation affectation = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
-                salleId, matiereId, null, 1, 1, StatutAffectation.PLANIFIEE);
+                salleId, matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
         Enseignant enseignant = new Enseignant(UUID.randomUUID(), "Ossegue", "Jean", "MAT-001",
                 new BigDecimal("5000"));
         Departement departement = new Departement(UUID.randomUUID(), "Sciences Physiques", matiereId);
@@ -333,7 +353,7 @@ class AffectationServiceTest {
         void assigneEnseignantReussit() {
             // Given
             Affectation affectation = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
-                    salleId, matiereId, null, 1, 1, StatutAffectation.PLANIFIEE);
+                    salleId, matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
             Enseignant enseignant = new Enseignant(UUID.randomUUID(), "Ossegue", "Jean", "MAT-001",
                     new BigDecimal("5000"));
             Departement departement = new Departement(UUID.randomUUID(), "Sciences Physiques", matiereId);
@@ -371,7 +391,7 @@ class AffectationServiceTest {
         void refuseSiEnseignantInexistant() {
             // Given
             Affectation affectation = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
-                    salleId, matiereId, null, 1, 1, StatutAffectation.PLANIFIEE);
+                    salleId, matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
             UUID enseignantId = UUID.randomUUID();
             when(affectationRepository.findById(affectation.getId())).thenReturn(Optional.of(affectation));
             when(enseignantRepository.findById(enseignantId)).thenReturn(Optional.empty());
@@ -388,7 +408,7 @@ class AffectationServiceTest {
         void refuseSiEnseignantSuspendu() {
             // Given
             Affectation affectation = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
-                    salleId, matiereId, null, 1, 1, StatutAffectation.PLANIFIEE);
+                    salleId, matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
             Enseignant enseignant = new Enseignant(UUID.randomUUID(), "Ossegue", "Jean", "MAT-001",
                     new BigDecimal("5000"));
             enseignant.suspendre();
@@ -412,7 +432,7 @@ class AffectationServiceTest {
         @DisplayName("marquerEffectuee() réussit depuis ASSIGNEE")
         void marquerEffectueeReussit() {
             Affectation affectation = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
-                    salleId, matiereId, UUID.randomUUID(), 1, 1, StatutAffectation.ASSIGNEE);
+                    salleId, matiereId, UUID.randomUUID(), Jour.LUNDI, 1, 1, StatutAffectation.ASSIGNEE);
             when(affectationRepository.findById(affectation.getId())).thenReturn(Optional.of(affectation));
             when(affectationRepository.save(any(Affectation.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -425,7 +445,7 @@ class AffectationServiceTest {
         @DisplayName("marquerEffectuee() échoue depuis PLANIFIEE")
         void marquerEffectueeEchoueDepuisPlanifiee() {
             Affectation affectation = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
-                    salleId, matiereId, null, 1, 1, StatutAffectation.PLANIFIEE);
+                    salleId, matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
             when(affectationRepository.findById(affectation.getId())).thenReturn(Optional.of(affectation));
 
             ThrowingCallable action = () -> service.marquerEffectuee(affectation.getId());
@@ -437,7 +457,7 @@ class AffectationServiceTest {
         @DisplayName("annulerAffectation() réussit depuis PLANIFIEE")
         void annulerReussit() {
             Affectation affectation = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
-                    salleId, matiereId, null, 1, 1, StatutAffectation.PLANIFIEE);
+                    salleId, matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
             when(affectationRepository.findById(affectation.getId())).thenReturn(Optional.of(affectation));
             when(affectationRepository.save(any(Affectation.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -450,7 +470,7 @@ class AffectationServiceTest {
         @DisplayName("annulerAffectation() échoue depuis EFFECTUEE")
         void annulerEchoueDepuisEffectuee() {
             Affectation affectation = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
-                    salleId, matiereId, UUID.randomUUID(), 1, 1, StatutAffectation.EFFECTUEE);
+                    salleId, matiereId, UUID.randomUUID(), Jour.LUNDI, 1, 1, StatutAffectation.EFFECTUEE);
             when(affectationRepository.findById(affectation.getId())).thenReturn(Optional.of(affectation));
 
             ThrowingCallable action = () -> service.annulerAffectation(affectation.getId());
@@ -468,7 +488,7 @@ class AffectationServiceTest {
         void listeParCentreEtSemaine() {
             // Given
             List<Affectation> attendu = List.of(new Affectation(UUID.randomUUID(), centreId, sessionId,
-                    formationId, salleId, matiereId, null, 1, 3, StatutAffectation.PLANIFIEE));
+                    formationId, salleId, matiereId, null, Jour.LUNDI, 1, 3, StatutAffectation.PLANIFIEE));
             when(affectationRepository.findBySessionIdAndCentreIdAndSemaine(sessionId, centreId, 3)).thenReturn(attendu);
 
             // When
@@ -484,7 +504,7 @@ class AffectationServiceTest {
         void listeToutesLesAffectationsDeLaSemaine() {
             // Given
             List<Affectation> attendu = List.of(new Affectation(UUID.randomUUID(), centreId, sessionId,
-                    formationId, salleId, matiereId, null, 1, 3, StatutAffectation.PLANIFIEE));
+                    formationId, salleId, matiereId, null, Jour.LUNDI, 1, 3, StatutAffectation.PLANIFIEE));
             when(affectationRepository.findBySessionIdAndSemaine(sessionId, 3)).thenReturn(attendu);
 
             // When
@@ -500,7 +520,7 @@ class AffectationServiceTest {
         void listeParMatiereToutCentreConfondu() {
             // Given
             List<Affectation> attendu = List.of(new Affectation(UUID.randomUUID(), centreId, sessionId,
-                    formationId, salleId, matiereId, null, 1, 3, StatutAffectation.PLANIFIEE));
+                    formationId, salleId, matiereId, null, Jour.LUNDI, 1, 3, StatutAffectation.PLANIFIEE));
             when(affectationRepository.findBySessionIdAndMatiereIdAndSemaine(sessionId, matiereId, 3)).thenReturn(attendu);
 
             // When
@@ -516,7 +536,7 @@ class AffectationServiceTest {
         void listeParMatiereEtCentre() {
             // Given
             List<Affectation> attendu = List.of(new Affectation(UUID.randomUUID(), centreId, sessionId,
-                    formationId, salleId, matiereId, null, 1, 3, StatutAffectation.PLANIFIEE));
+                    formationId, salleId, matiereId, null, Jour.LUNDI, 1, 3, StatutAffectation.PLANIFIEE));
             when(affectationRepository.findBySessionIdAndMatiereIdAndCentreIdAndSemaine(sessionId, matiereId, centreId, 3))
                     .thenReturn(attendu);
 

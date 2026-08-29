@@ -2,6 +2,7 @@ package com.excelisprepas.backend.affectation.domain.service;
 
 import com.excelisprepas.backend.affectation.domain.exception.EnseignantSuspenduException;
 import com.excelisprepas.backend.affectation.domain.model.Affectation;
+import com.excelisprepas.backend.affectation.domain.model.Jour;
 import com.excelisprepas.backend.affectation.domain.model.StatutAffectation;
 import com.excelisprepas.backend.affectation.domain.port.in.*;
 import com.excelisprepas.backend.affectation.domain.port.out.AffectationRepositoryPort;
@@ -59,7 +60,7 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
 
     @Override
     public Affectation creerCreneau(UUID centreId, UUID sessionId, UUID formationId, UUID salleId, UUID matiereId,
-                                    int seance, int semaine) {
+                                    Jour jour, int seance, int semaine) {
         if (centreRepository.findById(centreId).isEmpty()) {
             throw new CentreIntrouvableException(centreId);
         }
@@ -81,13 +82,13 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
             throw new FormationSessionIncoherenteException(formationId, sessionId);
         }
 
-        if (affectationRepository.existsBySalleIdAndSemaineAndSeance(salleId, semaine, seance)) {
-            throw new CreneauDejaPlanifieException(salleId, semaine, seance);
+        if (affectationRepository.existsBySalleIdAndJourAndSemaineAndSeance(salleId, jour, semaine, seance)) {
+            throw new CreneauDejaPlanifieException(salleId, jour, semaine, seance);
         }
 
         Affectation affectation = new Affectation(
                 UUID.randomUUID(), centreId, sessionId, formationId, salleId, matiereId,
-                null, seance, semaine, StatutAffectation.PLANIFIEE);
+                null, jour, seance, semaine, StatutAffectation.PLANIFIEE);
 
         return affectationRepository.save(affectation);
     }

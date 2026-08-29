@@ -1,5 +1,6 @@
 package com.excelisprepas.backend.affectation.infrastructure.out.persistence;
 
+import com.excelisprepas.backend.affectation.domain.model.Jour;
 import com.excelisprepas.backend.affectation.domain.model.StatutAffectation;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -10,7 +11,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "affectations",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"salle_id", "semaine", "seance"}))
+        uniqueConstraints = @UniqueConstraint(columnNames = {"salle_id", "jour", "semaine", "seance"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -36,6 +37,10 @@ public class AffectationEntity {
 
     @Column(name = "enseignant_id")
     private UUID enseignantId; // référence brute, nullable — module personnel
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Jour jour;
 
     @Column(nullable = false)
     private int seance;

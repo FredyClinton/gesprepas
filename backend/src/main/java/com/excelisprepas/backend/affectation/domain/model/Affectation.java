@@ -14,13 +14,14 @@ public class Affectation {
     private final UUID formationId;
     private final UUID salleId;
     private final UUID matiereId;
+    private final Jour jour;
     private final int seance;
     private final int semaine;
     private UUID enseignantId;
     private StatutAffectation statut;
 
     public Affectation(UUID id, UUID centreId, UUID sessionId, UUID formationId, UUID salleId, UUID matiereId,
-                       UUID enseignantId, int seance, int semaine, StatutAffectation statut) {
+                       UUID enseignantId, Jour jour, int seance, int semaine, StatutAffectation statut) {
         this.id = Objects.requireNonNull(id, "id ne peut pas être nul");
         this.centreId = Objects.requireNonNull(centreId, "centreId ne peut pas être nul");
         this.sessionId = Objects.requireNonNull(sessionId, "sessionId ne peut pas être nul");
@@ -28,6 +29,7 @@ public class Affectation {
         this.salleId = Objects.requireNonNull(salleId, "salleId ne peut pas être nul");
         this.matiereId = Objects.requireNonNull(matiereId, "matiereId ne peut pas être nul");
         this.enseignantId = enseignantId; // nullable : pas encore assigné à la création
+        this.jour = Objects.requireNonNull(jour, "jour ne peut pas être nul");
         this.seance = validerPositif(seance, "seance");
         this.semaine = validerPositif(semaine, "semaine");
         this.statut = Objects.requireNonNull(statut, "statut ne peut pas être nul");
@@ -92,6 +94,10 @@ public class Affectation {
 
     public UUID getEnseignantId() {
         return enseignantId;
+    }
+
+    public Jour getJour() {
+        return jour;
     }
 
     public int getSeance() {
