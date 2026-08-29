@@ -1,4 +1,8 @@
-// Barrel export du module centres-sessions.
-// Expose ici uniquement ce que le reste de l'application peut importer
-// (types, hooks de données, composants partagés) — pas les détails internes.
-export {};
+export type {
+    Centre,
+    StatutCentre,
+    SessionAcademique,
+    StatutSession,
+} from "./domain/types";
+export { useCentres, useSessionActive } from "./data/queries";
+export { getCentre } from "./data/client";

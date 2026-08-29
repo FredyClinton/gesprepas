@@ -19,6 +19,7 @@ public interface UtilisateurPersistenceMapper {
         entite.setMotDePasseHash(domaine.getMotDePasseHash());
         entite.setRole(domaine.getRole());
         entite.setCentreId(domaine.getCentreId());
+        entite.setDepartementId(domaine.getDepartementId());
         return entite;
     }
 
@@ -36,6 +37,9 @@ public interface UtilisateurPersistenceMapper {
         );
         if (entite.getCentreId() != null) {
             utilisateur.rattacherACentre(entite.getCentreId());
+        }
+        if (entite.getDepartementId() != null) {
+            utilisateur.rattacherADepartement(entite.getDepartementId());
         }
         return utilisateur;
     }

@@ -73,13 +73,14 @@ public class FinancierBeanConfiguration {
     public ListerVersementsApprenantUseCase listerVersementsApprenantUseCase(MouvementFinancierService mouvementFinancierService) {
         return mouvementFinancierService;
     }
+
     @Bean
-    public SaisirEntreeUseCase saisirEntreeUseCase(MouvementFinancierService motifService) {
-        return motifService;
+    public SaisirEntreeUseCase saisirEntreeUseCase(MouvementFinancierService mouvementFinancierService) {
+        return mouvementFinancierService;
     }
 
     @Bean
-    public SaisirSortieUseCase saisirSortieUseCase(MouvementFinancierService motifService) {
-        return motifService;
+    public SaisirSortieUseCase saisirSortieUseCase(MouvementFinancierService mouvementFinancierService) {
+        return mouvementFinancierService;
     }
 }

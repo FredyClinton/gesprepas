@@ -1,12 +1,14 @@
 package com.excelisprepas.backend.personnel.domain.service;
 
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
+import com.excelisprepas.backend.departement.domain.port.out.DepartementRepositoryPort;
 import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
 import com.excelisprepas.backend.personnel.domain.model.Utilisateur;
 import com.excelisprepas.backend.personnel.domain.port.in.*;
 import com.excelisprepas.backend.personnel.domain.port.out.PasswordEncoderPort;
 import com.excelisprepas.backend.personnel.domain.port.out.UtilisateurRepositoryPort;
 import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
+import com.excelisprepas.backend.shared.exception.DepartementIntrouvableException;
 import com.excelisprepas.backend.shared.exception.EmailDejaUtiliseException;
 import com.excelisprepas.backend.shared.exception.UtilisateurIntrouvableException;
 
@@ -15,17 +17,20 @@ import java.util.UUID;
 
 public class UtilisateurService implements CreerUtilisateurUseCase, RecupererUtilisateurUseCase,
         ListerUtilisateursUseCase, ChangerEmailUseCase, ChangerMotDePasseUseCase,
-        RattacherCentreUseCase, DetacherCentreUseCase, SupprimerUtilisateurUseCase {
+        RattacherCentreUseCase, DetacherCentreUseCase, RattacherDepartementUseCase,
+        DetacherDepartementUseCase, SupprimerUtilisateurUseCase {
 
     private final UtilisateurRepositoryPort repository;
     private final PasswordEncoderPort passwordEncoder;
     private final CentreRepositoryPort centreRepository;
+    private final DepartementRepositoryPort departementRepository;
 
     public UtilisateurService(UtilisateurRepositoryPort repository, PasswordEncoderPort passwordEncoder,
-                              CentreRepositoryPort centreRepository) {
+                              CentreRepositoryPort centreRepository, DepartementRepositoryPort departementRepository) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
         this.centreRepository = centreRepository;
+        this.departementRepository = departementRepository;
     }
 
     @Override
@@ -82,6 +87,23 @@ public class UtilisateurService implements CreerUtilisateurUseCase, RecupererUti
     public Utilisateur detacherCentre(UUID id) {
         Utilisateur utilisateur = recupererUtilisateur(id);
         utilisateur.detacherDuCentre();
+        return repository.save(utilisateur);
+    }
+
+    @Override
+    public Utilisateur rattacherDepartement(UUID id, UUID departementId) {
+        Utilisateur utilisateur = recupererUtilisateur(id);
+        if (departementRepository.findById(departementId).isEmpty()) {
+            throw new DepartementIntrouvableException(departementId);
+        }
+        utilisateur.rattacherADepartement(departementId);
+        return repository.save(utilisateur);
+    }
+
+    @Override
+    public Utilisateur detacherDepartement(UUID id) {
+        Utilisateur utilisateur = recupererUtilisateur(id);
+        utilisateur.detacherDuDepartement();
         return repository.save(utilisateur);
     }
 

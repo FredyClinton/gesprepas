@@ -2,6 +2,7 @@ package com.excelisprepas.backend.personnel.infrastructure.config;
 
 import com.excelisprepas.backend.affectation.domain.port.out.AffectationRepositoryPort;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
+import com.excelisprepas.backend.departement.domain.port.out.DepartementRepositoryPort;
 import com.excelisprepas.backend.personnel.domain.port.in.*;
 import com.excelisprepas.backend.personnel.domain.port.out.EnseignantRepositoryPort;
 import com.excelisprepas.backend.personnel.domain.port.out.PasswordEncoderPort;
@@ -18,8 +19,10 @@ public class PersonnelBeanConfiguration {
     @Bean
     public UtilisateurService utilisateurService(UtilisateurRepositoryPort utilisateurRepositoryPort,
                                                  PasswordEncoderPort passwordEncoderPort,
-                                                 CentreRepositoryPort centreRepositoryPort) {
-        return new UtilisateurService(utilisateurRepositoryPort, passwordEncoderPort, centreRepositoryPort);
+                                                 CentreRepositoryPort centreRepositoryPort,
+                                                 DepartementRepositoryPort departementRepositoryPort) {
+        return new UtilisateurService(utilisateurRepositoryPort, passwordEncoderPort,
+                centreRepositoryPort, departementRepositoryPort);
     }
 
     @Bean
@@ -54,6 +57,16 @@ public class PersonnelBeanConfiguration {
 
     @Bean
     public DetacherCentreUseCase detacherCentreUseCase(UtilisateurService utilisateurService) {
+        return utilisateurService;
+    }
+
+    @Bean
+    public RattacherDepartementUseCase rattacherDepartementUseCase(UtilisateurService utilisateurService) {
+        return utilisateurService;
+    }
+
+    @Bean
+    public DetacherDepartementUseCase detacherDepartementUseCase(UtilisateurService utilisateurService) {
         return utilisateurService;
     }
 

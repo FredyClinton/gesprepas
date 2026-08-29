@@ -26,22 +26,22 @@ public class AffectationDepartementaleBeanConfiguration {
     }
 
     @Bean
-    public AjouterEnseignantUseCase ajouterEnseignantUseCase(AffectationDepartementaleService service) {
-        return service;
+    public AjouterEnseignantUseCase ajouterEnseignantUseCase(AffectationDepartementaleService affectationDepartementaleService) {
+        return affectationDepartementaleService;
     }
 
     @Bean
-    public RetirerEnseignantUseCase retirerEnseignantUseCase(AffectationDepartementaleService service) {
-        return service;
+    public RetirerEnseignantUseCase retirerEnseignantUseCase(AffectationDepartementaleService affectationDepartementaleService) {
+        return affectationDepartementaleService;
     }
 
     @Bean
-    public CopierDepuisSessionUseCase copierDepuisSessionUseCase(AffectationDepartementaleService service) {
-        return service;
+    public CopierDepuisSessionUseCase copierDepuisSessionUseCase(AffectationDepartementaleService affectationDepartementaleService) {
+        return affectationDepartementaleService;
     }
 
     @Bean
-    public ListerRosterUseCase listerRosterUseCase(AffectationDepartementaleService service) {
-        return service;
+    public ListerRosterUseCase listerRosterUseCase(AffectationDepartementaleService affectationDepartementaleService) {
+        return affectationDepartementaleService;
     }
 }

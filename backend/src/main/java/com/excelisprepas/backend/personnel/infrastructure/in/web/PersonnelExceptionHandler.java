@@ -33,6 +33,11 @@ public class PersonnelExceptionHandler {
         return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
+    @ExceptionHandler(DepartementIntrouvableException.class)
+    public ResponseEntity<Map<String, Object>> gererDepartementIntrouvable(DepartementIntrouvableException ex) {
+        return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
     private ResponseEntity<Map<String, Object>> construireReponse(HttpStatus statut, String message) {
         return ResponseEntity.status(statut).body(Map.of(
                 "timestamp", Instant.now().toString(),
