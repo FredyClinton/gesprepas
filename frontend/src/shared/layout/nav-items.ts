@@ -18,6 +18,7 @@ import {
     Building2,
     ClipboardList,
     UserRound,
+    TrendingUp,
 } from "lucide-react";
 
 import type { Role } from "@/types/roles";
@@ -69,21 +70,33 @@ const NAV_DIRECTEUR_ACADEMIQUE: NavItem[] = [
     { href: "/departements", label: "Départements", icon: Building2 },
     { href: "/planification", label: "Planification", icon: CalendarClock },
     { href: "/concours-blancs", label: "Concours blancs", icon: ClipboardList },
-    { href: "/progressions", label: "Progressions", icon: Wallet },
+    { href: "/progressions", label: "Progressions", icon: TrendingUp },
     { href: "/parametres", label: "Paramètres", icon: Settings },
     { href: "/rapports", label: "Rapports", icon: BarChart3 },
+];
+
+const NAV_CHEF_DEPARTEMENT: NavItem[] = [
+    { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
+    { href: "/enseignants", label: "Enseignants", icon: UserRound },
+    { href: "/planification", label: "Planification", icon: CalendarClock },
+    { href: "/progression", label: "Progression", icon: TrendingUp },
+    { href: "/concours-blancs", label: "Concours blancs", icon: ClipboardList },
+    { href: "/rapports", label: "Rapports", icon: BarChart3 },
+    { href: "/parametres", label: "Paramètres", icon: Settings },
 ];
 
 const NAV_ITEMS_BY_ROLE: Record<Role, NavItem[]> = {
     DIRECTEUR: NAV_DIRECTEUR,
     DIRECTEUR_ACADEMIQUE: NAV_DIRECTEUR_ACADEMIQUE,
     CHEF_CENTRE: NAV_CHEF_CENTRE,
-    CHEF_DEPARTEMENT: NAV_PAR_DEFAUT,
+    CHEF_DEPARTEMENT: NAV_CHEF_DEPARTEMENT,
     CHARGE_DOSSIER: NAV_PAR_DEFAUT,
     SUPERVISEUR_DOSSIERS: NAV_PAR_DEFAUT,
     CAISSIER: NAV_PAR_DEFAUT,
     COMPTABLE: NAV_PAR_DEFAUT,
 };
+
+
 
 export function getNavItems(role: Role): NavItem[] {
     return NAV_ITEMS_BY_ROLE[role];

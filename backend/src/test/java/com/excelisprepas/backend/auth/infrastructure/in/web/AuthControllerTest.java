@@ -29,9 +29,13 @@ class AuthControllerTest {
     @MockitoBean
     private SeConnecterUseCase seConnecterUseCase;
 
+    private static final UUID DEPARTEMENT_ID = UUID.randomUUID();
+
     private Utilisateur unUtilisateur() {
-        return new Utilisateur(UUID.randomUUID(), "Bougang", "Pascal",
+        Utilisateur utilisateur = new Utilisateur(UUID.randomUUID(), "Bougang", "Pascal",
                 "pascal@excelis.cm", "hash", RoleUtilisateur.CAISSIER);
+        utilisateur.rattacherADepartement(DEPARTEMENT_ID);
+        return utilisateur;
     }
 
     @Test
@@ -53,7 +57,8 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").value("un-token-opaque"))
                 .andExpect(jsonPath("$.utilisateur.email").value("pascal@excelis.cm"))
-                .andExpect(jsonPath("$.utilisateur.role").value("CAISSIER"));
+                .andExpect(jsonPath("$.utilisateur.role").value("CAISSIER"))
+                .andExpect(jsonPath("$.utilisateur.departementId").value(DEPARTEMENT_ID.toString()));
     }
 
     @Test

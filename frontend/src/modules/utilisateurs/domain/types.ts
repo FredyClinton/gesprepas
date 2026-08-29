@@ -7,6 +7,7 @@ export type Utilisateur = {
   email: string;
   role: Role;
   centreId: string | null;
+  departementId: string | null;
 };
 
 export type LoginRequest = {
