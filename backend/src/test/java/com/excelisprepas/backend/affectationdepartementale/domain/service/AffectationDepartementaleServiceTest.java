@@ -4,6 +4,7 @@ import com.excelisprepas.backend.affectationdepartementale.domain.model.Affectat
 import com.excelisprepas.backend.affectationdepartementale.domain.port.out.AffectationDepartementaleRepositoryPort;
 import com.excelisprepas.backend.departement.domain.model.Departement;
 import com.excelisprepas.backend.departement.domain.port.out.DepartementRepositoryPort;
+import com.excelisprepas.backend.gelenseignants.domain.port.in.VerifierAutoriseGestionEnseignantsUseCase;
 import com.excelisprepas.backend.personnel.domain.model.Enseignant;
 import com.excelisprepas.backend.personnel.domain.port.out.EnseignantRepositoryPort;
 import com.excelisprepas.backend.session.domain.model.SessionAcademique;
@@ -38,6 +39,7 @@ class AffectationDepartementaleServiceTest {
     private DepartementRepositoryPort departementRepository;
     private EnseignantRepositoryPort enseignantRepository;
     private SessionAcademiqueRepositoryPort sessionRepository;
+    private VerifierAutoriseGestionEnseignantsUseCase gel;
     private AffectationDepartementaleService service;
 
     @BeforeEach
@@ -46,8 +48,9 @@ class AffectationDepartementaleServiceTest {
         departementRepository = mock(DepartementRepositoryPort.class);
         enseignantRepository = mock(EnseignantRepositoryPort.class);
         sessionRepository = mock(SessionAcademiqueRepositoryPort.class);
+        gel = mock(VerifierAutoriseGestionEnseignantsUseCase.class);
         service = new AffectationDepartementaleService(rosterRepository, departementRepository,
-                enseignantRepository, sessionRepository);
+                enseignantRepository, sessionRepository, gel);
     }
 
     private Departement unDepartement() {
@@ -83,7 +86,7 @@ class AffectationDepartementaleServiceTest {
             when(rosterRepository.save(any(AffectationDepartementale.class))).thenAnswer(i -> i.getArgument(0));
 
             // When
-            AffectationDepartementale resultat = service.ajouterEnseignant(departementId, sessionId, enseignantId);
+            AffectationDepartementale resultat = service.ajouterEnseignant(null, departementId, sessionId, enseignantId);
 
             // Then
             assertThat(resultat.getEnseignantId()).isEqualTo(enseignantId);
@@ -96,7 +99,7 @@ class AffectationDepartementaleServiceTest {
         void refuseSiDepartementInexistant() {
             when(departementRepository.findById(departementId)).thenReturn(Optional.empty());
 
-            ThrowingCallable action = () -> service.ajouterEnseignant(departementId, sessionId, enseignantId);
+            ThrowingCallable action = () -> service.ajouterEnseignant(null, departementId, sessionId, enseignantId);
 
             assertThatThrownBy(action).isInstanceOf(DepartementIntrouvableException.class);
             verify(rosterRepository, never()).save(any(AffectationDepartementale.class));
@@ -108,7 +111,7 @@ class AffectationDepartementaleServiceTest {
             when(departementRepository.findById(departementId)).thenReturn(Optional.of(unDepartement()));
             when(enseignantRepository.findById(enseignantId)).thenReturn(Optional.empty());
 
-            ThrowingCallable action = () -> service.ajouterEnseignant(departementId, sessionId, enseignantId);
+            ThrowingCallable action = () -> service.ajouterEnseignant(null, departementId, sessionId, enseignantId);
 
             assertThatThrownBy(action).isInstanceOf(EnseignantIntrouvableException.class);
         }
@@ -120,7 +123,7 @@ class AffectationDepartementaleServiceTest {
             when(enseignantRepository.findById(enseignantId)).thenReturn(Optional.of(unEnseignant()));
             when(sessionRepository.findById(sessionId)).thenReturn(Optional.empty());
 
-            ThrowingCallable action = () -> service.ajouterEnseignant(departementId, sessionId, enseignantId);
+            ThrowingCallable action = () -> service.ajouterEnseignant(null, departementId, sessionId, enseignantId);
 
             assertThatThrownBy(action).isInstanceOf(SessionIntrouvableException.class);
         }
@@ -134,7 +137,7 @@ class AffectationDepartementaleServiceTest {
                     SessionAcademique.reconstituer(sessionId, "2025-2026",
                             LocalDate.of(2025, 9, 1), LocalDate.of(2026, 6, 30), StatutSession.CLOTUREE)));
 
-            ThrowingCallable action = () -> service.ajouterEnseignant(departementId, sessionId, enseignantId);
+            ThrowingCallable action = () -> service.ajouterEnseignant(null, departementId, sessionId, enseignantId);
 
             assertThatThrownBy(action).isInstanceOf(SessionNonUtilisableException.class);
         }
@@ -146,7 +149,7 @@ class AffectationDepartementaleServiceTest {
             when(rosterRepository.existsByEnseignantIdAndSessionIdAndDepartementId(enseignantId, sessionId, departementId))
                     .thenReturn(true);
 
-            ThrowingCallable action = () -> service.ajouterEnseignant(departementId, sessionId, enseignantId);
+            ThrowingCallable action = () -> service.ajouterEnseignant(null, departementId, sessionId, enseignantId);
 
             assertThatThrownBy(action).isInstanceOf(EnseignantDejaDansRosterException.class);
             verify(rosterRepository, never()).save(any(AffectationDepartementale.class));
@@ -165,7 +168,7 @@ class AffectationDepartementaleServiceTest {
             when(rosterRepository.findByEnseignantIdAndSessionIdAndDepartementId(enseignantId, sessionId, departementId))
                     .thenReturn(Optional.of(entree));
 
-            service.retirerEnseignant(departementId, sessionId, enseignantId);
+            service.retirerEnseignant(null, departementId, sessionId, enseignantId);
 
             verify(rosterRepository).deleteById(entree.getId());
         }
@@ -176,7 +179,7 @@ class AffectationDepartementaleServiceTest {
             when(rosterRepository.findByEnseignantIdAndSessionIdAndDepartementId(enseignantId, sessionId, departementId))
                     .thenReturn(Optional.empty());
 
-            ThrowingCallable action = () -> service.retirerEnseignant(departementId, sessionId, enseignantId);
+            ThrowingCallable action = () -> service.retirerEnseignant(null, departementId, sessionId, enseignantId);
 
             assertThatThrownBy(action).isInstanceOf(AffectationDepartementaleIntrouvableException.class);
         }
@@ -210,7 +213,7 @@ class AffectationDepartementaleServiceTest {
 
             // When
             List<AffectationDepartementale> resultat = service.copierDepuisSession(
-                    departementId, sessionSourceId, sessionCibleId, Set.of(enseignant1, enseignant2));
+                    null, departementId, sessionSourceId, sessionCibleId, Set.of(enseignant1, enseignant2));
 
             // Then
             assertThat(resultat).hasSize(2);
@@ -234,7 +237,7 @@ class AffectationDepartementaleServiceTest {
 
             // When
             List<AffectationDepartementale> resultat = service.copierDepuisSession(
-                    departementId, sessionSourceId, sessionCibleId, Set.of(enseignantId));
+                    null, departementId, sessionSourceId, sessionCibleId, Set.of(enseignantId));
 
             // Then
             assertThat(resultat).isEmpty();
@@ -256,7 +259,7 @@ class AffectationDepartementaleServiceTest {
 
             // When
             ThrowingCallable action = () -> service.copierDepuisSession(
-                    departementId, sessionSourceId, sessionCibleId, Set.of(enseignantId));
+                    null, departementId, sessionSourceId, sessionCibleId, Set.of(enseignantId));
 
             // Then
             assertThatThrownBy(action).isInstanceOf(EnseignantNonDansRosterSourceException.class);
@@ -278,7 +281,7 @@ class AffectationDepartementaleServiceTest {
 
             // When
             ThrowingCallable action = () -> service.copierDepuisSession(
-                    departementId, sessionSourceId, sessionCibleId, Set.of(enseignantId));
+                    null, departementId, sessionSourceId, sessionCibleId, Set.of(enseignantId));
 
             // Then
             assertThatThrownBy(action).isInstanceOf(SessionNonUtilisableException.class);
@@ -296,7 +299,7 @@ class AffectationDepartementaleServiceTest {
 
             // When
             ThrowingCallable action = () -> service.copierDepuisSession(
-                    departementId, sessionSourceId, sessionCibleId, Set.of(enseignantId));
+                    null, departementId, sessionSourceId, sessionCibleId, Set.of(enseignantId));
 
             // Then
             assertThatThrownBy(action).isInstanceOf(SessionIntrouvableException.class);

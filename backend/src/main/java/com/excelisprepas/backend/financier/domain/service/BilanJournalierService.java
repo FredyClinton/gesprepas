@@ -15,12 +15,14 @@ import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.model.StatutSession;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import com.excelisprepas.backend.shared.exception.*;
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
+@Slf4j
 public class BilanJournalierService implements ValiderBilanChefCentreUseCase, ValiderBilanControleurUseCase,
         ConsulterBilanDuJourUseCase, ConsulterRepartitionParFormationUseCase {
 
@@ -52,6 +54,7 @@ public class BilanJournalierService implements ValiderBilanChefCentreUseCase, Va
         SessionAcademique session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new SessionIntrouvableException(sessionId));
         if (session.getStatut() == StatutSession.CLOTUREE) {
+            log.warn("Opération refusée : session {} clôturée", sessionId);
             throw new SessionNonUtilisableException(sessionId);
         }
     }
@@ -83,12 +86,15 @@ public class BilanJournalierService implements ValiderBilanChefCentreUseCase, Va
             throw new UtilisateurIntrouvableException(validateurUtilisateurId);
         }
         if (bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date).isPresent()) {
+            log.warn("Validation de bilan refusée : bilan déjà existant pour centreId={}, date={}", centreId, date);
             throw new BilanJournalierDejaExistantException(centreId, date);
         }
 
         BilanJournalier bilan = new BilanJournalier(UUID.randomUUID(), centreId, sessionId, date,
                 LocalDateTime.now(), validateurUtilisateurId);
-        return bilanRepository.save(bilan);
+        bilan = bilanRepository.save(bilan);
+        log.info("Bilan journalier validé par le chef de centre : id={}, centreId={}, date={}", bilan.getId(), centreId, date);
+        return bilan;
     }
 
     @Override
@@ -121,6 +127,7 @@ public class BilanJournalierService implements ValiderBilanChefCentreUseCase, Va
             sortieRepository.save(sortie);
         }
 
+        log.info("Bilan journalier validé par le contrôleur : id={}", bilanId);
         return bilan;
     }
 

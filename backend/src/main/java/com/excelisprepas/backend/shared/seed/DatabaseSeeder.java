@@ -310,10 +310,12 @@ public class DatabaseSeeder implements CommandLineRunner {
         for (int i = 0; i < noms.length; i++) {
             String matricule = "ENS-%03d".formatted(i + 1);
             BigDecimal coutParSeance = BigDecimal.valueOf(5000 + (i % 4) * 1000);
-            Enseignant enseignant = creerEnseignantUseCase.creerEnseignant(noms[i], prenoms[i], matricule, coutParSeance);
+            // null = pas de rôle appelant : le seed n'est pas une action utilisateur, jamais
+            // bloqué par le gel de gestion des enseignants.
+            Enseignant enseignant = creerEnseignantUseCase.creerEnseignant(null, noms[i], prenoms[i], matricule, coutParSeance);
 
             DepartementSeed departement = departements.get(i % departements.size());
-            ajouterEnseignantUseCase.ajouterEnseignant(departement.departementId(), sessionEnCoursId, enseignant.getId());
+            ajouterEnseignantUseCase.ajouterEnseignant(null, departement.departementId(), sessionEnCoursId, enseignant.getId());
 
             enseignantsParDepartement.computeIfAbsent(departement.departementId(), key -> new ArrayList<>())
                     .add(enseignant.getId());

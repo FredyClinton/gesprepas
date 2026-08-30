@@ -1,11 +1,14 @@
 package com.excelisprepas.backend.personnel.domain.service;
 
 import com.excelisprepas.backend.affectation.domain.port.out.AffectationRepositoryPort;
+import com.excelisprepas.backend.gelenseignants.domain.port.in.VerifierAutoriseGestionEnseignantsUseCase;
 import com.excelisprepas.backend.personnel.domain.exception.EnseignantUtiliseException;
 import com.excelisprepas.backend.personnel.domain.model.Enseignant;
+import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
 import com.excelisprepas.backend.personnel.domain.model.StatutEnseignant;
 import com.excelisprepas.backend.personnel.domain.port.out.EnseignantRepositoryPort;
 import com.excelisprepas.backend.shared.exception.EnseignantIntrouvableException;
+import com.excelisprepas.backend.shared.exception.GestionEnseignantsGeleeException;
 import com.excelisprepas.backend.shared.exception.MatriculeDejaUtiliseException;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,13 +31,15 @@ class EnseignantServiceTest {
 
     private EnseignantRepositoryPort repository;
     private AffectationRepositoryPort affectationRepository;
+    private VerifierAutoriseGestionEnseignantsUseCase gel;
     private EnseignantService service;
 
     @BeforeEach
     void setUp() {
         repository = mock(EnseignantRepositoryPort.class);
         affectationRepository = mock(AffectationRepositoryPort.class);
-        service = new EnseignantService(repository, affectationRepository);
+        gel = mock(VerifierAutoriseGestionEnseignantsUseCase.class);
+        service = new EnseignantService(repository, affectationRepository, gel);
     }
 
     private Enseignant unEnseignant() {
@@ -51,7 +56,7 @@ class EnseignantServiceTest {
             when(repository.existsByMatricule(anyString())).thenReturn(false);
             when(repository.save(any(Enseignant.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-            Enseignant resultat = service.creerEnseignant("Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
+            Enseignant resultat = service.creerEnseignant(null, "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
 
             assertThat(resultat.getMatricule()).isEqualTo("MAT-001");
             verify(repository).save(any(Enseignant.class));
@@ -63,9 +68,21 @@ class EnseignantServiceTest {
             when(repository.existsByMatricule(anyString())).thenReturn(true);
 
             ThrowingCallable creation = () ->
-                    service.creerEnseignant("Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
+                    service.creerEnseignant(null, "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
 
             assertThatThrownBy(creation).isInstanceOf(MatriculeDejaUtiliseException.class);
+            verify(repository, never()).save(any(Enseignant.class));
+        }
+
+        @Test
+        @DisplayName("refuse si le gel de gestion des enseignants est effectif pour l'appelant")
+        void refuseSiGele() {
+            doThrow(new GestionEnseignantsGeleeException()).when(gel).verifierAutorise(RoleUtilisateur.CHEF_DEPARTEMENT);
+
+            ThrowingCallable creation = () ->
+                    service.creerEnseignant(RoleUtilisateur.CHEF_DEPARTEMENT, "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
+
+            assertThatThrownBy(creation).isInstanceOf(GestionEnseignantsGeleeException.class);
             verify(repository, never()).save(any(Enseignant.class));
         }
     }
@@ -118,7 +135,7 @@ class EnseignantServiceTest {
             when(repository.findById(enseignant.getId())).thenReturn(Optional.of(enseignant));
             when(repository.save(any(Enseignant.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-            Enseignant resultat = service.renommerEnseignant(enseignant.getId(), "Soh", "Wilson");
+            Enseignant resultat = service.renommerEnseignant(null, enseignant.getId(), "Soh", "Wilson");
 
             assertThat(resultat.getNom()).isEqualTo("Soh");
             assertThat(resultat.getPrenom()).isEqualTo("Wilson");
@@ -131,7 +148,7 @@ class EnseignantServiceTest {
             when(repository.findById(enseignant.getId())).thenReturn(Optional.of(enseignant));
             when(repository.save(any(Enseignant.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-            Enseignant resultat = service.modifierCoutParSeance(enseignant.getId(), new BigDecimal("6000"));
+            Enseignant resultat = service.modifierCoutParSeance(null, enseignant.getId(), new BigDecimal("6000"));
 
             assertThat(resultat.getCoutParSeance()).isEqualByComparingTo("6000");
         }
@@ -148,7 +165,7 @@ class EnseignantServiceTest {
             when(repository.findById(enseignant.getId())).thenReturn(Optional.of(enseignant));
             when(repository.save(any(Enseignant.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-            Enseignant resultat = service.suspendreEnseignant(enseignant.getId());
+            Enseignant resultat = service.suspendreEnseignant(null, enseignant.getId());
 
             assertThat(resultat.getStatut()).isEqualTo(StatutEnseignant.SUSPENDU);
         }
@@ -161,7 +178,7 @@ class EnseignantServiceTest {
             when(repository.findById(enseignant.getId())).thenReturn(Optional.of(enseignant));
             when(repository.save(any(Enseignant.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-            Enseignant resultat = service.reactiverEnseignant(enseignant.getId());
+            Enseignant resultat = service.reactiverEnseignant(null, enseignant.getId());
 
             assertThat(resultat.getStatut()).isEqualTo(StatutEnseignant.ACTIF);
         }
@@ -178,7 +195,7 @@ class EnseignantServiceTest {
             when(repository.findById(enseignant.getId())).thenReturn(Optional.of(enseignant));
             when(affectationRepository.existsByEnseignantId(enseignant.getId())).thenReturn(false);
 
-            service.supprimerEnseignant(enseignant.getId());
+            service.supprimerEnseignant(null, enseignant.getId());
 
             verify(repository).deleteById(enseignant.getId());
         }
@@ -190,7 +207,7 @@ class EnseignantServiceTest {
             when(repository.findById(enseignant.getId())).thenReturn(Optional.of(enseignant));
             when(affectationRepository.existsByEnseignantId(enseignant.getId())).thenReturn(true);
 
-            ThrowingCallable suppression = () -> service.supprimerEnseignant(enseignant.getId());
+            ThrowingCallable suppression = () -> service.supprimerEnseignant(null, enseignant.getId());
 
             assertThatThrownBy(suppression).isInstanceOf(EnseignantUtiliseException.class);
             verify(repository, never()).deleteById(any(UUID.class));
@@ -202,7 +219,7 @@ class EnseignantServiceTest {
             UUID id = UUID.randomUUID();
             when(repository.findById(id)).thenReturn(Optional.empty());
 
-            ThrowingCallable suppression = () -> service.supprimerEnseignant(id);
+            ThrowingCallable suppression = () -> service.supprimerEnseignant(null, id);
 
             assertThatThrownBy(suppression).isInstanceOf(EnseignantIntrouvableException.class);
         }

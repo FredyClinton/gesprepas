@@ -11,10 +11,12 @@ import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
 import com.excelisprepas.backend.shared.exception.DepartementIntrouvableException;
 import com.excelisprepas.backend.shared.exception.EmailDejaUtiliseException;
 import com.excelisprepas.backend.shared.exception.UtilisateurIntrouvableException;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 public class UtilisateurService implements CreerUtilisateurUseCase, RecupererUtilisateurUseCase,
         ListerUtilisateursUseCase, ChangerEmailUseCase, ChangerMotDePasseUseCase,
         RattacherCentreUseCase, DetacherCentreUseCase, RattacherDepartementUseCase,
@@ -37,12 +39,15 @@ public class UtilisateurService implements CreerUtilisateurUseCase, RecupererUti
     public Utilisateur creerUtilisateur(String nom, String prenom, String email,
                                         String password, RoleUtilisateur role) {
         if (repository.existsByEmail(email)) {
+            log.warn("Création d'utilisateur refusée : email {} déjà utilisé", email);
             throw new EmailDejaUtiliseException(email);
         }
 
         String motDePasseHash = passwordEncoder.encoder(password);
         Utilisateur utilisateur = new Utilisateur(UUID.randomUUID(), nom, prenom, email, motDePasseHash, role);
-        return repository.save(utilisateur);
+        utilisateur = repository.save(utilisateur);
+        log.info("Utilisateur créé : id={}, email={}, role={}", utilisateur.getId(), email, role);
+        return utilisateur;
     }
 
     @Override
@@ -60,10 +65,13 @@ public class UtilisateurService implements CreerUtilisateurUseCase, RecupererUti
     public Utilisateur changerEmail(UUID id, String nouvelEmail) {
         Utilisateur utilisateur = recupererUtilisateur(id);
         if (!nouvelEmail.equalsIgnoreCase(utilisateur.getEmail()) && repository.existsByEmail(nouvelEmail)) {
+            log.warn("Changement d'email refusé : email {} déjà utilisé", nouvelEmail);
             throw new EmailDejaUtiliseException(nouvelEmail);
         }
         utilisateur.changerEmail(nouvelEmail);
-        return repository.save(utilisateur);
+        utilisateur = repository.save(utilisateur);
+        log.info("Email d'utilisateur modifié : id={}, nouvelEmail={}", id, nouvelEmail);
+        return utilisateur;
     }
 
     @Override
@@ -71,6 +79,7 @@ public class UtilisateurService implements CreerUtilisateurUseCase, RecupererUti
         Utilisateur utilisateur = recupererUtilisateur(id);
         utilisateur.changerMotDePasseHash(passwordEncoder.encoder(nouveauPassword));
         repository.save(utilisateur);
+        log.info("Mot de passe d'utilisateur modifié : id={}", id);
     }
 
     @Override
@@ -80,14 +89,18 @@ public class UtilisateurService implements CreerUtilisateurUseCase, RecupererUti
             throw new CentreIntrouvableException(centreId);
         }
         utilisateur.rattacherACentre(centreId);
-        return repository.save(utilisateur);
+        utilisateur = repository.save(utilisateur);
+        log.info("Utilisateur rattaché à un centre : id={}, centreId={}", id, centreId);
+        return utilisateur;
     }
 
     @Override
     public Utilisateur detacherCentre(UUID id) {
         Utilisateur utilisateur = recupererUtilisateur(id);
         utilisateur.detacherDuCentre();
-        return repository.save(utilisateur);
+        utilisateur = repository.save(utilisateur);
+        log.info("Utilisateur détaché du centre : id={}", id);
+        return utilisateur;
     }
 
     @Override
@@ -97,19 +110,24 @@ public class UtilisateurService implements CreerUtilisateurUseCase, RecupererUti
             throw new DepartementIntrouvableException(departementId);
         }
         utilisateur.rattacherADepartement(departementId);
-        return repository.save(utilisateur);
+        utilisateur = repository.save(utilisateur);
+        log.info("Utilisateur rattaché à un département : id={}, departementId={}", id, departementId);
+        return utilisateur;
     }
 
     @Override
     public Utilisateur detacherDepartement(UUID id) {
         Utilisateur utilisateur = recupererUtilisateur(id);
         utilisateur.detacherDuDepartement();
-        return repository.save(utilisateur);
+        utilisateur = repository.save(utilisateur);
+        log.info("Utilisateur détaché du département : id={}", id);
+        return utilisateur;
     }
 
     @Override
     public void supprimerUtilisateur(UUID id) {
         recupererUtilisateur(id); // vérifie l'existence
         repository.deleteById(id);
+        log.info("Utilisateur supprimé : id={}", id);
     }
 }

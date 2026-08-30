@@ -17,6 +17,8 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -53,7 +55,7 @@ class EnseignantControllerTest {
     @Test
     @DisplayName("POST /api/enseignants avec des données valides retourne 201")
     void creerEnseignant_donneesValides_retourne201() throws Exception {
-        when(creerEnseignantUseCase.creerEnseignant(anyString(), anyString(), anyString(), any()))
+        when(creerEnseignantUseCase.creerEnseignant(any(), anyString(), anyString(), anyString(), any()))
                 .thenReturn(unEnseignant());
 
         mockMvc.perform(post("/api/enseignants")
@@ -89,7 +91,7 @@ class EnseignantControllerTest {
     @Test
     @DisplayName("POST /api/enseignants avec un matricule déjà pris retourne 409")
     void creerEnseignant_matriculeDejaPris_retourne409() throws Exception {
-        when(creerEnseignantUseCase.creerEnseignant(anyString(), anyString(), anyString(), any()))
+        when(creerEnseignantUseCase.creerEnseignant(any(), anyString(), anyString(), anyString(), any()))
                 .thenThrow(new MatriculeDejaUtiliseException("MAT-001"));
 
         mockMvc.perform(post("/api/enseignants")
@@ -141,7 +143,7 @@ class EnseignantControllerTest {
     void renommerEnseignant_retourne200() throws Exception {
         Enseignant enseignant = unEnseignant();
         enseignant.renommer("Soh", "Wilson");
-        when(renommerEnseignantUseCase.renommerEnseignant(any(UUID.class), anyString(), anyString()))
+        when(renommerEnseignantUseCase.renommerEnseignant(any(), any(UUID.class), anyString(), anyString()))
                 .thenReturn(enseignant);
 
         mockMvc.perform(patch("/api/enseignants/" + enseignant.getId() + "/renommer")
@@ -161,7 +163,7 @@ class EnseignantControllerTest {
     void modifierCoutParSeance_retourne200() throws Exception {
         Enseignant enseignant = unEnseignant();
         enseignant.mettreAJourCoutParSeance(new BigDecimal("6000"));
-        when(modifierCoutParSeanceUseCase.modifierCoutParSeance(any(UUID.class), any()))
+        when(modifierCoutParSeanceUseCase.modifierCoutParSeance(any(), any(UUID.class), any()))
                 .thenReturn(enseignant);
 
         mockMvc.perform(patch("/api/enseignants/" + enseignant.getId() + "/cout-par-seance")
@@ -193,7 +195,7 @@ class EnseignantControllerTest {
     void suspendreEnseignant_retourne200() throws Exception {
         Enseignant enseignant = unEnseignant();
         enseignant.suspendre();
-        when(suspendreEnseignantUseCase.suspendreEnseignant(enseignant.getId())).thenReturn(enseignant);
+        when(suspendreEnseignantUseCase.suspendreEnseignant(isNull(), eq(enseignant.getId()))).thenReturn(enseignant);
 
         mockMvc.perform(patch("/api/enseignants/" + enseignant.getId() + "/suspendre"))
                 .andExpect(status().isOk())
@@ -204,7 +206,7 @@ class EnseignantControllerTest {
     @DisplayName("PATCH /api/enseignants/{id}/suspendre déjà suspendu retourne 409")
     void suspendreEnseignant_dejaSuspendu_retourne409() throws Exception {
         UUID id = UUID.randomUUID();
-        when(suspendreEnseignantUseCase.suspendreEnseignant(id))
+        when(suspendreEnseignantUseCase.suspendreEnseignant(isNull(), eq(id)))
                 .thenThrow(new IllegalStateException("déjà suspendu"));
 
         mockMvc.perform(patch("/api/enseignants/" + id + "/suspendre"))
@@ -215,7 +217,7 @@ class EnseignantControllerTest {
     @DisplayName("PATCH /api/enseignants/{id}/reactiver retourne 200")
     void reactiverEnseignant_retourne200() throws Exception {
         Enseignant enseignant = unEnseignant();
-        when(reactiverEnseignantUseCase.reactiverEnseignant(enseignant.getId())).thenReturn(enseignant);
+        when(reactiverEnseignantUseCase.reactiverEnseignant(isNull(), eq(enseignant.getId()))).thenReturn(enseignant);
 
         mockMvc.perform(patch("/api/enseignants/" + enseignant.getId() + "/reactiver"))
                 .andExpect(status().isOk())
@@ -226,7 +228,7 @@ class EnseignantControllerTest {
     @DisplayName("DELETE /api/enseignants/{id} retourne 204")
     void supprimerEnseignant_retourne204() throws Exception {
         UUID id = UUID.randomUUID();
-        doNothing().when(supprimerEnseignantUseCase).supprimerEnseignant(id);
+        doNothing().when(supprimerEnseignantUseCase).supprimerEnseignant(isNull(), eq(id));
 
         mockMvc.perform(delete("/api/enseignants/" + id))
                 .andExpect(status().isNoContent());
@@ -236,7 +238,7 @@ class EnseignantControllerTest {
     @DisplayName("DELETE /api/enseignants/{id} référencé par une affectation retourne 409")
     void supprimerEnseignant_reference_retourne409() throws Exception {
         UUID id = UUID.randomUUID();
-        doThrow(new IllegalStateException("encore référencé")).when(supprimerEnseignantUseCase).supprimerEnseignant(id);
+        doThrow(new IllegalStateException("encore référencé")).when(supprimerEnseignantUseCase).supprimerEnseignant(isNull(), eq(id));
 
         mockMvc.perform(delete("/api/enseignants/" + id))
                 .andExpect(status().isConflict());
@@ -246,7 +248,7 @@ class EnseignantControllerTest {
     @DisplayName("DELETE /api/enseignants/{id} inexistant retourne 404")
     void supprimerEnseignant_inexistant_retourne404() throws Exception {
         UUID id = UUID.randomUUID();
-        doThrow(new EnseignantIntrouvableException(id)).when(supprimerEnseignantUseCase).supprimerEnseignant(id);
+        doThrow(new EnseignantIntrouvableException(id)).when(supprimerEnseignantUseCase).supprimerEnseignant(isNull(), eq(id));
 
         mockMvc.perform(delete("/api/enseignants/" + id))
                 .andExpect(status().isNotFound());

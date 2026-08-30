@@ -3,6 +3,7 @@ package com.excelisprepas.backend.personnel.infrastructure.config;
 import com.excelisprepas.backend.affectation.domain.port.out.AffectationRepositoryPort;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
 import com.excelisprepas.backend.departement.domain.port.out.DepartementRepositoryPort;
+import com.excelisprepas.backend.gelenseignants.domain.port.in.VerifierAutoriseGestionEnseignantsUseCase;
 import com.excelisprepas.backend.personnel.domain.port.in.*;
 import com.excelisprepas.backend.personnel.domain.port.out.EnseignantRepositoryPort;
 import com.excelisprepas.backend.personnel.domain.port.out.PasswordEncoderPort;
@@ -77,8 +78,10 @@ public class PersonnelBeanConfiguration {
 
     @Bean
     public EnseignantService enseignantService(EnseignantRepositoryPort enseignantRepositoryPort,
-                                               AffectationRepositoryPort affectationRepositoryPort) {
-        return new EnseignantService(enseignantRepositoryPort, affectationRepositoryPort);
+                                               AffectationRepositoryPort affectationRepositoryPort,
+                                               VerifierAutoriseGestionEnseignantsUseCase verifierAutoriseGestionEnseignantsUseCase) {
+        return new EnseignantService(enseignantRepositoryPort, affectationRepositoryPort,
+                verifierAutoriseGestionEnseignantsUseCase);
     }
 
     @Bean

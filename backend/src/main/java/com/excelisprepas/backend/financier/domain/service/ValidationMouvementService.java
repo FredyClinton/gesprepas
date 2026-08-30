@@ -9,10 +9,12 @@ import com.excelisprepas.backend.financier.domain.port.out.ValidationMouvementRe
 import com.excelisprepas.backend.personnel.domain.port.out.UtilisateurRepositoryPort;
 import com.excelisprepas.backend.shared.exception.MouvementFinancierIntrouvableException;
 import com.excelisprepas.backend.shared.exception.UtilisateurIntrouvableException;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+@Slf4j
 public class ValidationMouvementService implements ValiderMouvementUseCase {
 
     private final MouvementFinancierRepositoryPort mouvementRepository;
@@ -42,6 +44,9 @@ public class ValidationMouvementService implements ValiderMouvementUseCase {
 
         ValidationMouvement validation = new ValidationMouvement(
                 UUID.randomUUID(), mouvementFinancierId, validateurUtilisateurId, decision, LocalDateTime.now());
-        return validationRepository.save(validation);
+        validation = validationRepository.save(validation);
+        log.info("Mouvement financier validé : mouvementFinancierId={}, decision={}, validateurUtilisateurId={}",
+                mouvementFinancierId, decision, validateurUtilisateurId);
+        return validation;
     }
 }

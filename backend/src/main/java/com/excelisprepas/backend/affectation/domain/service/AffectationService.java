@@ -21,10 +21,12 @@ import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.model.StatutSession;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import com.excelisprepas.backend.shared.exception.*;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 public class AffectationService implements CreerCreneauUseCase, AssignerEnseignantUseCase,
         AnnulerAffectationUseCase, MarquerEffectueeUseCase, ListerAffectationUseCase, ModifierMatiereUseCase,
         SupprimerAffectationUseCase, ListerAffectationsParEnseignantUseCase {
@@ -77,13 +79,17 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
         SessionAcademique session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new SessionIntrouvableException(sessionId));
         if (session.getStatut() == StatutSession.CLOTUREE) {
+            log.warn("Création de créneau refusée : session {} clôturée", sessionId);
             throw new SessionNonUtilisableException(sessionId);
         }
         if (!formation.getSessionId().equals(sessionId)) {
+            log.warn("Création de créneau refusée : formation {} incohérente avec session {}", formationId, sessionId);
             throw new FormationSessionIncoherenteException(formationId, sessionId);
         }
 
         if (affectationRepository.existsBySalleIdAndJourAndSemaineAndSeance(salleId, jour, semaine, seance)) {
+            log.warn("Création de créneau refusée : salle {} déjà planifiée (jour={}, semaine={}, séance={})",
+                    salleId, jour, semaine, seance);
             throw new CreneauDejaPlanifieException(salleId, jour, semaine, seance);
         }
 
@@ -91,7 +97,9 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
                 UUID.randomUUID(), centreId, sessionId, formationId, salleId, matiereId,
                 null, jour, seance, semaine, StatutAffectation.PLANIFIEE);
 
-        return affectationRepository.save(affectation);
+        affectation = affectationRepository.save(affectation);
+        log.info("Créneau créé : id={}, centreId={}, sessionId={}, salleId={}", affectation.getId(), centreId, sessionId, salleId);
+        return affectation;
     }
 
     @Override
@@ -103,6 +111,7 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
                 .orElseThrow(() -> new EnseignantIntrouvableException(enseignantId));
 
         if (enseignant.getStatut() == StatutEnseignant.SUSPENDU) {
+            log.warn("Assignation refusée : enseignant {} suspendu", enseignantId);
             throw new EnseignantSuspenduException(enseignantId);
         }
 
@@ -111,12 +120,16 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
 
         if (!rosterRepository.existsByEnseignantIdAndSessionIdAndDepartementId(
                 enseignantId, affectation.getSessionId(), departement.getId())) {
+            log.warn("Assignation refusée : enseignant {} non rattaché au département {} pour la session {}",
+                    enseignantId, departement.getId(), affectation.getSessionId());
             throw new EnseignantNonRattacheDepartementException(
                     enseignantId, affectation.getSessionId(), departement.getId());
         }
 
         affectation.assignerEnseignant(enseignantId);
-        return affectationRepository.save(affectation);
+        Affectation affectationSauvegardee = affectationRepository.save(affectation);
+        log.info("Enseignant assigné : affectationId={}, enseignantId={}", affectationId, enseignantId);
+        return affectationSauvegardee;
     }
 
     @Override
@@ -127,7 +140,9 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
             throw new MatiereIntrouvableException(nouvelleMatiereId);
         }
         affectation.modifierMatiere(nouvelleMatiereId);
-        return affectationRepository.save(affectation);
+        affectation = affectationRepository.save(affectation);
+        log.info("Matière modifiée : affectationId={}, nouvelleMatiereId={}", affectationId, nouvelleMatiereId);
+        return affectation;
     }
 
     @Override
@@ -136,6 +151,7 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
             throw new AffectationIntrouvableException(id);
         }
         affectationRepository.deleteById(id);
+        log.info("Affectation supprimée : id={}", id);
     }
 
     @Override
@@ -143,7 +159,9 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
         Affectation affectation = affectationRepository.findById(affectationId)
                 .orElseThrow(() -> new AffectationIntrouvableException(affectationId));
         affectation.annuler();
-        return this.affectationRepository.save(affectation);
+        affectation = this.affectationRepository.save(affectation);
+        log.info("Affectation annulée : id={}", affectationId);
+        return affectation;
     }
 
     @Override
@@ -151,7 +169,9 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
         Affectation affectation = affectationRepository.findById(affectationId)
                 .orElseThrow(() -> new AffectationIntrouvableException(affectationId));
         affectation.marquerEffectuee();
-        return this.affectationRepository.save(affectation);
+        affectation = this.affectationRepository.save(affectation);
+        log.info("Affectation marquée effectuée : id={}", affectationId);
+        return affectation;
     }
 
     @Override

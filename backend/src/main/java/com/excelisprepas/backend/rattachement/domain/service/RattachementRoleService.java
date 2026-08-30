@@ -13,11 +13,13 @@ import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.model.StatutSession;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import com.excelisprepas.backend.shared.exception.*;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 public class RattachementRoleService implements RattacherUtilisateurUseCase, AffecterCentreUseCase,
         AjouterRoleUseCase, RetirerRoleUseCase, RecupererRattachementUseCase,
         ListerRattachementsUseCase, ListerRolesUseCase, SupprimerRattachementUseCase {
@@ -52,6 +54,7 @@ public class RattachementRoleService implements RattacherUtilisateurUseCase, Aff
         SessionAcademique session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new SessionIntrouvableException(sessionId));
         if (session.getStatut() == StatutSession.CLOTUREE) {
+            log.warn("Opération refusée : session {} clôturée", sessionId);
             throw new SessionNonUtilisableException(sessionId);
         }
         return session;
@@ -68,9 +71,11 @@ public class RattachementRoleService implements RattacherUtilisateurUseCase, Aff
 
         verifierSessionUtilisable(sessionId);
         if (!centre.getSessionIds().contains(sessionId)) {
+            log.warn("Rattachement refusé : centre {} non participant à la session {}", centreId, sessionId);
             throw new CentreNonParticipantSessionException(centreId, sessionId);
         }
         if (rattachementRepository.existsByUtilisateurIdAndSessionId(utilisateurId, sessionId)) {
+            log.warn("Rattachement refusé : utilisateur {} déjà rattaché pour la session {}", utilisateurId, sessionId);
             throw new RattachementDejaExistantException(utilisateurId, sessionId);
         }
         verifierRolesCentreScopes(rolesInitiaux);
@@ -82,6 +87,7 @@ public class RattachementRoleService implements RattacherUtilisateurUseCase, Aff
             attributionRepository.save(new AttributionRole(UUID.randomUUID(), utilisateurId, sessionId, role));
         }
 
+        log.info("Utilisateur rattaché : utilisateurId={}, sessionId={}, centreId={}", utilisateurId, sessionId, centreId);
         return rattachement;
     }
 
@@ -95,6 +101,7 @@ public class RattachementRoleService implements RattacherUtilisateurUseCase, Aff
 
         verifierSessionUtilisable(rattachement.getSessionId());
         if (!nouveauCentre.getSessionIds().contains(rattachement.getSessionId())) {
+            log.warn("Affectation refusée : centre {} non participant à la session {}", nouveauCentreId, rattachement.getSessionId());
             throw new CentreNonParticipantSessionException(nouveauCentreId, rattachement.getSessionId());
         }
         verifierRolesCentreScopes(nouveauxRoles);
@@ -115,7 +122,9 @@ public class RattachementRoleService implements RattacherUtilisateurUseCase, Aff
         }
 
         rattachement.affecter(nouveauCentreId);
-        return rattachementRepository.save(rattachement);
+        rattachement = rattachementRepository.save(rattachement);
+        log.info("Rattachement affecté à un nouveau centre : rattachementId={}, nouveauCentreId={}", rattachementId, nouveauCentreId);
+        return rattachement;
     }
 
     @Override
@@ -125,13 +134,18 @@ public class RattachementRoleService implements RattacherUtilisateurUseCase, Aff
         }
         verifierSessionUtilisable(sessionId);
         if (role.estCentreScope() && !rattachementRepository.existsByUtilisateurIdAndSessionId(utilisateurId, sessionId)) {
+            log.warn("Ajout de rôle refusé : rattachement requis pour utilisateur {} et session {}", utilisateurId, sessionId);
             throw new RattachementRequisException(utilisateurId, sessionId);
         }
         if (attributionRepository.existsByUtilisateurIdAndSessionIdAndRole(utilisateurId, sessionId, role)) {
+            log.warn("Ajout de rôle refusé : rôle {} déjà attribué à utilisateur {} pour session {}", role, utilisateurId, sessionId);
             throw new RoleDejaAttribueException(utilisateurId, sessionId, role);
         }
 
-        return attributionRepository.save(new AttributionRole(UUID.randomUUID(), utilisateurId, sessionId, role));
+        AttributionRole attribution = attributionRepository.save(
+                new AttributionRole(UUID.randomUUID(), utilisateurId, sessionId, role));
+        log.info("Rôle ajouté : utilisateurId={}, sessionId={}, role={}", utilisateurId, sessionId, role);
+        return attribution;
     }
 
     @Override
@@ -140,6 +154,7 @@ public class RattachementRoleService implements RattacherUtilisateurUseCase, Aff
                 .findByUtilisateurIdAndSessionIdAndRole(utilisateurId, sessionId, role)
                 .orElseThrow(() -> new AttributionRoleIntrouvableException(utilisateurId, sessionId, role));
         attributionRepository.deleteById(attribution.getId());
+        log.info("Rôle retiré : utilisateurId={}, sessionId={}, role={}", utilisateurId, sessionId, role);
     }
 
     @Override
@@ -171,5 +186,6 @@ public class RattachementRoleService implements RattacherUtilisateurUseCase, Aff
         }
 
         rattachementRepository.deleteById(id);
+        log.info("Rattachement supprimé : id={}", id);
     }
 }

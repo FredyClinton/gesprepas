@@ -54,6 +54,11 @@ public class AffectationDepartementaleExceptionHandler {
         return construireReponse(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    @ExceptionHandler(GestionEnseignantsGeleeException.class)
+    public ResponseEntity<Map<String, Object>> gererGestionEnseignantsGelee(GestionEnseignantsGeleeException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     private ResponseEntity<Map<String, Object>> construireReponse(HttpStatus statut, String message) {
         return ResponseEntity.status(statut).body(Map.of(
                 "timestamp", Instant.now().toString(),

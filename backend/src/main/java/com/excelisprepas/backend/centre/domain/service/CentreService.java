@@ -16,10 +16,12 @@ import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueReposi
 import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
 import com.excelisprepas.backend.shared.exception.SessionIntrouvableException;
 import com.excelisprepas.backend.shared.exception.SessionNonUtilisableException;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 public class CentreService implements CreerCentreUseCase, RecupererCentreUseCase,
         ListerCentresUseCase, FermerCentreUseCase, RenommerCentreUseCase,
         RelocaliserCentreUseCase, RouvrirCentreUseCase, SupprimerCentreUseCase,
@@ -50,7 +52,9 @@ public class CentreService implements CreerCentreUseCase, RecupererCentreUseCase
     @Override
     public Centre creerCentre(String nom, String adresseInitiale, String villeInitiale) {
         Centre centre = new Centre(UUID.randomUUID(), nom, adresseInitiale, villeInitiale);
-        return centreRepository.save(centre);
+        centre = centreRepository.save(centre);
+        log.info("Centre créé : id={}, nom={}", centre.getId(), nom);
+        return centre;
     }
 
     @Override
@@ -68,14 +72,18 @@ public class CentreService implements CreerCentreUseCase, RecupererCentreUseCase
     public Centre fermerCentre(UUID id) {
         Centre centre = recupererCentre(id);
         centre.fermer();
-        return centreRepository.save(centre);
+        centre = centreRepository.save(centre);
+        log.info("Centre fermé : id={}", id);
+        return centre;
     }
 
     @Override
     public Centre renommerCentre(UUID id, String nouveauNom) {
         Centre centre = recupererCentre(id);
         centre.renommer(nouveauNom);
-        return centreRepository.save(centre);
+        centre = centreRepository.save(centre);
+        log.info("Centre renommé : id={}, nouveauNom={}", id, nouveauNom);
+        return centre;
     }
 
 
@@ -83,7 +91,9 @@ public class CentreService implements CreerCentreUseCase, RecupererCentreUseCase
     public Centre relocaliserCentre(UUID id, String nouvelleAdresse, String nouvelleVille) {
         Centre centre = recupererCentre(id);
         centre.relocaliser(nouvelleAdresse, nouvelleVille);
-        return centreRepository.save(centre);
+        centre = centreRepository.save(centre);
+        log.info("Centre relocalisé : id={}, nouvelleAdresse={}, nouvelleVille={}", id, nouvelleAdresse, nouvelleVille);
+        return centre;
     }
 
 
@@ -98,16 +108,20 @@ public class CentreService implements CreerCentreUseCase, RecupererCentreUseCase
                 || rattachementRepository.existsByCentreId(id);
 
         if (referencerAilleurs) {
+            log.warn("Suppression de centre refusée : id={} encore référencé ailleurs", id);
             throw new CentreUtiliseException(id);
         }
         centreRepository.deleteById(id);
+        log.info("Centre supprimé : id={}", id);
     }
 
     @Override
     public Centre rouvrirCentre(UUID id) {
         Centre centre = recupererCentre(id);
         centre.rouvrir();
-        return centreRepository.save(centre);
+        centre = centreRepository.save(centre);
+        log.info("Centre rouvert : id={}", id);
+        return centre;
     }
 
     @Override
@@ -117,10 +131,13 @@ public class CentreService implements CreerCentreUseCase, RecupererCentreUseCase
         SessionAcademique session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new SessionIntrouvableException(sessionId));
         if (session.getStatut() == StatutSession.CLOTUREE) {
+            log.warn("Rattachement à la session refusé : session {} clôturée", sessionId);
             throw new SessionNonUtilisableException(sessionId);
         }
 
         centre.rejoindreSession(sessionId);
-        return centreRepository.save(centre);
+        centre = centreRepository.save(centre);
+        log.info("Centre rattaché à la session : centreId={}, sessionId={}", centreId, sessionId);
+        return centre;
     }
 }
