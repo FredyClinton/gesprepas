@@ -49,7 +49,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -176,10 +178,10 @@ public class DatabaseSeeder implements CommandLineRunner {
         List<CentreSeed> centresSeed = seedPersonnelParCentre(centres, sessionEnCours.getId());
 
         DepartementSeed mathematiques = departements.get(0);
-        List<UUID> enseignantsMaths = seedEnseignants(departements, sessionEnCours.getId());
+        Map<UUID, List<UUID>> enseignantsParDepartement = seedEnseignants(departements, sessionEnCours.getId());
         List<UUID> apprenantsIds = seedApprenants(formations, sessionEnCours.getId());
         seedProgressions(formations, mathematiques, sessionEnCours.getId());
-        seedAffectations(formations, mathematiques, enseignantsMaths, sessionEnCours.getId());
+        seedAffectations(formations, departements, enseignantsParDepartement, sessionEnCours.getId());
         seedFinancier(centresSeed, sessionEnCours.getId(), apprenantsIds);
         seedDossier(sessionEnCours.getId(), apprenantsIds, centresSeed.get(0).caissierId());
 
@@ -300,8 +302,8 @@ public class DatabaseSeeder implements CommandLineRunner {
         return utilisateur.getId();
     }
 
-    private List<UUID> seedEnseignants(List<DepartementSeed> departements, UUID sessionEnCoursId) {
-        List<UUID> enseignantsMaths = new ArrayList<>();
+    private Map<UUID, List<UUID>> seedEnseignants(List<DepartementSeed> departements, UUID sessionEnCoursId) {
+        Map<UUID, List<UUID>> enseignantsParDepartement = new HashMap<>();
         String[] noms = {"Kamdem", "Talla", "Biya", "Ateba", "Nguema", "Fomekong", "Onana", "Manga", "Njoya", "Simo"};
         String[] prenoms = {"André", "Chantal", "Éric", "Sophie", "Hervé", "Nadège", "Serge", "Aïcha", "Léa", "Marc"};
 
@@ -313,11 +315,10 @@ public class DatabaseSeeder implements CommandLineRunner {
             DepartementSeed departement = departements.get(i % departements.size());
             ajouterEnseignantUseCase.ajouterEnseignant(departement.departementId(), sessionEnCoursId, enseignant.getId());
 
-            if (departement == departements.get(0)) {
-                enseignantsMaths.add(enseignant.getId());
-            }
+            enseignantsParDepartement.computeIfAbsent(departement.departementId(), key -> new ArrayList<>())
+                    .add(enseignant.getId());
         }
-        return enseignantsMaths;
+        return enseignantsParDepartement;
     }
 
     private List<UUID> seedApprenants(List<FormationSeed> formations, UUID sessionEnCoursId) {
@@ -351,15 +352,27 @@ public class DatabaseSeeder implements CommandLineRunner {
         }
     }
 
-    private void seedAffectations(List<FormationSeed> formations, DepartementSeed mathematiques,
-                                  List<UUID> enseignantsMaths, UUID sessionEnCoursId) {
-        int enseignantIndex = 0;
+    private void seedAffectations(List<FormationSeed> formations, List<DepartementSeed> departements,
+                                  Map<UUID, List<UUID>> enseignantsParDepartement, UUID sessionEnCoursId) {
+        Jour[] jours = {Jour.LUNDI, Jour.MARDI, Jour.MERCREDI};
+        List<DepartementSeed> departementsCreneaux = departements.subList(0, 3);
+        Map<UUID, Integer> enseignantIndexParDepartement = new HashMap<>();
+        int indexGlobal = 0;
+
         for (FormationSeed formation : formations) {
-            var affectation = creerCreneauUseCase.creerCreneau(formation.centreId(), sessionEnCoursId,
-                    formation.formationId(), formation.salleId(), mathematiques.matiereId(), Jour.LUNDI, 1, 1);
-            UUID enseignantId = enseignantsMaths.get(enseignantIndex % enseignantsMaths.size());
-            assignerEnseignantUseCase.assignerEnseignant(affectation.getId(), enseignantId);
-            enseignantIndex++;
+            for (int i = 0; i < departementsCreneaux.size(); i++) {
+                DepartementSeed departement = departementsCreneaux.get(i);
+                var affectation = creerCreneauUseCase.creerCreneau(formation.centreId(), sessionEnCoursId,
+                        formation.formationId(), formation.salleId(), departement.matiereId(), jours[i], 1, 1);
+
+                if (indexGlobal % 2 == 0) {
+                    List<UUID> enseignants = enseignantsParDepartement.get(departement.departementId());
+                    int enseignantIndex = enseignantIndexParDepartement.merge(departement.departementId(), 1, Integer::sum) - 1;
+                    UUID enseignantId = enseignants.get(enseignantIndex % enseignants.size());
+                    assignerEnseignantUseCase.assignerEnseignant(affectation.getId(), enseignantId);
+                }
+                indexGlobal++;
+            }
         }
     }
 

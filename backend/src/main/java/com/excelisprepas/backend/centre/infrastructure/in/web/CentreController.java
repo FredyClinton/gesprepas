@@ -170,6 +170,25 @@ public class CentreController {
         return ResponseEntity.ok(versReponse(centre));
     }
 
+    @Operation(summary = "Lister l'historique des localisations d'un centre",
+            description = "Retourne toutes les adresses successives du centre, la plus récente en premier n'est pas garantie — trié par ordre de création.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Historique des localisations",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = LocalisationCentreResponse.class)))),
+            @ApiResponse(responseCode = "404", description = "Centre introuvable", content = @Content)
+    })
+    @GetMapping("/{id}/localisations")
+    public ResponseEntity<List<LocalisationCentreResponse>> listerHistoriqueLocalisations(
+            @Parameter(description = "Identifiant du centre") @PathVariable UUID id) {
+        Centre centre = recupererCentreUseCase.recupererCentre(id);
+        List<LocalisationCentreResponse> reponses = centre.getHistoriqueLocalisations().stream()
+                .map(loc -> new LocalisationCentreResponse(
+                        loc.getId(), loc.getAdresse(), loc.getVille(),
+                        loc.getDateDebutValidite(), loc.getDateFinValidite()))
+                .toList();
+        return ResponseEntity.ok(reponses);
+    }
+
     @Operation(summary = "Supprimer un centre", description = "Supprime définitivement un centre.")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Centre supprimé", content = @Content),
