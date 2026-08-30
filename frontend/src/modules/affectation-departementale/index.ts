@@ -1,2 +1,7 @@
 export type { AffectationDepartementale } from "./domain/types";
-export { useRosterDepartement } from "./data/queries";
+export {
+  useRosterDepartement,
+  useRostersDepartements,
+  useAjouterEnseignantRoster,
+  useRetirerEnseignantRoster,
+} from "./data/queries";
