@@ -31,6 +31,11 @@ public class AffectationRepositoryAdapter implements AffectationRepositoryPort {
     }
 
     @Override
+    public void deleteById(UUID id) {
+        jpaRepository.deleteById(id);
+    }
+
+    @Override
     public boolean existsBySalleIdAndJourAndSemaineAndSeance(UUID salleId, Jour jour, int semaine, int seance) {
         return jpaRepository.existsBySalleIdAndJourAndSemaineAndSeance(salleId, jour, semaine, seance);
     }
@@ -81,6 +86,12 @@ public class AffectationRepositoryAdapter implements AffectationRepositoryPort {
     @Override
     public List<Affectation> findBySessionIdAndMatiereIdAndCentreIdAndSemaine(UUID sessionId, UUID matiereId, UUID centreId, int semaine) {
         return jpaRepository.findBySessionIdAndMatiereIdAndCentreIdAndSemaine(sessionId, matiereId, centreId, semaine).stream()
+                .map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Affectation> findByEnseignantIdAndSessionId(UUID enseignantId, UUID sessionId) {
+        return jpaRepository.findByEnseignantIdAndSessionId(enseignantId, sessionId).stream()
                 .map(mapper::toDomain).toList();
     }
 }

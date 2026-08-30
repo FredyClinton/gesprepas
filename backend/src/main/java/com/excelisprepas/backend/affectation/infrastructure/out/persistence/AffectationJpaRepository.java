@@ -26,4 +26,6 @@ public interface AffectationJpaRepository extends JpaRepository<AffectationEntit
     List<AffectationEntity> findBySessionIdAndMatiereIdAndSemaine(UUID sessionId, UUID matiereId, int semaine);
 
     List<AffectationEntity> findBySessionIdAndMatiereIdAndCentreIdAndSemaine(UUID sessionId, UUID matiereId, UUID centreId, int semaine);
+
+    List<AffectationEntity> findByEnseignantIdAndSessionId(UUID enseignantId, UUID sessionId);
 }

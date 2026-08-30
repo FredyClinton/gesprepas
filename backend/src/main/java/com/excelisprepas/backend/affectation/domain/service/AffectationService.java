@@ -26,7 +26,8 @@ import java.util.List;
 import java.util.UUID;
 
 public class AffectationService implements CreerCreneauUseCase, AssignerEnseignantUseCase,
-        AnnulerAffectationUseCase, MarquerEffectueeUseCase, ListerAffectationUseCase, ModifierMatiereUseCase {
+        AnnulerAffectationUseCase, MarquerEffectueeUseCase, ListerAffectationUseCase, ModifierMatiereUseCase,
+        SupprimerAffectationUseCase, ListerAffectationsParEnseignantUseCase {
 
     private final AffectationRepositoryPort affectationRepository;
     private final CentreRepositoryPort centreRepository;
@@ -130,6 +131,14 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
     }
 
     @Override
+    public void supprimerAffectation(UUID id) {
+        if (affectationRepository.findById(id).isEmpty()) {
+            throw new AffectationIntrouvableException(id);
+        }
+        affectationRepository.deleteById(id);
+    }
+
+    @Override
     public Affectation annulerAffectation(UUID affectationId) {
         Affectation affectation = affectationRepository.findById(affectationId)
                 .orElseThrow(() -> new AffectationIntrouvableException(affectationId));
@@ -158,5 +167,10 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
             return affectationRepository.findBySessionIdAndMatiereIdAndSemaine(sessionId, matiereId, semaine);
         }
         return affectationRepository.findBySessionIdAndSemaine(sessionId, semaine);
+    }
+
+    @Override
+    public List<Affectation> listerParEnseignant(UUID enseignantId, UUID sessionId) {
+        return affectationRepository.findByEnseignantIdAndSessionId(enseignantId, sessionId);
     }
 }

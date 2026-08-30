@@ -8,6 +8,7 @@ import com.excelisprepas.backend.affectation.infrastructure.in.web.dto.CreerCren
 import com.excelisprepas.backend.affectation.infrastructure.in.web.dto.ModifierMatiereRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -32,19 +33,25 @@ public class AffectationController {
     private final AnnulerAffectationUseCase annulerAffectationUseCase;
     private final ListerAffectationUseCase listerAffectationUseCase;
     private final ModifierMatiereUseCase modifierMatiereUseCase;
+    private final SupprimerAffectationUseCase supprimerAffectationUseCase;
+    private final ListerAffectationsParEnseignantUseCase listerAffectationsParEnseignantUseCase;
 
     public AffectationController(CreerCreneauUseCase creerCreneauUseCase,
                                  AssignerEnseignantUseCase assignerEnseignantUseCase,
                                  MarquerEffectueeUseCase marquerEffectueeUseCase,
                                  AnnulerAffectationUseCase annulerAffectationUseCase,
                                  ListerAffectationUseCase listerAffectationUseCase,
-                                 ModifierMatiereUseCase modifierMatiereUseCase) {
+                                 ModifierMatiereUseCase modifierMatiereUseCase,
+                                 SupprimerAffectationUseCase supprimerAffectationUseCase,
+                                 ListerAffectationsParEnseignantUseCase listerAffectationsParEnseignantUseCase) {
         this.creerCreneauUseCase = creerCreneauUseCase;
         this.assignerEnseignantUseCase = assignerEnseignantUseCase;
         this.marquerEffectueeUseCase = marquerEffectueeUseCase;
         this.annulerAffectationUseCase = annulerAffectationUseCase;
         this.listerAffectationUseCase = listerAffectationUseCase;
         this.modifierMatiereUseCase = modifierMatiereUseCase;
+        this.supprimerAffectationUseCase = supprimerAffectationUseCase;
+        this.listerAffectationsParEnseignantUseCase = listerAffectationsParEnseignantUseCase;
     }
 
     private static AffectationResponse versReponse(Affectation affectation) {
@@ -158,5 +165,35 @@ public class AffectationController {
             @Parameter(description = "Identifiant du créneau") @PathVariable UUID id) {
         Affectation affectation = annulerAffectationUseCase.annulerAffectation(id);
         return ResponseEntity.ok(versReponse(affectation));
+    }
+
+    @Operation(summary = "Supprimer définitivement un créneau",
+            description = "Supprime le créneau de façon permanente (contrairement à /annuler, qui ne fait que changer son statut).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Créneau supprimé", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Créneau introuvable", content = @Content)
+    })
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> supprimerAffectation(
+            @Parameter(description = "Identifiant du créneau") @PathVariable UUID id) {
+        supprimerAffectationUseCase.supprimerAffectation(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Lister les séances d'un enseignant",
+            description = "Retourne tous les créneaux (toutes semaines confondues) d'un enseignant pour une session donnée.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Liste des créneaux de l'enseignant",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = AffectationResponse.class))))
+    })
+    @GetMapping("/enseignant/{enseignantId}")
+    public ResponseEntity<List<AffectationResponse>> listerParEnseignant(
+            @Parameter(description = "Identifiant de l'enseignant") @PathVariable UUID enseignantId,
+            @Parameter(description = "Session académique concernée") @RequestParam UUID sessionId) {
+        List<AffectationResponse> reponses = listerAffectationsParEnseignantUseCase
+                .listerParEnseignant(enseignantId, sessionId).stream()
+                .map(AffectationController::versReponse)
+                .toList();
+        return ResponseEntity.ok(reponses);
     }
 }

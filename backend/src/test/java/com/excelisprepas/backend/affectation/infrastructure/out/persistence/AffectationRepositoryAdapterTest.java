@@ -217,4 +217,24 @@ class AffectationRepositoryAdapterTest extends AbstractIntegrationTest {
         assertThat(resultat).hasSize(1);
         assertThat(resultat.get(0).getCentreId()).isEqualTo(centreId);
     }
+
+    @Test
+    @DisplayName("findByEnseignantIdAndSessionId() filtre par enseignant ET session")
+    void findByEnseignantIdAndSessionIdFiltreParEnseignantEtSession() {
+        // Given
+        UUID enseignantId = UUID.randomUUID();
+        UUID sessionA = UUID.randomUUID();
+        UUID sessionB = UUID.randomUUID();
+        adapter.save(new Affectation(UUID.randomUUID(), UUID.randomUUID(), sessionA, UUID.randomUUID(),
+                UUID.randomUUID(), UUID.randomUUID(), enseignantId, Jour.LUNDI, 1, 1, StatutAffectation.ASSIGNEE));
+        adapter.save(new Affectation(UUID.randomUUID(), UUID.randomUUID(), sessionB, UUID.randomUUID(),
+                UUID.randomUUID(), UUID.randomUUID(), enseignantId, Jour.LUNDI, 1, 1, StatutAffectation.ASSIGNEE)); // même enseignant, autre session
+
+        // When
+        List<Affectation> resultat = adapter.findByEnseignantIdAndSessionId(enseignantId, sessionA);
+
+        // Then
+        assertThat(resultat).hasSize(1);
+        assertThat(resultat.get(0).getSessionId()).isEqualTo(sessionA);
+    }
 }
