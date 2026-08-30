@@ -27,7 +27,7 @@ import java.util.UUID;
 
 public class AffectationService implements CreerCreneauUseCase, AssignerEnseignantUseCase,
         AnnulerAffectationUseCase, MarquerEffectueeUseCase, ListerAffectationUseCase, ModifierMatiereUseCase,
-        SupprimerAffectationUseCase {
+        SupprimerAffectationUseCase, ListerAffectationsParEnseignantUseCase {
 
     private final AffectationRepositoryPort affectationRepository;
     private final CentreRepositoryPort centreRepository;
@@ -167,5 +167,10 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
             return affectationRepository.findBySessionIdAndMatiereIdAndSemaine(sessionId, matiereId, semaine);
         }
         return affectationRepository.findBySessionIdAndSemaine(sessionId, semaine);
+    }
+
+    @Override
+    public List<Affectation> listerParEnseignant(UUID enseignantId, UUID sessionId) {
+        return affectationRepository.findByEnseignantIdAndSessionId(enseignantId, sessionId);
     }
 }

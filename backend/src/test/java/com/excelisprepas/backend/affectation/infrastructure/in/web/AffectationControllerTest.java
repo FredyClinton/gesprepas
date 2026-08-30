@@ -58,6 +58,9 @@ class AffectationControllerTest {
     @MockitoBean
     private SupprimerAffectationUseCase supprimerAffectationUseCase;
 
+    @MockitoBean
+    private ListerAffectationsParEnseignantUseCase listerAffectationsParEnseignantUseCase;
+
     private String jsonRequest() {
         return """
                 {
@@ -384,5 +387,22 @@ class AffectationControllerTest {
         // When / Then
         mockMvc.perform(delete("/api/affectations/" + id))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("GET /api/affectations/enseignant/{id}?sessionId= retourne la liste des séances de l'enseignant")
+    void listerParEnseignant_retourneLaListe() throws Exception {
+        // Given
+        UUID enseignantId = UUID.randomUUID();
+        when(listerAffectationsParEnseignantUseCase.listerParEnseignant(enseignantId, SESSION_ID)).thenReturn(List.of(
+                new Affectation(UUID.randomUUID(), CENTRE_ID, SESSION_ID, FORMATION_ID, SALLE_ID, MATIERE_ID,
+                        enseignantId, Jour.LUNDI, 1, 1, StatutAffectation.ASSIGNEE),
+                new Affectation(UUID.randomUUID(), CENTRE_ID, SESSION_ID, FORMATION_ID, SALLE_ID, MATIERE_ID,
+                        enseignantId, Jour.MARDI, 1, 2, StatutAffectation.ASSIGNEE)));
+
+        // When / Then
+        mockMvc.perform(get("/api/affectations/enseignant/" + enseignantId).param("sessionId", SESSION_ID.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
     }
 }

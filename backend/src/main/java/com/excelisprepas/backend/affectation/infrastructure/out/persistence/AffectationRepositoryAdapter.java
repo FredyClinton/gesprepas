@@ -88,4 +88,10 @@ public class AffectationRepositoryAdapter implements AffectationRepositoryPort {
         return jpaRepository.findBySessionIdAndMatiereIdAndCentreIdAndSemaine(sessionId, matiereId, centreId, semaine).stream()
                 .map(mapper::toDomain).toList();
     }
+
+    @Override
+    public List<Affectation> findByEnseignantIdAndSessionId(UUID enseignantId, UUID sessionId) {
+        return jpaRepository.findByEnseignantIdAndSessionId(enseignantId, sessionId).stream()
+                .map(mapper::toDomain).toList();
+    }
 }

@@ -8,6 +8,7 @@ import com.excelisprepas.backend.affectation.infrastructure.in.web.dto.CreerCren
 import com.excelisprepas.backend.affectation.infrastructure.in.web.dto.ModifierMatiereRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -33,6 +34,7 @@ public class AffectationController {
     private final ListerAffectationUseCase listerAffectationUseCase;
     private final ModifierMatiereUseCase modifierMatiereUseCase;
     private final SupprimerAffectationUseCase supprimerAffectationUseCase;
+    private final ListerAffectationsParEnseignantUseCase listerAffectationsParEnseignantUseCase;
 
     public AffectationController(CreerCreneauUseCase creerCreneauUseCase,
                                  AssignerEnseignantUseCase assignerEnseignantUseCase,
@@ -40,7 +42,8 @@ public class AffectationController {
                                  AnnulerAffectationUseCase annulerAffectationUseCase,
                                  ListerAffectationUseCase listerAffectationUseCase,
                                  ModifierMatiereUseCase modifierMatiereUseCase,
-                                 SupprimerAffectationUseCase supprimerAffectationUseCase) {
+                                 SupprimerAffectationUseCase supprimerAffectationUseCase,
+                                 ListerAffectationsParEnseignantUseCase listerAffectationsParEnseignantUseCase) {
         this.creerCreneauUseCase = creerCreneauUseCase;
         this.assignerEnseignantUseCase = assignerEnseignantUseCase;
         this.marquerEffectueeUseCase = marquerEffectueeUseCase;
@@ -48,6 +51,7 @@ public class AffectationController {
         this.listerAffectationUseCase = listerAffectationUseCase;
         this.modifierMatiereUseCase = modifierMatiereUseCase;
         this.supprimerAffectationUseCase = supprimerAffectationUseCase;
+        this.listerAffectationsParEnseignantUseCase = listerAffectationsParEnseignantUseCase;
     }
 
     private static AffectationResponse versReponse(Affectation affectation) {
@@ -174,5 +178,22 @@ public class AffectationController {
             @Parameter(description = "Identifiant du créneau") @PathVariable UUID id) {
         supprimerAffectationUseCase.supprimerAffectation(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Lister les séances d'un enseignant",
+            description = "Retourne tous les créneaux (toutes semaines confondues) d'un enseignant pour une session donnée.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Liste des créneaux de l'enseignant",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = AffectationResponse.class))))
+    })
+    @GetMapping("/enseignant/{enseignantId}")
+    public ResponseEntity<List<AffectationResponse>> listerParEnseignant(
+            @Parameter(description = "Identifiant de l'enseignant") @PathVariable UUID enseignantId,
+            @Parameter(description = "Session académique concernée") @RequestParam UUID sessionId) {
+        List<AffectationResponse> reponses = listerAffectationsParEnseignantUseCase
+                .listerParEnseignant(enseignantId, sessionId).stream()
+                .map(AffectationController::versReponse)
+                .toList();
+        return ResponseEntity.ok(reponses);
     }
 }
