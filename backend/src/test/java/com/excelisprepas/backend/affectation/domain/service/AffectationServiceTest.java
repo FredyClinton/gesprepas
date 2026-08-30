@@ -480,6 +480,50 @@ class AffectationServiceTest {
     }
 
     @Nested
+    @DisplayName("Modification de la matière")
+    class ModificationMatiere {
+
+        @Test
+        @DisplayName("modifierMatiere() réussit et sauvegarde la nouvelle matière")
+        void modifierMatiereReussit() {
+            // Given
+            Affectation affectation = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
+                    salleId, matiereId, UUID.randomUUID(), Jour.LUNDI, 1, 1, StatutAffectation.ASSIGNEE);
+            UUID nouvelleMatiereId = UUID.randomUUID();
+            when(affectationRepository.findById(affectation.getId())).thenReturn(Optional.of(affectation));
+            when(matiereRepository.findById(nouvelleMatiereId)).thenReturn(Optional.of(new Matiere(nouvelleMatiereId, "Physique")));
+            when(affectationRepository.save(any(Affectation.class))).thenAnswer(i -> i.getArgument(0));
+
+            // When
+            Affectation resultat = service.modifierMatiere(affectation.getId(), nouvelleMatiereId);
+
+            // Then
+            assertThat(resultat.getMatiereId()).isEqualTo(nouvelleMatiereId);
+            assertThat(resultat.getEnseignantId()).isNull();
+            assertThat(resultat.getStatut()).isEqualTo(StatutAffectation.PLANIFIEE);
+            verify(affectationRepository).save(affectation);
+        }
+
+        @Test
+        @DisplayName("modifierMatiere() refuse si la nouvelle matière n'existe pas")
+        void modifierMatiereRefuseSiMatiereInexistante() {
+            // Given
+            Affectation affectation = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
+                    salleId, matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
+            UUID nouvelleMatiereId = UUID.randomUUID();
+            when(affectationRepository.findById(affectation.getId())).thenReturn(Optional.of(affectation));
+            when(matiereRepository.findById(nouvelleMatiereId)).thenReturn(Optional.empty());
+
+            // When
+            ThrowingCallable action = () -> service.modifierMatiere(affectation.getId(), nouvelleMatiereId);
+
+            // Then
+            assertThatThrownBy(action).isInstanceOf(MatiereIntrouvableException.class);
+            verify(affectationRepository, never()).save(any(Affectation.class));
+        }
+    }
+
+    @Nested
     @DisplayName("Listage")
     class Listage {
 

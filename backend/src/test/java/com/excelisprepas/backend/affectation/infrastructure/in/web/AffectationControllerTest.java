@@ -50,6 +50,9 @@ class AffectationControllerTest {
     @MockitoBean
     private ListerAffectationUseCase listerAffectationUseCase;
 
+    @MockitoBean
+    private ModifierMatiereUseCase modifierMatiereUseCase;
+
     private String jsonRequest() {
         return """
                 {
@@ -199,6 +202,49 @@ class AffectationControllerTest {
                         .contentType("application/json")
                         .content(jsonRequest()))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/affectations/{id}/modifier-matiere avec des données valides retourne 200")
+    void modifierMatiere_donneesValides_retourne200() throws Exception {
+        // Given
+        UUID affectationId = UUID.randomUUID();
+        UUID nouvelleMatiereId = UUID.randomUUID();
+        when(modifierMatiereUseCase.modifierMatiere(any(UUID.class), any(UUID.class)))
+                .thenReturn(new Affectation(affectationId, CENTRE_ID, SESSION_ID, FORMATION_ID, SALLE_ID, nouvelleMatiereId,
+                        null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE));
+
+        // When / Then
+        mockMvc.perform(patch("/api/affectations/" + affectationId + "/modifier-matiere")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                    "matiereId": "%s"
+                                }
+                                """.formatted(nouvelleMatiereId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.matiereId").value(nouvelleMatiereId.toString()))
+                .andExpect(jsonPath("$.statut").value("PLANIFIEE"));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/affectations/{id}/modifier-matiere avec un créneau introuvable retourne 404")
+    void modifierMatiere_creneauIntrouvable_retourne404() throws Exception {
+        // Given
+        UUID affectationId = UUID.randomUUID();
+        UUID nouvelleMatiereId = UUID.randomUUID();
+        when(modifierMatiereUseCase.modifierMatiere(any(UUID.class), any(UUID.class)))
+                .thenThrow(new AffectationIntrouvableException(affectationId));
+
+        // When / Then
+        mockMvc.perform(patch("/api/affectations/" + affectationId + "/modifier-matiere")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                    "matiereId": "%s"
+                                }
+                                """.formatted(nouvelleMatiereId)))
+                .andExpect(status().isNotFound());
     }
 
     @Test

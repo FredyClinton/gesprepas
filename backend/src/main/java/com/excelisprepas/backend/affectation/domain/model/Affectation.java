@@ -13,7 +13,7 @@ public class Affectation {
     private final UUID sessionId;
     private final UUID formationId;
     private final UUID salleId;
-    private final UUID matiereId;
+    private UUID matiereId;
     private final Jour jour;
     private final int seance;
     private final int semaine;
@@ -58,6 +58,17 @@ public class Affectation {
                             + " (un enseignant doit être assigné au préalable)");
         }
         this.statut = StatutAffectation.EFFECTUEE;
+    }
+
+    public void modifierMatiere(UUID nouvelleMatiereId) {
+        if (statut == StatutAffectation.EFFECTUEE || statut == StatutAffectation.ANNULEE) {
+            throw new IllegalStateException(
+                    "Impossible de modifier la matière : le créneau est " + statut);
+        }
+        this.matiereId = Objects.requireNonNull(nouvelleMatiereId, "matiereId ne peut pas être nul");
+        // Changer de matière invalide l'assignation existante (décision du 30/08/2026).
+        this.enseignantId = null;
+        this.statut = StatutAffectation.PLANIFIEE;
     }
 
     public void annuler() {

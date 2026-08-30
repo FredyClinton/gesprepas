@@ -5,6 +5,7 @@ import com.excelisprepas.backend.affectation.domain.port.in.*;
 import com.excelisprepas.backend.affectation.infrastructure.in.web.dto.AffectationResponse;
 import com.excelisprepas.backend.affectation.infrastructure.in.web.dto.AssignerEnseignantRequest;
 import com.excelisprepas.backend.affectation.infrastructure.in.web.dto.CreerCreneauRequest;
+import com.excelisprepas.backend.affectation.infrastructure.in.web.dto.ModifierMatiereRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -30,17 +31,20 @@ public class AffectationController {
     private final MarquerEffectueeUseCase marquerEffectueeUseCase;
     private final AnnulerAffectationUseCase annulerAffectationUseCase;
     private final ListerAffectationUseCase listerAffectationUseCase;
+    private final ModifierMatiereUseCase modifierMatiereUseCase;
 
     public AffectationController(CreerCreneauUseCase creerCreneauUseCase,
                                  AssignerEnseignantUseCase assignerEnseignantUseCase,
                                  MarquerEffectueeUseCase marquerEffectueeUseCase,
                                  AnnulerAffectationUseCase annulerAffectationUseCase,
-                                 ListerAffectationUseCase listerAffectationUseCase) {
+                                 ListerAffectationUseCase listerAffectationUseCase,
+                                 ModifierMatiereUseCase modifierMatiereUseCase) {
         this.creerCreneauUseCase = creerCreneauUseCase;
         this.assignerEnseignantUseCase = assignerEnseignantUseCase;
         this.marquerEffectueeUseCase = marquerEffectueeUseCase;
         this.annulerAffectationUseCase = annulerAffectationUseCase;
         this.listerAffectationUseCase = listerAffectationUseCase;
+        this.modifierMatiereUseCase = modifierMatiereUseCase;
     }
 
     private static AffectationResponse versReponse(Affectation affectation) {
@@ -107,6 +111,23 @@ public class AffectationController {
         AffectationResponse response = versReponse(affectation);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @Operation(summary = "Modifier la matière d'un créneau",
+            description = "Change la matière d'un créneau existant. Réinitialise systématiquement l'assignation enseignant (retour à PLANIFIEE).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Matière modifiée",
+                    content = @Content(schema = @Schema(implementation = AffectationResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Créneau ou matière introuvable", content = @Content),
+            @ApiResponse(responseCode = "409", description = "Créneau déjà effectué ou annulé", content = @Content)
+    })
+    @PatchMapping("/{id}/modifier-matiere")
+    public ResponseEntity<AffectationResponse> modifierMatiere(
+            @Parameter(description = "Identifiant du créneau") @PathVariable UUID id,
+            @Valid @RequestBody ModifierMatiereRequest request) {
+        Affectation affectation = modifierMatiereUseCase.modifierMatiere(id, request.matiereId());
+        return ResponseEntity.ok(versReponse(affectation));
     }
 
     @Operation(summary = "Marquer un créneau comme effectué",

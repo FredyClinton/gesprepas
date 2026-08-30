@@ -56,4 +56,9 @@ public class AffectationBeanConfiguration {
     public ListerAffectationUseCase listerAffectationUseCase(AffectationService affectationService) {
         return affectationService;
     }
+
+    @Bean
+    public ModifierMatiereUseCase modifierMatiereUseCase(AffectationService affectationService) {
+        return affectationService;
+    }
 }

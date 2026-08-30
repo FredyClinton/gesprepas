@@ -148,6 +148,41 @@ class AffectationTest {
     }
 
     @Test
+    @DisplayName("modifierMatiere réussit et réinitialise l'assignation existante")
+    void modifierMatiere_reussit_reinitialiseAssignation() {
+        Affectation affectation = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId, salleId,
+                matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
+        affectation.assignerEnseignant(UUID.randomUUID());
+        UUID nouvelleMatiereId = UUID.randomUUID();
+
+        affectation.modifierMatiere(nouvelleMatiereId);
+
+        assertThat(affectation.getMatiereId()).isEqualTo(nouvelleMatiereId);
+        assertThat(affectation.getEnseignantId()).isNull();
+        assertThat(affectation.getStatut()).isEqualTo(StatutAffectation.PLANIFIEE);
+    }
+
+    @Test
+    @DisplayName("modifierMatiere() sur une affectation EFFECTUEE lève une exception")
+    void modifierMatiere_creneauEffectue_leveIllegalStateException() {
+        Affectation affectation = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId, salleId,
+                matiereId, UUID.randomUUID(), Jour.LUNDI, 1, 1, StatutAffectation.EFFECTUEE);
+
+        assertThatThrownBy(() -> affectation.modifierMatiere(UUID.randomUUID()))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("modifierMatiere() sur une affectation ANNULEE lève une exception")
+    void modifierMatiere_creneauAnnule_leveIllegalStateException() {
+        Affectation affectation = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId, salleId,
+                matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.ANNULEE);
+
+        assertThatThrownBy(() -> affectation.modifierMatiere(UUID.randomUUID()))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
     @DisplayName("annuler passe le statut à ANNULEE")
     void annulerPasseLeStatutAAnnulee() {
         Affectation affectation = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId, salleId,
