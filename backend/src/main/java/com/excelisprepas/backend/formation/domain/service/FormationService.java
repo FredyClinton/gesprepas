@@ -15,10 +15,12 @@ import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
 import com.excelisprepas.backend.shared.exception.CentreNonParticipantSessionException;
 import com.excelisprepas.backend.shared.exception.FormationIntrouvableException;
 import com.excelisprepas.backend.shared.exception.SessionIntrouvableException;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 public class FormationService implements CreerFormationUseCase, RecupererFormationUseCase,
         ListerFormationsUseCase, RenommerFormationUseCase, SupprimerFormationUseCase {
 
@@ -54,11 +56,14 @@ public class FormationService implements CreerFormationUseCase, RecupererFormati
             throw new SessionIntrouvableException(sessionId);
         }
         if (!centre.getSessionIds().contains(sessionId)) {
+            log.warn("Création de formation refusée : centre {} non participant à la session {}", centreId, sessionId);
             throw new CentreNonParticipantSessionException(centreId, sessionId);
         }
 
         Formation formation = new Formation(UUID.randomUUID(), nom, centreId, sessionId);
-        return repository.save(formation);
+        formation = repository.save(formation);
+        log.info("Formation créée : id={}, nom={}, centreId={}, sessionId={}", formation.getId(), nom, centreId, sessionId);
+        return formation;
     }
 
     @Override
@@ -76,7 +81,9 @@ public class FormationService implements CreerFormationUseCase, RecupererFormati
     public Formation renommerFormation(UUID id, String nouveauNom) {
         Formation formation = recupererFormation(id);
         formation.renommer(nouveauNom);
-        return repository.save(formation);
+        formation = repository.save(formation);
+        log.info("Formation renommée : id={}, nouveauNom={}", id, nouveauNom);
+        return formation;
     }
 
     @Override
@@ -89,9 +96,11 @@ public class FormationService implements CreerFormationUseCase, RecupererFormati
                 || progressionRepository.existsByFormationId(id);
 
         if (referenceeAilleurs) {
+            log.warn("Suppression de formation refusée : id={} encore référencée ailleurs", id);
             throw new FormationUtiliseeException(id);
         }
 
         repository.deleteById(id);
+        log.info("Formation supprimée : id={}", id);
     }
 }

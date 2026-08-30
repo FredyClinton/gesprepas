@@ -7,6 +7,8 @@ import com.excelisprepas.backend.affectationdepartementale.domain.port.in.Lister
 import com.excelisprepas.backend.affectationdepartementale.domain.port.in.RetirerEnseignantUseCase;
 import com.excelisprepas.backend.affectationdepartementale.domain.port.out.AffectationDepartementaleRepositoryPort;
 import com.excelisprepas.backend.departement.domain.port.out.DepartementRepositoryPort;
+import com.excelisprepas.backend.gelenseignants.domain.port.in.VerifierAutoriseGestionEnseignantsUseCase;
+import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
 import com.excelisprepas.backend.personnel.domain.port.out.EnseignantRepositoryPort;
 import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.model.StatutSession;
@@ -25,15 +27,18 @@ public class AffectationDepartementaleService implements AjouterEnseignantUseCas
     private final DepartementRepositoryPort departementRepository;
     private final EnseignantRepositoryPort enseignantRepository;
     private final SessionAcademiqueRepositoryPort sessionRepository;
+    private final VerifierAutoriseGestionEnseignantsUseCase gel;
 
     public AffectationDepartementaleService(AffectationDepartementaleRepositoryPort rosterRepository,
                                             DepartementRepositoryPort departementRepository,
                                             EnseignantRepositoryPort enseignantRepository,
-                                            SessionAcademiqueRepositoryPort sessionRepository) {
+                                            SessionAcademiqueRepositoryPort sessionRepository,
+                                            VerifierAutoriseGestionEnseignantsUseCase gel) {
         this.rosterRepository = rosterRepository;
         this.departementRepository = departementRepository;
         this.enseignantRepository = enseignantRepository;
         this.sessionRepository = sessionRepository;
+        this.gel = gel;
     }
 
     private SessionAcademique verifierSessionUtilisable(UUID sessionId) {
@@ -46,7 +51,8 @@ public class AffectationDepartementaleService implements AjouterEnseignantUseCas
     }
 
     @Override
-    public AffectationDepartementale ajouterEnseignant(UUID departementId, UUID sessionId, UUID enseignantId) {
+    public AffectationDepartementale ajouterEnseignant(RoleUtilisateur appelant, UUID departementId, UUID sessionId, UUID enseignantId) {
+        gel.verifierAutorise(appelant);
         if (departementRepository.findById(departementId).isEmpty()) {
             throw new DepartementIntrouvableException(departementId);
         }
@@ -64,7 +70,8 @@ public class AffectationDepartementaleService implements AjouterEnseignantUseCas
     }
 
     @Override
-    public void retirerEnseignant(UUID departementId, UUID sessionId, UUID enseignantId) {
+    public void retirerEnseignant(RoleUtilisateur appelant, UUID departementId, UUID sessionId, UUID enseignantId) {
+        gel.verifierAutorise(appelant);
         AffectationDepartementale entree = rosterRepository
                 .findByEnseignantIdAndSessionIdAndDepartementId(enseignantId, sessionId, departementId)
                 .orElseThrow(() -> new AffectationDepartementaleIntrouvableException(enseignantId, sessionId, departementId));
@@ -72,8 +79,9 @@ public class AffectationDepartementaleService implements AjouterEnseignantUseCas
     }
 
     @Override
-    public List<AffectationDepartementale> copierDepuisSession(UUID departementId, UUID sessionSourceId,
+    public List<AffectationDepartementale> copierDepuisSession(RoleUtilisateur appelant, UUID departementId, UUID sessionSourceId,
                                                                UUID sessionCibleId, Set<UUID> enseignantIdsSelectionnes) {
+        gel.verifierAutorise(appelant);
         if (departementRepository.findById(departementId).isEmpty()) {
             throw new DepartementIntrouvableException(departementId);
         }

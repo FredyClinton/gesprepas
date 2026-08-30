@@ -4,11 +4,13 @@ import com.excelisprepas.backend.dossier.domain.model.PieceRequise;
 import com.excelisprepas.backend.dossier.domain.port.in.*;
 import com.excelisprepas.backend.dossier.domain.port.out.PieceRequiseRepositoryPort;
 import com.excelisprepas.backend.shared.exception.PieceRequiseIntrouvableException;
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 public class PieceRequiseService implements CreerPieceRequiseUseCase, ModifierPieceRequiseUseCase,
         DesactiverPieceRequiseUseCase, ReactiverPieceRequiseUseCase, ListerPiecesRequisesUseCase {
 
@@ -22,14 +24,18 @@ public class PieceRequiseService implements CreerPieceRequiseUseCase, ModifierPi
     @Override
     public PieceRequise creerPieceRequise(String nom, BigDecimal montant) {
         PieceRequise pieceRequise = new PieceRequise(UUID.randomUUID(), nom, montant);
-        return pieceRequiseRepositoryPort.save(pieceRequise);
+        pieceRequise = pieceRequiseRepositoryPort.save(pieceRequise);
+        log.info("Pièce requise créée : id={}, nom={}", pieceRequise.getId(), nom);
+        return pieceRequise;
     }
 
     @Override
     public PieceRequise desactiverPieceRequise(UUID id) {
         PieceRequise pieceRequise = recuperer(id);
         pieceRequise.desactiver();
-        return pieceRequiseRepositoryPort.save(pieceRequise);
+        pieceRequise = pieceRequiseRepositoryPort.save(pieceRequise);
+        log.info("Pièce requise désactivée : id={}", id);
+        return pieceRequise;
     }
 
 
@@ -37,14 +43,18 @@ public class PieceRequiseService implements CreerPieceRequiseUseCase, ModifierPi
     public PieceRequise modifierPieceRequise(UUID id, String nom, BigDecimal montant) {
         PieceRequise pieceRequise = recuperer(id);
         pieceRequise.modifier(nom, montant);
-        return pieceRequiseRepositoryPort.save(pieceRequise);
+        pieceRequise = pieceRequiseRepositoryPort.save(pieceRequise);
+        log.info("Pièce requise modifiée : id={}, nom={}, montant={}", id, nom, montant);
+        return pieceRequise;
     }
 
     @Override
     public PieceRequise reactiverPieceRequise(UUID id) {
         PieceRequise pieceRequise = recuperer(id);
         pieceRequise.reactiver();
-        return pieceRequiseRepositoryPort.save(pieceRequise);
+        pieceRequise = pieceRequiseRepositoryPort.save(pieceRequise);
+        log.info("Pièce requise réactivée : id={}", id);
+        return pieceRequise;
     }
 
     private PieceRequise recuperer(UUID id) {

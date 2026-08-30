@@ -7,6 +7,7 @@ import com.excelisprepas.backend.affectationdepartementale.domain.port.in.Retire
 import com.excelisprepas.backend.affectationdepartementale.domain.port.out.AffectationDepartementaleRepositoryPort;
 import com.excelisprepas.backend.affectationdepartementale.domain.service.AffectationDepartementaleService;
 import com.excelisprepas.backend.departement.domain.port.out.DepartementRepositoryPort;
+import com.excelisprepas.backend.gelenseignants.domain.port.in.VerifierAutoriseGestionEnseignantsUseCase;
 import com.excelisprepas.backend.personnel.domain.port.out.EnseignantRepositoryPort;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import org.springframework.context.annotation.Bean;
@@ -20,9 +21,10 @@ public class AffectationDepartementaleBeanConfiguration {
             AffectationDepartementaleRepositoryPort rosterRepository,
             DepartementRepositoryPort departementRepository,
             EnseignantRepositoryPort enseignantRepository,
-            SessionAcademiqueRepositoryPort sessionRepository) {
+            SessionAcademiqueRepositoryPort sessionRepository,
+            VerifierAutoriseGestionEnseignantsUseCase verifierAutoriseGestionEnseignantsUseCase) {
         return new AffectationDepartementaleService(rosterRepository, departementRepository,
-                enseignantRepository, sessionRepository);
+                enseignantRepository, sessionRepository, verifierAutoriseGestionEnseignantsUseCase);
     }
 
     @Bean

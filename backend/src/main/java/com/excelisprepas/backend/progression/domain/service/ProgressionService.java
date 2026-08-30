@@ -10,10 +10,12 @@ import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.model.StatutSession;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import com.excelisprepas.backend.shared.exception.*;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 public class ProgressionService implements CreerProgressionUseCase, RecupererProgressionUseCase,
         ListerProgressionsUseCase, MettreAJourContenuUseCase, SupprimerProgressionUseCase {
 
@@ -44,21 +46,28 @@ public class ProgressionService implements CreerProgressionUseCase, RecupererPro
         SessionAcademique session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new SessionIntrouvableException(sessionId));
         if (session.getStatut() == StatutSession.CLOTUREE) {
+            log.warn("Création de progression refusée : session {} clôturée", sessionId);
             throw new SessionNonUtilisableException(sessionId);
         }
         if (!formation.getSessionId().equals(sessionId)) {
+            log.warn("Création de progression refusée : formation {} incohérente avec session {}", formationId, sessionId);
             throw new FormationSessionIncoherenteException(formationId, sessionId);
         }
 
         if (progressionRepository.existsByFormationIdAndMatiereIdAndSemaineAndNumeroCours(
                 formationId, matiereId, semaine, numeroCours)) {
+            log.warn("Création de progression refusée : numéro de cours {} déjà utilisé pour formationId={}, matiereId={}, semaine={}",
+                    numeroCours, formationId, matiereId, semaine);
             throw new NumeroCoursDejaUtiliseException(formationId, matiereId, semaine, numeroCours);
         }
 
         Progression progression = new Progression(
                 UUID.randomUUID(), formationId, sessionId, matiereId, semaine, numeroCours, theme, contenu, exercices);
 
-        return progressionRepository.save(progression);
+        progression = progressionRepository.save(progression);
+        log.info("Progression créée : id={}, formationId={}, matiereId={}, semaine={}, numeroCours={}",
+                progression.getId(), formationId, matiereId, semaine, numeroCours);
+        return progression;
     }
 
     @Override
@@ -76,12 +85,15 @@ public class ProgressionService implements CreerProgressionUseCase, RecupererPro
     public Progression mettreAJourContenu(UUID id, String theme, String contenu, String exercices) {
         Progression progression = recupererProgression(id);
         progression.mettreAJourContenu(theme, contenu, exercices);
-        return progressionRepository.save(progression);
+        progression = progressionRepository.save(progression);
+        log.info("Contenu de progression mis à jour : id={}", id);
+        return progression;
     }
 
     @Override
     public void supprimerProgression(UUID id) {
         recupererProgression(id);
         progressionRepository.deleteById(id);
+        log.info("Progression supprimée : id={}", id);
     }
 }

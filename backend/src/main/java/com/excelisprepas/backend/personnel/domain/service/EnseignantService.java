@@ -1,38 +1,49 @@
 package com.excelisprepas.backend.personnel.domain.service;
 
 import com.excelisprepas.backend.affectation.domain.port.out.AffectationRepositoryPort;
+import com.excelisprepas.backend.gelenseignants.domain.port.in.VerifierAutoriseGestionEnseignantsUseCase;
 import com.excelisprepas.backend.personnel.domain.exception.EnseignantUtiliseException;
 import com.excelisprepas.backend.personnel.domain.model.Enseignant;
+import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
 import com.excelisprepas.backend.personnel.domain.port.in.*;
 import com.excelisprepas.backend.personnel.domain.port.out.EnseignantRepositoryPort;
 import com.excelisprepas.backend.shared.exception.EnseignantIntrouvableException;
 import com.excelisprepas.backend.shared.exception.MatriculeDejaUtiliseException;
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 public class EnseignantService implements CreerEnseignantUseCase, RecupererEnseignantUseCase,
         ListerEnseignantsUseCase, RenommerEnseignantUseCase, ModifierCoutParSeanceUseCase,
         SuspendreEnseignantUseCase, ReactiverEnseignantUseCase, SupprimerEnseignantUseCase {
 
     private final EnseignantRepositoryPort repository;
     private final AffectationRepositoryPort affectationRepository;
+    private final VerifierAutoriseGestionEnseignantsUseCase gel;
 
     public EnseignantService(EnseignantRepositoryPort repository,
-                             AffectationRepositoryPort affectationRepository) {
+                             AffectationRepositoryPort affectationRepository,
+                             VerifierAutoriseGestionEnseignantsUseCase gel) {
         this.repository = repository;
         this.affectationRepository = affectationRepository;
+        this.gel = gel;
     }
 
     @Override
-    public Enseignant creerEnseignant(String nom, String prenom, String matricule, BigDecimal coutParSeance) {
+    public Enseignant creerEnseignant(RoleUtilisateur appelant, String nom, String prenom, String matricule, BigDecimal coutParSeance) {
+        gel.verifierAutorise(appelant);
         if (repository.existsByMatricule(matricule)) {
+            log.warn("Création d'enseignant refusée : matricule {} déjà utilisé", matricule);
             throw new MatriculeDejaUtiliseException(matricule);
         }
 
         Enseignant enseignant = new Enseignant(UUID.randomUUID(), nom, prenom, matricule, coutParSeance);
-        return repository.save(enseignant);
+        enseignant = repository.save(enseignant);
+        log.info("Enseignant créé : id={}, matricule={}, nom={} {}", enseignant.getId(), matricule, nom, prenom);
+        return enseignant;
     }
 
     @Override
@@ -47,41 +58,56 @@ public class EnseignantService implements CreerEnseignantUseCase, RecupererEnsei
     }
 
     @Override
-    public Enseignant renommerEnseignant(UUID id, String nouveauNom, String nouveauPrenom) {
+    public Enseignant renommerEnseignant(RoleUtilisateur appelant, UUID id, String nouveauNom, String nouveauPrenom) {
+        gel.verifierAutorise(appelant);
         Enseignant enseignant = recupererEnseignant(id);
         enseignant.renommer(nouveauNom, nouveauPrenom);
-        return repository.save(enseignant);
+        enseignant = repository.save(enseignant);
+        log.info("Enseignant renommé : id={}, nouveauNom={} {}", id, nouveauNom, nouveauPrenom);
+        return enseignant;
     }
 
     @Override
-    public Enseignant modifierCoutParSeance(UUID id, BigDecimal nouveauCout) {
+    public Enseignant modifierCoutParSeance(RoleUtilisateur appelant, UUID id, BigDecimal nouveauCout) {
+        gel.verifierAutorise(appelant);
         Enseignant enseignant = recupererEnseignant(id);
         enseignant.mettreAJourCoutParSeance(nouveauCout);
-        return repository.save(enseignant);
+        enseignant = repository.save(enseignant);
+        log.info("Coût par séance modifié : enseignantId={}, nouveauCout={}", id, nouveauCout);
+        return enseignant;
     }
 
     @Override
-    public Enseignant suspendreEnseignant(UUID id) {
+    public Enseignant suspendreEnseignant(RoleUtilisateur appelant, UUID id) {
+        gel.verifierAutorise(appelant);
         Enseignant enseignant = recupererEnseignant(id);
         enseignant.suspendre();
-        return repository.save(enseignant);
+        enseignant = repository.save(enseignant);
+        log.info("Enseignant suspendu : id={}", id);
+        return enseignant;
     }
 
     @Override
-    public Enseignant reactiverEnseignant(UUID id) {
+    public Enseignant reactiverEnseignant(RoleUtilisateur appelant, UUID id) {
+        gel.verifierAutorise(appelant);
         Enseignant enseignant = recupererEnseignant(id);
         enseignant.reactiver();
-        return repository.save(enseignant);
+        enseignant = repository.save(enseignant);
+        log.info("Enseignant réactivé : id={}", id);
+        return enseignant;
     }
 
     @Override
-    public void supprimerEnseignant(UUID id) {
+    public void supprimerEnseignant(RoleUtilisateur appelant, UUID id) {
+        gel.verifierAutorise(appelant);
         recupererEnseignant(id); // vérifie l'existence
 
         if (affectationRepository.existsByEnseignantId(id)) {
+            log.warn("Suppression d'enseignant refusée : id={} encore utilisé dans des affectations", id);
             throw new EnseignantUtiliseException(id);
         }
 
         repository.deleteById(id);
+        log.info("Enseignant supprimé : id={}", id);
     }
 }

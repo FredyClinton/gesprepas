@@ -56,4 +56,9 @@ public class PersonnelExceptionHandler {
     public ResponseEntity<Map<String, Object>> gererEtatInvalide(IllegalStateException ex) {
         return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
     }
+
+    @ExceptionHandler(GestionEnseignantsGeleeException.class)
+    public ResponseEntity<Map<String, Object>> gererGestionEnseignantsGelee(GestionEnseignantsGeleeException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
 }

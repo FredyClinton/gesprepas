@@ -8,6 +8,7 @@ import com.excelisprepas.backend.affectationdepartementale.domain.port.in.Retire
 import com.excelisprepas.backend.affectationdepartementale.infrastructure.in.web.dto.AffectationDepartementaleResponse;
 import com.excelisprepas.backend.affectationdepartementale.infrastructure.in.web.dto.AjouterEnseignantRequest;
 import com.excelisprepas.backend.affectationdepartementale.infrastructure.in.web.dto.CopierDepuisSessionRequest;
+import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -49,6 +50,18 @@ public class AffectationDepartementaleController {
                 entree.getId(), entree.getEnseignantId(), entree.getSessionId(), entree.getDepartementId());
     }
 
+    // Placeholder de sécurité : rôle auto-déclaré par le frontend, pas vérifié
+    // cryptographiquement (pas d'authentification réelle côté backend pour l'instant).
+    // Valeur absente ou non reconnue -> null, traité comme "pas de restriction".
+    private static RoleUtilisateur analyserRole(String valeur) {
+        if (valeur == null) return null;
+        try {
+            return RoleUtilisateur.valueOf(valeur);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
     @Operation(summary = "Ajouter un enseignant au roster",
             description = "Affecte un enseignant à un département pour une session donnée.")
     @ApiResponses({
@@ -60,8 +73,9 @@ public class AffectationDepartementaleController {
     })
     @PostMapping
     public ResponseEntity<AffectationDepartementaleResponse> ajouterEnseignant(
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @Valid @RequestBody AjouterEnseignantRequest request) {
-        AffectationDepartementale entree = ajouterEnseignantUseCase.ajouterEnseignant(
+        AffectationDepartementale entree = ajouterEnseignantUseCase.ajouterEnseignant(analyserRole(userRole),
                 request.departementId(), request.sessionId(), request.enseignantId());
         return ResponseEntity.status(HttpStatus.CREATED).body(versReponse(entree));
     }
@@ -74,10 +88,11 @@ public class AffectationDepartementaleController {
     })
     @DeleteMapping
     public ResponseEntity<Void> retirerEnseignant(
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @Parameter(description = "Identifiant du département") @RequestParam UUID departementId,
             @Parameter(description = "Identifiant de la session") @RequestParam UUID sessionId,
             @Parameter(description = "Identifiant de l'enseignant") @RequestParam UUID enseignantId) {
-        retirerEnseignantUseCase.retirerEnseignant(departementId, sessionId, enseignantId);
+        retirerEnseignantUseCase.retirerEnseignant(analyserRole(userRole), departementId, sessionId, enseignantId);
         return ResponseEntity.noContent().build();
     }
 
@@ -92,9 +107,10 @@ public class AffectationDepartementaleController {
     })
     @PostMapping("/copier")
     public ResponseEntity<List<AffectationDepartementaleResponse>> copierDepuisSession(
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @Valid @RequestBody CopierDepuisSessionRequest request) {
         List<AffectationDepartementaleResponse> reponses = copierDepuisSessionUseCase.copierDepuisSession(
-                        request.departementId(), request.sessionSourceId(), request.sessionCibleId(),
+                        analyserRole(userRole), request.departementId(), request.sessionSourceId(), request.sessionCibleId(),
                         request.enseignantIdsSelectionnes()).stream()
                 .map(AffectationDepartementaleController::versReponse)
                 .toList();

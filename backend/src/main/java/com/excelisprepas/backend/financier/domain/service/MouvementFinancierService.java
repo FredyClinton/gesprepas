@@ -13,6 +13,7 @@ import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.model.StatutSession;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import com.excelisprepas.backend.shared.exception.*;
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -20,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSortieUseCase,
         RecupererMouvementUseCase, ListerMouvementsUseCase, ListerVersementsApprenantUseCase {
 
@@ -51,9 +53,11 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
         Motif motif = motifRepository.findById(motifId)
                 .orElseThrow(() -> new MotifIntrouvableException(motifId));
         if (!motif.isActif()) {
+            log.warn("Opération refusée : motif {} inactif", motifId);
             throw new MotifInactifException(motifId);
         }
         if (motif.getType() != typeAttendu) {
+            log.warn("Opération refusée : motif {} de type {} au lieu de {}", motifId, motif.getType(), typeAttendu);
             throw new MotifTypeIncorrectException(motifId, typeAttendu, motif.getType());
         }
         return motif;
@@ -63,6 +67,7 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
         SessionAcademique session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new SessionIntrouvableException(sessionId));
         if (session.getStatut() == StatutSession.CLOTUREE) {
+            log.warn("Opération refusée : session {} clôturée", sessionId);
             throw new SessionNonUtilisableException(sessionId);
         }
     }
@@ -85,7 +90,9 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
 
         Entree entree = new Entree(UUID.randomUUID(), sessionId, motifId, montant, date,
                 saisiParUtilisateurId, centreId, apprenantId, formationId, dossierConcoursId);
-        return entreeRepository.save(entree);
+        entree = entreeRepository.save(entree);
+        log.info("Entrée saisie : id={}, sessionId={}, montant={}, centreId={}", entree.getId(), sessionId, montant, centreId);
+        return entree;
     }
 
     @Override
@@ -99,7 +106,9 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
 
         Sortie sortie = new Sortie(UUID.randomUUID(), sessionId, motifId, montant, date,
                 saisiParUtilisateurId, centreId, ordonnateur);
-        return sortieRepository.save(sortie);
+        sortie = sortieRepository.save(sortie);
+        log.info("Sortie saisie : id={}, sessionId={}, montant={}, centreId={}", sortie.getId(), sessionId, montant, centreId);
+        return sortie;
     }
 
     @Override

@@ -50,7 +50,7 @@ class AffectationDepartementaleControllerTest {
     @Test
     @DisplayName("POST /api/affectations-departementales avec des données valides retourne 201")
     void ajouterEnseignant_donneesValides_retourne201() throws Exception {
-        when(ajouterEnseignantUseCase.ajouterEnseignant(DEPARTEMENT_ID, SESSION_ID, ENSEIGNANT_ID))
+        when(ajouterEnseignantUseCase.ajouterEnseignant(isNull(), eq(DEPARTEMENT_ID), eq(SESSION_ID), eq(ENSEIGNANT_ID)))
                 .thenReturn(uneEntree());
 
         mockMvc.perform(post("/api/affectations-departementales")
@@ -69,7 +69,7 @@ class AffectationDepartementaleControllerTest {
     @Test
     @DisplayName("POST /api/affectations-departementales avec un enseignant déjà dans le roster retourne 409")
     void ajouterEnseignant_dejaDansLeRoster_retourne409() throws Exception {
-        when(ajouterEnseignantUseCase.ajouterEnseignant(DEPARTEMENT_ID, SESSION_ID, ENSEIGNANT_ID))
+        when(ajouterEnseignantUseCase.ajouterEnseignant(isNull(), eq(DEPARTEMENT_ID), eq(SESSION_ID), eq(ENSEIGNANT_ID)))
                 .thenThrow(new EnseignantDejaDansRosterException(ENSEIGNANT_ID, SESSION_ID, DEPARTEMENT_ID));
 
         mockMvc.perform(post("/api/affectations-departementales")
@@ -87,7 +87,7 @@ class AffectationDepartementaleControllerTest {
     @Test
     @DisplayName("POST /api/affectations-departementales avec une session clôturée retourne 409")
     void ajouterEnseignant_sessionCloturee_retourne409() throws Exception {
-        when(ajouterEnseignantUseCase.ajouterEnseignant(DEPARTEMENT_ID, SESSION_ID, ENSEIGNANT_ID))
+        when(ajouterEnseignantUseCase.ajouterEnseignant(isNull(), eq(DEPARTEMENT_ID), eq(SESSION_ID), eq(ENSEIGNANT_ID)))
                 .thenThrow(new SessionNonUtilisableException(SESSION_ID));
 
         mockMvc.perform(post("/api/affectations-departementales")
@@ -105,7 +105,7 @@ class AffectationDepartementaleControllerTest {
     @Test
     @DisplayName("POST /api/affectations-departementales avec un département inexistant retourne 404")
     void ajouterEnseignant_departementInexistant_retourne404() throws Exception {
-        when(ajouterEnseignantUseCase.ajouterEnseignant(DEPARTEMENT_ID, SESSION_ID, ENSEIGNANT_ID))
+        when(ajouterEnseignantUseCase.ajouterEnseignant(isNull(), eq(DEPARTEMENT_ID), eq(SESSION_ID), eq(ENSEIGNANT_ID)))
                 .thenThrow(new DepartementIntrouvableException(DEPARTEMENT_ID));
 
         mockMvc.perform(post("/api/affectations-departementales")
@@ -123,7 +123,7 @@ class AffectationDepartementaleControllerTest {
     @Test
     @DisplayName("DELETE /api/affectations-departementales retourne 204")
     void retirerEnseignant_retourne204() throws Exception {
-        doNothing().when(retirerEnseignantUseCase).retirerEnseignant(DEPARTEMENT_ID, SESSION_ID, ENSEIGNANT_ID);
+        doNothing().when(retirerEnseignantUseCase).retirerEnseignant(isNull(), eq(DEPARTEMENT_ID), eq(SESSION_ID), eq(ENSEIGNANT_ID));
 
         mockMvc.perform(delete("/api/affectations-departementales")
                         .param("departementId", DEPARTEMENT_ID.toString())
@@ -136,7 +136,7 @@ class AffectationDepartementaleControllerTest {
     @DisplayName("DELETE /api/affectations-departementales pour une entrée introuvable retourne 404")
     void retirerEnseignant_introuvable_retourne404() throws Exception {
         doThrow(new AffectationDepartementaleIntrouvableException(ENSEIGNANT_ID, SESSION_ID, DEPARTEMENT_ID))
-                .when(retirerEnseignantUseCase).retirerEnseignant(DEPARTEMENT_ID, SESSION_ID, ENSEIGNANT_ID);
+                .when(retirerEnseignantUseCase).retirerEnseignant(isNull(), eq(DEPARTEMENT_ID), eq(SESSION_ID), eq(ENSEIGNANT_ID));
 
         mockMvc.perform(delete("/api/affectations-departementales")
                         .param("departementId", DEPARTEMENT_ID.toString())
@@ -150,7 +150,7 @@ class AffectationDepartementaleControllerTest {
     void copierDepuisSession_donneesValides_retourne201() throws Exception {
         UUID sessionSourceId = UUID.randomUUID();
         UUID sessionCibleId = UUID.randomUUID();
-        when(copierDepuisSessionUseCase.copierDepuisSession(eq(DEPARTEMENT_ID), eq(sessionSourceId), eq(sessionCibleId), any()))
+        when(copierDepuisSessionUseCase.copierDepuisSession(isNull(), eq(DEPARTEMENT_ID), eq(sessionSourceId), eq(sessionCibleId), any()))
                 .thenReturn(List.of(new AffectationDepartementale(UUID.randomUUID(), ENSEIGNANT_ID, sessionCibleId, DEPARTEMENT_ID)));
 
         mockMvc.perform(post("/api/affectations-departementales/copier")
@@ -188,7 +188,7 @@ class AffectationDepartementaleControllerTest {
     void copierDepuisSession_enseignantNonDansRosterSource_retourne409() throws Exception {
         UUID sessionSourceId = UUID.randomUUID();
         UUID sessionCibleId = UUID.randomUUID();
-        when(copierDepuisSessionUseCase.copierDepuisSession(eq(DEPARTEMENT_ID), eq(sessionSourceId), eq(sessionCibleId), any()))
+        when(copierDepuisSessionUseCase.copierDepuisSession(isNull(), eq(DEPARTEMENT_ID), eq(sessionSourceId), eq(sessionCibleId), any()))
                 .thenThrow(new EnseignantNonDansRosterSourceException(ENSEIGNANT_ID, sessionSourceId, DEPARTEMENT_ID));
 
         mockMvc.perform(post("/api/affectations-departementales/copier")

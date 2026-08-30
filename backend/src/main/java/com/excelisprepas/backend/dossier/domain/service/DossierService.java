@@ -6,12 +6,14 @@ import com.excelisprepas.backend.dossier.domain.model.*;
 import com.excelisprepas.backend.dossier.domain.port.in.*;
 import com.excelisprepas.backend.dossier.domain.port.out.*;
 import com.excelisprepas.backend.shared.exception.*;
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 public class DossierService implements OuvrirDossierUseCase, RecupererDossierUseCase, RecupererDossierParApprenantUseCase,
         ModifierObservationUseCase, AjouterConcoursAuDossierUseCase, AjouterPieceADossierConcoursUseCase,
         ListerDossierConcoursUseCase, ListerPiecesDossierUseCase, ValiderPieceDeposeeUseCase,
@@ -46,12 +48,15 @@ public class DossierService implements OuvrirDossierUseCase, RecupererDossierUse
         Apprenant apprenant = apprenantRepository.findById(apprenantId)
                 .orElseThrow(() -> new ApprenantIntrouvableException(apprenantId));
         if (dossierRepository.existsByApprenantId(apprenantId)) {
+            log.warn("Ouverture de dossier refusée : apprenant {} possède déjà un dossier", apprenantId);
             throw new DossierDejaExistantException(apprenantId);
         }
 
         Dossier dossier = new Dossier(UUID.randomUUID(), apprenantId, apprenant.getCentreId(),
                 apprenant.getSessionId(), LocalDate.now());
-        return dossierRepository.save(dossier);
+        dossier = dossierRepository.save(dossier);
+        log.info("Dossier ouvert : id={}, apprenantId={}", dossier.getId(), apprenantId);
+        return dossier;
     }
 
     @Override
@@ -70,13 +75,16 @@ public class DossierService implements OuvrirDossierUseCase, RecupererDossierUse
     public Dossier modifierObservation(UUID dossierId, String observation) {
         Dossier dossier = recupererDossier(dossierId);
         dossier.modifierObservation(observation);
-        return dossierRepository.save(dossier);
+        dossier = dossierRepository.save(dossier);
+        log.info("Observation de dossier modifiée : dossierId={}", dossierId);
+        return dossier;
     }
 
     @Override
     public DossierConcours ajouterConcoursAuDossier(UUID dossierId, UUID concoursId, List<SelectionPiece> selections) {
         Dossier dossier = recupererDossier(dossierId);
         if (!dossier.estOuvert()) {
+            log.warn("Ajout de concours au dossier refusé : dossier {} non ouvert", dossierId);
             throw new DossierNonOuvertException(dossierId);
         }
         if (selections == null || selections.isEmpty()) {
@@ -86,9 +94,11 @@ public class DossierService implements OuvrirDossierUseCase, RecupererDossierUse
         Concours concours = concoursRepository.findById(concoursId)
                 .orElseThrow(() -> new ConcoursIntrouvableException(concoursId));
         if (!concours.estEncoreOuvert(LocalDate.now())) {
+            log.warn("Ajout de concours au dossier refusé : date limite du concours {} dépassée", concoursId);
             throw new ConcoursDateLimiteDepasseeException(concoursId);
         }
         if (dossierConcoursRepository.existsByDossierIdAndConcoursId(dossierId, concoursId)) {
+            log.warn("Ajout de concours au dossier refusé : concours {} déjà ajouté au dossier {}", concoursId, dossierId);
             throw new ConcoursDejaAjouteAuDossierException(dossierId, concoursId);
         }
 
@@ -108,7 +118,9 @@ public class DossierService implements OuvrirDossierUseCase, RecupererDossierUse
             pieceDossierRepository.save(pieceDossier);
         }
 
-        return recalculerMontantTotal(dossierConcours);
+        dossierConcours = recalculerMontantTotal(dossierConcours);
+        log.info("Concours ajouté au dossier : dossierId={}, concoursId={}", dossierId, concoursId);
+        return dossierConcours;
     }
 
     @Override
@@ -118,6 +130,7 @@ public class DossierService implements OuvrirDossierUseCase, RecupererDossierUse
 
         Dossier dossier = recupererDossier(dossierConcours.getDossierId());
         if (!dossier.estOuvert()) {
+            log.warn("Ajout de pièce refusé : dossier {} non ouvert", dossier.getId());
             throw new DossierNonOuvertException(dossier.getId());
         }
 
@@ -137,6 +150,8 @@ public class DossierService implements OuvrirDossierUseCase, RecupererDossierUse
         pieceDossier = pieceDossierRepository.save(pieceDossier);
 
         recalculerMontantTotal(dossierConcours);
+        log.info("Pièce ajoutée au dossier concours : dossierConcoursId={}, pieceRequiseId={}, quantite={}",
+                dossierConcoursId, pieceRequiseId, quantite);
 
         return pieceDossier;
     }
@@ -176,22 +191,27 @@ public class DossierService implements OuvrirDossierUseCase, RecupererDossierUse
                 .orElseThrow(() -> new DossierConcoursIntrouvableException(pieceDossier.getDossierConcoursId()));
         Dossier dossier = recupererDossier(dossierConcours.getDossierId());
         if (dossier.getStatut() == StatutDossier.CLOTURE) {
+            log.warn("Validation de pièce refusée : dossier {} clôturé", dossier.getId());
             throw new DossierClotureException(dossier.getId());
         }
 
         pieceDossier.valider(LocalDate.now());
-        return pieceDossierRepository.save(pieceDossier);
+        PieceDossier pieceDossierValidee = pieceDossierRepository.save(pieceDossier);
+        log.info("Pièce validée : pieceDossierId={}", pieceDossierId);
+        return pieceDossierValidee;
     }
 
     @Override
     public Dossier signalerDossierComplet(UUID dossierId) {
         Dossier dossier = recupererDossier(dossierId);
         if (!dossier.estOuvert()) {
+            log.warn("Signalement de dossier complet refusé : dossier {} non ouvert", dossierId);
             throw new DossierNonOuvertException(dossierId);
         }
 
         List<DossierConcours> concoursAssocies = dossierConcoursRepository.findByDossierId(dossierId);
         if (concoursAssocies.isEmpty()) {
+            log.warn("Signalement de dossier complet refusé : dossier {} sans concours", dossierId);
             throw new DossierSansConcoursException(dossierId);
         }
 
@@ -199,18 +219,23 @@ public class DossierService implements OuvrirDossierUseCase, RecupererDossierUse
             List<PieceDossier> pieces = pieceDossierRepository.findByDossierConcoursId(dossierConcours.getId());
             boolean toutesValidees = pieces.stream().allMatch(piece -> piece.getStatut() == StatutPieceDossier.VALIDEE);
             if (!toutesValidees) {
+                log.warn("Signalement de dossier complet refusé : dossier {} a des pièces non validées", dossierId);
                 throw new PiecesNonToutesValideesException(dossierId);
             }
         }
 
         dossier.marquerComplet();
-        return dossierRepository.save(dossier);
+        dossier = dossierRepository.save(dossier);
+        log.info("Dossier marqué complet : id={}", dossierId);
+        return dossier;
     }
 
     @Override
     public Dossier cloturerDossier(UUID dossierId) {
         Dossier dossier = recupererDossier(dossierId);
         dossier.cloturer(LocalDate.now());
-        return dossierRepository.save(dossier);
+        dossier = dossierRepository.save(dossier);
+        log.info("Dossier clôturé : id={}", dossierId);
+        return dossier;
     }
 }

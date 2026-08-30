@@ -3,9 +3,9 @@
 // créneaux) est nécessaire aujourd'hui — pas encore de gestion CRUD des salles
 // côté frontend (l'écran /salles du Chef de Centre n'est pas encore construit).
 export type Salle = {
-    id: string;
-    nom: string;
-    centreId: string;
-    sessionId: string;
-    formationId: string;
+  id: string;
+  nom: string;
+  centreId: string;
+  sessionId: string;
+  formationId: string;
 };

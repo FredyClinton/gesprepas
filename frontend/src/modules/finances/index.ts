@@ -1,6 +1,6 @@
 export type {
-    BilanApercu,
-    StatutBilan,
-    RepartitionFormation,
+  BilanApercu,
+  StatutBilan,
+  RepartitionFormation,
 } from "./domain/types";
 export { useBilanDuJour, useRepartitionFormations } from "./data/queries";

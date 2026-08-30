@@ -1,6 +1,7 @@
 package com.excelisprepas.backend.personnel.infrastructure.in.web;
 
 import com.excelisprepas.backend.personnel.domain.model.Enseignant;
+import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
 import com.excelisprepas.backend.personnel.domain.port.in.*;
 import com.excelisprepas.backend.personnel.infrastructure.in.web.dto.CreerEnseignantRequest;
 import com.excelisprepas.backend.personnel.infrastructure.in.web.dto.EnseignantResponse;
@@ -58,6 +59,18 @@ public class EnseignantController {
                 enseignant.getMatricule(), enseignant.getCoutParSeance(), enseignant.getStatut());
     }
 
+    // Placeholder de sécurité : rôle auto-déclaré par le frontend, pas vérifié
+    // cryptographiquement (pas d'authentification réelle côté backend pour l'instant).
+    // Valeur absente ou non reconnue -> null, traité comme "pas de restriction".
+    private static RoleUtilisateur analyserRole(String valeur) {
+        if (valeur == null) return null;
+        try {
+            return RoleUtilisateur.valueOf(valeur);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
     @Operation(summary = "Créer un enseignant", description = "Crée un nouvel enseignant avec son coût par séance.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Enseignant créé",
@@ -65,8 +78,10 @@ public class EnseignantController {
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content)
     })
     @PostMapping
-    public ResponseEntity<EnseignantResponse> creerEnseignant(@Valid @RequestBody CreerEnseignantRequest request) {
-        Enseignant enseignant = creerEnseignantUseCase.creerEnseignant(
+    public ResponseEntity<EnseignantResponse> creerEnseignant(
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
+            @Valid @RequestBody CreerEnseignantRequest request) {
+        Enseignant enseignant = creerEnseignantUseCase.creerEnseignant(analyserRole(userRole),
                 request.nom(), request.prenom(), request.matricule(), request.coutParSeance());
         return ResponseEntity.status(HttpStatus.CREATED).body(versReponse(enseignant));
     }
@@ -103,9 +118,11 @@ public class EnseignantController {
     })
     @PatchMapping("/{id}/renommer")
     public ResponseEntity<EnseignantResponse> renommerEnseignant(
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @Parameter(description = "Identifiant de l'enseignant") @PathVariable UUID id,
             @Valid @RequestBody RenommerEnseignantRequest request) {
-        Enseignant enseignant = renommerEnseignantUseCase.renommerEnseignant(id, request.nom(), request.prenom());
+        Enseignant enseignant = renommerEnseignantUseCase.renommerEnseignant(
+                analyserRole(userRole), id, request.nom(), request.prenom());
         return ResponseEntity.ok(versReponse(enseignant));
     }
 
@@ -119,9 +136,11 @@ public class EnseignantController {
     })
     @PatchMapping("/{id}/cout-par-seance")
     public ResponseEntity<EnseignantResponse> modifierCoutParSeance(
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @Parameter(description = "Identifiant de l'enseignant") @PathVariable UUID id,
             @Valid @RequestBody ModifierCoutParSeanceRequest request) {
-        Enseignant enseignant = modifierCoutParSeanceUseCase.modifierCoutParSeance(id, request.coutParSeance());
+        Enseignant enseignant = modifierCoutParSeanceUseCase.modifierCoutParSeance(
+                analyserRole(userRole), id, request.coutParSeance());
         return ResponseEntity.ok(versReponse(enseignant));
     }
 
@@ -133,8 +152,9 @@ public class EnseignantController {
     })
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> supprimerEnseignant(
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @Parameter(description = "Identifiant de l'enseignant") @PathVariable UUID id) {
-        supprimerEnseignantUseCase.supprimerEnseignant(id);
+        supprimerEnseignantUseCase.supprimerEnseignant(analyserRole(userRole), id);
         return ResponseEntity.noContent().build();
     }
 
@@ -147,8 +167,9 @@ public class EnseignantController {
     })
     @PatchMapping("/{id}/suspendre")
     public ResponseEntity<EnseignantResponse> suspendreEnseignant(
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @Parameter(description = "Identifiant de l'enseignant") @PathVariable UUID id) {
-        return ResponseEntity.ok(versReponse(suspendreEnseignantUseCase.suspendreEnseignant(id)));
+        return ResponseEntity.ok(versReponse(suspendreEnseignantUseCase.suspendreEnseignant(analyserRole(userRole), id)));
     }
 
     @Operation(summary = "Réactiver un enseignant", description = "Bascule le statut de l'enseignant à \"actif\".")
@@ -160,7 +181,8 @@ public class EnseignantController {
     })
     @PatchMapping("/{id}/reactiver")
     public ResponseEntity<EnseignantResponse> reactiverEnseignant(
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @Parameter(description = "Identifiant de l'enseignant") @PathVariable UUID id) {
-        return ResponseEntity.ok(versReponse(reactiverEnseignantUseCase.reactiverEnseignant(id)));
+        return ResponseEntity.ok(versReponse(reactiverEnseignantUseCase.reactiverEnseignant(analyserRole(userRole), id)));
     }
 }

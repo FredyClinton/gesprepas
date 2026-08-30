@@ -1,2 +1,2 @@
 export type { Departement } from "./domain/types";
-export { useDepartement } from "./data/queries";
+export { useDepartement, useDepartements } from "./data/queries";

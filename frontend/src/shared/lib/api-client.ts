@@ -16,6 +16,23 @@ export class ApiError extends Error {
   }
 }
 
+// Message à afficher à l'utilisateur pour une erreur d'appel API — jamais le
+// message brut du backend en 5xx (exception non gérée par un handler domaine
+// dédié, ex : erreur DB, bug non mappé) qui peut être un texte technique/Java,
+// pas rédigé pour un humain. En 4xx, le backend a un handler dédié qui rédige
+// un message métier propre, donc on peut lui faire confiance.
+export function messageErreurApi(erreur: unknown, repli: string): string {
+  if (
+    erreur instanceof ApiError &&
+    erreur.status < 500 &&
+    typeof (erreur.body as { message?: unknown } | undefined)?.message ===
+      "string"
+  ) {
+    return (erreur.body as { message: string }).message;
+  }
+  return repli;
+}
+
 export async function apiFetch<T>(
   path: string,
   init?: RequestInit,

@@ -12,10 +12,12 @@ import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.model.StatutSession;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import com.excelisprepas.backend.shared.exception.*;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 public class SalleService implements CreerSalleUseCase, RecupererSalleUseCase, ListerSallesUseCase,
         RenommerSalleUseCase, ReaffecterFormationUseCase, SupprimerSalleUseCase {
 
@@ -48,14 +50,18 @@ public class SalleService implements CreerSalleUseCase, RecupererSalleUseCase, L
         SessionAcademique session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new SessionIntrouvableException(sessionId));
         if (session.getStatut() == StatutSession.CLOTUREE) {
+            log.warn("Création de salle refusée : session {} clôturée", sessionId);
             throw new SessionNonUtilisableException(sessionId);
         }
         if (!formation.getSessionId().equals(sessionId)) {
+            log.warn("Création de salle refusée : formation {} incohérente avec session {}", formationId, sessionId);
             throw new FormationSessionIncoherenteException(formationId, sessionId);
         }
 
         Salle salle = new Salle(UUID.randomUUID(), nom, centreId, sessionId, formationId);
-        return salleRepository.save(salle);
+        salle = salleRepository.save(salle);
+        log.info("Salle créée : id={}, nom={}, centreId={}, sessionId={}", salle.getId(), nom, centreId, sessionId);
+        return salle;
     }
 
     @Override
@@ -82,7 +88,9 @@ public class SalleService implements CreerSalleUseCase, RecupererSalleUseCase, L
     public Salle renommerSalle(UUID id, String nouveauNom) {
         Salle salle = recupererSalle(id);
         salle.renommer(nouveauNom);
-        return salleRepository.save(salle);
+        salle = salleRepository.save(salle);
+        log.info("Salle renommée : id={}, nouveauNom={}", id, nouveauNom);
+        return salle;
     }
 
     @Override
@@ -92,11 +100,15 @@ public class SalleService implements CreerSalleUseCase, RecupererSalleUseCase, L
                 .orElseThrow(() -> new FormationIntrouvableException(nouvelleFormationId));
 
         if (!nouvelleFormation.getSessionId().equals(salle.getSessionId())) {
+            log.warn("Réaffectation de formation refusée : formation {} incohérente avec session {}",
+                    nouvelleFormationId, salle.getSessionId());
             throw new FormationSessionIncoherenteException(nouvelleFormationId, salle.getSessionId());
         }
 
         salle.reaffecterFormation(nouvelleFormationId);
-        return salleRepository.save(salle);
+        salle = salleRepository.save(salle);
+        log.info("Salle réaffectée à une formation : salleId={}, nouvelleFormationId={}", salleId, nouvelleFormationId);
+        return salle;
     }
 
     @Override
@@ -104,9 +116,11 @@ public class SalleService implements CreerSalleUseCase, RecupererSalleUseCase, L
         recupererSalle(id);
 
         if (affectationRepository.existsBySalleId(id)) {
+            log.warn("Suppression de salle refusée : id={} encore utilisée dans des affectations", id);
             throw new SalleUtiliseeException(id);
         }
 
         salleRepository.deleteById(id);
+        log.info("Salle supprimée : id={}", id);
     }
 }

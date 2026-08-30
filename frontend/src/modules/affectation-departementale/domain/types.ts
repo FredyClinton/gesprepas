@@ -1,7 +1,6 @@
-
 export type AffectationDepartementale = {
-    id: string;
-    enseignantId: string;
-    sessionId: string;
-    departementId: string;
+  id: string;
+  enseignantId: string;
+  sessionId: string;
+  departementId: string;
 };

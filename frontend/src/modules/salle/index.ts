@@ -1,2 +1,3 @@
 export type { Salle } from "./domain/types";
-export { useSalles } from "./data/queries";
+export { useSalles, useCreateSalle } from "./data/queries";
+export { salleSchema, type SalleFormValues } from "./domain/schemas";

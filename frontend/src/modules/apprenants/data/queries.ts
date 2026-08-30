@@ -8,8 +8,8 @@ import { listApprenants } from "./client";
 // et "Total apprenants" se calcule côté client (items.length). À revoir si le volume
 // rend ça coûteux un jour — pas un problème au stade actuel.
 export function useApprenants() {
-    return useQuery({
-        queryKey: ["apprenants"],
-        queryFn: listApprenants,
-    });
+  return useQuery({
+    queryKey: ["apprenants"],
+    queryFn: listApprenants,
+  });
 }

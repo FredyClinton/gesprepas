@@ -11,11 +11,13 @@ import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.model.StatutSession;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import com.excelisprepas.backend.shared.exception.*;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 public class ConcoursService implements CreerConcoursUseCase, RecupererConcoursUseCase, ListerConcoursUseCase,
         AjouterPieceAuConcoursUseCase, RetirerPieceDuConcoursUseCase, ListerPiecesDuConcoursUseCase {
 
@@ -39,11 +41,14 @@ public class ConcoursService implements CreerConcoursUseCase, RecupererConcoursU
         SessionAcademique session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new SessionIntrouvableException(sessionId));
         if (session.getStatut() == StatutSession.CLOTUREE) {
+            log.warn("Création de concours refusée : session {} clôturée", sessionId);
             throw new SessionNonUtilisableException(sessionId);
         }
 
         Concours concours = new Concours(UUID.randomUUID(), nom, sessionId, dateLimiteDepot, dateLimiteRecevabiliteCentre);
-        return concoursRepository.save(concours);
+        concours = concoursRepository.save(concours);
+        log.info("Concours créé : id={}, nom={}, sessionId={}", concours.getId(), nom, sessionId);
+        return concours;
     }
 
     @Override
@@ -64,15 +69,19 @@ public class ConcoursService implements CreerConcoursUseCase, RecupererConcoursU
         PieceRequise pieceRequise = pieceRequiseRepository.findById(pieceRequiseId)
                 .orElseThrow(() -> new PieceRequiseIntrouvableException(pieceRequiseId));
         if (!pieceRequise.isActif()) {
+            log.warn("Ajout de pièce au concours refusé : pièce {} inactive", pieceRequiseId);
             throw new PieceRequiseInactiveException(pieceRequiseId);
         }
 
         if (associationRepository.existsByConcoursIdAndPieceRequiseId(concoursId, pieceRequiseId)) {
+            log.warn("Ajout de pièce au concours refusé : pièce {} déjà ajoutée au concours {}", pieceRequiseId, concoursId);
             throw new PieceDejaAjouteeAuConcoursException(concoursId, pieceRequiseId);
         }
 
         ConcoursPieceRequise association = new ConcoursPieceRequise(UUID.randomUUID(), concoursId, pieceRequiseId);
-        return associationRepository.save(association);
+        association = associationRepository.save(association);
+        log.info("Pièce ajoutée au concours : concoursId={}, pieceRequiseId={}", concoursId, pieceRequiseId);
+        return association;
     }
 
     @Override
@@ -81,6 +90,7 @@ public class ConcoursService implements CreerConcoursUseCase, RecupererConcoursU
                 .findByConcoursIdAndPieceRequiseId(concoursId, pieceRequiseId)
                 .orElseThrow(() -> new PieceNonAjouteeAuConcoursException(concoursId, pieceRequiseId));
         associationRepository.deleteById(association.getId());
+        log.info("Pièce retirée du concours : concoursId={}, pieceRequiseId={}", concoursId, pieceRequiseId);
     }
 
     @Override

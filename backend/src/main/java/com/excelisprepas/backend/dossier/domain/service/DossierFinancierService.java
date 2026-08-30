@@ -13,6 +13,7 @@ import com.excelisprepas.backend.financier.domain.port.out.EntreeRepositoryPort;
 import com.excelisprepas.backend.shared.exception.ConcoursIntrouvableException;
 import com.excelisprepas.backend.shared.exception.DossierConcoursIntrouvableException;
 import com.excelisprepas.backend.shared.exception.DossierIntrouvableException;
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -21,6 +22,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class DossierFinancierService implements EnregistrerPaiementDossierUseCase,
         ConsulterSoldeDossierConcoursUseCase, ObtenirStatistiquesDossiersUseCase {
 
@@ -50,8 +52,10 @@ public class DossierFinancierService implements EnregistrerPaiementDossierUseCas
         Dossier dossier = dossierRepository.findById(dossierConcours.getDossierId())
                 .orElseThrow(() -> new DossierIntrouvableException(dossierConcours.getDossierId()));
 
-        return saisirEntreeUseCase.saisirEntree(dossierConcours.getSessionId(), motifId, montant, date,
+        Entree entree = saisirEntreeUseCase.saisirEntree(dossierConcours.getSessionId(), motifId, montant, date,
                 saisiParUtilisateurId, dossierConcours.getCentreId(), dossier.getApprenantId(), dossierConcoursId);
+        log.info("Paiement de dossier enregistré : dossierConcoursId={}, montant={}", dossierConcoursId, montant);
+        return entree;
     }
 
     @Override

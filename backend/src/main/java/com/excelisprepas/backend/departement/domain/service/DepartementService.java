@@ -6,10 +6,12 @@ import com.excelisprepas.backend.departement.domain.port.out.DepartementReposito
 import com.excelisprepas.backend.matiere.domain.model.Matiere;
 import com.excelisprepas.backend.matiere.domain.port.out.MatiereRepositoryPort;
 import com.excelisprepas.backend.shared.exception.DepartementIntrouvableException;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 public class DepartementService implements CreerDepartementUseCase, RecupererDepartementUseCase,
         ListerDepartementsUseCase, RenommerDepartementUseCase, SupprimerDepartementUseCase {
 
@@ -29,7 +31,9 @@ public class DepartementService implements CreerDepartementUseCase, RecupererDep
         Departement departement = new Departement(UUID.randomUUID(), nomDepartement, matiereId);
 
         matiereRepository.save(matiere);
-        return departementRepository.save(departement);
+        departement = departementRepository.save(departement);
+        log.info("Département créé : id={}, nom={}, matiereId={}", departement.getId(), nomDepartement, matiereId);
+        return departement;
     }
 
     @Override
@@ -47,12 +51,15 @@ public class DepartementService implements CreerDepartementUseCase, RecupererDep
     public Departement renommerDepartement(UUID id, String nouveauNom) {
         Departement departement = recupererDepartement(id);
         departement.renommer(nouveauNom);
-        return departementRepository.save(departement);
+        departement = departementRepository.save(departement);
+        log.info("Département renommé : id={}, nouveauNom={}", id, nouveauNom);
+        return departement;
     }
 
     @Override
     public void supprimerDepartement(UUID id) {
         recupererDepartement(id);
         departementRepository.deleteById(id);
+        log.info("Département supprimé : id={}", id);
     }
 }
