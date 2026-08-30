@@ -12,6 +12,8 @@ public interface AffectationRepositoryPort {
 
     Optional<Affectation> findById(UUID id);
 
+    void deleteById(UUID id);
+
     boolean existsBySalleIdAndJourAndSemaineAndSeance(UUID salleId, Jour jour, int semaine, int seance);
 
     boolean existsByCentreId(UUID centreId);

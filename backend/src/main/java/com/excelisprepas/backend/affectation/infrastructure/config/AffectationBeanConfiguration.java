@@ -61,4 +61,9 @@ public class AffectationBeanConfiguration {
     public ModifierMatiereUseCase modifierMatiereUseCase(AffectationService affectationService) {
         return affectationService;
     }
+
+    @Bean
+    public SupprimerAffectationUseCase supprimerAffectationUseCase(AffectationService affectationService) {
+        return affectationService;
+    }
 }

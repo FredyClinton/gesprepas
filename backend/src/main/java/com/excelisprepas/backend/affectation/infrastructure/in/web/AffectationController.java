@@ -32,19 +32,22 @@ public class AffectationController {
     private final AnnulerAffectationUseCase annulerAffectationUseCase;
     private final ListerAffectationUseCase listerAffectationUseCase;
     private final ModifierMatiereUseCase modifierMatiereUseCase;
+    private final SupprimerAffectationUseCase supprimerAffectationUseCase;
 
     public AffectationController(CreerCreneauUseCase creerCreneauUseCase,
                                  AssignerEnseignantUseCase assignerEnseignantUseCase,
                                  MarquerEffectueeUseCase marquerEffectueeUseCase,
                                  AnnulerAffectationUseCase annulerAffectationUseCase,
                                  ListerAffectationUseCase listerAffectationUseCase,
-                                 ModifierMatiereUseCase modifierMatiereUseCase) {
+                                 ModifierMatiereUseCase modifierMatiereUseCase,
+                                 SupprimerAffectationUseCase supprimerAffectationUseCase) {
         this.creerCreneauUseCase = creerCreneauUseCase;
         this.assignerEnseignantUseCase = assignerEnseignantUseCase;
         this.marquerEffectueeUseCase = marquerEffectueeUseCase;
         this.annulerAffectationUseCase = annulerAffectationUseCase;
         this.listerAffectationUseCase = listerAffectationUseCase;
         this.modifierMatiereUseCase = modifierMatiereUseCase;
+        this.supprimerAffectationUseCase = supprimerAffectationUseCase;
     }
 
     private static AffectationResponse versReponse(Affectation affectation) {
@@ -158,5 +161,18 @@ public class AffectationController {
             @Parameter(description = "Identifiant du créneau") @PathVariable UUID id) {
         Affectation affectation = annulerAffectationUseCase.annulerAffectation(id);
         return ResponseEntity.ok(versReponse(affectation));
+    }
+
+    @Operation(summary = "Supprimer définitivement un créneau",
+            description = "Supprime le créneau de façon permanente (contrairement à /annuler, qui ne fait que changer son statut).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Créneau supprimé", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Créneau introuvable", content = @Content)
+    })
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> supprimerAffectation(
+            @Parameter(description = "Identifiant du créneau") @PathVariable UUID id) {
+        supprimerAffectationUseCase.supprimerAffectation(id);
+        return ResponseEntity.noContent().build();
     }
 }

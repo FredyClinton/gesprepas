@@ -31,6 +31,11 @@ public class AffectationRepositoryAdapter implements AffectationRepositoryPort {
     }
 
     @Override
+    public void deleteById(UUID id) {
+        jpaRepository.deleteById(id);
+    }
+
+    @Override
     public boolean existsBySalleIdAndJourAndSemaineAndSeance(UUID salleId, Jour jour, int semaine, int seance) {
         return jpaRepository.existsBySalleIdAndJourAndSemaineAndSeance(salleId, jour, semaine, seance);
     }

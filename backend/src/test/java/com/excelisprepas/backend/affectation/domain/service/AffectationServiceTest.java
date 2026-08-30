@@ -524,6 +524,41 @@ class AffectationServiceTest {
     }
 
     @Nested
+    @DisplayName("Suppression")
+    class Suppression {
+
+        @Test
+        @DisplayName("supprimerAffectation() réussit et supprime le créneau")
+        void supprimerAffectationReussit() {
+            // Given
+            Affectation affectation = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
+                    salleId, matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
+            when(affectationRepository.findById(affectation.getId())).thenReturn(Optional.of(affectation));
+
+            // When
+            service.supprimerAffectation(affectation.getId());
+
+            // Then
+            verify(affectationRepository).deleteById(affectation.getId());
+        }
+
+        @Test
+        @DisplayName("supprimerAffectation() refuse si le créneau n'existe pas")
+        void supprimerAffectationRefuseSiInexistant() {
+            // Given
+            UUID affectationId = UUID.randomUUID();
+            when(affectationRepository.findById(affectationId)).thenReturn(Optional.empty());
+
+            // When
+            ThrowingCallable action = () -> service.supprimerAffectation(affectationId);
+
+            // Then
+            assertThatThrownBy(action).isInstanceOf(AffectationIntrouvableException.class);
+            verify(affectationRepository, never()).deleteById(any(UUID.class));
+        }
+    }
+
+    @Nested
     @DisplayName("Listage")
     class Listage {
 

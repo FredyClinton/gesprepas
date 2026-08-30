@@ -17,6 +17,8 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -52,6 +54,9 @@ class AffectationControllerTest {
 
     @MockitoBean
     private ModifierMatiereUseCase modifierMatiereUseCase;
+
+    @MockitoBean
+    private SupprimerAffectationUseCase supprimerAffectationUseCase;
 
     private String jsonRequest() {
         return """
@@ -355,5 +360,29 @@ class AffectationControllerTest {
     void listerAffectations_sansSessionId_retourne400() throws Exception {
         mockMvc.perform(get("/api/affectations").param("semaine", "3"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/affectations/{id} retourne 204 si la suppression réussit")
+    void supprimerAffectation_reussit_retourne204() throws Exception {
+        // Given
+        UUID id = UUID.randomUUID();
+        doNothing().when(supprimerAffectationUseCase).supprimerAffectation(id);
+
+        // When / Then
+        mockMvc.perform(delete("/api/affectations/" + id))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/affectations/{id} retourne 404 si le créneau n'existe pas")
+    void supprimerAffectation_inexistant_retourne404() throws Exception {
+        // Given
+        UUID id = UUID.randomUUID();
+        doThrow(new AffectationIntrouvableException(id)).when(supprimerAffectationUseCase).supprimerAffectation(id);
+
+        // When / Then
+        mockMvc.perform(delete("/api/affectations/" + id))
+                .andExpect(status().isNotFound());
     }
 }
