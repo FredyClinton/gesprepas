@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.UUID;
 
 public class AffectationService implements CreerCreneauUseCase, AssignerEnseignantUseCase,
-        AnnulerAffectationUseCase, MarquerEffectueeUseCase, ListerAffectationUseCase {
+        AnnulerAffectationUseCase, MarquerEffectueeUseCase, ListerAffectationUseCase, ModifierMatiereUseCase {
 
     private final AffectationRepositoryPort affectationRepository;
     private final CentreRepositoryPort centreRepository;
@@ -115,6 +115,17 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
         }
 
         affectation.assignerEnseignant(enseignantId);
+        return affectationRepository.save(affectation);
+    }
+
+    @Override
+    public Affectation modifierMatiere(UUID affectationId, UUID nouvelleMatiereId) {
+        Affectation affectation = affectationRepository.findById(affectationId)
+                .orElseThrow(() -> new AffectationIntrouvableException(affectationId));
+        if (matiereRepository.findById(nouvelleMatiereId).isEmpty()) {
+            throw new MatiereIntrouvableException(nouvelleMatiereId);
+        }
+        affectation.modifierMatiere(nouvelleMatiereId);
         return affectationRepository.save(affectation);
     }
 
