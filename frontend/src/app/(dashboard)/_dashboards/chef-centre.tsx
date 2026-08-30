@@ -15,7 +15,7 @@ import { useFormations } from "@/modules/academique";
 import { useCentres, useSessionActive } from "@/modules/centres-sessions";
 import { useBilanDuJour, useRepartitionFormations } from "@/modules/finances";
 
-const PLACEHOLDER = "—";
+const PLACEHOLDER = "-";
 
 const STATUT_BILAN_LABEL: Record<string, string> = {
   EN_ATTENTE_CONTROLEUR: "À valider",
@@ -54,8 +54,8 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
     <div className="mx-auto max-w-7xl space-y-8">
       {/* En-tête de page : spécifique à cet écran */}
       <div>
-        <h1 className="text-brand-anthracite text-4xl font-bold">
-          Vue d&rsquo;ensemble{centre ? ` - ${centre.nom}` : ""}
+        <h1 className="text-brand-anthracite text-4xl font-bold uppercase">
+          Vue d&rsquo;ensemble{centre ? ` du centre ${centre.nom}` : ""}
         </h1>
         <p className="text-brand-gray mt-1.5 text-base">
           Synthèse opérationnelle du centre

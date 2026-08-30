@@ -24,3 +24,26 @@ export function createSalle(input: {
     body: JSON.stringify(input),
   });
 }
+
+export function renommerSalle(id: string, nom: string): Promise<Salle> {
+  return apiFetch<Salle>(`/api/salles/${id}/renommer`, {
+    method: "PATCH",
+    body: JSON.stringify({ nom }),
+  });
+}
+
+export function reaffecterFormationSalle(
+  id: string,
+  formationId: string,
+): Promise<Salle> {
+  return apiFetch<Salle>(`/api/salles/${id}/reaffecter-formation`, {
+    method: "PATCH",
+    body: JSON.stringify({ formationId }),
+  });
+}
+
+export function supprimerSalle(id: string): Promise<void> {
+  return apiFetch<void>(`/api/salles/${id}`, {
+    method: "DELETE",
+  });
+}

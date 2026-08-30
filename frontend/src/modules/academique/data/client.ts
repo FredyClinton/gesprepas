@@ -16,3 +16,16 @@ export function createFormation(input: {
     body: JSON.stringify(input),
   });
 }
+
+export function renommerFormation(id: string, nom: string): Promise<Formation> {
+  return apiFetch<Formation>(`/api/formations/${id}/renommer`, {
+    method: "PATCH",
+    body: JSON.stringify({ nom }),
+  });
+}
+
+export function supprimerFormation(id: string): Promise<void> {
+  return apiFetch<void>(`/api/formations/${id}`, {
+    method: "DELETE",
+  });
+}

@@ -2,7 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { createFormation, listFormations } from "./client";
+import {
+  createFormation,
+  listFormations,
+  renommerFormation,
+  supprimerFormation,
+} from "./client";
 
 export function useFormations() {
   return useQuery({
@@ -11,12 +16,32 @@ export function useFormations() {
   });
 }
 
-export function useCreateFormation() {
+function useInvalidationFormations() {
   const queryClient = useQueryClient();
+  return () => queryClient.invalidateQueries({ queryKey: ["formations"] });
+}
+
+export function useCreateFormation() {
+  const invalider = useInvalidationFormations();
   return useMutation({
     mutationFn: createFormation,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["formations"] });
-    },
+    onSuccess: invalider,
+  });
+}
+
+export function useRenommerFormation() {
+  const invalider = useInvalidationFormations();
+  return useMutation({
+    mutationFn: ({ id, nom }: { id: string; nom: string }) =>
+      renommerFormation(id, nom),
+    onSuccess: invalider,
+  });
+}
+
+export function useSupprimerFormation() {
+  const invalider = useInvalidationFormations();
+  return useMutation({
+    mutationFn: (id: string) => supprimerFormation(id),
+    onSuccess: invalider,
   });
 }

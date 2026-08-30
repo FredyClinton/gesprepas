@@ -18,6 +18,9 @@ import {
   ChevronDown,
   Ban,
   RotateCcw,
+  Pencil,
+  Trash2,
+  ArrowRightLeft,
 } from "lucide-react";
 
 import { Button, Card, Input } from "@/shared/ui";
@@ -38,11 +41,20 @@ import {
 import {
   useFormations,
   useCreateFormation,
+  useRenommerFormation,
+  useSupprimerFormation,
   formationSchema,
   type Formation,
   type FormationFormValues,
 } from "@/modules/academique";
-import { useSalles, useCreateSalle, type Salle } from "@/modules/salle";
+import {
+  useSalles,
+  useCreateSalle,
+  useRenommerSalle,
+  useReaffecterFormationSalle,
+  useSupprimerSalle,
+  type Salle,
+} from "@/modules/salle";
 
 type Onglet = "informations" | "personnel" | "performances";
 
@@ -652,6 +664,9 @@ function FormationsEtSalles({
             <CarteFormation
               key={formation.id}
               formation={formation}
+              autresFormationsDuCentre={
+                formationsDuCentre.filter((f) => f.id !== formation.id) ?? []
+              }
               salles={
                 sallesDuCentre?.filter((s) => s.formationId === formation.id) ??
                 []
@@ -702,18 +717,21 @@ function FormationsEtSalles({
   );
 }
 
-const salleInlineSchema = z.object({
+const nomInlineSchema = z.object({
   nom: z.string().min(1, "Le nom est requis"),
 });
+type NomInlineFormValues = z.infer<typeof nomInlineSchema>;
 
 function CarteFormation({
   formation,
+  autresFormationsDuCentre,
   salles,
   centreId,
   sessionId,
   peutGerer,
 }: {
   formation: Formation;
+  autresFormationsDuCentre: Formation[];
   salles: Salle[];
   centreId: string;
   sessionId: string | undefined;
@@ -723,7 +741,11 @@ function CarteFormation({
   // interface plus épurée quand il y a beaucoup de formations.
   const [ouvert, setOuvert] = useState(false);
   const [ajoutOuvert, setAjoutOuvert] = useState(false);
+  const [renommageOuvert, setRenommageOuvert] = useState(false);
+  const [confirmationSuppression, setConfirmationSuppression] = useState(false);
   const creerSalle = useCreateSalle();
+  const renommerFormation = useRenommerFormation();
+  const supprimerFormation = useSupprimerFormation();
 
   const {
     register,
@@ -731,9 +753,17 @@ function CarteFormation({
     reset,
     setError,
     formState: { errors, isSubmitting },
-  } = useForm<z.infer<typeof salleInlineSchema>>({
-    resolver: zodResolver(salleInlineSchema),
+  } = useForm<z.infer<typeof nomInlineSchema>>({
+    resolver: zodResolver(nomInlineSchema),
   });
+
+  const {
+    register: registerRenommer,
+    handleSubmit: handleSubmitRenommer,
+    reset: resetRenommer,
+    setError: setErrorRenommer,
+    formState: { errors: errorsRenommer, isSubmitting: renommageEnCours },
+  } = useForm<NomInlineFormValues>({ resolver: zodResolver(nomInlineSchema) });
 
   const onSubmit = handleSubmit(async (values) => {
     if (!sessionId) return;
@@ -756,27 +786,148 @@ function CarteFormation({
     }
   });
 
+  const onSubmitRenommer = handleSubmitRenommer(async (values) => {
+    try {
+      await renommerFormation.mutateAsync({ id: formation.id, ...values });
+      setRenommageOuvert(false);
+    } catch (erreur) {
+      setErrorRenommer("root", {
+        message: messageErreurApi(
+          erreur,
+          "Renommage impossible pour le moment. Réessayez.",
+        ),
+      });
+    }
+  });
+
+  async function confirmerSuppression() {
+    await supprimerFormation.mutateAsync(formation.id);
+  }
+
   return (
     <Card className="overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOuvert((o) => !o)}
-        className="flex w-full items-center justify-between gap-3 p-5 text-left"
-      >
-        <span className="text-brand-anthracite flex items-center gap-2 text-base font-bold">
-          <GraduationCap size={18} className="text-brand-orange" />
-          {formation.nom}
-        </span>
-        <span className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-3 p-5">
+        <div className="flex flex-1 items-center gap-2">
+          <GraduationCap size={18} className="text-brand-orange shrink-0" />
+          {renommageOuvert ? (
+            <div className="flex-1">
+              <form
+                onSubmit={onSubmitRenommer}
+                className="flex items-center gap-2"
+                noValidate
+              >
+                <input
+                  autoFocus
+                  className="border-brand-gray/30 text-brand-anthracite w-full rounded border px-2 py-1 text-sm font-bold"
+                  defaultValue={formation.nom}
+                  {...registerRenommer("nom")}
+                />
+                <button
+                  type="submit"
+                  disabled={renommageEnCours}
+                  className="text-brand-orange text-xs font-bold"
+                >
+                  OK
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRenommageOuvert(false)}
+                  className="text-brand-gray text-xs font-bold"
+                >
+                  Annuler
+                </button>
+              </form>
+              {errorsRenommer.nom && (
+                <p className="mt-1 text-xs font-bold text-red-600">
+                  {errorsRenommer.nom.message}
+                </p>
+              )}
+              {errorsRenommer.root && (
+                <p className="mt-1 text-xs font-bold text-red-600">
+                  {errorsRenommer.root.message}
+                </p>
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setOuvert((o) => !o)}
+              className="text-brand-anthracite flex-1 text-left text-base font-bold"
+            >
+              {formation.nom}
+            </button>
+          )}
+        </div>
+        <span className="flex shrink-0 items-center gap-3">
           <span className="text-brand-gray text-xs font-bold">
             {salles.length} salle{salles.length > 1 ? "s" : ""}
           </span>
-          <ChevronDown
-            size={16}
-            className={`text-brand-gray transition-transform ${ouvert ? "rotate-180" : ""}`}
-          />
+          {peutGerer && !renommageOuvert && (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  resetRenommer({ nom: formation.nom });
+                  setRenommageOuvert(true);
+                }}
+                className="text-brand-gray hover:text-brand-orange"
+                title="Renommer la formation"
+              >
+                <Pencil size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmationSuppression(true)}
+                className="text-brand-gray hover:text-red-600"
+                title="Supprimer la formation"
+              >
+                <Trash2 size={14} />
+              </button>
+            </>
+          )}
+          <button type="button" onClick={() => setOuvert((o) => !o)}>
+            <ChevronDown
+              size={16}
+              className={`text-brand-gray transition-transform ${ouvert ? "rotate-180" : ""}`}
+            />
+          </button>
         </span>
-      </button>
+      </div>
+
+      {confirmationSuppression && (
+        <div className="mx-5 mb-4 rounded-md border border-red-200 p-3">
+          <p className="text-brand-anthracite text-sm font-bold">
+            Supprimer définitivement la formation {formation.nom} ?
+          </p>
+          <p className="text-brand-gray mt-1 text-xs">
+            Impossible si des salles ou des créneaux y font encore référence (le
+            backend refusera avec une erreur 409).
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={confirmerSuppression}
+              disabled={supprimerFormation.isPending}
+              className="rounded bg-red-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              {supprimerFormation.isPending ? "Suppression..." : "Confirmer"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmationSuppression(false)}
+              className="border-brand-gray/30 text-brand-anthracite rounded border px-3 py-1.5 text-sm font-bold"
+            >
+              Annuler
+            </button>
+          </div>
+          {supprimerFormation.isError && (
+            <p className="mt-2 text-xs font-bold text-red-600">
+              Échec de la suppression — vérifiez qu&rsquo;aucune salle ni
+              créneau n&rsquo;y fait encore référence.
+            </p>
+          )}
+        </div>
+      )}
 
       {ouvert && (
         <div className="border-brand-gray/15 border-t p-5 pt-4">
@@ -787,13 +938,12 @@ function CarteFormation({
           ) : (
             <ul className="divide-brand-gray/10 mb-3 divide-y">
               {salles.map((salle) => (
-                <li
+                <SalleItem
                   key={salle.id}
-                  className="text-brand-anthracite flex items-center gap-2 py-2 text-sm font-bold"
-                >
-                  <DoorOpen size={14} className="text-brand-gray" />
-                  {salle.nom}
-                </li>
+                  salle={salle}
+                  autresFormationsDuCentre={autresFormationsDuCentre}
+                  peutGerer={peutGerer}
+                />
               ))}
             </ul>
           )}
@@ -847,5 +997,197 @@ function CarteFormation({
         </div>
       )}
     </Card>
+  );
+}
+
+// Ligne "salle" repliable en édition : renommer, réaffecter à une autre formation du
+// même centre, ou supprimer. `autresFormationsDuCentre` exclut déjà la formation
+// courante — on ne propose que des destinations réellement différentes.
+function SalleItem({
+  salle,
+  autresFormationsDuCentre,
+  peutGerer,
+}: {
+  salle: Salle;
+  autresFormationsDuCentre: Formation[];
+  peutGerer: boolean;
+}) {
+  const [renommageOuvert, setRenommageOuvert] = useState(false);
+  const [reaffectationOuverte, setReaffectationOuverte] = useState(false);
+  const [confirmationSuppression, setConfirmationSuppression] = useState(false);
+  const renommerSalle = useRenommerSalle();
+  const reaffecterFormation = useReaffecterFormationSalle();
+  const supprimerSalle = useSupprimerSalle();
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<NomInlineFormValues>({ resolver: zodResolver(nomInlineSchema) });
+
+  const onSubmit = handleSubmit(async (values) => {
+    try {
+      await renommerSalle.mutateAsync({ id: salle.id, ...values });
+      setRenommageOuvert(false);
+    } catch (erreur) {
+      setError("root", {
+        message: messageErreurApi(
+          erreur,
+          "Renommage impossible pour le moment. Réessayez.",
+        ),
+      });
+    }
+  });
+
+  async function reaffecter(formationId: string) {
+    await reaffecterFormation.mutateAsync({ id: salle.id, formationId });
+    setReaffectationOuverte(false);
+  }
+
+  async function confirmerSuppression() {
+    await supprimerSalle.mutateAsync(salle.id);
+  }
+
+  if (renommageOuvert) {
+    return (
+      <li className="py-2">
+        <form
+          onSubmit={onSubmit}
+          className="flex items-center gap-2"
+          noValidate
+        >
+          <DoorOpen size={14} className="text-brand-gray shrink-0" />
+          <input
+            autoFocus
+            className="border-brand-gray/30 text-brand-anthracite w-full rounded border px-2 py-1 text-sm font-bold"
+            defaultValue={salle.nom}
+            {...register("nom")}
+          />
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="text-brand-orange text-xs font-bold"
+          >
+            OK
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              reset();
+              setRenommageOuvert(false);
+            }}
+            className="text-brand-gray text-xs font-bold"
+          >
+            Annuler
+          </button>
+        </form>
+        {(errors.nom || errors.root) && (
+          <p className="mt-1 text-xs font-bold text-red-600">
+            {errors.nom?.message ?? errors.root?.message}
+          </p>
+        )}
+      </li>
+    );
+  }
+
+  return (
+    <li className="py-2">
+      <div className="flex items-center gap-2 text-sm">
+        <DoorOpen size={14} className="text-brand-gray shrink-0" />
+        <span className="text-brand-anthracite flex-1 font-bold">
+          {salle.nom}
+        </span>
+        {peutGerer && (
+          <span className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                reset({ nom: salle.nom });
+                setRenommageOuvert(true);
+              }}
+              className="text-brand-gray hover:text-brand-orange"
+              title="Renommer la salle"
+            >
+              <Pencil size={14} />
+            </button>
+            {autresFormationsDuCentre.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setReaffectationOuverte((o) => !o)}
+                className="text-brand-gray hover:text-brand-orange"
+                title="Déplacer vers une autre formation"
+              >
+                <ArrowRightLeft size={14} />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setConfirmationSuppression(true)}
+              className="text-brand-gray hover:text-red-600"
+              title="Supprimer la salle"
+            >
+              <Trash2 size={14} />
+            </button>
+          </span>
+        )}
+      </div>
+
+      {reaffectationOuverte && (
+        <div className="border-brand-gray/20 mt-2 flex flex-wrap gap-2 rounded-md border p-2.5">
+          {autresFormationsDuCentre.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => reaffecter(f.id)}
+              disabled={reaffecterFormation.isPending}
+              className="border-brand-gray/30 text-brand-anthracite hover:border-brand-orange rounded-full border px-2.5 py-1 text-xs font-bold disabled:opacity-50"
+            >
+              {f.nom}
+            </button>
+          ))}
+        </div>
+      )}
+      {reaffecterFormation.isError && (
+        <p className="mt-1 text-xs font-bold text-red-600">
+          Échec du déplacement. Réessayez.
+        </p>
+      )}
+
+      {confirmationSuppression && (
+        <div className="mt-2 rounded-md border border-red-200 p-2.5">
+          <p className="text-brand-anthracite text-xs font-bold">
+            Supprimer définitivement la salle {salle.nom} ?
+          </p>
+          <p className="text-brand-gray mt-1 text-xs">
+            Impossible si des créneaux y font encore référence.
+          </p>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={confirmerSuppression}
+              disabled={supprimerSalle.isPending}
+              className="rounded bg-red-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              {supprimerSalle.isPending ? "Suppression..." : "Confirmer"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmationSuppression(false)}
+              className="border-brand-gray/30 text-brand-anthracite rounded border px-2.5 py-1 text-xs font-bold"
+            >
+              Annuler
+            </button>
+          </div>
+          {supprimerSalle.isError && (
+            <p className="mt-2 text-xs font-bold text-red-600">
+              Échec de la suppression — vérifiez qu&rsquo;aucun créneau
+              n&rsquo;y fait encore référence.
+            </p>
+          )}
+        </div>
+      )}
+    </li>
   );
 }
