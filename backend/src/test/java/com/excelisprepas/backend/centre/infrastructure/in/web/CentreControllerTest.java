@@ -222,6 +222,36 @@ class CentreControllerTest {
     }
 
     @Test
+    @DisplayName("GET /api/centres/{id}/localisations retourne 200 avec l'historique")
+    void listerHistoriqueLocalisations_centreExiste_retourne200() throws Exception {
+        // Given
+        Centre centre = unCentre();
+        centre.relocaliser("Boulevard du 20 Mai", "Yaoundé");
+        when(recupererCentreUseCase.recupererCentre(centre.getId())).thenReturn(centre);
+
+        // When / Then
+        mockMvc.perform(get("/api/centres/" + centre.getId() + "/localisations"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].adresse").value("Avenue Kennedy"))
+                .andExpect(jsonPath("$[0].dateFinValidite").isNotEmpty())
+                .andExpect(jsonPath("$[1].adresse").value("Boulevard du 20 Mai"))
+                .andExpect(jsonPath("$[1].dateFinValidite").isEmpty());
+    }
+
+    @Test
+    @DisplayName("GET /api/centres/{id}/localisations retourne 404 si le centre n'existe pas")
+    void listerHistoriqueLocalisations_centreInexistant_retourne404() throws Exception {
+        // Given
+        UUID id = UUID.randomUUID();
+        when(recupererCentreUseCase.recupererCentre(id)).thenThrow(new CentreIntrouvableException(id));
+
+        // When / Then
+        mockMvc.perform(get("/api/centres/" + id + "/localisations"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     @DisplayName("DELETE /api/centres/{id} retourne 204 si la suppression réussit")
     void supprimerCentre_reussit_retourne204() throws Exception {
         // Given
