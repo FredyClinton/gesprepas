@@ -17,7 +17,7 @@ import {
   Search,
 } from "lucide-react";
 
-import { Button, Card, Input } from "@/shared/ui";
+import { Button, Card, Input, iconButtonClass } from "@/shared/ui";
 import { messageErreurApi } from "@/shared/lib/api-client";
 import {
   useEnseignant,
@@ -65,6 +65,13 @@ const LABELS_STATUT_SEANCE: Record<string, string> = {
   ASSIGNEE: "Assignée",
   EFFECTUEE: "Effectuée",
   ANNULEE: "Annulée",
+};
+
+const CLASSES_STATUT_SEANCE: Record<string, string> = {
+  PLANIFIEE: "bg-brand-gray/10 text-brand-gray",
+  ASSIGNEE: "bg-brand-orange/10 text-brand-orange",
+  EFFECTUEE: "bg-green-100 text-green-800",
+  ANNULEE: "bg-red-100 text-red-800",
 };
 
 export function EnseignantDetailView({
@@ -115,11 +122,14 @@ export function EnseignantDetailView({
     [departements, departementsDeCetEnseignant],
   );
 
-  const seancesEffectuees = useMemo(
+  // Toutes les séances de l'enseignant sur la session, quel que soit leur statut
+  // (planifiée, assignée, effectuée ou annulée) — pas seulement celles déjà
+  // effectuées, pour que le Directeur Académique voie aussi ce qui reste à venir.
+  const toutesLesSeances = useMemo(
     () =>
-      (seances ?? [])
-        .filter((s) => s.statut === "EFFECTUEE")
-        .sort((a, b) => a.semaine - b.semaine || a.seance - b.seance),
+      (seances ?? []).sort(
+        (a, b) => a.semaine - b.semaine || a.seance - b.seance,
+      ),
     [seances],
   );
 
@@ -211,31 +221,29 @@ export function EnseignantDetailView({
   }
 
   const matieresDesSeances = useMemo(() => {
-    const ids = new Set(seancesEffectuees.map((s) => s.matiereId));
+    const ids = new Set(toutesLesSeances.map((s) => s.matiereId));
     return (matieres ?? []).filter((m) => ids.has(m.id));
-  }, [seancesEffectuees, matieres]);
+  }, [toutesLesSeances, matieres]);
 
   const statutsDesSeances = useMemo(() => {
-    const ids = new Set(seancesEffectuees.map((s) => s.statut));
+    const ids = new Set(toutesLesSeances.map((s) => s.statut));
     return Array.from(ids);
-  }, [seancesEffectuees]);
+  }, [toutesLesSeances]);
 
   const seancesFiltrees = useMemo(() => {
     const rechercheNormalisee = recherche.trim().toLowerCase();
-    return seancesEffectuees.filter((s) => {
+    return toutesLesSeances.filter((s) => {
       if (filtreMatiereId && s.matiereId !== filtreMatiereId) return false;
       if (filtreStatut && s.statut !== filtreStatut) return false;
       if (!rechercheNormalisee) return true;
-      const nomMatiere =
-        matieres?.find((m) => m.id === s.matiereId)?.nom ?? "";
+      const nomMatiere = matieres?.find((m) => m.id === s.matiereId)?.nom ?? "";
       const nomCentre = centres?.find((c) => c.id === s.centreId)?.nom ?? "";
       const nomSalle = salles?.find((sa) => sa.id === s.salleId)?.nom ?? "";
-      const cible =
-        `${nomMatiere} ${nomCentre} ${nomSalle}`.toLowerCase();
+      const cible = `${nomMatiere} ${nomCentre} ${nomSalle}`.toLowerCase();
       return cible.includes(rechercheNormalisee);
     });
   }, [
-    seancesEffectuees,
+    toutesLesSeances,
     filtreMatiereId,
     filtreStatut,
     recherche,
@@ -321,10 +329,11 @@ export function EnseignantDetailView({
                   {enseignant.prenom} {enseignant.nom}
                 </h1>
                 <span
-                  className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-bold ${enseignant.statut === "ACTIF"
+                  className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-bold uppercase ${
+                    enseignant.statut === "ACTIF"
                       ? "bg-green-100 text-green-800"
                       : "bg-brand-gray/10 text-brand-gray"
-                    }`}
+                  }`}
                 >
                   {enseignant.statut === "ACTIF" ? "Actif" : "Suspendu"}
                 </span>
@@ -339,7 +348,7 @@ export function EnseignantDetailView({
                     });
                     setEditionNom(true);
                   }}
-                  className="text-brand-gray hover:text-brand-orange"
+                  className={iconButtonClass()}
                   title="Modifier le nom"
                 >
                   <Pencil size={16} />
@@ -370,13 +379,13 @@ export function EnseignantDetailView({
                   >
                     Enregistrer
                   </Button>
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
                     onClick={() => setEditionNom(false)}
-                    className="border-brand-gray/30 text-brand-anthracite rounded-md border px-3 py-1.5 text-sm font-bold"
                   >
                     Annuler
-                  </button>
+                  </Button>
                 </div>
                 {formNom.formState.errors.root && (
                   <p className="text-xs font-bold text-red-600">
@@ -399,7 +408,7 @@ export function EnseignantDetailView({
                     {enseignant.matricule}
                   </p>
                 </div>
-                <div>
+                <div className={editionCout ? "col-span-2" : undefined}>
                   <div className="flex items-center gap-2">
                     <p className="text-brand-gray text-xs font-bold tracking-wide uppercase">
                       Coût par séance
@@ -413,7 +422,7 @@ export function EnseignantDetailView({
                           });
                           setEditionCout(true);
                         }}
-                        className="text-brand-gray hover:text-brand-orange"
+                        className={iconButtonClass()}
                         title="Modifier le coût"
                       >
                         <Pencil size={14} />
@@ -423,7 +432,7 @@ export function EnseignantDetailView({
                   {editionCout ? (
                     <form
                       onSubmit={formCout.handleSubmit(onSubmitCout)}
-                      className="mt-1.5 flex items-center gap-2"
+                      className="mt-1.5 flex flex-wrap items-center gap-2"
                       noValidate
                     >
                       <input
@@ -434,20 +443,19 @@ export function EnseignantDetailView({
                           valueAsNumber: true,
                         })}
                       />
-                      <button
+                      <Button
                         type="submit"
                         disabled={formCout.formState.isSubmitting}
-                        className="text-brand-orange text-xs font-bold"
                       >
                         OK
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
+                        variant="secondary"
                         onClick={() => setEditionCout(false)}
-                        className="text-brand-gray text-xs font-bold"
                       >
                         Annuler
-                      </button>
+                      </Button>
                     </form>
                   ) : (
                     <p className="text-brand-anthracite text-base font-bold">
@@ -460,6 +468,32 @@ export function EnseignantDetailView({
                     </p>
                   )}
                 </div>
+                {/* Champs pas encore disponibles côté backend (pas de colonne/DTO) —
+                    affichage en placeholder en attendant leur ajout. */}
+                <div>
+                  <p className="text-brand-gray text-xs font-bold tracking-wide uppercase">
+                    Téléphone
+                  </p>
+                  <p className="text-brand-gray/60 text-base italic">—</p>
+                </div>
+                <div>
+                  <p className="text-brand-gray text-xs font-bold tracking-wide uppercase">
+                    Numéro CNI
+                  </p>
+                  <p className="text-brand-gray/60 text-base italic">—</p>
+                </div>
+                <div>
+                  <p className="text-brand-gray text-xs font-bold tracking-wide uppercase">
+                    École / Fonction
+                  </p>
+                  <p className="text-brand-gray/60 text-base italic">—</p>
+                </div>
+                <div>
+                  <p className="text-brand-gray text-xs font-bold tracking-wide uppercase">
+                    Niveau / Grade
+                  </p>
+                  <p className="text-brand-gray/60 text-base italic">—</p>
+                </div>
               </div>
             </div>
 
@@ -471,16 +505,14 @@ export function EnseignantDetailView({
                 {peutGerer &&
                   departementsDeCetEnseignant.length < MAX_DEPARTEMENTS &&
                   departementsDisponibles.length > 0 && (
-                    <button
+                    <Button
                       type="button"
-                      onClick={() =>
-                        setSelecteurRattachementOuvert((o) => !o)
-                      }
-                      className="text-brand-orange flex items-center gap-1 text-xs font-bold"
+                      onClick={() => setSelecteurRattachementOuvert((o) => !o)}
+                      className="px-3 py-1.5 text-xs"
                     >
                       <Plus size={14} />
                       Rattacher
-                    </button>
+                    </Button>
                   )}
               </div>
 
@@ -568,9 +600,8 @@ export function EnseignantDetailView({
                       {enseignant.nom} ?
                     </p>
                     <p className="text-brand-gray mt-1 text-xs">
-                      Impossible si cet enseignant est encore référencé par
-                      des affectations (le backend refusera avec une erreur
-                      409).
+                      Impossible tant que cet enseignant a encore des
+                      affectations en cours.
                     </p>
                     <div className="mt-3 flex gap-2">
                       <button
@@ -581,13 +612,13 @@ export function EnseignantDetailView({
                       >
                         {supprimer.isPending ? "Suppression..." : "Confirmer"}
                       </button>
-                      <button
+                      <Button
                         type="button"
+                        variant="secondary"
                         onClick={() => setConfirmationSuppression(false)}
-                        className="border-brand-gray/30 text-brand-anthracite rounded border px-3 py-1.5 text-sm font-bold"
                       >
                         Annuler
-                      </button>
+                      </Button>
                     </div>
                     {supprimer.isError && (
                       <p className="mt-2 text-xs font-bold text-red-600">
@@ -607,7 +638,7 @@ export function EnseignantDetailView({
             <div className="border-brand-gray/20 space-y-3 border-b p-5">
               <div>
                 <h2 className="text-brand-anthracite text-lg font-bold">
-                  Séances effectuées
+                  Séances
                 </h2>
                 <p className="text-brand-gray mt-1 text-sm">
                   Session {sessionActive?.annee ?? "-"}
@@ -642,9 +673,11 @@ export function EnseignantDetailView({
                 <select
                   value={filtreStatut}
                   onChange={(e) => setFiltreStatut(e.target.value)}
-                  className="border-brand-gray/30 text-brand-anthracite rounded-md border px-3 py-2 text-sm"
+                  className="border-brand-gray/30 text-brand-anthracite rounded-md border px-3 py-2 text-sm uppercase"
                 >
-                  <option value="">Tous les statuts</option>
+                  <option value="" className="normal-case">
+                    Tous les statuts
+                  </option>
                   {statutsDesSeances.map((statut) => (
                     <option key={statut} value={statut}>
                       {LABELS_STATUT_SEANCE[statut] ?? statut}
@@ -690,8 +723,8 @@ export function EnseignantDetailView({
                         colSpan={5}
                         className="text-brand-gray p-5 text-center"
                       >
-                        {seancesEffectuees.length === 0
-                          ? "Aucune séance effectuée pour l'instant."
+                        {toutesLesSeances.length === 0
+                          ? "Aucune séance pour l'instant."
                           : "Aucune séance ne correspond à la recherche."}
                       </td>
                     </tr>
@@ -710,11 +743,15 @@ export function EnseignantDetailView({
                           "—"}
                       </td>
                       <td className="text-brand-gray p-4 text-sm">
-                        {salles?.find((sa) => sa.id === s.salleId)?.nom ??
-                          "—"}
+                        {salles?.find((sa) => sa.id === s.salleId)?.nom ?? "—"}
                       </td>
                       <td className="p-4">
-                        <span className="bg-brand-blue/10 text-brand-blue rounded-full px-3 py-1.5 text-xs font-bold">
+                        <span
+                          className={`rounded-full px-3 py-1.5 text-xs font-bold uppercase ${
+                            CLASSES_STATUT_SEANCE[s.statut] ??
+                            "bg-brand-gray/10 text-brand-gray"
+                          }`}
+                        >
                           {LABELS_STATUT_SEANCE[s.statut] ?? s.statut}
                         </span>
                       </td>

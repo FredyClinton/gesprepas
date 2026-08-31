@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
+import { Eye, EyeOff } from "lucide-react";
 
 import { Button, Card, Input } from "@/shared/ui";
 import { loginSchema, type LoginFormValues } from "@/modules/utilisateurs";
@@ -13,6 +14,7 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { status } = useSession();
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -79,10 +81,29 @@ export default function LoginPage() {
           />
           <Input
             label="Mot de passe"
-            type="password"
+            type={showPassword ? "text" : "password"}
             autoComplete="current-password"
             placeholder="••••••••"
             error={errors.password?.message}
+            endAdornment={
+              <button
+                type="button"
+                onClick={() => setShowPassword((valeur) => !valeur)}
+                className="text-brand-gray hover:text-brand-anthracite"
+                aria-label={
+                  showPassword
+                    ? "Masquer le mot de passe"
+                    : "Afficher le mot de passe"
+                }
+                tabIndex={-1}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            }
             {...register("password")}
           />
 

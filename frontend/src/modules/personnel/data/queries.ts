@@ -81,10 +81,19 @@ export function useModifierCoutParSeance() {
 
 export function useSuspendreEnseignant() {
   const invalider = useInvalidationEnseignants();
+  const queryClient = useQueryClient();
   const { data: session } = useSession();
   return useMutation({
     mutationFn: (id: string) => suspendreEnseignant(id, session?.user.role),
-    onSuccess: invalider,
+    // La suspension désassigne aussi côté backend les créneaux ASSIGNEE de cet
+    // enseignant (voir AffectationService.suspendreEnseignant) — sans invalider
+    // ces requêtes, le planning et la fiche enseignant restent affichés comme
+    // avant la suspension jusqu'au prochain rechargement manuel.
+    onSuccess: () => {
+      invalider();
+      queryClient.invalidateQueries({ queryKey: ["affectations"] });
+      queryClient.invalidateQueries({ queryKey: ["affectations-enseignant"] });
+    },
   });
 }
 

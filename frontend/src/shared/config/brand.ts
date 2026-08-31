@@ -6,7 +6,6 @@
 export const brandColors = {
   orange: "#F7931E", // actions principales
   anthracite: "#1A1A1A", // navigation, en-têtes, texte fort
-  blue: "#2D2E80", // accent secondaire
   white: "#FFFFFF", // fonds
   gray: "#606060", // texte secondaire, désactivé
   black: "#000000", // texte fort

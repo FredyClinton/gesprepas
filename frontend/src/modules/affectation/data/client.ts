@@ -65,6 +65,20 @@ export function annulerCreneau(id: string): Promise<Affectation> {
   });
 }
 
+export function marquerEffectuee(id: string): Promise<Affectation> {
+  return apiFetch<Affectation>(`/api/affectations/${id}/marquer-effectuee`, {
+    method: "PATCH",
+  });
+}
+
+// Rétro-action : annule un marquage "effectuée" fait par erreur, le créneau revient
+// à ASSIGNEE (l'enseignant assigné est conservé).
+export function annulerEffectuee(id: string): Promise<Affectation> {
+  return apiFetch<Affectation>(`/api/affectations/${id}/annuler-effectuee`, {
+    method: "PATCH",
+  });
+}
+
 // Suppression définitive (DELETE) — distincte de `annulerCreneau` (PATCH /annuler,
 // change juste le statut à ANNULEE, garde la ligne en base). Le bouton "Supprimer le
 // créneau" de la grille appelle celle-ci : un créneau créé par erreur doit vraiment

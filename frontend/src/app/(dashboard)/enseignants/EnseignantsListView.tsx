@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Plus, Search, Ban, RotateCcw, Eye, Pencil } from "lucide-react";
 
-import { Button, Card, Input, Pagination } from "@/shared/ui";
+import { Button, Card, Input, Pagination, iconButtonClass } from "@/shared/ui";
 import { messageErreurApi } from "@/shared/lib/api-client";
 import {
   useEnseignants,
@@ -37,7 +37,7 @@ type Props = {
 
 const MAX_DEPARTEMENTS_A_LA_CREATION = 2;
 const FORMATEUR_FCFA = new Intl.NumberFormat("fr-FR");
-const TAILLE_PAGE = 20;
+const TAILLE_PAGE = 10;
 
 export function EnseignantsListView({ role, departementIdCDD }: Props) {
   const estDA = role === "DIRECTEUR_ACADEMIQUE";
@@ -238,7 +238,9 @@ export function EnseignantsListView({ role, departementIdCDD }: Props) {
         <div>
           <h1 className="text-brand-anthracite text-4xl font-bold uppercase">
             Enseignants
-            {estCDD && departementCDD ? `  du département de ${departementCDD.nom}` : ""}
+            {estCDD && departementCDD
+              ? `  du département de ${departementCDD.nom}`
+              : ""}
           </h1>
           {estDA && (
             <p className="text-brand-gray mt-1.5 text-base">
@@ -287,16 +289,16 @@ export function EnseignantsListView({ role, departementIdCDD }: Props) {
       </div>
 
       {estDA && departements && departements.length > 0 && (
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="border-brand-gray/15 bg-brand-white flex shrink-0 flex-wrap items-center gap-2 rounded-lg border p-2.5">
           <button
             type="button"
             onClick={() => {
               setFiltreDepartement("");
               setPage(1);
             }}
-            className={`rounded-full border px-3 py-1 text-xs font-bold transition-colors ${filtreDepartement === ""
-              ? "bg-brand-anthracite border-brand-anthracite text-white"
-              : "border-brand-gray/30 text-brand-anthracite hover:border-brand-orange"
+            className={`rounded-full border-2 px-4 py-1.5 text-sm font-bold transition-colors ${filtreDepartement === ""
+                ? "bg-brand-orange border-brand-orange text-white shadow-sm"
+                : "border-brand-gray/30 text-brand-anthracite hover:border-brand-orange hover:text-brand-orange"
               }`}
           >
             Tous
@@ -309,9 +311,9 @@ export function EnseignantsListView({ role, departementIdCDD }: Props) {
                 setFiltreDepartement(d.id);
                 setPage(1);
               }}
-              className={`rounded-full border px-3 py-1 text-xs font-bold transition-colors ${filtreDepartement === d.id
-                ? "bg-brand-anthracite border-brand-anthracite text-white"
-                : "border-brand-gray/30 text-brand-anthracite hover:border-brand-orange"
+              className={`rounded-full border-2 px-4 py-1.5 text-sm font-bold transition-colors ${filtreDepartement === d.id
+                  ? "bg-brand-orange border-brand-orange text-white shadow-sm"
+                  : "border-brand-gray/30 text-brand-anthracite hover:border-brand-orange hover:text-brand-orange"
                 }`}
             >
               {d.nom} : {compteursParDepartement.get(d.id) ?? 0}
@@ -372,8 +374,8 @@ export function EnseignantsListView({ role, departementIdCDD }: Props) {
                         disabled={desactive}
                         onClick={() => toggleDepartementChoisi(d.id)}
                         className={`rounded-full border px-3 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${choisi
-                          ? "bg-brand-orange border-brand-orange text-white"
-                          : "border-brand-gray/30 text-brand-anthracite hover:border-brand-orange"
+                            ? "bg-brand-orange border-brand-orange text-white"
+                            : "border-brand-gray/30 text-brand-anthracite hover:border-brand-orange"
                           }`}
                       >
                         {d.nom}
@@ -416,23 +418,6 @@ export function EnseignantsListView({ role, departementIdCDD }: Props) {
             className="w-full text-sm outline-none"
           />
         </div>
-        {estDA && (
-          <select
-            value={filtreDepartement}
-            onChange={(e) => {
-              setFiltreDepartement(e.target.value);
-              setPage(1);
-            }}
-            className="border-brand-gray/30 rounded-md border bg-white px-3 py-2 text-sm"
-          >
-            <option value="">Tous les départements</option>
-            {departements?.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.nom}
-              </option>
-            ))}
-          </select>
-        )}
         <select
           value={filtreStatut}
           onChange={(e) => {
@@ -510,9 +495,9 @@ export function EnseignantsListView({ role, departementIdCDD }: Props) {
                     </td>
                     <td className="p-2.5">
                       <span
-                        className={`rounded-full px-3 py-1 text-xs font-bold ${e.statut === "ACTIF"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-brand-gray/10 text-brand-gray"
+                        className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${e.statut === "ACTIF"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-brand-gray/10 text-brand-gray"
                           }`}
                       >
                         {e.statut === "ACTIF" ? "Actif" : "Suspendu"}
@@ -523,7 +508,7 @@ export function EnseignantsListView({ role, departementIdCDD }: Props) {
                         <Link
                           href={`/enseignants/${e.id}`}
                           title="Voir le détail"
-                          className="text-brand-gray hover:text-brand-orange"
+                          className={iconButtonClass()}
                         >
                           <Eye size={18} />
                         </Link>
@@ -532,7 +517,7 @@ export function EnseignantsListView({ role, departementIdCDD }: Props) {
                             <Link
                               href={`/enseignants/${e.id}?edit=1`}
                               title="Modifier"
-                              className="text-brand-gray hover:text-brand-orange"
+                              className={iconButtonClass()}
                             >
                               <Pencil size={18} />
                             </Link>
@@ -545,7 +530,7 @@ export function EnseignantsListView({ role, departementIdCDD }: Props) {
                               title={
                                 e.statut === "ACTIF" ? "Suspendre" : "Réactiver"
                               }
-                              className="text-brand-gray hover:text-brand-orange disabled:opacity-40"
+                              className={iconButtonClass()}
                             >
                               {e.statut === "ACTIF" ? (
                                 <Ban size={18} />

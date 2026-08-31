@@ -1,4 +1,18 @@
-// Barrel export du module dossiers.
-// Expose ici uniquement ce que le reste de l'application peut importer
-// (types, hooks de données, composants partagés) — pas les détails internes.
-export {};
+export type {
+  Dossier,
+  StatutDossier,
+  Concours,
+  PieceRequise,
+  DossierConcours,
+  PieceDossier,
+  StatutPieceDossier,
+  SoldeDossierConcours,
+} from "./domain/types";
+export {
+  useDossierParApprenant,
+  useConcoursDuDossier,
+  usePiecesDossierConcours,
+  useSoldeDossierConcours,
+  useConcours,
+  usePiecesRequises,
+} from "./data/queries";

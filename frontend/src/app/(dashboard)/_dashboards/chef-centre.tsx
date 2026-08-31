@@ -13,7 +13,7 @@ import { Card } from "@/shared/ui";
 import { useApprenants } from "@/modules/apprenants";
 import { useFormations } from "@/modules/academique";
 import { useCentres, useSessionActive } from "@/modules/centres-sessions";
-import { useBilanDuJour, useRepartitionFormations } from "@/modules/finances";
+import { useBilanDuJour, useRepartitionFormations } from "@/modules/financier";
 
 const PLACEHOLDER = "-";
 
@@ -145,10 +145,10 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
               <span className="text-brand-gray text-sm">…</span>
             ) : bilan ? (
               <span
-                className={`inline-flex rounded-full px-3 py-1.5 text-xs font-bold ${
+                className={`inline-flex rounded-full px-3 py-1.5 text-xs font-bold uppercase ${
                   bilan.statut === "EN_ATTENTE_CONTROLEUR"
                     ? "bg-brand-orange/10 text-brand-orange"
-                    : "bg-brand-blue/10 text-brand-blue"
+                    : "bg-green-100 text-green-800"
                 }`}
               >
                 {STATUT_BILAN_LABEL[bilan.statut]}

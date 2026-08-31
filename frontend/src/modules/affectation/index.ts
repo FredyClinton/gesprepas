@@ -6,6 +6,8 @@ export {
   useCreerCreneau,
   useModifierMatiere,
   useAnnulerCreneau,
+  useMarquerEffectuee,
+  useAnnulerEffectuee,
   useSupprimerCreneau,
   useAffectationsParEnseignant,
 } from "./data/queries";

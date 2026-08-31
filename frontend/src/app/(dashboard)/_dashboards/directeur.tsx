@@ -13,7 +13,7 @@ import {
 
 import { Button, Card } from "@/shared/ui";
 import { useApprenants } from "@/modules/apprenants";
-import { useCentres } from "@/modules/centres-sessions";
+import { useCentres, useSessionActive } from "@/modules/centres-sessions";
 import Link from "next/link";
 // manque côté API (taux de recouvrement, dossiers, soldes financiers consolidés).
 const PLACEHOLDER = "—";
@@ -21,6 +21,7 @@ const PLACEHOLDER = "—";
 export function DirecteurDashboard() {
   const { data: apprenants, isLoading: chargementApprenants } = useApprenants();
   const { data: centres, isLoading: chargementCentres } = useCentres();
+  const { data: sessionActive } = useSessionActive();
 
   const centresActifs = centres?.filter((c) => c.statut === "OUVERT").length;
 
@@ -41,13 +42,13 @@ export function DirecteurDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {/* Sélecteur de session — visuel uniquement, pas de module sessions
-              construit encore, rien à sélectionner pour de vrai pour l'instant */}
+          {/* Affiche la session active réelle — changer de session n'est pas encore
+              possible depuis cet écran (pas de sélecteur multi-session construit). */}
           <button
             type="button"
             className="border-brand-gray/20 text-brand-anthracite flex items-center gap-2 rounded-md border bg-white px-4 py-2.5 text-sm font-bold"
           >
-            Session 2023-2024
+            {sessionActive ? `Session ${sessionActive.annee}` : "…"}
             <ChevronDown size={16} />
           </button>
           {/* Export — visuel uniquement, aucune logique d'export n'existe encore */}
@@ -146,13 +147,13 @@ export function DirecteurDashboard() {
                     {centre.nom}
                   </td>
                   <td className="text-brand-gray p-4 text-sm">{PLACEHOLDER}</td>
-                  <td className="text-brand-gray p-4 text-sm">{PLACEHOLDER}</td>
-                  <td className="text-brand-gray p-4 text-sm">{PLACEHOLDER}</td>
-                  <td className="text-brand-gray p-4 text-sm">{PLACEHOLDER}</td>
-                  <td className="text-brand-gray p-4 text-sm">{PLACEHOLDER}</td>
                   <td className="text-brand-anthracite p-4 font-bold">
                     {chargementApprenants ? "…" : effectifParCentre(centre.id)}
                   </td>
+                  <td className="text-brand-gray p-4 text-sm">{PLACEHOLDER}</td>
+                  <td className="text-brand-gray p-4 text-sm">{PLACEHOLDER}</td>
+                  <td className="text-brand-gray p-4 text-sm">{PLACEHOLDER}</td>
+                  <td className="text-brand-gray p-4 text-sm">{PLACEHOLDER}</td>
                   <td className="text-brand-gray p-4 text-sm">{PLACEHOLDER}</td>
                 </tr>
               ))}

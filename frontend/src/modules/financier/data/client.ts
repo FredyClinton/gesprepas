@@ -1,5 +1,7 @@
 import { apiFetch } from "@/shared/lib/api-client";
 
+import type { Entree, Motif, TypeMotif } from "../domain/types";
+
 import type { BilanApercu, RepartitionFormation } from "../domain/types";
 
 export function getBilanDuJour(
@@ -17,4 +19,16 @@ export function getRepartitionFormations(
   return apiFetch<RepartitionFormation[]>(
     `/api/bilans-journaliers/${bilanId}/repartition-formations`,
   );
+}
+
+export function listVersementsApprenant(
+  apprenantId: string,
+): Promise<Entree[]> {
+  const params = new URLSearchParams({ apprenantId });
+  return apiFetch<Entree[]>(`/api/entrees?${params}`);
+}
+
+export function listMotifs(type?: TypeMotif): Promise<Motif[]> {
+  const params = type ? `?${new URLSearchParams({ type })}` : "";
+  return apiFetch<Motif[]>(`/api/motifs${params}`);
 }

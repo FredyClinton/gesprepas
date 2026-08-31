@@ -11,6 +11,8 @@ import {
 import { Button, Card } from "@/shared/ui";
 import { useEnseignants } from "@/modules/personnel";
 import { useCentres, useSessionActive } from "@/modules/centres-sessions";
+import { useAffectations } from "@/modules/affectation";
+import { semaineCouranteDepuis } from "@/shared/lib/semaine";
 
 const PLACEHOLDER = "—";
 
@@ -29,6 +31,22 @@ export function DirecteurAcademiqueDashboard() {
       c.statut === "OUVERT" &&
       sessionActive &&
       c.sessionIds.includes(sessionActive.id),
+  ).length;
+
+  // Semaine courante calculée comme sur le dashboard Chef de Département (pas de
+  // semaine calendaire ISO côté backend). Pas de filtre matiereId : le Directeur
+  // Académique voit les créneaux de tout le réseau, toutes matières confondues.
+  const semaineCourante = sessionActive
+    ? semaineCouranteDepuis(sessionActive.dateDebut, sessionActive.dateFin)
+    : 1;
+  const { data: affectations, isLoading: chargementAffectations } =
+    useAffectations({
+      sessionId: sessionActive?.id,
+      semaine: semaineCourante,
+      matiereId: undefined,
+    });
+  const creneauxNonAssignes = affectations?.filter(
+    (a) => a.statut === "PLANIFIEE",
   ).length;
 
   return (
@@ -73,7 +91,7 @@ export function DirecteurAcademiqueDashboard() {
             <span className="text-brand-gray text-xs font-bold tracking-wide uppercase">
               Centres actifs
             </span>
-            <div className="bg-brand-blue/10 text-brand-blue rounded-lg p-2">
+            <div className="bg-brand-anthracite/10 text-brand-anthracite rounded-lg p-2">
               <Building2 size={18} />
             </div>
           </div>
@@ -91,9 +109,14 @@ export function DirecteurAcademiqueDashboard() {
               <AlertTriangle size={18} />
             </div>
           </div>
-          <div className="text-3xl font-bold text-red-600">{PLACEHOLDER}</div>
+          <div className="text-3xl font-bold text-red-600">
+            {chargementAffectations
+              ? "…"
+              : (creneauxNonAssignes ?? PLACEHOLDER)}
+          </div>
           <p className="text-brand-gray/70 text-xs">
-            Endpoint agrégé à construire
+            Créneaux planifiés sans enseignant assigné, semaine{" "}
+            {semaineCourante}
           </p>
         </Card>
 

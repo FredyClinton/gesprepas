@@ -5,8 +5,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   assignerEnseignant,
   annulerCreneau,
+  annulerEffectuee,
   creerCreneau,
   listAffectations,
+  marquerEffectuee,
   modifierMatiere,
   supprimerCreneau,
   listAffectationsParEnseignant,
@@ -78,6 +80,30 @@ export function useAnnulerCreneau() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: annulerCreneau,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["affectations"] });
+    },
+  });
+}
+
+// Marque un créneau ASSIGNEE comme EFFECTUEE (bouton "Marquer comme effectuée" de la
+// grille, réservé au Chef de Centre sur les créneaux de son propre centre).
+export function useMarquerEffectuee() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: marquerEffectuee,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["affectations"] });
+    },
+  });
+}
+
+// Rétro-action sur useMarquerEffectuee : annule un marquage fait par erreur, le
+// créneau revient à ASSIGNEE.
+export function useAnnulerEffectuee() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: annulerEffectuee,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["affectations"] });
     },

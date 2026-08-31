@@ -33,3 +33,17 @@ export function semaineTotaleSession(
   const jours = Math.floor((fin.getTime() - debut.getTime()) / 86_400_000);
   return Math.max(1, Math.floor(jours / 7) + 1);
 }
+
+// Inverse de semaineCouranteDepuis : convertit le couple (semaine, jourIndex) d'une
+// séance en date calendaire réelle, à partir de la date de début de session.
+// jourIndex = index dans JOURS (0 = Lundi ... 5 = Samedi, voir
+// modules/affectation), même ordre que l'enum backend Jour.
+export function dateSeance(
+  dateDebut: string,
+  semaine: number,
+  jourIndex: number,
+): Date {
+  const debut = new Date(dateDebut);
+  const decalageJours = (semaine - 1) * 7 + jourIndex;
+  return new Date(debut.getTime() + decalageJours * 86_400_000);
+}

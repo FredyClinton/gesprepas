@@ -21,9 +21,11 @@ import {
   Pencil,
   Trash2,
   ArrowRightLeft,
+  Mail,
+  UserRound,
 } from "lucide-react";
 
-import { Button, Card, Input } from "@/shared/ui";
+import { Button, Card, Input, iconButtonClass } from "@/shared/ui";
 import { messageErreurApi } from "@/shared/lib/api-client";
 import {
   useCentres,
@@ -55,6 +57,8 @@ import {
   useSupprimerSalle,
   type Salle,
 } from "@/modules/salle";
+import { useUtilisateurs } from "@/modules/utilisateurs";
+import { ROLE_LABELS, type Role } from "@/types/roles";
 
 type Onglet = "informations" | "personnel" | "performances";
 
@@ -154,7 +158,7 @@ export function CentreDetailView({
                   {centre.nom}
                 </h1>
                 <span
-                  className={`rounded-full px-3 py-1 text-xs font-bold ${
+                  className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
                     centre.statut === "OUVERT"
                       ? "bg-green-100 text-green-800"
                       : "bg-brand-gray/10 text-brand-gray"
@@ -249,9 +253,7 @@ export function CentreDetailView({
         </div>
       )}
 
-      {onglet === "personnel" && (
-        <OngletPlaceholder icone={<Users size={28} />} />
-      )}
+      {onglet === "personnel" && <PersonnelDuCentre centreId={centre.id} />}
 
       {onglet === "performances" && (
         <OngletPlaceholder icone={<LineChart size={28} />} />
@@ -260,8 +262,8 @@ export function CentreDetailView({
   );
 }
 
-// Onglets "Personnel" et "Performances" : pas encore implémentés côté backend pour
-// ce périmètre — simple placeholder en attendant.
+// Onglet "Performances" : pas encore implémenté côté backend pour ce périmètre —
+// simple placeholder en attendant.
 function OngletPlaceholder({ icone }: { icone: React.ReactNode }) {
   return (
     <Card className="flex flex-col items-center gap-3 p-16 text-center">
@@ -274,6 +276,69 @@ function OngletPlaceholder({ icone }: { icone: React.ReactNode }) {
       <p className="text-brand-gray text-sm">
         Cet onglet sera implémenté dans une prochaine version.
       </p>
+    </Card>
+  );
+}
+
+// Colocalisé : personnel administratif rattaché à ce centre (Chef de Centre, Chargé
+// des dossiers, Caissier — les rôles centre-scope, voir CENTRE_SCOPE_ROLES). Pas
+// d'endpoint dédié côté backend : GET /api/utilisateurs retourne la liste complète,
+// filtrée ici côté client par centreId, comme pour les autres listes dérivées de
+// cet écran.
+const ORDRE_ROLES_PERSONNEL: Role[] = [
+  "CHEF_CENTRE",
+  "CHARGE_DOSSIER",
+  "CAISSIER",
+];
+
+function PersonnelDuCentre({ centreId }: { centreId: string }) {
+  const { data: utilisateurs, isLoading } = useUtilisateurs();
+
+  const personnelDuCentre = (utilisateurs ?? [])
+    .filter(
+      (u) => u.centreId === centreId && ORDRE_ROLES_PERSONNEL.includes(u.role),
+    )
+    .sort(
+      (a, b) =>
+        ORDRE_ROLES_PERSONNEL.indexOf(a.role) -
+        ORDRE_ROLES_PERSONNEL.indexOf(b.role),
+    );
+
+  return (
+    <Card className="overflow-hidden">
+      <ul className="divide-brand-gray/10 divide-y">
+        {isLoading && (
+          <li className="text-brand-gray p-5 text-center text-sm">
+            Chargement...
+          </li>
+        )}
+        {!isLoading && personnelDuCentre.length === 0 && (
+          <li className="text-brand-gray p-5 text-center text-sm">
+            Aucun personnel rattaché à ce centre pour l&rsquo;instant.
+          </li>
+        )}
+        {personnelDuCentre.map((u) => (
+          <li key={u.id} className="flex items-center justify-between p-5">
+            <div className="flex items-center gap-4">
+              <div className="bg-brand-orange/10 text-brand-orange rounded-lg p-2">
+                <UserRound size={20} />
+              </div>
+              <div>
+                <p className="text-brand-anthracite text-base font-bold">
+                  {u.prenom} {u.nom}
+                </p>
+                <p className="text-brand-gray flex items-center gap-1.5 text-sm">
+                  <Mail size={13} />
+                  {u.email}
+                </p>
+              </div>
+            </div>
+            <span className="bg-brand-anthracite/10 text-brand-anthracite rounded-full px-3 py-1.5 text-xs font-bold uppercase">
+              {ROLE_LABELS[u.role]}
+            </span>
+          </li>
+        ))}
+      </ul>
     </Card>
   );
 }
@@ -379,9 +444,9 @@ function SessionsRejointes({
                 </div>
               </div>
               <span
-                className={`rounded-full px-3 py-1.5 text-xs font-bold ${
+                className={`rounded-full px-3 py-1.5 text-xs font-bold uppercase ${
                   session.statut === "EN_COURS"
-                    ? "bg-brand-blue/10 text-brand-blue"
+                    ? "bg-green-100 text-green-800"
                     : session.statut === "PLANIFIEE"
                       ? "bg-brand-orange/10 text-brand-orange"
                       : "bg-brand-gray/10 text-brand-gray"
@@ -566,7 +631,7 @@ function InformationsDuCentre({
                           )}
                         </span>
                       ) : (
-                        <span className="bg-brand-blue/10 text-brand-blue rounded-full px-3 py-1.5 text-xs font-bold">
+                        <span className="rounded-full bg-green-100 px-3 py-1.5 text-xs font-bold text-green-800 uppercase">
                           Actuelle
                         </span>
                       )}
@@ -639,7 +704,7 @@ function FormationsEtSalles({
         <Card className="p-6">
           <p className="text-brand-gray text-sm">
             Ce centre n&rsquo;a pas rejoint la session active — la création de
-            formations y est bloquée côté backend tant que ce n&rsquo;est pas
+            formations n&rsquo;est pas possible tant que ce n&rsquo;est pas
             fait.
           </p>
         </Card>
@@ -686,10 +751,10 @@ function FormationsEtSalles({
           </h3>
           <form
             onSubmit={onSubmit}
-            className="flex items-start gap-3"
+            className="flex flex-wrap items-start gap-3"
             noValidate
           >
-            <div className="flex-1">
+            <div className="min-w-40 flex-1">
               <Input
                 label="Nom de la formation"
                 placeholder="Saisir une nouvelle formation..."
@@ -810,32 +875,28 @@ function CarteFormation({
         <div className="flex flex-1 items-center gap-2">
           <GraduationCap size={18} className="text-brand-orange shrink-0" />
           {renommageOuvert ? (
-            <div className="flex-1">
+            <div className="min-w-0 flex-1">
               <form
                 onSubmit={onSubmitRenommer}
-                className="flex items-center gap-2"
+                className="flex flex-wrap items-center gap-2"
                 noValidate
               >
                 <input
                   autoFocus
-                  className="border-brand-gray/30 text-brand-anthracite w-full rounded border px-2 py-1 text-sm font-bold"
+                  className="border-brand-gray/30 text-brand-anthracite w-full min-w-0 flex-1 rounded border px-2 py-1 text-sm font-bold"
                   defaultValue={formation.nom}
                   {...registerRenommer("nom")}
                 />
-                <button
-                  type="submit"
-                  disabled={renommageEnCours}
-                  className="text-brand-orange text-xs font-bold"
-                >
+                <Button type="submit" disabled={renommageEnCours}>
                   OK
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={() => setRenommageOuvert(false)}
-                  className="text-brand-gray text-xs font-bold"
                 >
                   Annuler
-                </button>
+                </Button>
               </form>
               {errorsRenommer.nom && (
                 <p className="mt-1 text-xs font-bold text-red-600">
@@ -870,7 +931,7 @@ function CarteFormation({
                   resetRenommer({ nom: formation.nom });
                   setRenommageOuvert(true);
                 }}
-                className="text-brand-gray hover:text-brand-orange"
+                className={iconButtonClass()}
                 title="Renommer la formation"
               >
                 <Pencil size={14} />
@@ -878,7 +939,7 @@ function CarteFormation({
               <button
                 type="button"
                 onClick={() => setConfirmationSuppression(true)}
-                className="text-brand-gray hover:text-red-600"
+                className={iconButtonClass("danger")}
                 title="Supprimer la formation"
               >
                 <Trash2 size={14} />
@@ -900,8 +961,8 @@ function CarteFormation({
             Supprimer définitivement la formation {formation.nom} ?
           </p>
           <p className="text-brand-gray mt-1 text-xs">
-            Impossible si des salles ou des créneaux y font encore référence (le
-            backend refusera avec une erreur 409).
+            Impossible tant que des salles ou des créneaux sont encore rattachés
+            à cette formation.
           </p>
           <div className="mt-3 flex gap-2">
             <button
@@ -912,13 +973,13 @@ function CarteFormation({
             >
               {supprimerFormation.isPending ? "Suppression..." : "Confirmer"}
             </button>
-            <button
+            <Button
               type="button"
+              variant="secondary"
               onClick={() => setConfirmationSuppression(false)}
-              className="border-brand-gray/30 text-brand-anthracite rounded border px-3 py-1.5 text-sm font-bold"
             >
               Annuler
-            </button>
+            </Button>
           </div>
           {supprimerFormation.isError && (
             <p className="mt-2 text-xs font-bold text-red-600">
@@ -952,10 +1013,10 @@ function CarteFormation({
             (ajoutOuvert ? (
               <form
                 onSubmit={onSubmit}
-                className="flex items-start gap-3"
+                className="flex flex-wrap items-start gap-3"
                 noValidate
               >
-                <div className="flex-1">
+                <div className="min-w-40 flex-1">
                   <Input
                     label="Nom de la salle"
                     placeholder="Ex : Salle 102"
@@ -967,16 +1028,16 @@ function CarteFormation({
                   <Button type="submit" disabled={isSubmitting || !sessionId}>
                     {isSubmitting ? "..." : "OK"}
                   </Button>
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
                     onClick={() => {
                       reset();
                       setAjoutOuvert(false);
                     }}
-                    className="text-brand-gray text-sm font-bold"
                   >
                     Annuler
-                  </button>
+                  </Button>
                 </div>
               </form>
             ) : (
@@ -1055,33 +1116,29 @@ function SalleItem({
       <li className="py-2">
         <form
           onSubmit={onSubmit}
-          className="flex items-center gap-2"
+          className="flex flex-wrap items-center gap-2"
           noValidate
         >
           <DoorOpen size={14} className="text-brand-gray shrink-0" />
           <input
             autoFocus
-            className="border-brand-gray/30 text-brand-anthracite w-full rounded border px-2 py-1 text-sm font-bold"
+            className="border-brand-gray/30 text-brand-anthracite w-full min-w-0 flex-1 rounded border px-2 py-1 text-sm font-bold"
             defaultValue={salle.nom}
             {...register("nom")}
           />
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="text-brand-orange text-xs font-bold"
-          >
+          <Button type="submit" disabled={isSubmitting}>
             OK
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="secondary"
             onClick={() => {
               reset();
               setRenommageOuvert(false);
             }}
-            className="text-brand-gray text-xs font-bold"
           >
             Annuler
-          </button>
+          </Button>
         </form>
         {(errors.nom || errors.root) && (
           <p className="mt-1 text-xs font-bold text-red-600">
@@ -1107,7 +1164,7 @@ function SalleItem({
                 reset({ nom: salle.nom });
                 setRenommageOuvert(true);
               }}
-              className="text-brand-gray hover:text-brand-orange"
+              className={iconButtonClass()}
               title="Renommer la salle"
             >
               <Pencil size={14} />
@@ -1116,7 +1173,7 @@ function SalleItem({
               <button
                 type="button"
                 onClick={() => setReaffectationOuverte((o) => !o)}
-                className="text-brand-gray hover:text-brand-orange"
+                className={iconButtonClass()}
                 title="Déplacer vers une autre formation"
               >
                 <ArrowRightLeft size={14} />
@@ -1125,7 +1182,7 @@ function SalleItem({
             <button
               type="button"
               onClick={() => setConfirmationSuppression(true)}
-              className="text-brand-gray hover:text-red-600"
+              className={iconButtonClass("danger")}
               title="Supprimer la salle"
             >
               <Trash2 size={14} />

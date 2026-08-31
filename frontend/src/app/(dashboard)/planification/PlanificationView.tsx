@@ -4,7 +4,9 @@ import { useFormations, Formation } from "@/modules/academique";
 import {
   useAffectations,
   useAssignerEnseignant,
+  useAnnulerEffectuee,
   useCreerCreneau,
+  useMarquerEffectuee,
   useModifierMatiere,
   useSupprimerCreneau,
   JOURS,
@@ -33,6 +35,7 @@ import {
 import { useEnseignants, Enseignant } from "@/modules/personnel";
 import { useSalles, Salle } from "@/modules/salle";
 import {
+  dateSeance,
   semaineCouranteDepuis,
   semaineTotaleSession,
 } from "@/shared/lib/semaine";
@@ -47,12 +50,17 @@ import {
   BookOpen,
   Trash2,
   Palette,
+  CheckCircle2,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 
 type Props = {
   role: Role;
   departementId: string | null;
+  // Centre du Chef de Centre connecté — sert uniquement à restreindre l'action
+  // "Marquer comme effectuée" à son propre centre ; n'affecte pas ce qui est affiché
+  // (les autres centres restent visibles, juste désactivés).
+  centreId?: string | null;
   readOnly?: boolean;
 };
 const MAX_SEANCES_PAR_JOUR = 3;
@@ -71,6 +79,7 @@ const BORDURE_JOUR = "border-t-2 border-t-brand-anthracite/40";
 export function PlanificationView({
   role,
   departementId,
+  centreId: centreIdChefCentre,
   readOnly = false,
 }: Props) {
   const { data: sessionActive } = useSessionActive();
@@ -122,6 +131,11 @@ export function PlanificationView({
   // Seul le Directeur Académique construit le planning (crée des créneaux) — le
   // Chef de Département n'assigne que sur l'existant (confirmé le 29/08/2026).
   const peutCreerCreneaux = !readOnly && role === "DIRECTEUR_ACADEMIQUE";
+  // Chef de Centre : seule action possible, marquer une séance déjà assignée comme
+  // effectuée, et seulement sur son propre centre (les autres restent affichés mais
+  // désactivés — voir marquage `estCentrePropre` par colonne plus bas).
+  const estChefCentre = role === "CHEF_CENTRE";
+  const peutMarquerEffectueeGlobalement = !readOnly && estChefCentre;
 
   const [recherche, setRecherche] = useState("");
   const creer = useCreerCreneau();
@@ -267,9 +281,13 @@ export function PlanificationView({
     !sessionActive || !centres || !formations || !salles || !matieres;
 
   return (
-    <div className="mx-auto max-w-[1600px] space-y-8">
+    // h-full + flex-col : la page remplit exactement la hauteur dispo sous le
+    // TopBar (voir (dashboard)/layout.tsx) — seule la grille (flex-1 plus bas)
+    // scrolle en interne (horizontal ET vertical), l'en-tête reste fixe pour que
+    // le planning complet soit consultable sans scroller la page.
+    <div className="mx-auto flex h-full max-w-[1600px] flex-col gap-8">
       {/* En-tête */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex shrink-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-brand-anthracite text-4xl font-bold uppercase">
             Planning de la semaine
@@ -336,10 +354,10 @@ export function PlanificationView({
         </div>
       </div>
 
-      <div className="flex flex-col gap-6 xl:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col gap-6 xl:flex-row">
         {/* Grille */}
-        <Card className="flex-1 overflow-hidden">
-          <div className="overflow-x-auto">
+        <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-auto">
             {chargement ? (
               <p className="text-brand-gray p-8 text-center text-sm">
                 Chargement...
@@ -352,7 +370,9 @@ export function PlanificationView({
               </p>
             ) : (
               <table className="w-full border-collapse text-left text-sm">
-                <thead>
+                {/* sticky top-0 : les en-têtes (centre/formation/salle) restent
+                    visibles pendant le scroll vertical de la grille. */}
+                <thead className="sticky top-0 z-20 bg-white">
                   <tr>
                     <th
                       rowSpan={3}
@@ -367,7 +387,10 @@ export function PlanificationView({
                           (t, f) => t + f.salles.length,
                           0,
                         )}
-                        // Alternance gris/noir (brand-gray / brand-anthracite).
+                        // Alternance gris/noir (brand-gray / brand-anthracite). Les
+                        // couleurs restent identiques pour tous les centres, y compris
+                        // pour le Chef de Centre — seule l'interaction change (voir
+                        // centreDesactive plus bas), pas l'apparence.
                         className={`border-brand-gray/20 border p-2 text-center text-xs font-bold tracking-wide text-white uppercase ${
                           index % 2 === 0
                             ? "bg-brand-anthracite"
@@ -375,6 +398,11 @@ export function PlanificationView({
                         }`}
                       >
                         {groupe.centre.nom}
+                        {groupe.centre.statut === "FERME" && (
+                          <span className="bg-brand-white/20 ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] normal-case">
+                            Fermé
+                          </span>
+                        )}
                       </th>
                     ))}
                   </tr>
@@ -469,7 +497,8 @@ export function PlanificationView({
                               const emplacementLibre =
                                 !creneau &&
                                 ligne < MAX_SEANCES_PAR_JOUR &&
-                                peutCreerCreneaux;
+                                peutCreerCreneaux &&
+                                groupe.centre.statut !== "FERME";
                               const bordureCentre =
                                 groupeIndex > 0 &&
                                 formationIndex === 0 &&
@@ -478,10 +507,18 @@ export function PlanificationView({
                                   : "";
                               const bordureJour =
                                 ligne === 0 ? BORDURE_JOUR : "";
+                              // Chef de Centre : les couleurs des autres centres
+                              // restent identiques (visibles normalement) — seule
+                              // l'action "Marquer effectuée" est réservée à son
+                              // propre centre (voir peutMarquerEffectuee ci-dessous,
+                              // qui contrôle si la cellule répond au clic).
+                              const centreDesactive =
+                                estChefCentre &&
+                                groupe.centre.id !== centreIdChefCentre;
                               return (
                                 <td
                                   key={`${salle.id}-${jour}-${ligne}`}
-                                  className={`border-brand-gray/20 border p-1.5 align-top ${bordureCentre} ${bordureJour}`}
+                                  className={`border-brand-gray/20 border p-1.5 align-middle ${bordureCentre} ${bordureJour}`}
                                 >
                                   {creneau && (
                                     <CelluleCreneau
@@ -495,8 +532,15 @@ export function PlanificationView({
                                       matieres={matieres}
                                       couleursMatieres={couleursMatieres}
                                       sessionId={sessionId}
+                                      dateDebutSession={
+                                        sessionActive?.dateDebut
+                                      }
                                       peutAssigner={peutAssigner}
                                       peutGererCreneau={peutCreerCreneaux}
+                                      peutMarquerEffectuee={
+                                        peutMarquerEffectueeGlobalement &&
+                                        !centreDesactive
+                                      }
                                     />
                                   )}
                                   {emplacementLibre && (
@@ -539,7 +583,7 @@ export function PlanificationView({
         {/* Légende — pastilles reprenant exactement les classes bg/texte utilisées
             dans les cases de la grille (voir CelluleCreneau), plutôt qu'un simple
             petit carré de couleur peu contrasté. */}
-        <Card className="border-brand-orange/20 bg-brand-orange/5 w-full p-4 xl:w-56">
+        <Card className="border-brand-orange/20 bg-brand-orange/5 w-full overflow-y-auto p-4 xl:w-56">
           <div className="mb-3 flex items-center gap-2">
             <Palette size={16} className="text-brand-orange" />
             <h2 className="text-brand-anthracite text-sm font-bold tracking-wide uppercase">
@@ -586,7 +630,7 @@ export function PlanificationView({
 // matière / supprimer). Chef de Département : va directement à la recherche
 // d'enseignant, comme avant (pas de menu à choisir). Assigner, modifier la matière
 // et supprimer sont toutes des actions IMMÉDIATES (pas de mise en attente locale).
-type VueMenuCreneau = "actions" | "assigner" | "matiere";
+type VueMenuCreneau = "actions" | "assigner" | "matiere" | "marquer";
 
 function CelluleCreneau({
   creneau,
@@ -597,8 +641,10 @@ function CelluleCreneau({
   matieres,
   couleursMatieres,
   sessionId,
+  dateDebutSession,
   peutAssigner,
   peutGererCreneau,
+  peutMarquerEffectuee,
 }: {
   creneau: Affectation;
   couleur: CouleurMatiere | undefined;
@@ -608,8 +654,10 @@ function CelluleCreneau({
   matieres: Matiere[] | undefined;
   couleursMatieres: Map<string, CouleurMatiere>;
   sessionId: string | undefined;
+  dateDebutSession: string | undefined;
   peutAssigner: boolean;
   peutGererCreneau: boolean;
+  peutMarquerEffectuee: boolean;
 }) {
   const [ouvert, setOuvert] = useState(false);
   const [vue, setVue] = useState<VueMenuCreneau>("actions");
@@ -619,6 +667,8 @@ function CelluleCreneau({
   const assignerMutation = useAssignerEnseignant();
   const modifierMatiereMutation = useModifierMatiere();
   const supprimerMutation = useSupprimerCreneau();
+  const marquerEffectueeMutation = useMarquerEffectuee();
+  const annulerEffectueeMutation = useAnnulerEffectuee();
 
   const departementDeLaMatiere = departements?.find(
     (d) => d.matiereId === creneau.matiereId,
@@ -631,7 +681,9 @@ function CelluleCreneau({
   const enseignantsEligibles = useMemo(() => {
     if (!roster || !enseignants) return undefined;
     const ids = new Set(roster.map((r) => r.enseignantId));
-    return enseignants.filter((e) => ids.has(e.id));
+    // Un enseignant suspendu ne doit plus être proposable à l'assignation (le
+    // backend le refuserait de toute façon, voir EnseignantSuspenduException).
+    return enseignants.filter((e) => ids.has(e.id) && e.statut !== "SUSPENDU");
   }, [roster, enseignants]);
 
   const resultatsEnseignants = useMemo(() => {
@@ -651,7 +703,20 @@ function CelluleCreneau({
   }, [matieres, recherche]);
 
   const enseignant = enseignants?.find((e) => e.id === creneau.enseignantId);
-  const peutOuvrir = peutAssigner || peutGererCreneau;
+  const peutOuvrir = peutAssigner || peutGererCreneau || peutMarquerEffectuee;
+  // Une fois la séance EFFECTUEE, plus aucune modification (assigner, changer la
+  // matière, supprimer) — seule la rétro-action du Chef de Centre (vue "marquer",
+  // gérée séparément) reste possible.
+  const estVerrouilleeEffectuee = creneau.statut === "EFFECTUEE";
+  // On ne peut pas confirmer une séance qui n'a pas encore eu lieu (ex : on est
+  // lundi, la séance est prévue mardi) — le Chef de Centre ne peut marquer
+  // "effectuée" qu'une fois la date de la séance atteinte ou dépassée.
+  const dateDeLaSeance = dateDebutSession
+    ? dateSeance(dateDebutSession, creneau.semaine, JOURS.indexOf(creneau.jour))
+    : undefined;
+  const seanceEstFuture =
+    dateDeLaSeance !== undefined &&
+    dateDeLaSeance.getTime() > new Date().getTime();
 
   function fermer() {
     setOuvert(false);
@@ -661,9 +726,11 @@ function CelluleCreneau({
   }
 
   function ouvrir() {
-    // Le Chef de Département n'a que l'assignation -- va droit au but, pas de
-    // menu à 3 options à traverser.
-    setVue(peutGererCreneau ? "actions" : "assigner");
+    // Le Chef de Département n'a que l'assignation, le Chef de Centre que le
+    // marquage "effectuée" -- vont droit au but, pas de menu à traverser.
+    setVue(
+      peutGererCreneau ? "actions" : peutAssigner ? "assigner" : "marquer",
+    );
     setOuvert(true);
   }
 
@@ -694,6 +761,27 @@ function CelluleCreneau({
     }
   }
 
+  async function confirmerEffectuee() {
+    try {
+      await marquerEffectueeMutation.mutateAsync(creneau.id);
+      fermer();
+    } catch {
+      // Erreur affichée via marquerEffectueeMutation.isError, popover reste ouvert.
+    }
+  }
+
+  // Rétro-action : le Chef de Centre confirme une séance par erreur -> il doit
+  // pouvoir revenir sur son action, le créneau retrouve son statut précédent
+  // (ASSIGNEE, enseignant conservé).
+  async function confirmerAnnulationEffectuee() {
+    try {
+      await annulerEffectueeMutation.mutateAsync(creneau.id);
+      fermer();
+    } catch {
+      // Erreur affichée via annulerEffectueeMutation.isError, popover reste ouvert.
+    }
+  }
+
   return (
     <div className={attenue ? "opacity-30" : ""}>
       <div className="relative">
@@ -709,11 +797,30 @@ function CelluleCreneau({
             peutOuvrir ? "cursor-pointer hover:opacity-80" : "cursor-default"
           }`}
         >
-          {enseignant
-            ? `${enseignant.prenom} ${enseignant.nom}`
-            : peutOuvrir
-              ? "+ Assigner"
-              : "—"}
+          {enseignant ? (
+            <span className="flex flex-col gap-0.5">
+              <span className="flex items-center gap-1">
+                <span>
+                  {enseignant.prenom} {enseignant.nom}
+                </span>
+                {creneau.statut === "EFFECTUEE" && (
+                  <CheckCircle2 size={12} className="shrink-0" />
+                )}
+              </span>
+              <span className="text-[10px] font-bold tracking-wide opacity-90">
+                {enseignant.matricule}
+              </span>
+              {/* Contact : pas encore de champ sur Enseignant côté backend — espace
+                  réservé en placeholder, à remplacer dès que le champ existera. */}
+              <span className="text-[10px] font-normal opacity-70">
+                Contact : —
+              </span>
+            </span>
+          ) : peutAssigner || peutGererCreneau ? (
+            "+ Assigner"
+          ) : (
+            "—"
+          )}
         </button>
 
         {ouvert && (
@@ -725,34 +832,40 @@ function CelluleCreneau({
               onClick={fermer}
             />
             <div className="border-brand-gray/20 absolute left-0 z-20 mt-1 w-56 rounded-md border bg-white p-2 shadow-lg">
-              {vue === "actions" && !confirmationSuppression && (
-                <div className="space-y-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setVue("assigner")}
-                    className="hover:bg-brand-gray/10 text-brand-anthracite flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs font-bold"
-                  >
-                    <UserRound size={13} />
-                    Assigner un enseignant
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setVue("matiere")}
-                    className="hover:bg-brand-gray/10 text-brand-anthracite flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs font-bold"
-                  >
-                    <BookOpen size={13} />
-                    Modifier la matière
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmationSuppression(true)}
-                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs font-bold text-red-600 hover:bg-red-50"
-                  >
-                    <Trash2 size={13} />
-                    Supprimer le créneau
-                  </button>
-                </div>
-              )}
+              {vue === "actions" &&
+                !confirmationSuppression &&
+                (estVerrouilleeEffectuee ? (
+                  <p className="text-brand-gray p-1 text-xs">
+                    Séance déjà effectuée.
+                  </p>
+                ) : (
+                  <div className="space-y-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setVue("assigner")}
+                      className="hover:bg-brand-gray/10 text-brand-anthracite flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs font-bold"
+                    >
+                      <UserRound size={13} />
+                      Assigner un enseignant
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVue("matiere")}
+                      className="hover:bg-brand-gray/10 text-brand-anthracite flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs font-bold"
+                    >
+                      <BookOpen size={13} />
+                      Modifier la matière
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmationSuppression(true)}
+                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs font-bold text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 size={13} />
+                      Supprimer le créneau
+                    </button>
+                  </div>
+                ))}
 
               {vue === "actions" && confirmationSuppression && (
                 <div className="space-y-2 p-1">
@@ -786,70 +899,83 @@ function CelluleCreneau({
                 </div>
               )}
 
-              {vue === "assigner" && (
-                <>
-                  {peutGererCreneau && (
-                    <button
-                      type="button"
-                      onClick={() => setVue("actions")}
-                      className="text-brand-gray hover:text-brand-anthracite mb-1 flex items-center gap-1 text-xs font-bold"
-                    >
-                      <ChevronLeft size={12} />
-                      Retour
-                    </button>
-                  )}
-                  <div className="border-brand-gray/20 mb-2 flex items-center gap-2 rounded-md border px-2 py-1.5">
-                    <Search size={12} className="text-brand-gray" />
-                    <input
-                      autoFocus
-                      type="text"
-                      value={recherche}
-                      onChange={(e) => setRecherche(e.target.value)}
-                      placeholder="Rechercher..."
-                      className="w-full text-xs outline-none"
-                    />
-                  </div>
-                  {assignerMutation.isError && (
-                    <p className="mb-1 px-1 text-xs font-bold text-red-600">
-                      Échec de l&rsquo;assignation (enseignant peut-être déjà
-                      occupé sur ce créneau). Réessayez.
-                    </p>
-                  )}
-                  <div className="max-h-40 overflow-y-auto">
-                    {!departementDeLaMatiere && (
-                      <p className="text-brand-gray p-2 text-xs">
-                        Aucun département rattaché à cette matière.
+              {vue === "assigner" &&
+                (estVerrouilleeEffectuee ? (
+                  <p className="text-brand-gray p-1 text-xs">
+                    Séance déjà effectuée.
+                  </p>
+                ) : (
+                  <>
+                    {peutGererCreneau && (
+                      <button
+                        type="button"
+                        onClick={() => setVue("actions")}
+                        className="text-brand-gray hover:text-brand-anthracite mb-1 flex items-center gap-1 text-xs font-bold"
+                      >
+                        <ChevronLeft size={12} />
+                        Retour
+                      </button>
+                    )}
+                    <div className="border-brand-gray/20 mb-2 flex items-center gap-2 rounded-md border px-2 py-1.5">
+                      <Search size={12} className="text-brand-gray" />
+                      <input
+                        autoFocus
+                        type="text"
+                        value={recherche}
+                        onChange={(e) => setRecherche(e.target.value)}
+                        placeholder="Rechercher..."
+                        className="w-full text-xs outline-none"
+                      />
+                    </div>
+                    {assignerMutation.isError && (
+                      <p className="mb-1 px-1 text-xs font-bold text-red-600">
+                        Échec de l&rsquo;assignation (enseignant peut-être déjà
+                        occupé sur ce créneau). Réessayez.
                       </p>
                     )}
-                    {departementDeLaMatiere &&
-                      enseignantsEligibles === undefined && (
+                    <div className="max-h-40 overflow-y-auto">
+                      {!departementDeLaMatiere && (
                         <p className="text-brand-gray p-2 text-xs">
-                          Chargement...
+                          Aucun département rattaché à cette matière.
                         </p>
                       )}
-                    {departementDeLaMatiere &&
-                      enseignantsEligibles?.length === 0 && (
-                        <p className="text-brand-gray p-2 text-xs">
-                          Aucun enseignant dans le roster de ce département.
-                        </p>
-                      )}
-                    {resultatsEnseignants.map((e) => (
-                      <button
-                        key={e.id}
-                        type="button"
-                        onClick={() => choisirEnseignant(e.id)}
-                        disabled={assignerMutation.isPending}
-                        className="hover:bg-brand-gray/10 text-brand-anthracite flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs disabled:opacity-50"
-                      >
-                        <span>
-                          {e.prenom} {e.nom}
-                        </span>
-                        <span className="text-brand-gray">{e.matricule}</span>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
+                      {departementDeLaMatiere &&
+                        enseignantsEligibles === undefined && (
+                          <p className="text-brand-gray p-2 text-xs">
+                            Chargement...
+                          </p>
+                        )}
+                      {departementDeLaMatiere &&
+                        enseignantsEligibles?.length === 0 && (
+                          <p className="text-brand-gray p-2 text-xs">
+                            Aucun enseignant dans le roster de ce département.
+                          </p>
+                        )}
+                      {resultatsEnseignants.map((e) => (
+                        <button
+                          key={e.id}
+                          type="button"
+                          onClick={() => choisirEnseignant(e.id)}
+                          disabled={assignerMutation.isPending}
+                          className="hover:bg-brand-gray/10 text-brand-anthracite flex w-full flex-col items-start gap-0.5 rounded px-2 py-1 text-left text-xs disabled:opacity-50"
+                        >
+                          <span>
+                            {e.prenom} {e.nom}
+                          </span>
+                          <span className="text-brand-gray text-[10px] font-bold tracking-wide">
+                            {e.matricule}
+                          </span>
+                          {/* Contact : pas encore de champ sur Enseignant côté
+                              backend — espace réservé en placeholder, à
+                              remplacer dès que le champ existera. */}
+                          <span className="text-brand-gray/70 text-[10px]">
+                            Contact : —
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ))}
 
               {vue === "matiere" && (
                 <>
@@ -897,6 +1023,73 @@ function CelluleCreneau({
                     })}
                   </div>
                 </>
+              )}
+
+              {vue === "marquer" && (
+                <div className="space-y-2 p-1">
+                  {creneau.statut === "EFFECTUEE" ? (
+                    <>
+                      <p className="text-brand-gray text-xs">
+                        Séance déjà marquée comme effectuée.
+                      </p>
+                      {annulerEffectueeMutation.isError && (
+                        <p className="text-xs font-bold text-red-600">
+                          Échec. Réessayez.
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={confirmerAnnulationEffectuee}
+                        disabled={annulerEffectueeMutation.isPending}
+                        className="border-brand-gray/30 text-brand-anthracite w-full rounded border px-2 py-1 text-xs font-bold hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                      >
+                        {annulerEffectueeMutation.isPending ? "..." : "Annuler"}
+                      </button>
+                    </>
+                  ) : creneau.statut !== "ASSIGNEE" ? (
+                    <p className="text-brand-gray text-xs">
+                      Cette séance doit d&rsquo;abord avoir un enseignant
+                      assigné.
+                    </p>
+                  ) : seanceEstFuture ? (
+                    <p className="text-brand-gray text-xs">
+                      Cette séance est prévue le{" "}
+                      {dateDeLaSeance?.toLocaleDateString("fr-FR")} — impossible
+                      de la marquer effectuée avant qu&rsquo;elle n&rsquo;ait eu
+                      lieu.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-brand-anthracite text-xs font-bold">
+                        Marquer cette séance comme effectuée ?
+                      </p>
+                      {marquerEffectueeMutation.isError && (
+                        <p className="text-xs font-bold text-red-600">
+                          Échec. Réessayez.
+                        </p>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={confirmerEffectuee}
+                          disabled={marquerEffectueeMutation.isPending}
+                          className="flex-1 rounded bg-green-600 px-2 py-1 text-xs font-bold text-white hover:bg-green-700 disabled:opacity-50"
+                        >
+                          {marquerEffectueeMutation.isPending
+                            ? "..."
+                            : "Confirmer"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={fermer}
+                          className="border-brand-gray/30 text-brand-anthracite flex-1 rounded border px-2 py-1 text-xs font-bold"
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               )}
             </div>
           </>

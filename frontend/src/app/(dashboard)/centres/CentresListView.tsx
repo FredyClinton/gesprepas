@@ -55,9 +55,9 @@ export function CentresListView() {
                     </div>
                   </div>
                   <span
-                    className={`rounded-full px-3 py-1.5 text-xs font-bold ${
+                    className={`rounded-full px-3 py-1.5 text-xs font-bold uppercase ${
                       rejointSessionActive
-                        ? "bg-brand-blue/10 text-brand-blue"
+                        ? "bg-green-100 text-green-800"
                         : "bg-brand-gray/10 text-brand-gray"
                     }`}
                   >

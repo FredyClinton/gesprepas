@@ -2,7 +2,13 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import { getBilanDuJour, getRepartitionFormations } from "./client";
+import {
+  getBilanDuJour,
+  getRepartitionFormations,
+  listMotifs,
+  listVersementsApprenant,
+} from "./client";
+import type { TypeMotif } from "../domain/types";
 
 export function useBilanDuJour(
   centreId: string | undefined,
@@ -21,5 +27,20 @@ export function useRepartitionFormations(bilanId: string | undefined) {
     queryKey: ["repartition-formations", bilanId],
     queryFn: () => getRepartitionFormations(bilanId!),
     enabled: Boolean(bilanId),
+  });
+}
+
+export function useVersementsApprenant(apprenantId: string | undefined) {
+  return useQuery({
+    queryKey: ["versements-apprenant", apprenantId],
+    queryFn: () => listVersementsApprenant(apprenantId!),
+    enabled: Boolean(apprenantId),
+  });
+}
+
+export function useMotifs(type?: TypeMotif) {
+  return useQuery({
+    queryKey: ["motifs", type],
+    queryFn: () => listMotifs(type),
   });
 }
