@@ -1,12 +1,12 @@
 package com.excelisprepas.backend.dossier.infrastructure.out.persistence;
 
 import com.excelisprepas.backend.dossier.domain.model.Dossier;
-import org.mapstruct.Mapper;
+import org.springframework.stereotype.Component;
 
-@Mapper(componentModel = "spring")
-public interface DossierPersistenceMapper {
+@Component
+public class DossierPersistenceMapper {
 
-    default DossierEntity toEntity(Dossier domaine) {
+    public DossierEntity toEntity(Dossier domaine) {
         if (domaine == null) return null;
         DossierEntity entite = new DossierEntity();
         entite.setId(domaine.getId());
@@ -20,7 +20,7 @@ public interface DossierPersistenceMapper {
         return entite;
     }
 
-    default Dossier toDomain(DossierEntity entite) {
+    public Dossier toDomain(DossierEntity entite) {
         if (entite == null) return null;
         return Dossier.reconstituer(entite.getId(), entite.getApprenantId(), entite.getCentreId(), entite.getSessionId(),
                 entite.getStatut(), entite.getDateOuverture(), entite.getDateCloture(), entite.getObservation());

@@ -1,12 +1,12 @@
 package com.excelisprepas.backend.financier.infrastructure.out.persistence;
 
 import com.excelisprepas.backend.financier.domain.model.BilanJournalier;
-import org.mapstruct.Mapper;
+import org.springframework.stereotype.Component;
 
-@Mapper(componentModel = "spring")
-public interface BilanJournalierPersistenceMapper {
+@Component
+public class BilanJournalierPersistenceMapper {
 
-    default BilanJournalierEntity toEntity(BilanJournalier domaine) {
+    public BilanJournalierEntity toEntity(BilanJournalier domaine) {
         if (domaine == null) return null;
         BilanJournalierEntity entite = new BilanJournalierEntity();
         entite.setId(domaine.getId());
@@ -26,7 +26,7 @@ public interface BilanJournalierPersistenceMapper {
         return entite;
     }
 
-    default BilanJournalier toDomain(BilanJournalierEntity entite) {
+    public BilanJournalier toDomain(BilanJournalierEntity entite) {
         if (entite == null) return null;
         return BilanJournalier.reconstituer(entite.getId(), entite.getCentreId(), entite.getSessionId(), entite.getDate(),
                 entite.getStatut(), entite.getDateValidationChefCentre(), entite.getValidateurChefCentreId(),

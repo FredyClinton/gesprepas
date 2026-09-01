@@ -1,12 +1,12 @@
 package com.excelisprepas.backend.financier.infrastructure.out.persistence;
 
 import com.excelisprepas.backend.financier.domain.model.Entree;
-import org.mapstruct.Mapper;
+import org.springframework.stereotype.Component;
 
-@Mapper(componentModel = "spring")
-public interface EntreePersistenceMapper {
+@Component
+public class EntreePersistenceMapper {
 
-    default EntreeEntity toEntity(Entree domaine) {
+    public EntreeEntity toEntity(Entree domaine) {
         if (domaine == null) return null;
         EntreeEntity entite = new EntreeEntity();
         entite.setId(domaine.getId());
@@ -24,7 +24,7 @@ public interface EntreePersistenceMapper {
         return entite;
     }
 
-    default Entree toDomain(EntreeEntity entite) {
+    public Entree toDomain(EntreeEntity entite) {
         if (entite == null) return null;
         return Entree.reconstituer(entite.getId(), entite.getSessionId(), entite.getMotifId(), entite.getMontant(),
                 entite.getDate(), entite.getSaisiParUtilisateurId(), entite.getStatut(), entite.getCentreId(),

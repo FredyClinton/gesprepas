@@ -37,7 +37,7 @@ public class ConcoursService implements CreerConcoursUseCase, RecupererConcoursU
     }
 
     @Override
-    public Concours creerConcours(String nom, UUID sessionId, LocalDate dateLimiteDepot, LocalDate dateLimiteRecevabiliteCentre) {
+    public Concours creerConcours(String nom, UUID sessionId, UUID formationId, UUID phaseId, LocalDate dateLimiteDepot, LocalDate dateLimiteRecevabiliteCentre) {
         SessionAcademique session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new SessionIntrouvableException(sessionId));
         if (session.getStatut() == StatutSession.CLOTUREE) {
@@ -45,7 +45,7 @@ public class ConcoursService implements CreerConcoursUseCase, RecupererConcoursU
             throw new SessionNonUtilisableException(sessionId);
         }
 
-        Concours concours = new Concours(UUID.randomUUID(), nom, sessionId, dateLimiteDepot, dateLimiteRecevabiliteCentre);
+        Concours concours = new Concours(UUID.randomUUID(), nom, sessionId, formationId, phaseId, dateLimiteDepot, dateLimiteRecevabiliteCentre);
         concours = concoursRepository.save(concours);
         log.info("Concours créé : id={}, nom={}, sessionId={}", concours.getId(), nom, sessionId);
         return concours;

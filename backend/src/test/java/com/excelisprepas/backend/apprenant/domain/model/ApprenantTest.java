@@ -5,7 +5,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -21,8 +20,7 @@ class ApprenantTest {
     private Apprenant unApprenant() {
         return new Apprenant(unId(), "Mballa", "Sophie",
                 LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
-                new BigDecimal("450000"), LocalDate.of(2026, 9, 1),
-                unId(), unId(), unId());
+                unId(), null, null, null);
     }
 
     @Nested
@@ -35,34 +33,15 @@ class ApprenantTest {
             // Given
             UUID id = unId();
             UUID centreId = unId();
-            UUID sessionId = unId();
-            UUID formationId = unId();
 
             // When
             Apprenant apprenant = new Apprenant(id, "Mballa", "Sophie",
                     LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
-                    new BigDecimal("450000"), LocalDate.of(2026, 9, 1),
-                    centreId, sessionId, formationId);
+                    centreId, null, null, null);
 
             // Then
             assertThat(apprenant.getNom()).isEqualTo("Mballa");
-            assertThat(apprenant.getMontantContrat()).isEqualByComparingTo("450000");
             assertThat(apprenant.getCentreId()).isEqualTo(centreId);
-            assertThat(apprenant.getSessionId()).isEqualTo(sessionId);
-            assertThat(apprenant.getFormationId()).isEqualTo(formationId);
-        }
-
-        @Test
-        @DisplayName("rejette un montantContrat négatif")
-        void rejetteMontantContratNegatif() {
-            // Given / When
-            ThrowingCallable creation = () -> new Apprenant(unId(), "Mballa", "Sophie",
-                    LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
-                    new BigDecimal("-100"), LocalDate.of(2026, 9, 1),
-                    unId(), unId(), unId());
-
-            // Then
-            assertThatThrownBy(creation).isInstanceOf(IllegalArgumentException.class);
         }
 
         @Test
@@ -71,24 +50,10 @@ class ApprenantTest {
             // Given / When
             ThrowingCallable creation = () -> new Apprenant(unId(), "  ", "Sophie",
                     LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
-                    new BigDecimal("450000"), LocalDate.of(2026, 9, 1),
-                    unId(), unId(), unId());
+                    unId(), null, null, null);
 
             // Then
             assertThatThrownBy(creation).isInstanceOf(IllegalArgumentException.class);
-        }
-
-        @Test
-        @DisplayName("rejette un sessionId nul")
-        void rejetteSessionIdNul() {
-            // Given / When
-            ThrowingCallable creation = () -> new Apprenant(unId(), "Mballa", "Sophie",
-                    LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
-                    new BigDecimal("450000"), LocalDate.of(2026, 9, 1),
-                    unId(), null, unId());
-
-            // Then
-            assertThatThrownBy(creation).isInstanceOf(NullPointerException.class);
         }
     }
 
@@ -108,56 +73,6 @@ class ApprenantTest {
 
             // Then
             assertThat(apprenant.getCentreId()).isEqualTo(nouveauCentreId);
-        }
-
-        @Test
-        @DisplayName("changerFormation() met à jour le formationId, sessionId reste inchangé")
-        void changerFormationMetAJourFormationId() {
-            // Given
-            Apprenant apprenant = unApprenant();
-            UUID sessionIdInitial = apprenant.getSessionId();
-            UUID nouvelleFormationId = unId();
-
-            // When
-            apprenant.changerFormation(nouvelleFormationId);
-
-            // Then
-            assertThat(apprenant.getFormationId()).isEqualTo(nouvelleFormationId);
-            assertThat(apprenant.getSessionId()).isEqualTo(sessionIdInitial);
-        }
-    }
-
-    @Nested
-    @DisplayName("Renégociation de contrat")
-    class RenegociationContrat {
-
-        @Test
-        @DisplayName("renegocierContrat() met à jour le montant et la date")
-        void renegocierContratMetAJourMontantEtDate() {
-            // Given
-            Apprenant apprenant = unApprenant();
-            LocalDate nouvelleDate = LocalDate.of(2027, 1, 15);
-
-            // When
-            apprenant.renegocierContrat(new BigDecimal("500000"), nouvelleDate);
-
-            // Then
-            assertThat(apprenant.getMontantContrat()).isEqualByComparingTo("500000");
-            assertThat(apprenant.getDateDefinitionContrat()).isEqualTo(nouvelleDate);
-        }
-
-        @Test
-        @DisplayName("renegocierContrat() rejette un montant négatif")
-        void renegocierContratRejetteMontantNegatif() {
-            // Given
-            Apprenant apprenant = unApprenant();
-
-            // When
-            ThrowingCallable renegociation = () -> apprenant.renegocierContrat(
-                    new BigDecimal("-100"), LocalDate.of(2027, 1, 15));
-
-            // Then
-            assertThatThrownBy(renegociation).isInstanceOf(IllegalArgumentException.class);
         }
     }
 }

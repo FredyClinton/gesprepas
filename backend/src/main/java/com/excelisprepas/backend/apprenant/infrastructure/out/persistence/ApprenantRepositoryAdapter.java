@@ -4,7 +4,7 @@ import com.excelisprepas.backend.apprenant.domain.model.Apprenant;
 import com.excelisprepas.backend.apprenant.domain.port.out.ApprenantRepositoryPort;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDate;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -36,25 +36,9 @@ public class ApprenantRepositoryAdapter implements ApprenantRepositoryPort {
     }
 
     @Override
-    public boolean existsByFormationId(UUID formationId) {
-        return jpaRepository.existsByFormationId(formationId);
-    }
-
-    @Override
     public List<Apprenant> findAll() {
         return jpaRepository.findAll().stream().map(mapper::toDomain).toList();
     }
-
-    @Override
-    public long countByCentreIdAndSessionId(UUID centreId, UUID sessionId) {
-        return jpaRepository.countByCentreIdAndSessionId(centreId, sessionId);
-    }
-
-    @Override
-    public long countByCentreIdAndSessionIdAndDateInscription(UUID centreId, UUID sessionId, LocalDate dateInscription) {
-        return jpaRepository.countByCentreIdAndSessionIdAndDateInscription(centreId, sessionId, dateInscription);
-    }
-
 
     @Override
     public void deleteById(UUID id) {

@@ -1,12 +1,23 @@
 package com.excelisprepas.backend.personnel.domain.service;
 
-import com.excelisprepas.backend.affectation.domain.port.out.AffectationRepositoryPort;
+import com.excelisprepas.backend.academie.affectation.domain.model.Affectation;
+import com.excelisprepas.backend.academie.affectation.domain.model.Jour;
+import com.excelisprepas.backend.academie.affectation.domain.model.StatutAffectation;
+import com.excelisprepas.backend.academie.affectation.domain.port.out.AffectationRepositoryPort;
+import com.excelisprepas.backend.academie.affectationdepartementale.domain.model.AffectationDepartementale;
+import com.excelisprepas.backend.academie.affectationdepartementale.domain.port.out.AffectationDepartementaleRepositoryPort;
+import com.excelisprepas.backend.academie.departement.domain.model.Departement;
+import com.excelisprepas.backend.academie.departement.domain.port.out.DepartementRepositoryPort;
 import com.excelisprepas.backend.gelenseignants.domain.port.in.VerifierAutoriseGestionEnseignantsUseCase;
 import com.excelisprepas.backend.personnel.domain.exception.EnseignantUtiliseException;
 import com.excelisprepas.backend.personnel.domain.model.Enseignant;
+import com.excelisprepas.backend.personnel.domain.model.FicheAncienneteEnseignant;
 import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
 import com.excelisprepas.backend.personnel.domain.model.StatutEnseignant;
 import com.excelisprepas.backend.personnel.domain.port.out.EnseignantRepositoryPort;
+import com.excelisprepas.backend.session.domain.model.SessionAcademique;
+import com.excelisprepas.backend.session.domain.model.StatutSession;
+import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import com.excelisprepas.backend.shared.exception.EnseignantIntrouvableException;
 import com.excelisprepas.backend.shared.exception.GestionEnseignantsGeleeException;
 import com.excelisprepas.backend.shared.exception.MatriculeDejaUtiliseException;
@@ -17,6 +28,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -32,6 +44,9 @@ class EnseignantServiceTest {
     private EnseignantRepositoryPort repository;
     private AffectationRepositoryPort affectationRepository;
     private VerifierAutoriseGestionEnseignantsUseCase gel;
+    private SessionAcademiqueRepositoryPort sessionRepository;
+    private AffectationDepartementaleRepositoryPort rosterRepository;
+    private DepartementRepositoryPort departementRepository;
     private EnseignantService service;
 
     @BeforeEach
@@ -39,7 +54,10 @@ class EnseignantServiceTest {
         repository = mock(EnseignantRepositoryPort.class);
         affectationRepository = mock(AffectationRepositoryPort.class);
         gel = mock(VerifierAutoriseGestionEnseignantsUseCase.class);
-        service = new EnseignantService(repository, affectationRepository, gel);
+        sessionRepository = mock(SessionAcademiqueRepositoryPort.class);
+        rosterRepository = mock(AffectationDepartementaleRepositoryPort.class);
+        departementRepository = mock(DepartementRepositoryPort.class);
+        service = new EnseignantService(repository, affectationRepository, gel, sessionRepository, rosterRepository, departementRepository);
     }
 
     private Enseignant unEnseignant() {
@@ -56,7 +74,7 @@ class EnseignantServiceTest {
             when(repository.existsByMatricule(anyString())).thenReturn(false);
             when(repository.save(any(Enseignant.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-            Enseignant resultat = service.creerEnseignant(null, "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
+            Enseignant resultat = service.creerEnseignant(null, "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"), null, null, null, null);
 
             assertThat(resultat.getMatricule()).isEqualTo("MAT-001");
             verify(repository).save(any(Enseignant.class));
@@ -68,7 +86,7 @@ class EnseignantServiceTest {
             when(repository.existsByMatricule(anyString())).thenReturn(true);
 
             ThrowingCallable creation = () ->
-                    service.creerEnseignant(null, "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
+                    service.creerEnseignant(null, "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"), null, null, null, null);
 
             assertThatThrownBy(creation).isInstanceOf(MatriculeDejaUtiliseException.class);
             verify(repository, never()).save(any(Enseignant.class));
@@ -80,7 +98,7 @@ class EnseignantServiceTest {
             doThrow(new GestionEnseignantsGeleeException()).when(gel).verifierAutorise(RoleUtilisateur.CHEF_DEPARTEMENT);
 
             ThrowingCallable creation = () ->
-                    service.creerEnseignant(RoleUtilisateur.CHEF_DEPARTEMENT, "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
+                    service.creerEnseignant(RoleUtilisateur.CHEF_DEPARTEMENT, "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"), null, null, null, null);
 
             assertThatThrownBy(creation).isInstanceOf(GestionEnseignantsGeleeException.class);
             verify(repository, never()).save(any(Enseignant.class));
@@ -171,6 +189,31 @@ class EnseignantServiceTest {
         }
 
         @Test
+        @DisplayName("suspendreEnseignant() désassigne les créneaux ASSIGNEE mais laisse les EFFECTUEE intacts")
+        void suspendreEnseignantDesassigneLesCreneauxNonEffectues() {
+            Enseignant enseignant = unEnseignant();
+            when(repository.findById(enseignant.getId())).thenReturn(Optional.of(enseignant));
+            when(repository.save(any(Enseignant.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            Affectation creneauAssigne = new Affectation(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                    UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), enseignant.getId(), Jour.LUNDI, 1, 1,
+                    StatutAffectation.ASSIGNEE);
+            when(affectationRepository.findByEnseignantIdAndStatut(enseignant.getId(), StatutAffectation.ASSIGNEE))
+                    .thenReturn(List.of(creneauAssigne));
+            when(affectationRepository.save(any(Affectation.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            service.suspendreEnseignant(null, enseignant.getId());
+
+            assertThat(creneauAssigne.getStatut()).isEqualTo(StatutAffectation.PLANIFIEE);
+            assertThat(creneauAssigne.getEnseignantId()).isNull();
+            verify(affectationRepository).save(creneauAssigne);
+            // Les créneaux EFFECTUEE ne sont jamais interrogés ni touchés.
+            verify(affectationRepository, never())
+                    .findByEnseignantIdAndStatut(enseignant.getId(), StatutAffectation.EFFECTUEE);
+        }
+
+        @Test
         @DisplayName("reactiverEnseignant() réactive et sauvegarde")
         void reactiverEnseignantReussit() {
             Enseignant enseignant = unEnseignant();
@@ -222,6 +265,72 @@ class EnseignantServiceTest {
             ThrowingCallable suppression = () -> service.supprimerEnseignant(null, id);
 
             assertThatThrownBy(suppression).isInstanceOf(EnseignantIntrouvableException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("Ancienneté et Historique")
+    class Anciennete {
+
+        @Test
+        @DisplayName("consulterAnciennete() calcule l'ancienneté et agrège l'historique des sessions")
+        void calculerAncienneteEtHistorique() {
+            UUID enseignantId = UUID.randomUUID();
+            LocalDate dateRecrutement = LocalDate.now().minusYears(2).minusMonths(3);
+            Enseignant enseignant = Enseignant.reconstituer(
+                    enseignantId, "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"),
+                    StatutEnseignant.ACTIF, "699000000", "CNI-123", "Univ", "Grade 1", dateRecrutement);
+
+            when(repository.findById(enseignantId)).thenReturn(Optional.of(enseignant));
+
+            UUID session1Id = UUID.randomUUID();
+            UUID session2Id = UUID.randomUUID();
+            UUID dep1Id = UUID.randomUUID();
+
+            SessionAcademique s1 = SessionAcademique.reconstituer(
+                    session1Id, "2024-2025", LocalDate.of(2024, 9, 1), LocalDate.of(2025, 6, 30), StatutSession.CLOTUREE);
+            SessionAcademique s2 = SessionAcademique.reconstituer(
+                    session2Id, "2025-2026", LocalDate.of(2025, 9, 1), LocalDate.of(2026, 6, 30), StatutSession.EN_COURS);
+
+            when(sessionRepository.findById(session1Id)).thenReturn(Optional.of(s1));
+            when(sessionRepository.findById(session2Id)).thenReturn(Optional.of(s2));
+
+            UUID matiereId = UUID.randomUUID();
+            Departement dep1 = new Departement(dep1Id, "Mathématiques", matiereId);
+            when(departementRepository.findById(dep1Id)).thenReturn(Optional.of(dep1));
+
+            AffectationDepartementale roster1 = new AffectationDepartementale(UUID.randomUUID(), enseignantId, session1Id, dep1Id);
+            AffectationDepartementale roster2 = new AffectationDepartementale(UUID.randomUUID(), enseignantId, session2Id, dep1Id);
+            when(rosterRepository.findByEnseignantId(enseignantId)).thenReturn(List.of(roster1, roster2));
+
+            Affectation aff1 = new Affectation(
+                    UUID.randomUUID(), UUID.randomUUID(), session1Id, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                    enseignantId, Jour.LUNDI, 1, 1, StatutAffectation.EFFECTUEE);
+            Affectation aff2 = new Affectation(
+                    UUID.randomUUID(), UUID.randomUUID(), session2Id, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                    enseignantId, Jour.MARDI, 2, 1, StatutAffectation.ASSIGNEE);
+            when(affectationRepository.findByEnseignantId(enseignantId)).thenReturn(List.of(aff1, aff2));
+
+            FicheAncienneteEnseignant fiche = service.consulterAnciennete(enseignantId);
+
+            assertThat(fiche.enseignantId()).isEqualTo(enseignantId);
+            assertThat(fiche.nom()).isEqualTo("Ossegue");
+            assertThat(fiche.prenom()).isEqualTo("Jean");
+            assertThat(fiche.dateRecrutement()).isEqualTo(dateRecrutement);
+            assertThat(fiche.ancienneteAnnees()).isEqualTo(2);
+            assertThat(fiche.ancienneteMois()).isEqualTo(3);
+            assertThat(fiche.nombreSessionsActives()).isEqualTo(2);
+            assertThat(fiche.historiqueSessions()).hasSize(2);
+
+            // Plus récente en premier (2025-2026)
+            assertThat(fiche.historiqueSessions().get(0).libelleSession()).isEqualTo("2025-2026");
+            assertThat(fiche.historiqueSessions().get(0).seancesEffectuees()).isEqualTo(0);
+            assertThat(fiche.historiqueSessions().get(0).seancesTotales()).isEqualTo(1);
+            assertThat(fiche.historiqueSessions().get(0).nomsDepartements()).containsExactly("Mathématiques");
+
+            assertThat(fiche.historiqueSessions().get(1).libelleSession()).isEqualTo("2024-2025");
+            assertThat(fiche.historiqueSessions().get(1).seancesEffectuees()).isEqualTo(1);
+            assertThat(fiche.historiqueSessions().get(1).seancesTotales()).isEqualTo(1);
         }
     }
 }

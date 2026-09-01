@@ -176,7 +176,9 @@ class DossierFinancierServiceTest {
             // Given
             UUID centreA = UUID.randomUUID();
             UUID centreB = UUID.randomUUID();
-            Concours concours = new Concours(concoursId, "ENSPY", sessionId,
+            UUID formationId = UUID.randomUUID();
+            UUID phaseId = UUID.randomUUID();
+            Concours concours = new Concours(concoursId, "ENSPY", sessionId, formationId, phaseId,
                     LocalDate.of(2027, 6, 30), LocalDate.of(2027, 6, 15));
 
             DossierConcours dc1 = new DossierConcours(UUID.randomUUID(), UUID.randomUUID(), concoursId, centreA, sessionId, LocalDate.now());
@@ -207,7 +209,9 @@ class DossierFinancierServiceTest {
         @Test
         @DisplayName("retourne une liste vide si aucun dossier pour ce concours/session")
         void retourneListeVideSiAucunDossier() {
-            Concours concours = new Concours(concoursId, "ENSPY", sessionId,
+            UUID formationId = UUID.randomUUID();
+            UUID phaseId = UUID.randomUUID();
+            Concours concours = new Concours(concoursId, "ENSPY", sessionId, formationId, phaseId,
                     LocalDate.of(2027, 6, 30), LocalDate.of(2027, 6, 15));
             when(concoursRepository.findById(concoursId)).thenReturn(Optional.of(concours));
             when(dossierConcoursRepository.findByConcoursIdAndSessionId(concoursId, sessionId)).thenReturn(List.of());

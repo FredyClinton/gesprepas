@@ -2,15 +2,15 @@ package com.excelisprepas.backend.centre.infrastructure.out.persistence;
 
 import com.excelisprepas.backend.centre.domain.model.Centre;
 import com.excelisprepas.backend.centre.domain.model.LocalisationCentre;
-import org.mapstruct.Mapper;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@Mapper(componentModel = "spring")
-public interface CentrePersistenceMapper {
+@Component
+public class CentrePersistenceMapper {
 
-    default CentreEntity toEntity(Centre domaine) {
+    public CentreEntity toEntity(Centre domaine) {
         if (domaine == null) return null;
 
         CentreEntity entite = new CentreEntity();
@@ -38,7 +38,7 @@ public interface CentrePersistenceMapper {
         return entite;
     }
 
-    default Centre toDomain(CentreEntity entite) {
+    public Centre toDomain(CentreEntity entite) {
         if (entite == null) return null;
 
         List<LocalisationCentre> localisations = entite.getLocalisations().stream()

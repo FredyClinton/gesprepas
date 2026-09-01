@@ -18,7 +18,12 @@ public interface EnseignantPersistenceMapper {
                 entite.getPrenom(),
                 entite.getMatricule(),
                 entite.getCoutParSeance(),
-                entite.getStatut()
+                entite.getStatut(),
+                entite.getTelephone(),
+                entite.getNumeroCni(),
+                entite.getEcoleFonction(),
+                entite.getNiveauGrade(),
+                entite.getDateRecrutement()
         );
     }
 }

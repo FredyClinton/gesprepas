@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @TestPropertySource(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
-@Import({ConcoursRepositoryAdapter.class, ConcoursPersistenceMapperImpl.class})
+@Import({ConcoursRepositoryAdapter.class, ConcoursPersistenceMapper.class})
 @DisplayName("ConcoursRepositoryAdapter (test d'intégration)")
 class ConcoursRepositoryAdapterTest extends AbstractIntegrationTest {
 
@@ -31,7 +31,9 @@ class ConcoursRepositoryAdapterTest extends AbstractIntegrationTest {
     @DisplayName("save() puis findById() retrouve le concours")
     void saveEtFindByIdRetrouveLeConcours() {
         UUID sessionId = UUID.randomUUID();
-        Concours concours = new Concours(UUID.randomUUID(), "ENSPY", sessionId,
+        UUID formationId = UUID.randomUUID();
+        UUID phaseId = UUID.randomUUID();
+        Concours concours = new Concours(UUID.randomUUID(), "ENSPY", sessionId, formationId, phaseId,
                 LocalDate.of(2027, 6, 30), LocalDate.of(2027, 6, 15));
 
         adapter.save(concours);
@@ -53,11 +55,13 @@ class ConcoursRepositoryAdapterTest extends AbstractIntegrationTest {
     @DisplayName("findBySessionId() ne retourne que les concours de la session")
     void findBySessionIdFiltreCorrectement() {
         UUID sessionId = UUID.randomUUID();
-        adapter.save(new Concours(UUID.randomUUID(), "ENSPY", sessionId,
+        UUID formationId = UUID.randomUUID();
+        UUID phaseId = UUID.randomUUID();
+        adapter.save(new Concours(UUID.randomUUID(), "ENSPY", sessionId, formationId, phaseId,
                 LocalDate.of(2027, 6, 30), LocalDate.of(2027, 6, 15)));
-        adapter.save(new Concours(UUID.randomUUID(), "IUT", sessionId,
+        adapter.save(new Concours(UUID.randomUUID(), "IUT", sessionId, formationId, phaseId,
                 LocalDate.of(2027, 7, 15), LocalDate.of(2027, 7, 1)));
-        adapter.save(new Concours(UUID.randomUUID(), "Polytechnique", UUID.randomUUID(),
+        adapter.save(new Concours(UUID.randomUUID(), "Polytechnique", UUID.randomUUID(), formationId, phaseId,
                 LocalDate.of(2027, 6, 30), LocalDate.of(2027, 6, 15))); // autre session
 
         List<Concours> resultat = adapter.findBySessionId(sessionId);

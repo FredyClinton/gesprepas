@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @TestPropertySource(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
-@Import({SessionAcademiqueRepositoryAdapter.class, SessionAcademiqueMapperImpl.class})
+@Import({SessionAcademiqueRepositoryAdapter.class, SessionAcademiqueMapper.class})
 @DisplayName("SessionAcademiqueRepositoryAdapter (test d'intégration)")
 class SessionAcademiqueRepositoryAdapterTest extends AbstractIntegrationTest {
 

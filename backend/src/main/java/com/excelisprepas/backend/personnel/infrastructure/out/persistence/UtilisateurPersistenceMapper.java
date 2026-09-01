@@ -1,12 +1,12 @@
 package com.excelisprepas.backend.personnel.infrastructure.out.persistence;
 
 import com.excelisprepas.backend.personnel.domain.model.Utilisateur;
-import org.mapstruct.Mapper;
+import org.springframework.stereotype.Component;
 
-@Mapper(componentModel = "spring")
-public interface UtilisateurPersistenceMapper {
+@Component
+public class UtilisateurPersistenceMapper {
 
-    default UtilisateurEntity toEntity(Utilisateur domaine) {
+    public UtilisateurEntity toEntity(Utilisateur domaine) {
         if (domaine == null) {
             return null;
         }
@@ -23,7 +23,7 @@ public interface UtilisateurPersistenceMapper {
         return entite;
     }
 
-    default Utilisateur toDomain(UtilisateurEntity entite) {
+    public Utilisateur toDomain(UtilisateurEntity entite) {
         if (entite == null) {
             return null;
         }

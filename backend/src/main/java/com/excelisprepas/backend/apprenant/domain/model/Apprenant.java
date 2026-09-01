@@ -1,6 +1,6 @@
 package com.excelisprepas.backend.apprenant.domain.model;
 
-import java.math.BigDecimal;
+
 import java.time.LocalDate;
 import java.util.Objects;
 import java.util.UUID;
@@ -10,27 +10,30 @@ public class Apprenant {
     private final UUID id;
     private final LocalDate dateNaissance;
     private final LocalDate dateInscription;
-    private final UUID sessionId;
     private String nom;
     private String prenom;
-    private BigDecimal montantContrat;
-    private LocalDate dateDefinitionContrat;
     private UUID centreId;
-    private UUID formationId;
+    private String contactApprenant;
+    private String nomParent;
+    private String contactParent;
 
     public Apprenant(UUID id, String nom, String prenom, LocalDate dateNaissance,
-                     LocalDate dateInscription, BigDecimal montantContrat,
-                     LocalDate dateDefinitionContrat, UUID centreId, UUID sessionId, UUID formationId) {
+                     LocalDate dateInscription, UUID centreId) {
         this.id = Objects.requireNonNull(id, "id ne peut pas être nul");
         this.nom = validerChampObligatoire(nom, "nom");
         this.prenom = validerChampObligatoire(prenom, "prenom");
         this.dateNaissance = Objects.requireNonNull(dateNaissance, "dateNaissance ne peut pas être nulle");
         this.dateInscription = Objects.requireNonNull(dateInscription, "dateInscription ne peut pas être nulle");
-        this.montantContrat = validerMontant(montantContrat);
-        this.dateDefinitionContrat = Objects.requireNonNull(dateDefinitionContrat, "dateDefinitionContrat ne peut pas être nulle");
         this.centreId = Objects.requireNonNull(centreId, "centreId ne peut pas être nul");
-        this.sessionId = Objects.requireNonNull(sessionId, "sessionId ne peut pas être nul");
-        this.formationId = Objects.requireNonNull(formationId, "formationId ne peut pas être nul");
+    }
+
+    public Apprenant(UUID id, String nom, String prenom, LocalDate dateNaissance,
+                     LocalDate dateInscription, UUID centreId,
+                     String contactApprenant, String nomParent, String contactParent) {
+        this(id, nom, prenom, dateNaissance, dateInscription, centreId);
+        this.contactApprenant = contactApprenant;
+        this.nomParent = nomParent;
+        this.contactParent = contactParent;
     }
 
     private static String validerChampObligatoire(String valeur, String nomChamp) {
@@ -40,30 +43,8 @@ public class Apprenant {
         return valeur;
     }
 
-    private static BigDecimal validerMontant(BigDecimal montant) {
-        if (montant == null || montant.signum() < 0) {
-            throw new IllegalArgumentException("montantContrat ne peut pas être négatif");
-        }
-        return montant;
-    }
-
     public void changerCentre(UUID nouveauCentreId) {
         this.centreId = Objects.requireNonNull(nouveauCentreId, "centreId ne peut pas être nul");
-    }
-
-    /**
-     * Change la formation de l'apprenant. sessionId reste inchangé — un apprenant
-     * est inscrit pour une session donnée et n'en change jamais ; la cohérence
-     * (nouvelle formation appartenant à la même session) est vérifiée en amont,
-     * dans ApprenantService, qui a accès au FormationRepositoryPort.
-     */
-    public void changerFormation(UUID nouvelleFormationId) {
-        this.formationId = Objects.requireNonNull(nouvelleFormationId, "formationId ne peut pas être nul");
-    }
-
-    public void renegocierContrat(BigDecimal nouveauMontant, LocalDate dateDefinition) {
-        this.montantContrat = validerMontant(nouveauMontant);
-        this.dateDefinitionContrat = Objects.requireNonNull(dateDefinition, "dateDefinition ne peut pas être nulle");
     }
 
     public UUID getId() {
@@ -86,24 +67,20 @@ public class Apprenant {
         return dateInscription;
     }
 
-    public BigDecimal getMontantContrat() {
-        return montantContrat;
-    }
-
-    public LocalDate getDateDefinitionContrat() {
-        return dateDefinitionContrat;
-    }
-
     public UUID getCentreId() {
         return centreId;
     }
 
-    public UUID getSessionId() {
-        return sessionId;
+    public String getContactApprenant() {
+        return contactApprenant;
     }
 
-    public UUID getFormationId() {
-        return formationId;
+    public String getNomParent() {
+        return nomParent;
+    }
+
+    public String getContactParent() {
+        return contactParent;
     }
 
     @Override

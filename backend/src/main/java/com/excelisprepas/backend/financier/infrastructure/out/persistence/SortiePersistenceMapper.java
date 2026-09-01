@@ -1,12 +1,12 @@
 package com.excelisprepas.backend.financier.infrastructure.out.persistence;
 
 import com.excelisprepas.backend.financier.domain.model.Sortie;
-import org.mapstruct.Mapper;
+import org.springframework.stereotype.Component;
 
-@Mapper(componentModel = "spring")
-public interface SortiePersistenceMapper {
+@Component
+public class SortiePersistenceMapper {
 
-    default SortieEntity toEntity(Sortie domaine) {
+    public SortieEntity toEntity(Sortie domaine) {
         if (domaine == null) return null;
         SortieEntity entite = new SortieEntity();
         entite.setId(domaine.getId());
@@ -22,7 +22,7 @@ public interface SortiePersistenceMapper {
         return entite;
     }
 
-    default Sortie toDomain(SortieEntity entite) {
+    public Sortie toDomain(SortieEntity entite) {
         if (entite == null) return null;
         return Sortie.reconstituer(entite.getId(), entite.getSessionId(), entite.getMotifId(), entite.getMontant(),
                 entite.getDate(), entite.getSaisiParUtilisateurId(), entite.getStatut(), entite.getCentreId(),

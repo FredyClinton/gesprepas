@@ -1,16 +1,17 @@
 package com.excelisprepas.backend.shared.seed;
 
-import com.excelisprepas.backend.affectation.domain.model.Jour;
-import com.excelisprepas.backend.affectation.domain.port.in.AssignerEnseignantUseCase;
-import com.excelisprepas.backend.affectation.domain.port.in.CreerCreneauUseCase;
-import com.excelisprepas.backend.affectationdepartementale.domain.port.in.AjouterEnseignantUseCase;
+import com.excelisprepas.backend.academie.affectation.domain.model.Jour;
+import com.excelisprepas.backend.academie.affectation.domain.port.in.AssignerEnseignantUseCase;
+import com.excelisprepas.backend.academie.affectation.domain.port.in.CreerCreneauUseCase;
+import com.excelisprepas.backend.academie.affectationdepartementale.domain.port.in.AjouterEnseignantUseCase;
 import com.excelisprepas.backend.apprenant.domain.model.Apprenant;
-import com.excelisprepas.backend.apprenant.domain.port.in.InscrireApprenantUseCase;
+import com.excelisprepas.backend.apprenant.domain.port.in.CreerApprenantUseCase;
+import com.excelisprepas.backend.inscription.domain.port.in.CreerDossierInscriptionUseCase;
 import com.excelisprepas.backend.centre.domain.model.Centre;
 import com.excelisprepas.backend.centre.domain.port.in.CreerCentreUseCase;
 import com.excelisprepas.backend.centre.domain.port.in.RejoindreSessionUseCase;
-import com.excelisprepas.backend.departement.domain.model.Departement;
-import com.excelisprepas.backend.departement.domain.port.in.CreerDepartementUseCase;
+import com.excelisprepas.backend.academie.departement.domain.model.Departement;
+import com.excelisprepas.backend.academie.departement.domain.port.in.CreerDepartementUseCase;
 import com.excelisprepas.backend.dossier.domain.model.Concours;
 import com.excelisprepas.backend.dossier.domain.model.Dossier;
 import com.excelisprepas.backend.dossier.domain.model.PieceRequise;
@@ -21,8 +22,8 @@ import com.excelisprepas.backend.financier.domain.model.TypeMotif;
 import com.excelisprepas.backend.financier.domain.port.in.CreerMotifUseCase;
 import com.excelisprepas.backend.financier.domain.port.in.SaisirEntreeUseCase;
 import com.excelisprepas.backend.financier.domain.port.in.SaisirSortieUseCase;
-import com.excelisprepas.backend.formation.domain.model.Formation;
-import com.excelisprepas.backend.formation.domain.port.in.CreerFormationUseCase;
+import com.excelisprepas.backend.academie.formation.domain.model.Formation;
+import com.excelisprepas.backend.academie.formation.domain.port.in.CreerFormationUseCase;
 import com.excelisprepas.backend.personnel.domain.model.Enseignant;
 import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
 import com.excelisprepas.backend.personnel.domain.model.Utilisateur;
@@ -30,10 +31,10 @@ import com.excelisprepas.backend.personnel.domain.port.in.CreerEnseignantUseCase
 import com.excelisprepas.backend.personnel.domain.port.in.CreerUtilisateurUseCase;
 import com.excelisprepas.backend.personnel.domain.port.in.RattacherCentreUseCase;
 import com.excelisprepas.backend.personnel.domain.port.in.RattacherDepartementUseCase;
-import com.excelisprepas.backend.progression.domain.port.in.CreerProgressionUseCase;
+import com.excelisprepas.backend.academie.progression.domain.port.in.CreerProgressionUseCase;
 import com.excelisprepas.backend.rattachement.domain.port.in.RattacherUtilisateurUseCase;
-import com.excelisprepas.backend.salle.domain.model.Salle;
-import com.excelisprepas.backend.salle.domain.port.in.CreerSalleUseCase;
+import com.excelisprepas.backend.academie.salle.domain.model.Salle;
+import com.excelisprepas.backend.academie.salle.domain.port.in.CreerSalleUseCase;
 import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.port.in.CloturerSessionUseCase;
 import com.excelisprepas.backend.session.domain.port.in.CreerSessionAcademiqueUseCase;
@@ -55,12 +56,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-/**
- * Peuple la base avec un jeu de données cohérent pour le développement/la démo.
- * N'est jamais actif en production : ne tourne qu'avec le profil Spring "seed"
- * (SPRING_PROFILES_ACTIVE=seed). Passe exclusivement par les UseCase existants
- * pour bénéficier des mêmes validations métier qu'cdun appel HTTP réel.
- */
 @Component
 @Profile("seed")
 public class DatabaseSeeder implements CommandLineRunner {
@@ -76,6 +71,7 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final RejoindreSessionUseCase rejoindreSessionUseCase;
     private final CreerDepartementUseCase creerDepartementUseCase;
     private final CreerFormationUseCase creerFormationUseCase;
+    private final com.excelisprepas.backend.abonnement.domain.port.in.AbonnerCentreFormationUseCase abonnerCentreFormationUseCase;
     private final CreerSalleUseCase creerSalleUseCase;
     private final CreerUtilisateurUseCase creerUtilisateurUseCase;
     private final RattacherCentreUseCase rattacherCentreUseCase;
@@ -83,7 +79,8 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final RattacherUtilisateurUseCase rattacherUtilisateurUseCase;
     private final CreerEnseignantUseCase creerEnseignantUseCase;
     private final AjouterEnseignantUseCase ajouterEnseignantUseCase;
-    private final InscrireApprenantUseCase inscrireApprenantUseCase;
+    private final CreerApprenantUseCase creerApprenantUseCase;
+    private final CreerDossierInscriptionUseCase creerDossierInscriptionUseCase;
     private final CreerCreneauUseCase creerCreneauUseCase;
     private final AssignerEnseignantUseCase assignerEnseignantUseCase;
     private final CreerProgressionUseCase creerProgressionUseCase;
@@ -96,6 +93,7 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final OuvrirDossierUseCase ouvrirDossierUseCase;
     private final AjouterConcoursAuDossierUseCase ajouterConcoursAuDossierUseCase;
     private final EnregistrerPaiementDossierUseCase enregistrerPaiementDossierUseCase;
+    private final com.excelisprepas.backend.academie.phase.domain.port.out.PhaseRepositoryPort phaseRepositoryPort;
 
     public DatabaseSeeder(ListerSessionsUseCase listerSessionsUseCase,
                           CreerSessionAcademiqueUseCase creerSessionAcademiqueUseCase,
@@ -105,6 +103,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                           RejoindreSessionUseCase rejoindreSessionUseCase,
                           CreerDepartementUseCase creerDepartementUseCase,
                           CreerFormationUseCase creerFormationUseCase,
+                          com.excelisprepas.backend.abonnement.domain.port.in.AbonnerCentreFormationUseCase abonnerCentreFormationUseCase,
                           CreerSalleUseCase creerSalleUseCase,
                           CreerUtilisateurUseCase creerUtilisateurUseCase,
                           RattacherCentreUseCase rattacherCentreUseCase,
@@ -112,7 +111,8 @@ public class DatabaseSeeder implements CommandLineRunner {
                           RattacherUtilisateurUseCase rattacherUtilisateurUseCase,
                           CreerEnseignantUseCase creerEnseignantUseCase,
                           AjouterEnseignantUseCase ajouterEnseignantUseCase,
-                          InscrireApprenantUseCase inscrireApprenantUseCase,
+                          CreerApprenantUseCase creerApprenantUseCase,
+                          CreerDossierInscriptionUseCase creerDossierInscriptionUseCase,
                           CreerCreneauUseCase creerCreneauUseCase,
                           AssignerEnseignantUseCase assignerEnseignantUseCase,
                           CreerProgressionUseCase creerProgressionUseCase,
@@ -124,7 +124,8 @@ public class DatabaseSeeder implements CommandLineRunner {
                           AjouterPieceAuConcoursUseCase ajouterPieceAuConcoursUseCase,
                           OuvrirDossierUseCase ouvrirDossierUseCase,
                           AjouterConcoursAuDossierUseCase ajouterConcoursAuDossierUseCase,
-                          EnregistrerPaiementDossierUseCase enregistrerPaiementDossierUseCase) {
+                          EnregistrerPaiementDossierUseCase enregistrerPaiementDossierUseCase,
+                          com.excelisprepas.backend.academie.phase.domain.port.out.PhaseRepositoryPort phaseRepositoryPort) {
         this.listerSessionsUseCase = listerSessionsUseCase;
         this.creerSessionAcademiqueUseCase = creerSessionAcademiqueUseCase;
         this.demarrerSessionUseCase = demarrerSessionUseCase;
@@ -133,6 +134,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         this.rejoindreSessionUseCase = rejoindreSessionUseCase;
         this.creerDepartementUseCase = creerDepartementUseCase;
         this.creerFormationUseCase = creerFormationUseCase;
+        this.abonnerCentreFormationUseCase = abonnerCentreFormationUseCase;
         this.creerSalleUseCase = creerSalleUseCase;
         this.creerUtilisateurUseCase = creerUtilisateurUseCase;
         this.rattacherCentreUseCase = rattacherCentreUseCase;
@@ -140,7 +142,8 @@ public class DatabaseSeeder implements CommandLineRunner {
         this.rattacherUtilisateurUseCase = rattacherUtilisateurUseCase;
         this.creerEnseignantUseCase = creerEnseignantUseCase;
         this.ajouterEnseignantUseCase = ajouterEnseignantUseCase;
-        this.inscrireApprenantUseCase = inscrireApprenantUseCase;
+        this.creerApprenantUseCase = creerApprenantUseCase;
+        this.creerDossierInscriptionUseCase = creerDossierInscriptionUseCase;
         this.creerCreneauUseCase = creerCreneauUseCase;
         this.assignerEnseignantUseCase = assignerEnseignantUseCase;
         this.creerProgressionUseCase = creerProgressionUseCase;
@@ -153,6 +156,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         this.ouvrirDossierUseCase = ouvrirDossierUseCase;
         this.ajouterConcoursAuDossierUseCase = ajouterConcoursAuDossierUseCase;
         this.enregistrerPaiementDossierUseCase = enregistrerPaiementDossierUseCase;
+        this.phaseRepositoryPort = phaseRepositoryPort;
     }
 
     @Override
@@ -171,7 +175,13 @@ public class DatabaseSeeder implements CommandLineRunner {
 
         List<Centre> centres = seedCentres(sessionEnCours.getId(), sessionPlanifiee.getId());
         List<DepartementSeed> departements = seedDepartements();
-        List<FormationSeed> formations = seedFormationsEtSalles(centres, sessionEnCours.getId());
+
+        com.excelisprepas.backend.academie.phase.domain.model.Phase phase1 = new com.excelisprepas.backend.academie.phase.domain.model.Phase(UUID.randomUUID(), "PHASE_1", "Phase 1 - Classique");
+        com.excelisprepas.backend.academie.phase.domain.model.Phase phase2 = new com.excelisprepas.backend.academie.phase.domain.model.Phase(UUID.randomUUID(), "PHASE_2", "Phase 2 - Intensive");
+        phaseRepositoryPort.save(phase1);
+        phaseRepositoryPort.save(phase2);
+
+        List<FormationSeed> formations = seedFormationsEtSalles(centres, departements, sessionEnCours.getId(), phase1.getId());
 
         seedPersonnelDirection();
         seedChefsDepartement(departements);
@@ -180,10 +190,12 @@ public class DatabaseSeeder implements CommandLineRunner {
         DepartementSeed mathematiques = departements.get(0);
         Map<UUID, List<UUID>> enseignantsParDepartement = seedEnseignants(departements, sessionEnCours.getId());
         List<UUID> apprenantsIds = seedApprenants(formations, sessionEnCours.getId());
-        seedProgressions(formations, mathematiques, sessionEnCours.getId());
+
+        seedProgressions(formations, mathematiques, sessionEnCours.getId(), phase1.getId());
         seedAffectations(formations, departements, enseignantsParDepartement, sessionEnCours.getId());
         seedFinancier(centresSeed, sessionEnCours.getId(), apprenantsIds);
-        seedDossier(sessionEnCours.getId(), apprenantsIds, centresSeed.get(0).caissierId());
+
+        seedDossier(sessionEnCours.getId(), apprenantsIds, centresSeed.get(0).caissierId(), formations, phase1.getId());
 
         log.info("Seed terminé : sessions {} (CLOTUREE) / {} (EN_COURS) / {} (PLANIFIEE), {} centres, "
                         + "{} départements, {} formations/salles, {} apprenants. Connexion : "
@@ -233,14 +245,25 @@ public class DatabaseSeeder implements CommandLineRunner {
         return departements;
     }
 
-    private List<FormationSeed> seedFormationsEtSalles(List<Centre> centres, UUID sessionEnCoursId) {
+    private List<FormationSeed> seedFormationsEtSalles(List<Centre> centres, List<DepartementSeed> departements, UUID sessionEnCoursId, UUID phaseId) {
         List<FormationSeed> formations = new ArrayList<>();
+        Map<String, Formation> formationsParNom = new HashMap<>();
+        Set<UUID> toutesMatieres = new java.util.HashSet<>();
+        for (DepartementSeed dep : departements) {
+            toutesMatieres.add(dep.matiereId());
+        }
+
+        for (String nomFormation : List.of("Terminale C", "Terminale D")) {
+            formationsParNom.put(nomFormation, creerFormationUseCase.creerFormation(nomFormation, toutesMatieres));
+        }
+
         for (Centre centre : centres) {
             for (String nomFormation : List.of("Terminale C", "Terminale D")) {
-                Formation formation = creerFormationUseCase.creerFormation(nomFormation, centre.getId(), sessionEnCoursId);
+                Formation formation = formationsParNom.get(nomFormation);
+                abonnerCentreFormationUseCase.abonnerCentre(centre.getId(), formation.getId(), sessionEnCoursId);
                 Salle salle = creerSalleUseCase.creerSalle(
                         centre.getNom() + " - " + nomFormation + " - Salle 1",
-                        centre.getId(), sessionEnCoursId, formation.getId());
+                        centre.getId(), sessionEnCoursId, formation.getId(), phaseId);
                 formations.add(new FormationSeed(formation.getId(), salle.getId(), centre.getId(), centre.getNom()));
             }
         }
@@ -310,9 +333,11 @@ public class DatabaseSeeder implements CommandLineRunner {
         for (int i = 0; i < noms.length; i++) {
             String matricule = "ENS-%03d".formatted(i + 1);
             BigDecimal coutParSeance = BigDecimal.valueOf(5000 + (i % 4) * 1000);
+            LocalDate dateRecrutement = LocalDate.of(2021 + (i % 4), 9, 1);
             // null = pas de rôle appelant : le seed n'est pas une action utilisateur, jamais
             // bloqué par le gel de gestion des enseignants.
-            Enseignant enseignant = creerEnseignantUseCase.creerEnseignant(null, noms[i], prenoms[i], matricule, coutParSeance);
+            Enseignant enseignant = creerEnseignantUseCase.creerEnseignant(null, noms[i], prenoms[i], matricule, coutParSeance,
+                    null, null, null, null, dateRecrutement);
 
             DepartementSeed departement = departements.get(i % departements.size());
             ajouterEnseignantUseCase.ajouterEnseignant(null, departement.departementId(), sessionEnCoursId, enseignant.getId());
@@ -334,23 +359,32 @@ public class DatabaseSeeder implements CommandLineRunner {
             for (int j = 0; j < 2; j++) {
                 int index = (i * 2 + j) % noms.length;
                 LocalDate dateNaissance = LocalDate.of(2007 - (index % 3), 3 + index % 6, 10 + index % 15);
-                Apprenant apprenant = inscrireApprenantUseCase.inscrireApprenant(
+                Apprenant apprenant = creerApprenantUseCase.creerApprenant(
                         noms[index], prenoms[index], dateNaissance, dateInscription,
-                        BigDecimal.valueOf(450_000), dateInscription,
-                        formation.centreId(), sessionEnCoursId, formation.formationId());
+                        formation.centreId(), null, null, null);
+                
+                creerDossierInscriptionUseCase.creerDossierInscription(
+                        apprenant.getId(), sessionEnCoursId, formation.centreId(),
+                        BigDecimal.valueOf(450_000), dateInscription, false, null,
+                        List.of(UUID.randomUUID()), List.of(formation.formationId()), List.of()
+                );
+
                 apprenantIds.add(apprenant.getId());
             }
         }
         return apprenantIds;
     }
 
-    private void seedProgressions(List<FormationSeed> formations, DepartementSeed mathematiques, UUID sessionEnCoursId) {
+    private void seedProgressions(List<FormationSeed> formations, DepartementSeed mathematiques, UUID sessionEnCoursId, UUID phaseId) {
         int semaine = 1;
+        Set<UUID> formationsTraitees = new java.util.HashSet<>();
         for (FormationSeed formation : formations) {
-            creerProgressionUseCase.creerProgression(formation.formationId(), sessionEnCoursId,
-                    mathematiques.matiereId(), semaine, 1,
-                    "Suites numériques", "Suites arithmétiques et géométriques, convergence",
-                    "Exercices 1 à 12 du manuel, série de révision");
+            if (formationsTraitees.add(formation.formationId())) {
+                creerProgressionUseCase.creerProgression(formation.formationId(), sessionEnCoursId, phaseId,
+                        mathematiques.matiereId(), semaine, 1,
+                        "Suites numériques", "Suites arithmétiques et géométriques, convergence",
+                        "Exercices 1 à 12 du manuel, série de révision");
+            }
         }
     }
 
@@ -394,18 +428,19 @@ public class DatabaseSeeder implements CommandLineRunner {
         }
     }
 
-    private void seedDossier(UUID sessionEnCoursId, List<UUID> apprenantIds, UUID caissierId) {
+    private void seedDossier(UUID sessionEnCoursId, List<UUID> apprenantIds, UUID caissierId, List<FormationSeed> formations, UUID phaseId) {
         PieceRequise acteNaissance = creerPieceRequiseUseCase.creerPieceRequise("Acte de naissance", BigDecimal.ZERO);
         PieceRequise certificatMedical = creerPieceRequiseUseCase.creerPieceRequise("Certificat médical", BigDecimal.valueOf(2000));
         Motif fraisConcours = creerMotifUseCase.creerMotif("Frais de concours", TypeMotif.ENTREE);
 
+        UUID formationId = formations.get(0).formationId();
         Concours concours = creerConcoursUseCase.creerConcours("Concours ENSPY", sessionEnCoursId,
-                LocalDate.of(2027, 3, 1), LocalDate.of(2027, 2, 15));
+                formationId, phaseId, LocalDate.of(2027, 3, 1), LocalDate.of(2027, 2, 15));
         ajouterPieceAuConcoursUseCase.ajouterPieceAuConcours(concours.getId(), acteNaissance.getId());
         ajouterPieceAuConcoursUseCase.ajouterPieceAuConcours(concours.getId(), certificatMedical.getId());
 
         for (int i = 0; i < Math.min(2, apprenantIds.size()); i++) {
-            Dossier dossier = ouvrirDossierUseCase.ouvrirDossier(apprenantIds.get(i));
+            Dossier dossier = ouvrirDossierUseCase.ouvrirDossier(apprenantIds.get(i), sessionEnCoursId);
             var dossierConcours = ajouterConcoursAuDossierUseCase.ajouterConcoursAuDossier(dossier.getId(), concours.getId(),
                     List.of(new SelectionPiece(acteNaissance.getId(), 1), new SelectionPiece(certificatMedical.getId(), 1)));
 

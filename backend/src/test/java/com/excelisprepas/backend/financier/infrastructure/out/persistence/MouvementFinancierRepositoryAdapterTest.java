@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @TestPropertySource(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 @Import({MouvementFinancierRepositoryAdapter.class, MouvementFinancierPersistenceMapper.class,
-        EntreePersistenceMapperImpl.class, SortiePersistenceMapperImpl.class})
+        EntreePersistenceMapper.class, SortiePersistenceMapper.class})
 @DisplayName("MouvementFinancierRepositoryAdapter (test d'intégration — accès générique)")
 class MouvementFinancierRepositoryAdapterTest extends AbstractIntegrationTest {
 

@@ -1,13 +1,12 @@
 package com.excelisprepas.backend.centre.infrastructure.config;
 
-import com.excelisprepas.backend.affectation.domain.port.out.AffectationRepositoryPort;
+import com.excelisprepas.backend.academie.affectation.domain.port.out.AffectationRepositoryPort;
 import com.excelisprepas.backend.apprenant.domain.port.out.ApprenantRepositoryPort;
 import com.excelisprepas.backend.centre.domain.port.in.*;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
 import com.excelisprepas.backend.centre.domain.service.CentreService;
-import com.excelisprepas.backend.formation.domain.port.out.FormationRepositoryPort;
 import com.excelisprepas.backend.rattachement.domain.port.out.RattachementCentreRepositoryPort;
-import com.excelisprepas.backend.salle.domain.port.out.SalleRepositoryPort;
+import com.excelisprepas.backend.academie.salle.domain.port.out.SalleRepositoryPort;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,13 +16,12 @@ public class CentreBeanConfiguration {
 
     @Bean
     public CentreService centreService(CentreRepositoryPort centreRepository,
-                                       FormationRepositoryPort formationRepository,
                                        ApprenantRepositoryPort apprenantRepository,
                                        SalleRepositoryPort salleRepository,
                                        AffectationRepositoryPort affectationRepository,
                                        RattachementCentreRepositoryPort rattachementRepository,
                                        SessionAcademiqueRepositoryPort sessionRepository) {
-        return new CentreService(centreRepository, formationRepository, apprenantRepository,
+        return new CentreService(centreRepository, apprenantRepository,
                 salleRepository, affectationRepository, rattachementRepository, sessionRepository);
     }
 

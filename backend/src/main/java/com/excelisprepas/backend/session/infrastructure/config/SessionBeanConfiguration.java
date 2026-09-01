@@ -1,6 +1,6 @@
 package com.excelisprepas.backend.session.infrastructure.config;
 
-import com.excelisprepas.backend.formation.domain.port.out.FormationRepositoryPort;
+import com.excelisprepas.backend.abonnement.domain.port.out.CentreFormationAbonnementRepositoryPort;
 import com.excelisprepas.backend.session.domain.port.in.*;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import com.excelisprepas.backend.session.domain.service.SessionAcademiqueService;
@@ -12,8 +12,8 @@ public class SessionBeanConfiguration {
 
     @Bean
     public SessionAcademiqueService sessionAcademiqueService(SessionAcademiqueRepositoryPort repository,
-                                                             FormationRepositoryPort formationRepository) {
-        return new SessionAcademiqueService(repository, formationRepository);
+                                                             CentreFormationAbonnementRepositoryPort abonnementRepository) {
+        return new SessionAcademiqueService(repository, abonnementRepository);
     }
 
     @Bean

@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @TestPropertySource(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
-@Import({AttributionRoleRepositoryAdapter.class, AttributionRolePersistenceMapperImpl.class})
+@Import({AttributionRoleRepositoryAdapter.class, AttributionRolePersistenceMapper.class})
 @DisplayName("AttributionRoleRepositoryAdapter (test d'intégration)")
 class AttributionRoleRepositoryAdapterTest extends AbstractIntegrationTest {
 

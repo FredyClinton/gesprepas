@@ -1,8 +1,8 @@
 package com.excelisprepas.backend.personnel.infrastructure.config;
 
-import com.excelisprepas.backend.affectation.domain.port.out.AffectationRepositoryPort;
+import com.excelisprepas.backend.academie.affectation.domain.port.out.AffectationRepositoryPort;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
-import com.excelisprepas.backend.departement.domain.port.out.DepartementRepositoryPort;
+import com.excelisprepas.backend.academie.departement.domain.port.out.DepartementRepositoryPort;
 import com.excelisprepas.backend.gelenseignants.domain.port.in.VerifierAutoriseGestionEnseignantsUseCase;
 import com.excelisprepas.backend.personnel.domain.port.in.*;
 import com.excelisprepas.backend.personnel.domain.port.out.EnseignantRepositoryPort;
@@ -10,6 +10,8 @@ import com.excelisprepas.backend.personnel.domain.port.out.PasswordEncoderPort;
 import com.excelisprepas.backend.personnel.domain.port.out.UtilisateurRepositoryPort;
 import com.excelisprepas.backend.personnel.domain.service.EnseignantService;
 import com.excelisprepas.backend.personnel.domain.service.UtilisateurService;
+import com.excelisprepas.backend.academie.affectationdepartementale.domain.port.out.AffectationDepartementaleRepositoryPort;
+import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -79,9 +81,13 @@ public class PersonnelBeanConfiguration {
     @Bean
     public EnseignantService enseignantService(EnseignantRepositoryPort enseignantRepositoryPort,
                                                AffectationRepositoryPort affectationRepositoryPort,
-                                               VerifierAutoriseGestionEnseignantsUseCase verifierAutoriseGestionEnseignantsUseCase) {
+                                               VerifierAutoriseGestionEnseignantsUseCase verifierAutoriseGestionEnseignantsUseCase,
+                                               SessionAcademiqueRepositoryPort sessionAcademiqueRepositoryPort,
+                                               AffectationDepartementaleRepositoryPort affectationDepartementaleRepositoryPort,
+                                               DepartementRepositoryPort departementRepositoryPort) {
         return new EnseignantService(enseignantRepositoryPort, affectationRepositoryPort,
-                verifierAutoriseGestionEnseignantsUseCase);
+                verifierAutoriseGestionEnseignantsUseCase, sessionAcademiqueRepositoryPort,
+                affectationDepartementaleRepositoryPort, departementRepositoryPort);
     }
 
     @Bean
@@ -121,6 +127,11 @@ public class PersonnelBeanConfiguration {
 
     @Bean
     public ReactiverEnseignantUseCase reactiverEnseignantUseCase(EnseignantService enseignantService) {
+        return enseignantService;
+    }
+
+    @Bean
+    public ConsulterAncienneteEnseignantUseCase consulterAncienneteEnseignantUseCase(EnseignantService enseignantService) {
         return enseignantService;
     }
 }

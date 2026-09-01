@@ -1,6 +1,6 @@
 package com.excelisprepas.backend.session.domain.service;
 
-import com.excelisprepas.backend.formation.domain.port.out.FormationRepositoryPort;
+import com.excelisprepas.backend.abonnement.domain.port.out.CentreFormationAbonnementRepositoryPort;
 import com.excelisprepas.backend.session.domain.exception.SessionUtiliseeException;
 import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.model.StatutSession;
@@ -25,14 +25,14 @@ import static org.mockito.Mockito.*;
 class SessionAcademiqueServiceTest {
 
     private SessionAcademiqueRepositoryPort repository;
-    private FormationRepositoryPort formationRepository;
+    private CentreFormationAbonnementRepositoryPort abonnementRepository;
     private SessionAcademiqueService service;
 
     @BeforeEach
     void setUp() {
         repository = mock(SessionAcademiqueRepositoryPort.class);
-        formationRepository = mock(FormationRepositoryPort.class);
-        service = new SessionAcademiqueService(repository, formationRepository);
+        abonnementRepository = mock(CentreFormationAbonnementRepositoryPort.class);
+        service = new SessionAcademiqueService(repository, abonnementRepository);
     }
 
     private SessionAcademique uneSession() {
@@ -129,11 +129,11 @@ class SessionAcademiqueServiceTest {
     class Suppression {
 
         @Test
-        @DisplayName("supprimerSession() supprime si aucune formation ne la référence")
-        void supprimerSessionSansFormationSupprime() {
+        @DisplayName("supprimerSession() supprime si aucun abonnement ne la référence")
+        void supprimerSessionSansAbonnementSupprime() {
             SessionAcademique session = uneSession();
             when(repository.findById(session.getId())).thenReturn(Optional.of(session));
-            when(formationRepository.existsBySessionId(session.getId())).thenReturn(false);
+            when(abonnementRepository.existsBySessionId(session.getId())).thenReturn(false);
 
             service.supprimerSession(session.getId());
 
@@ -141,11 +141,11 @@ class SessionAcademiqueServiceTest {
         }
 
         @Test
-        @DisplayName("supprimerSession() refuse si une formation la référence encore")
-        void supprimerSessionAvecFormationRefuse() {
+        @DisplayName("supprimerSession() refuse si un abonnement la référence encore")
+        void supprimerSessionAvecAbonnementRefuse() {
             SessionAcademique session = uneSession();
             when(repository.findById(session.getId())).thenReturn(Optional.of(session));
-            when(formationRepository.existsBySessionId(session.getId())).thenReturn(true);
+            when(abonnementRepository.existsBySessionId(session.getId())).thenReturn(true);
 
             ThrowingCallable suppression = () -> service.supprimerSession(session.getId());
 

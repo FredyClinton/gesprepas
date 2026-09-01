@@ -24,36 +24,29 @@ import java.util.UUID;
 @RequestMapping("/api/apprenants")
 public class ApprenantController {
 
-    private final InscrireApprenantUseCase inscrireApprenantUseCase;
+    private final CreerApprenantUseCase creerApprenantUseCase;
     private final RecupererApprenantUseCase recupererApprenantUseCase;
     private final ListerApprenantsUseCase listerApprenantsUseCase;
     private final TransfererCentreUseCase transfererCentreUseCase;
-    private final TransfererFormationUseCase transfererFormationUseCase;
-    private final RenegocierContratUseCase renegocierContratUseCase;
     private final SupprimerApprenantUseCase supprimerApprenantUseCase;
 
-    public ApprenantController(InscrireApprenantUseCase inscrireApprenantUseCase,
+    public ApprenantController(CreerApprenantUseCase creerApprenantUseCase,
                                RecupererApprenantUseCase recupererApprenantUseCase,
                                ListerApprenantsUseCase listerApprenantsUseCase,
                                TransfererCentreUseCase transfererCentreUseCase,
-                               TransfererFormationUseCase transfererFormationUseCase,
-                               RenegocierContratUseCase renegocierContratUseCase,
                                SupprimerApprenantUseCase supprimerApprenantUseCase) {
-        this.inscrireApprenantUseCase = inscrireApprenantUseCase;
+        this.creerApprenantUseCase = creerApprenantUseCase;
         this.recupererApprenantUseCase = recupererApprenantUseCase;
         this.listerApprenantsUseCase = listerApprenantsUseCase;
         this.transfererCentreUseCase = transfererCentreUseCase;
-        this.transfererFormationUseCase = transfererFormationUseCase;
-        this.renegocierContratUseCase = renegocierContratUseCase;
         this.supprimerApprenantUseCase = supprimerApprenantUseCase;
     }
 
     private static ApprenantResponse versReponse(Apprenant apprenant) {
         return new ApprenantResponse(
                 apprenant.getId(), apprenant.getNom(), apprenant.getPrenom(), apprenant.getDateNaissance(),
-                apprenant.getDateInscription(), apprenant.getMontantContrat(),
-                apprenant.getDateDefinitionContrat(), apprenant.getCentreId(), apprenant.getSessionId(),
-                apprenant.getFormationId());
+                apprenant.getDateInscription(), apprenant.getCentreId(),
+                apprenant.getContactApprenant(), apprenant.getNomParent(), apprenant.getContactParent());
     }
 
     @Operation(summary = "Inscrire un apprenant",
@@ -65,11 +58,11 @@ public class ApprenantController {
             @ApiResponse(responseCode = "404", description = "Centre, session ou formation introuvable", content = @Content)
     })
     @PostMapping
-    public ResponseEntity<ApprenantResponse> inscrireApprenant(@Valid @RequestBody CreerApprenantRequest request) {
-        Apprenant apprenant = inscrireApprenantUseCase.inscrireApprenant(
+    public ResponseEntity<ApprenantResponse> creerApprenant(@Valid @RequestBody CreerApprenantRequest request) {
+        Apprenant apprenant = creerApprenantUseCase.creerApprenant(
                 request.nom(), request.prenom(), request.dateNaissance(), request.dateInscription(),
-                request.montantContrat(), request.dateDefinitionContrat(), request.centreId(),
-                request.sessionId(), request.formationId());
+                request.centreId(),
+                request.contactApprenant(), request.nomParent(), request.contactParent());
         return ResponseEntity.status(HttpStatus.CREATED).body(versReponse(apprenant));
     }
 
@@ -109,39 +102,6 @@ public class ApprenantController {
             @Parameter(description = "Identifiant de l'apprenant") @PathVariable UUID id,
             @Valid @RequestBody TransfererCentreRequest request) {
         return ResponseEntity.ok(versReponse(transfererCentreUseCase.transfererCentre(id, request.centreId())));
-    }
-
-    @Operation(summary = "Transférer un apprenant vers une autre formation",
-            description = "Change la formation de rattachement de l'apprenant.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Apprenant transféré",
-                    content = @Content(schema = @Schema(implementation = ApprenantResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Apprenant ou formation introuvable", content = @Content)
-    })
-    @PatchMapping("/{id}/transferer-formation")
-    public ResponseEntity<ApprenantResponse> transfererFormation(
-            @Parameter(description = "Identifiant de l'apprenant") @PathVariable UUID id,
-            @Valid @RequestBody TransfererFormationRequest request) {
-        Apprenant apprenant = transfererFormationUseCase.transfererFormation(id, request.formationId());
-        return ResponseEntity.ok(versReponse(apprenant));
-    }
-
-    @Operation(summary = "Renégocier le contrat d'un apprenant",
-            description = "Met à jour le montant du contrat et sa date de définition.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Contrat renégocié",
-                    content = @Content(schema = @Schema(implementation = ApprenantResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Apprenant introuvable", content = @Content)
-    })
-    @PatchMapping("/{id}/renegocier-contrat")
-    public ResponseEntity<ApprenantResponse> renegocierContrat(
-            @Parameter(description = "Identifiant de l'apprenant") @PathVariable UUID id,
-            @Valid @RequestBody RenegocierContratRequest request) {
-        Apprenant apprenant = renegocierContratUseCase.renegocierContrat(
-                id, request.montantContrat(), request.dateDefinitionContrat());
-        return ResponseEntity.ok(versReponse(apprenant));
     }
 
     @Operation(summary = "Supprimer un apprenant", description = "Supprime définitivement un apprenant.")

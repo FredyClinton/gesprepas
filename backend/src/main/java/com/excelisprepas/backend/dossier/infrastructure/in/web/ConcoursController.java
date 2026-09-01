@@ -51,6 +51,7 @@ public class ConcoursController {
 
     private static ConcoursResponse versReponse(Concours concours) {
         return new ConcoursResponse(concours.getId(), concours.getNom(), concours.getSessionId(),
+                concours.getFormationId(), concours.getPhaseId(),
                 concours.getDateLimiteDepot(), concours.getDateLimiteRecevabiliteCentre());
     }
 
@@ -59,7 +60,7 @@ public class ConcoursController {
                 pieceRequise.getMontant(), pieceRequise.isActif());
     }
 
-    @Operation(summary = "Créer un concours", description = "Crée un nouveau concours rattaché à une session, avec ses dates limites.")
+    @Operation(summary = "Créer un concours", description = "Crée un nouveau concours rattaché à une session, formation et phase, avec ses dates limites.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Concours créé",
                     content = @Content(schema = @Schema(implementation = ConcoursResponse.class))),
@@ -70,6 +71,7 @@ public class ConcoursController {
     @PostMapping
     public ResponseEntity<ConcoursResponse> creerConcours(@Valid @RequestBody CreerConcoursRequest request) {
         Concours concours = creerConcoursUseCase.creerConcours(request.nom(), request.sessionId(),
+                request.formationId(), request.phaseId(),
                 request.dateLimiteDepot(), request.dateLimiteRecevabiliteCentre());
         return ResponseEntity.status(HttpStatus.CREATED).body(versReponse(concours));
     }

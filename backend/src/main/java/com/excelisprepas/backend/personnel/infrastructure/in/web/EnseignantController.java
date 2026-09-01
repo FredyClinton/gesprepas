@@ -1,12 +1,10 @@
 package com.excelisprepas.backend.personnel.infrastructure.in.web;
 
 import com.excelisprepas.backend.personnel.domain.model.Enseignant;
+import com.excelisprepas.backend.personnel.domain.model.FicheAncienneteEnseignant;
 import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
 import com.excelisprepas.backend.personnel.domain.port.in.*;
-import com.excelisprepas.backend.personnel.infrastructure.in.web.dto.CreerEnseignantRequest;
-import com.excelisprepas.backend.personnel.infrastructure.in.web.dto.EnseignantResponse;
-import com.excelisprepas.backend.personnel.infrastructure.in.web.dto.ModifierCoutParSeanceRequest;
-import com.excelisprepas.backend.personnel.infrastructure.in.web.dto.RenommerEnseignantRequest;
+import com.excelisprepas.backend.personnel.infrastructure.in.web.dto.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -23,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
-@Tag(name = "Enseignants", description = "Gestion du personnel enseignant : rémunération, suspension et réactivation")
+@Tag(name = "Enseignants", description = "Gestion du personnel enseignant : rémunération, suspension, ancienneté et réactivation")
 @RestController
 @RequestMapping("/api/enseignants")
 public class EnseignantController {
@@ -36,13 +34,17 @@ public class EnseignantController {
     private final SupprimerEnseignantUseCase supprimerEnseignantUseCase;
     private final SuspendreEnseignantUseCase suspendreEnseignantUseCase;
     private final ReactiverEnseignantUseCase reactiverEnseignantUseCase;
+    private final ConsulterAncienneteEnseignantUseCase consulterAncienneteEnseignantUseCase;
 
     public EnseignantController(CreerEnseignantUseCase creerEnseignantUseCase,
                                 RecupererEnseignantUseCase recupererEnseignantUseCase,
                                 ListerEnseignantsUseCase listerEnseignantsUseCase,
                                 RenommerEnseignantUseCase renommerEnseignantUseCase,
                                 ModifierCoutParSeanceUseCase modifierCoutParSeanceUseCase,
-                                SupprimerEnseignantUseCase supprimerEnseignantUseCase, SuspendreEnseignantUseCase suspendreEnseignantUseCase, ReactiverEnseignantUseCase reactiverEnseignantUseCase) {
+                                SupprimerEnseignantUseCase supprimerEnseignantUseCase,
+                                SuspendreEnseignantUseCase suspendreEnseignantUseCase,
+                                ReactiverEnseignantUseCase reactiverEnseignantUseCase,
+                                ConsulterAncienneteEnseignantUseCase consulterAncienneteEnseignantUseCase) {
         this.creerEnseignantUseCase = creerEnseignantUseCase;
         this.recupererEnseignantUseCase = recupererEnseignantUseCase;
         this.listerEnseignantsUseCase = listerEnseignantsUseCase;
@@ -51,12 +53,15 @@ public class EnseignantController {
         this.supprimerEnseignantUseCase = supprimerEnseignantUseCase;
         this.suspendreEnseignantUseCase = suspendreEnseignantUseCase;
         this.reactiverEnseignantUseCase = reactiverEnseignantUseCase;
+        this.consulterAncienneteEnseignantUseCase = consulterAncienneteEnseignantUseCase;
     }
 
     private static EnseignantResponse versReponse(Enseignant enseignant) {
         return new EnseignantResponse(
                 enseignant.getId(), enseignant.getNom(), enseignant.getPrenom(),
-                enseignant.getMatricule(), enseignant.getCoutParSeance(), enseignant.getStatut());
+                enseignant.getMatricule(), enseignant.getCoutParSeance(), enseignant.getStatut(),
+                enseignant.getTelephone(), enseignant.getNumeroCni(), enseignant.getEcoleFonction(),
+                enseignant.getNiveauGrade(), enseignant.getDateRecrutement());
     }
 
     // Placeholder de sécurité : rôle auto-déclaré par le frontend, pas vérifié
@@ -82,7 +87,9 @@ public class EnseignantController {
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @Valid @RequestBody CreerEnseignantRequest request) {
         Enseignant enseignant = creerEnseignantUseCase.creerEnseignant(analyserRole(userRole),
-                request.nom(), request.prenom(), request.matricule(), request.coutParSeance());
+                request.nom(), request.prenom(), request.matricule(), request.coutParSeance(),
+                request.telephone(), request.numeroCni(), request.ecoleFonction(), request.niveauGrade(),
+                request.dateRecrutement());
         return ResponseEntity.status(HttpStatus.CREATED).body(versReponse(enseignant));
     }
 
@@ -184,5 +191,42 @@ public class EnseignantController {
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @Parameter(description = "Identifiant de l'enseignant") @PathVariable UUID id) {
         return ResponseEntity.ok(versReponse(reactiverEnseignantUseCase.reactiverEnseignant(analyserRole(userRole), id)));
+    }
+
+    @Operation(summary = "Consulter l'ancienneté d'un enseignant", description = "Retourne l'ancienneté calculée et l'historique par session.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Fiche d'ancienneté récupérée",
+                    content = @Content(schema = @Schema(implementation = FicheAncienneteResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Enseignant introuvable", content = @Content)
+    })
+    @GetMapping("/{id}/anciennete")
+    public ResponseEntity<FicheAncienneteResponse> consulterAnciennete(
+            @Parameter(description = "Identifiant de l'enseignant") @PathVariable UUID id) {
+        FicheAncienneteEnseignant fiche = consulterAncienneteEnseignantUseCase.consulterAnciennete(id);
+        List<ResumeSessionResponse> sessions = fiche.historiqueSessions().stream()
+                .map(s -> new ResumeSessionResponse(
+                        s.sessionId(),
+                        s.libelleSession(),
+                        s.statutSession(),
+                        s.nomsDepartements(),
+                        s.seancesEffectuees(),
+                        s.seancesTotales(),
+                        s.coutParSeance()
+                ))
+                .toList();
+
+        FicheAncienneteResponse reponse = new FicheAncienneteResponse(
+                fiche.enseignantId(),
+                fiche.nom(),
+                fiche.prenom(),
+                fiche.matricule(),
+                fiche.statut(),
+                fiche.dateRecrutement(),
+                fiche.ancienneteAnnees(),
+                fiche.ancienneteMois(),
+                fiche.nombreSessionsActives(),
+                sessions
+        );
+        return ResponseEntity.ok(reponse);
     }
 }

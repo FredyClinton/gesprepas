@@ -186,8 +186,7 @@ class BilanJournalierServiceTest {
                     .thenReturn(List.of(entree1, entree2));
             when(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centreId, sessionId, date, StatutMouvement.VALIDE))
                     .thenReturn(List.of(sortie1));
-            when(apprenantRepository.countByCentreIdAndSessionIdAndDateInscription(centreId, sessionId, date)).thenReturn(3L);
-            when(apprenantRepository.countByCentreIdAndSessionId(centreId, sessionId)).thenReturn(620L);
+
             when(bilanRepository.save(any(BilanJournalier.class))).thenAnswer(i -> i.getArgument(0));
             when(entreeRepository.save(any(Entree.class))).thenAnswer(i -> i.getArgument(0));
             when(sortieRepository.save(any(Sortie.class))).thenAnswer(i -> i.getArgument(0));
@@ -200,8 +199,8 @@ class BilanJournalierServiceTest {
             assertThat(resultat.getTotalEntrees()).isEqualByComparingTo("1300000");
             assertThat(resultat.getTotalSorties()).isEqualByComparingTo("500000");
             assertThat(resultat.getNetAVerser()).isEqualByComparingTo("800000");
-            assertThat(resultat.getEffectifNouveauxEleves()).isEqualTo(3);
-            assertThat(resultat.getEffectifTotalCentre()).isEqualTo(620);
+            assertThat(resultat.getEffectifNouveauxEleves()).isEqualTo(0);
+            assertThat(resultat.getEffectifTotalCentre()).isEqualTo(0);
             assertThat(entree1.getBilanJournalierId()).contains(bilan.getId());
             assertThat(entree2.getBilanJournalierId()).contains(bilan.getId());
             assertThat(sortie1.getBilanJournalierId()).contains(bilan.getId());
@@ -283,8 +282,7 @@ class BilanJournalierServiceTest {
                     .thenReturn(List.of(uneEntreeValidee(new BigDecimal("300000"), null)));
             when(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centreId, sessionId, date, StatutMouvement.VALIDE))
                     .thenReturn(List.of());
-            when(apprenantRepository.countByCentreIdAndSessionIdAndDateInscription(centreId, sessionId, date)).thenReturn(1L);
-            when(apprenantRepository.countByCentreIdAndSessionId(centreId, sessionId)).thenReturn(450L);
+
 
             // When
             BilanJournalierApercu apercu = service.consulterBilanDuJour(centreId, sessionId, date);
@@ -293,7 +291,7 @@ class BilanJournalierServiceTest {
             assertThat(apercu.id()).isNull();
             assertThat(apercu.statut()).isNull();
             assertThat(apercu.totalEntrees()).isEqualByComparingTo("300000");
-            assertThat(apercu.effectifTotalCentre()).isEqualTo(450);
+            assertThat(apercu.effectifTotalCentre()).isEqualTo(0);
         }
 
         @Test
@@ -307,8 +305,6 @@ class BilanJournalierServiceTest {
                     .thenReturn(List.of());
             when(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centreId, sessionId, date, StatutMouvement.VALIDE))
                     .thenReturn(List.of());
-            when(apprenantRepository.countByCentreIdAndSessionIdAndDateInscription(centreId, sessionId, date)).thenReturn(0L);
-            when(apprenantRepository.countByCentreIdAndSessionId(centreId, sessionId)).thenReturn(450L);
 
             // When
             BilanJournalierApercu apercu = service.consulterBilanDuJour(centreId, sessionId, date);

@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @TestPropertySource(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
-@Import({UtilisateurRepositoryAdapter.class, UtilisateurPersistenceMapperImpl.class})
+@Import({UtilisateurRepositoryAdapter.class, UtilisateurPersistenceMapper.class})
 @DisplayName("UtilisateurRepositoryAdapter (test d'intégration avec vraie base PostgreSQL)")
 class UtilisateurRepositoryAdapterTest extends AbstractIntegrationTest {
 

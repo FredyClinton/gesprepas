@@ -4,5 +4,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.UUID;
 
-public record OuvrirDossierRequest(@NotNull(message = "L'apprenant est obligatoire") UUID apprenantId) {
-}
+public record OuvrirDossierRequest(
+        @NotNull(message = "L'apprenant est obligatoire") UUID apprenantId,
+        @NotNull(message = "La session est obligatoire") UUID sessionId
+) {}

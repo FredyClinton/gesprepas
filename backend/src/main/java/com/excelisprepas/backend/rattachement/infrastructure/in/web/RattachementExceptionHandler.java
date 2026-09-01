@@ -1,83 +1,79 @@
 package com.excelisprepas.backend.rattachement.infrastructure.in.web;
 
 import com.excelisprepas.backend.shared.exception.*;
+import com.excelisprepas.backend.shared.infrastructure.in.web.dto.ApiErrorResponse;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.time.Instant;
-import java.util.Map;
+
 
 @RestControllerAdvice
 public class RattachementExceptionHandler {
 
     @ExceptionHandler(UtilisateurIntrouvableException.class)
-    public ResponseEntity<Map<String, Object>> gererUtilisateurIntrouvable(UtilisateurIntrouvableException ex) {
+    public ResponseEntity<ApiErrorResponse> gererUtilisateurIntrouvable(UtilisateurIntrouvableException ex) {
         return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
     @ExceptionHandler(CentreIntrouvableException.class)
-    public ResponseEntity<Map<String, Object>> gererCentreIntrouvable(CentreIntrouvableException ex) {
+    public ResponseEntity<ApiErrorResponse> gererCentreIntrouvable(CentreIntrouvableException ex) {
         return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
     @ExceptionHandler(SessionIntrouvableException.class)
-    public ResponseEntity<Map<String, Object>> gererSessionIntrouvable(SessionIntrouvableException ex) {
+    public ResponseEntity<ApiErrorResponse> gererSessionIntrouvable(SessionIntrouvableException ex) {
         return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
     @ExceptionHandler(RattachementIntrouvableException.class)
-    public ResponseEntity<Map<String, Object>> gererRattachementIntrouvable(RattachementIntrouvableException ex) {
+    public ResponseEntity<ApiErrorResponse> gererRattachementIntrouvable(RattachementIntrouvableException ex) {
         return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
     @ExceptionHandler(AttributionRoleIntrouvableException.class)
-    public ResponseEntity<Map<String, Object>> gererAttributionIntrouvable(AttributionRoleIntrouvableException ex) {
+    public ResponseEntity<ApiErrorResponse> gererAttributionIntrouvable(AttributionRoleIntrouvableException ex) {
         return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
     @ExceptionHandler(SessionNonUtilisableException.class)
-    public ResponseEntity<Map<String, Object>> gererSessionNonUtilisable(SessionNonUtilisableException ex) {
+    public ResponseEntity<ApiErrorResponse> gererSessionNonUtilisable(SessionNonUtilisableException ex) {
         return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler(CentreNonParticipantSessionException.class)
-    public ResponseEntity<Map<String, Object>> gererCentreNonParticipant(CentreNonParticipantSessionException ex) {
+    public ResponseEntity<ApiErrorResponse> gererCentreNonParticipant(CentreNonParticipantSessionException ex) {
         return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler(RattachementDejaExistantException.class)
-    public ResponseEntity<Map<String, Object>> gererRattachementDejaExistant(RattachementDejaExistantException ex) {
+    public ResponseEntity<ApiErrorResponse> gererRattachementDejaExistant(RattachementDejaExistantException ex) {
         return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler(RoleNonCentreScopeException.class)
-    public ResponseEntity<Map<String, Object>> gererRoleNonCentreScope(RoleNonCentreScopeException ex) {
+    public ResponseEntity<ApiErrorResponse> gererRoleNonCentreScope(RoleNonCentreScopeException ex) {
         return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler(RattachementRequisException.class)
-    public ResponseEntity<Map<String, Object>> gererRattachementRequis(RattachementRequisException ex) {
+    public ResponseEntity<ApiErrorResponse> gererRattachementRequis(RattachementRequisException ex) {
         return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler(RoleDejaAttribueException.class)
-    public ResponseEntity<Map<String, Object>> gererRoleDejaAttribue(RoleDejaAttribueException ex) {
+    public ResponseEntity<ApiErrorResponse> gererRoleDejaAttribue(RoleDejaAttribueException ex) {
         return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, Object>> gererArgumentInvalide(IllegalArgumentException ex) {
+    public ResponseEntity<ApiErrorResponse> gererArgumentInvalide(IllegalArgumentException ex) {
         return construireReponse(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
-    private ResponseEntity<Map<String, Object>> construireReponse(HttpStatus statut, String message) {
-        return ResponseEntity.status(statut).body(Map.of(
-                "timestamp", Instant.now().toString(),
-                "status", statut.value(),
-                "error", statut.getReasonPhrase(),
-                "message", message
-        ));
+    private ResponseEntity<ApiErrorResponse> construireReponse(HttpStatus statut, String message) {
+        return ResponseEntity.status(statut).body(new ApiErrorResponse(statut.value(), statut.getReasonPhrase(), message));
     }
 }

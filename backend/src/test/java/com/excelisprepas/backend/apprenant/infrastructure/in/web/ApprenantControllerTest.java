@@ -4,8 +4,6 @@ import com.excelisprepas.backend.apprenant.domain.model.Apprenant;
 import com.excelisprepas.backend.apprenant.domain.port.in.*;
 import com.excelisprepas.backend.shared.exception.ApprenantIntrouvableException;
 import com.excelisprepas.backend.shared.exception.CentreIntrouvableException;
-import com.excelisprepas.backend.shared.exception.FormationSessionIncoherenteException;
-import com.excelisprepas.backend.shared.exception.SessionNonUtilisableException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,7 +11,6 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -29,24 +26,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ApprenantControllerTest {
 
     private static final UUID CENTRE_ID = UUID.randomUUID();
-    private static final UUID SESSION_ID = UUID.randomUUID();
-    private static final UUID FORMATION_ID = UUID.randomUUID();
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
-    private InscrireApprenantUseCase inscrireApprenantUseCase;
+    private CreerApprenantUseCase creerApprenantUseCase;
     @MockitoBean
     private RecupererApprenantUseCase recupererApprenantUseCase;
     @MockitoBean
     private ListerApprenantsUseCase listerApprenantsUseCase;
     @MockitoBean
     private TransfererCentreUseCase transfererCentreUseCase;
-    @MockitoBean
-    private TransfererFormationUseCase transfererFormationUseCase;
-    @MockitoBean
-    private RenegocierContratUseCase renegocierContratUseCase;
     @MockitoBean
     private SupprimerApprenantUseCase supprimerApprenantUseCase;
 
@@ -57,26 +48,22 @@ class ApprenantControllerTest {
                     "prenom": "Sophie",
                     "dateNaissance": "2005-03-12",
                     "dateInscription": "2026-09-01",
-                    "montantContrat": 450000,
-                    "dateDefinitionContrat": "2026-09-01",
-                    "centreId": "%s",
-                    "sessionId": "%s",
-                    "formationId": "%s"
+                    "centreId": "%s"
                 }
-                """.formatted(CENTRE_ID, SESSION_ID, FORMATION_ID);
+                """.formatted(CENTRE_ID);
     }
 
     private Apprenant unApprenant() {
         return new Apprenant(UUID.randomUUID(), "Mballa", "Sophie",
                 LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
-                new BigDecimal("450000"), LocalDate.of(2026, 9, 1), CENTRE_ID, SESSION_ID, FORMATION_ID);
+                CENTRE_ID, null, null, null);
     }
 
     @Test
     @DisplayName("POST /api/apprenants avec des données valides retourne 201")
-    void inscrireApprenant_donneesValides_retourne201() throws Exception {
-        when(inscrireApprenantUseCase.inscrireApprenant(
-                any(), any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(unApprenant());
+    void creerApprenant_donneesValides_retourne201() throws Exception {
+        when(creerApprenantUseCase.creerApprenant(
+                any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(unApprenant());
 
         mockMvc.perform(post("/api/apprenants")
                         .contentType("application/json")
@@ -87,41 +74,15 @@ class ApprenantControllerTest {
 
     @Test
     @DisplayName("POST /api/apprenants avec un centre inexistant retourne 404")
-    void inscrireApprenant_centreInexistant_retourne404() throws Exception {
-        when(inscrireApprenantUseCase.inscrireApprenant(
-                any(), any(), any(), any(), any(), any(), any(), any(), any()))
+    void creerApprenant_centreInexistant_retourne404() throws Exception {
+        when(creerApprenantUseCase.creerApprenant(
+                any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenThrow(new CentreIntrouvableException(CENTRE_ID));
 
         mockMvc.perform(post("/api/apprenants")
                         .contentType("application/json")
                         .content(jsonRequest()))
                 .andExpect(status().isNotFound());
-    }
-
-    @Test
-    @DisplayName("POST /api/apprenants avec une session clôturée retourne 409")
-    void inscrireApprenant_sessionCloturee_retourne409() throws Exception {
-        when(inscrireApprenantUseCase.inscrireApprenant(
-                any(), any(), any(), any(), any(), any(), any(), any(), any()))
-                .thenThrow(new SessionNonUtilisableException(SESSION_ID));
-
-        mockMvc.perform(post("/api/apprenants")
-                        .contentType("application/json")
-                        .content(jsonRequest()))
-                .andExpect(status().isConflict());
-    }
-
-    @Test
-    @DisplayName("POST /api/apprenants avec une session incohérente avec la formation retourne 409")
-    void inscrireApprenant_sessionIncoherente_retourne409() throws Exception {
-        when(inscrireApprenantUseCase.inscrireApprenant(
-                any(), any(), any(), any(), any(), any(), any(), any(), any()))
-                .thenThrow(new FormationSessionIncoherenteException(FORMATION_ID, SESSION_ID));
-
-        mockMvc.perform(post("/api/apprenants")
-                        .contentType("application/json")
-                        .content(jsonRequest()))
-                .andExpect(status().isConflict());
     }
 
     @Test
@@ -161,7 +122,7 @@ class ApprenantControllerTest {
         UUID nouveauCentreId = UUID.randomUUID();
         Apprenant apprenant = new Apprenant(UUID.randomUUID(), "Mballa", "Sophie",
                 LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
-                new BigDecimal("450000"), LocalDate.of(2026, 9, 1), nouveauCentreId, SESSION_ID, FORMATION_ID);
+                nouveauCentreId, null, null, null);
         when(transfererCentreUseCase.transfererCentre(any(UUID.class), any(UUID.class))).thenReturn(apprenant);
 
         mockMvc.perform(patch("/api/apprenants/" + apprenant.getId() + "/transferer-centre")
@@ -173,77 +134,6 @@ class ApprenantControllerTest {
                                 """.formatted(nouveauCentreId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.centreId").value(nouveauCentreId.toString()));
-    }
-
-    @Test
-    @DisplayName("PATCH /api/apprenants/{id}/transferer-formation retourne 200")
-    void transfererFormation_retourne200() throws Exception {
-        UUID nouvelleFormationId = UUID.randomUUID();
-        Apprenant apprenant = new Apprenant(UUID.randomUUID(), "Mballa", "Sophie",
-                LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
-                new BigDecimal("450000"), LocalDate.of(2026, 9, 1), CENTRE_ID, SESSION_ID, nouvelleFormationId);
-        when(transfererFormationUseCase.transfererFormation(any(UUID.class), any(UUID.class))).thenReturn(apprenant);
-
-        mockMvc.perform(patch("/api/apprenants/" + apprenant.getId() + "/transferer-formation")
-                        .contentType("application/json")
-                        .content("""
-                                {
-                                    "formationId": "%s"
-                                }
-                                """.formatted(nouvelleFormationId)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.formationId").value(nouvelleFormationId.toString()));
-    }
-
-    @Test
-    @DisplayName("PATCH /api/apprenants/{id}/transferer-formation avec formation d'une autre session retourne 409")
-    void transfererFormation_sessionIncoherente_retourne409() throws Exception {
-        UUID id = UUID.randomUUID();
-        UUID nouvelleFormationId = UUID.randomUUID();
-        when(transfererFormationUseCase.transfererFormation(any(UUID.class), any(UUID.class)))
-                .thenThrow(new FormationSessionIncoherenteException(nouvelleFormationId, SESSION_ID));
-
-        mockMvc.perform(patch("/api/apprenants/" + id + "/transferer-formation")
-                        .contentType("application/json")
-                        .content("""
-                                {
-                                    "formationId": "%s"
-                                }
-                                """.formatted(nouvelleFormationId)))
-                .andExpect(status().isConflict());
-    }
-
-    @Test
-    @DisplayName("PATCH /api/apprenants/{id}/renegocier-contrat retourne 200")
-    void renegocierContrat_retourne200() throws Exception {
-        Apprenant apprenant = unApprenant();
-        apprenant.renegocierContrat(new BigDecimal("500000"), LocalDate.of(2027, 1, 15));
-        when(renegocierContratUseCase.renegocierContrat(any(UUID.class), any(), any())).thenReturn(apprenant);
-
-        mockMvc.perform(patch("/api/apprenants/" + apprenant.getId() + "/renegocier-contrat")
-                        .contentType("application/json")
-                        .content("""
-                                {
-                                    "montantContrat": 500000,
-                                    "dateDefinitionContrat": "2027-01-15"
-                                }
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.montantContrat").value(500000));
-    }
-
-    @Test
-    @DisplayName("PATCH /api/apprenants/{id}/renegocier-contrat avec montant négatif retourne 400")
-    void renegocierContrat_montantNegatif_retourne400() throws Exception {
-        mockMvc.perform(patch("/api/apprenants/" + UUID.randomUUID() + "/renegocier-contrat")
-                        .contentType("application/json")
-                        .content("""
-                                {
-                                    "montantContrat": -100,
-                                    "dateDefinitionContrat": "2027-01-15"
-                                }
-                                """))
-                .andExpect(status().isBadRequest());
     }
 
     @Test

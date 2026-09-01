@@ -31,6 +31,17 @@ class EnseignantTest {
             assertThat(enseignant.getMatricule()).isEqualTo("MAT-001");
             assertThat(enseignant.getCoutParSeance()).isEqualByComparingTo("5000");
             assertThat(enseignant.getModeCalculPaie()).isEqualTo(ModeCalculPaie.PAR_SEANCE);
+            assertThat(enseignant.getDateRecrutement()).isEqualTo(java.time.LocalDate.now());
+        }
+
+        @Test
+        @DisplayName("crée un enseignant avec une date de recrutement spécifique")
+        void creeUnEnseignantAvecDateRecrutement() {
+            java.time.LocalDate date = java.time.LocalDate.of(2022, 9, 1);
+            Enseignant enseignant = new Enseignant(
+                    unId(), "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"), date);
+
+            assertThat(enseignant.getDateRecrutement()).isEqualTo(date);
         }
 
         @Test
@@ -257,7 +268,7 @@ class EnseignantTest {
             UUID id = unId();
 
             Enseignant enseignant = Enseignant.reconstituer(
-                    id, "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"), StatutEnseignant.SUSPENDU);
+                    id, "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"), StatutEnseignant.SUSPENDU, null, null, null, null);
 
             assertThat(enseignant.getId()).isEqualTo(id);
             assertThat(enseignant.getStatut()).isEqualTo(StatutEnseignant.SUSPENDU);
@@ -267,7 +278,7 @@ class EnseignantTest {
         @DisplayName("reconstituer() rejette un statut nul")
         void reconstituerRejetteStatutNul() {
             assertThatThrownBy(() -> Enseignant.reconstituer(
-                    unId(), "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"), null))
+                    unId(), "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"), null, null, null, null, null))
                     .isInstanceOf(NullPointerException.class);
         }
     }

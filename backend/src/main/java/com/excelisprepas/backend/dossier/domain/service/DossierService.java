@@ -44,7 +44,7 @@ public class DossierService implements OuvrirDossierUseCase, RecupererDossierUse
     }
 
     @Override
-    public Dossier ouvrirDossier(UUID apprenantId) {
+    public Dossier ouvrirDossier(UUID apprenantId, UUID sessionId) {
         Apprenant apprenant = apprenantRepository.findById(apprenantId)
                 .orElseThrow(() -> new ApprenantIntrouvableException(apprenantId));
         if (dossierRepository.existsByApprenantId(apprenantId)) {
@@ -53,7 +53,7 @@ public class DossierService implements OuvrirDossierUseCase, RecupererDossierUse
         }
 
         Dossier dossier = new Dossier(UUID.randomUUID(), apprenantId, apprenant.getCentreId(),
-                apprenant.getSessionId(), LocalDate.now());
+                sessionId, LocalDate.now());
         dossier = dossierRepository.save(dossier);
         log.info("Dossier ouvert : id={}, apprenantId={}", dossier.getId(), apprenantId);
         return dossier;

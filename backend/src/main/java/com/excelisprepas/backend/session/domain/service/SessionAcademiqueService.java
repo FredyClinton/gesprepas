@@ -1,6 +1,6 @@
 package com.excelisprepas.backend.session.domain.service;
 
-import com.excelisprepas.backend.formation.domain.port.out.FormationRepositoryPort;
+import com.excelisprepas.backend.abonnement.domain.port.out.CentreFormationAbonnementRepositoryPort;
 import com.excelisprepas.backend.session.domain.exception.SessionUtiliseeException;
 import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.port.in.*;
@@ -17,12 +17,12 @@ public class SessionAcademiqueService implements CreerSessionAcademiqueUseCase, 
         ListerSessionsUseCase, DemarrerSessionUseCase, CloturerSessionUseCase, SupprimerSessionUseCase {
 
     private final SessionAcademiqueRepositoryPort repository;
-    private final FormationRepositoryPort formationRepository;
+    private final CentreFormationAbonnementRepositoryPort abonnementRepository;
 
     public SessionAcademiqueService(SessionAcademiqueRepositoryPort repository,
-                                    FormationRepositoryPort formationRepository) {
+                                    CentreFormationAbonnementRepositoryPort abonnementRepository) {
         this.repository = repository;
-        this.formationRepository = formationRepository;
+        this.abonnementRepository = abonnementRepository;
     }
 
     @Override
@@ -66,8 +66,8 @@ public class SessionAcademiqueService implements CreerSessionAcademiqueUseCase, 
     public void supprimerSession(UUID id) {
         recupererSession(id); // vérifie l'existence
 
-        if (formationRepository.existsBySessionId(id)) {
-            log.warn("Suppression de session refusée : id={} encore utilisée par des formations", id);
+        if (abonnementRepository.existsBySessionId(id)) {
+            log.warn("Suppression de session refusée : id={} encore utilisée par des abonnements", id);
             throw new SessionUtiliseeException(id);
         }
 

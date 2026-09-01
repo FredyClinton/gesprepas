@@ -47,6 +47,8 @@ class EnseignantControllerTest {
     private ReactiverEnseignantUseCase reactiverEnseignantUseCase;
     @MockitoBean
     private SupprimerEnseignantUseCase supprimerEnseignantUseCase;
+    @MockitoBean
+    private ConsulterAncienneteEnseignantUseCase consulterAncienneteEnseignantUseCase;
 
     private Enseignant unEnseignant() {
         return new Enseignant(UUID.randomUUID(), "Ossegue", "Jean", "MAT-001", new BigDecimal("5000"));
@@ -55,7 +57,7 @@ class EnseignantControllerTest {
     @Test
     @DisplayName("POST /api/enseignants avec des données valides retourne 201")
     void creerEnseignant_donneesValides_retourne201() throws Exception {
-        when(creerEnseignantUseCase.creerEnseignant(any(), anyString(), anyString(), anyString(), any()))
+        when(creerEnseignantUseCase.creerEnseignant(any(), anyString(), anyString(), anyString(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(unEnseignant());
 
         mockMvc.perform(post("/api/enseignants")
@@ -91,7 +93,7 @@ class EnseignantControllerTest {
     @Test
     @DisplayName("POST /api/enseignants avec un matricule déjà pris retourne 409")
     void creerEnseignant_matriculeDejaPris_retourne409() throws Exception {
-        when(creerEnseignantUseCase.creerEnseignant(any(), anyString(), anyString(), anyString(), any()))
+        when(creerEnseignantUseCase.creerEnseignant(any(), anyString(), anyString(), anyString(), any(), any(), any(), any(), any(), any()))
                 .thenThrow(new MatriculeDejaUtiliseException("MAT-001"));
 
         mockMvc.perform(post("/api/enseignants")
@@ -252,5 +254,35 @@ class EnseignantControllerTest {
 
         mockMvc.perform(delete("/api/enseignants/" + id))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("GET /api/enseignants/{id}/anciennete retourne la fiche d'ancienneté")
+    void consulterAnciennete_retourne200() throws Exception {
+        UUID id = UUID.randomUUID();
+        com.excelisprepas.backend.personnel.domain.model.FicheAncienneteEnseignant fiche =
+                new com.excelisprepas.backend.personnel.domain.model.FicheAncienneteEnseignant(
+                        id, "Ossegue", "Jean", "MAT-001",
+                        com.excelisprepas.backend.personnel.domain.model.StatutEnseignant.ACTIF,
+                        java.time.LocalDate.of(2023, 9, 1), 2, 5, 3,
+                        List.of(new com.excelisprepas.backend.personnel.domain.model.ResumeSessionEnseignant(
+                                UUID.randomUUID(), "2024-2025",
+                                com.excelisprepas.backend.session.domain.model.StatutSession.CLOTUREE,
+                                List.of("Mathématiques"), 10, 12, new BigDecimal("5000")
+                        ))
+                );
+
+        when(consulterAncienneteEnseignantUseCase.consulterAnciennete(id)).thenReturn(fiche);
+
+        mockMvc.perform(get("/api/enseignants/" + id + "/anciennete"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enseignantId").value(id.toString()))
+                .andExpect(jsonPath("$.nom").value("Ossegue"))
+                .andExpect(jsonPath("$.ancienneteAnnees").value(2))
+                .andExpect(jsonPath("$.ancienneteMois").value(5))
+                .andExpect(jsonPath("$.nombreSessionsActives").value(3))
+                .andExpect(jsonPath("$.historiqueSessions.length()").value(1))
+                .andExpect(jsonPath("$.historiqueSessions[0].libelleSession").value("2024-2025"))
+                .andExpect(jsonPath("$.historiqueSessions[0].seancesEffectuees").value(10));
     }
 }

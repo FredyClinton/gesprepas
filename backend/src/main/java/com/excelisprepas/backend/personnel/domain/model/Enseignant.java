@@ -2,33 +2,53 @@ package com.excelisprepas.backend.personnel.domain.model;
 
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Objects;
 import java.util.UUID;
 
 /**
  * Un Enseignant : membre du Personnel payé au coût par séance
- * (sauf évolution future), identifié par un matricule.
+ * (sauf évolution future), identifié par un matricule et rattaché
+ * par une date de recrutement pérenne.
  */
 public class Enseignant extends Personnel {
 
     private final String matricule;
     private BigDecimal coutParSeance;
     private StatutEnseignant statut;
+    private String telephone;
+    private String numeroCni;
+    private String ecoleFonction;
+    private String niveauGrade;
+    private LocalDate dateRecrutement;
 
     public Enseignant(UUID id, String nom, String prenom,
                       String matricule, BigDecimal coutParSeance) {
+        this(id, nom, prenom, matricule, coutParSeance, LocalDate.now());
+    }
+
+    public Enseignant(UUID id, String nom, String prenom,
+                      String matricule, BigDecimal coutParSeance, LocalDate dateRecrutement) {
         super(id, nom, prenom, ModeCalculPaie.PAR_SEANCE);
         this.matricule = validerMatricule(matricule);
         this.coutParSeance = validerCout(coutParSeance);
         this.statut = StatutEnseignant.ACTIF;
+        this.dateRecrutement = dateRecrutement != null ? dateRecrutement : LocalDate.now();
     }
 
     private Enseignant(UUID id, String nom, String prenom, String matricule,
-                       BigDecimal coutParSeance, StatutEnseignant statut) {
+                       BigDecimal coutParSeance, StatutEnseignant statut,
+                       String telephone, String numeroCni, String ecoleFonction, String niveauGrade,
+                       LocalDate dateRecrutement) {
         super(id, nom, prenom, ModeCalculPaie.PAR_SEANCE);
         this.matricule = matricule;
         this.coutParSeance = coutParSeance;
         this.statut = statut;
+        this.telephone = telephone;
+        this.numeroCni = numeroCni;
+        this.ecoleFonction = ecoleFonction;
+        this.niveauGrade = niveauGrade;
+        this.dateRecrutement = dateRecrutement != null ? dateRecrutement : LocalDate.now();
     }
 
     /**
@@ -37,9 +57,17 @@ public class Enseignant extends Personnel {
      * un nouvel Enseignant (utiliser le constructeur public pour ça).
      */
     public static Enseignant reconstituer(UUID id, String nom, String prenom, String matricule,
-                                          BigDecimal coutParSeance, StatutEnseignant statut) {
+                                          BigDecimal coutParSeance, StatutEnseignant statut,
+                                          String telephone, String numeroCni, String ecoleFonction, String niveauGrade) {
+        return reconstituer(id, nom, prenom, matricule, coutParSeance, statut, telephone, numeroCni, ecoleFonction, niveauGrade, LocalDate.now());
+    }
+
+    public static Enseignant reconstituer(UUID id, String nom, String prenom, String matricule,
+                                          BigDecimal coutParSeance, StatutEnseignant statut,
+                                          String telephone, String numeroCni, String ecoleFonction, String niveauGrade,
+                                          LocalDate dateRecrutement) {
         Objects.requireNonNull(statut, "statut ne peut pas être nul");
-        return new Enseignant(id, nom, prenom, matricule, coutParSeance, statut);
+        return new Enseignant(id, nom, prenom, matricule, coutParSeance, statut, telephone, numeroCni, ecoleFonction, niveauGrade, dateRecrutement);
     }
 
     private static String validerMatricule(String matricule) {
@@ -85,5 +113,45 @@ public class Enseignant extends Personnel {
 
     public StatutEnseignant getStatut() {
         return statut;
+    }
+
+    public String getTelephone() {
+        return telephone;
+    }
+
+    public void setTelephone(String telephone) {
+        this.telephone = telephone;
+    }
+
+    public String getNumeroCni() {
+        return numeroCni;
+    }
+
+    public void setNumeroCni(String numeroCni) {
+        this.numeroCni = numeroCni;
+    }
+
+    public String getEcoleFonction() {
+        return ecoleFonction;
+    }
+
+    public void setEcoleFonction(String ecoleFonction) {
+        this.ecoleFonction = ecoleFonction;
+    }
+
+    public String getNiveauGrade() {
+        return niveauGrade;
+    }
+
+    public void setNiveauGrade(String niveauGrade) {
+        this.niveauGrade = niveauGrade;
+    }
+
+    public LocalDate getDateRecrutement() {
+        return dateRecrutement;
+    }
+
+    public void setDateRecrutement(LocalDate dateRecrutement) {
+        this.dateRecrutement = dateRecrutement != null ? dateRecrutement : LocalDate.now();
     }
 }

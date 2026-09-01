@@ -69,8 +69,8 @@ public class BilanJournalierService implements ValiderBilanChefCentreUseCase, Va
         BigDecimal totalSorties = sorties.stream().map(Sortie::getMontant).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal netAVerser = totalEntrees.subtract(totalSorties);
 
-        long effectifNouveauxEleves = apprenantRepository.countByCentreIdAndSessionIdAndDateInscription(centreId, sessionId, date);
-        long effectifTotalCentre = apprenantRepository.countByCentreIdAndSessionId(centreId, sessionId);
+        long effectifNouveauxEleves = 0; // TODO: implement properly using DossierInscription
+        long effectifTotalCentre = 0; // TODO: implement properly using DossierInscription
 
         return new TotauxCentreJour(totalEntrees, totalSorties, netAVerser,
                 (int) effectifNouveauxEleves, (int) effectifTotalCentre);

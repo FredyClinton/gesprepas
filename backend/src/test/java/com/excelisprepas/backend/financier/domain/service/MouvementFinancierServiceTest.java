@@ -45,6 +45,7 @@ class MouvementFinancierServiceTest {
     private SessionAcademiqueRepositoryPort sessionRepository;
     private MouvementFinancierService service;
     private MouvementFinancierRepositoryPort mouvementRepository;
+    private com.excelisprepas.backend.inscription.domain.port.out.DossierInscriptionRepositoryPort dossierInscriptionRepository;
 
     @BeforeEach
     void setUp() {
@@ -55,8 +56,9 @@ class MouvementFinancierServiceTest {
         apprenantRepository = mock(ApprenantRepositoryPort.class);
         sessionRepository = mock(SessionAcademiqueRepositoryPort.class);
         mouvementRepository = mock(MouvementFinancierRepositoryPort.class);
+        dossierInscriptionRepository = mock(com.excelisprepas.backend.inscription.domain.port.out.DossierInscriptionRepositoryPort.class);
         service = new MouvementFinancierService(entreeRepository, sortieRepository, motifRepository,
-                centreRepository, apprenantRepository, sessionRepository, mouvementRepository);
+                centreRepository, apprenantRepository, sessionRepository, mouvementRepository, dossierInscriptionRepository);
     }
 
     private Motif unMotifEntree() {
@@ -110,7 +112,12 @@ class MouvementFinancierServiceTest {
                     new Centre(centreId, "Centre NIL", "Adresse", "Yaoundé")));
             when(apprenantRepository.findById(apprenantId)).thenReturn(Optional.of(
                     new Apprenant(apprenantId, "Essomba", "Paul", LocalDate.of(2005, 1, 1), date,
-                            new BigDecimal("50000"), date, centreId, sessionId, formationId)));
+                            centreId, null, null, null)));
+            when(dossierInscriptionRepository.findByApprenantIdAndSessionId(apprenantId, sessionId)).thenReturn(List.of(
+                    new com.excelisprepas.backend.inscription.domain.model.DossierInscription(
+                            UUID.randomUUID(), apprenantId, sessionId, centreId, BigDecimal.ZERO, date,
+                            false, null, List.of(UUID.randomUUID()), List.of(formationId), List.of())
+            ));
             when(entreeRepository.save(any(Entree.class))).thenAnswer(i -> i.getArgument(0));
 
             // When
@@ -399,7 +406,7 @@ class MouvementFinancierServiceTest {
             UUID apprenantId = UUID.randomUUID();
             when(apprenantRepository.findById(apprenantId)).thenReturn(Optional.of(
                     new Apprenant(apprenantId, "Essomba", "Paul", LocalDate.of(2005, 1, 1), date,
-                            new BigDecimal("50000"), date, centreId, sessionId, UUID.randomUUID())));
+                            centreId, null, null, null)));
             List<Entree> versements = List.of(
                     new Entree(UUID.randomUUID(), sessionId, UUID.randomUUID(), new BigDecimal("20000"),
                             date, saisiParUtilisateurId, centreId, apprenantId, null, null),

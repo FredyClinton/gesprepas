@@ -4,8 +4,6 @@ import com.excelisprepas.backend.apprenant.domain.port.in.*;
 import com.excelisprepas.backend.apprenant.domain.port.out.ApprenantRepositoryPort;
 import com.excelisprepas.backend.apprenant.domain.service.ApprenantService;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
-import com.excelisprepas.backend.formation.domain.port.out.FormationRepositoryPort;
-import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,14 +12,12 @@ public class ApprenantBeanConfiguration {
 
     @Bean
     public ApprenantService apprenantService(ApprenantRepositoryPort apprenantRepository,
-                                             CentreRepositoryPort centreRepository,
-                                             FormationRepositoryPort formationRepository,
-                                             SessionAcademiqueRepositoryPort sessionRepository) {
-        return new ApprenantService(apprenantRepository, centreRepository, formationRepository, sessionRepository);
+                                             CentreRepositoryPort centreRepository) {
+        return new ApprenantService(apprenantRepository, centreRepository);
     }
 
     @Bean
-    public InscrireApprenantUseCase inscrireApprenantUseCase(ApprenantService apprenantService) {
+    public CreerApprenantUseCase creerApprenantUseCase(ApprenantService apprenantService) {
         return apprenantService;
     }
 
@@ -37,16 +33,6 @@ public class ApprenantBeanConfiguration {
 
     @Bean
     public TransfererCentreUseCase transfererCentreUseCase(ApprenantService apprenantService) {
-        return apprenantService;
-    }
-
-    @Bean
-    public TransfererFormationUseCase transfererFormationUseCase(ApprenantService apprenantService) {
-        return apprenantService;
-    }
-
-    @Bean
-    public RenegocierContratUseCase renegocierContratUseCase(ApprenantService apprenantService) {
         return apprenantService;
     }
 

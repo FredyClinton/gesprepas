@@ -2,7 +2,7 @@ package com.excelisprepas.backend.apprenant.domain.port.out;
 
 import com.excelisprepas.backend.apprenant.domain.model.Apprenant;
 
-import java.time.LocalDate;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,10 +17,4 @@ public interface ApprenantRepositoryPort {
     void deleteById(UUID id);
 
     boolean existsByCentreId(UUID centreId);
-
-    boolean existsByFormationId(UUID formationId);
-
-    long countByCentreIdAndSessionId(UUID centreId, UUID sessionId);
-
-    long countByCentreIdAndSessionIdAndDateInscription(UUID centreId, UUID sessionId, LocalDate dateInscription);
 }

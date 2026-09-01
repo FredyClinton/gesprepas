@@ -27,6 +27,12 @@ public class ConcoursEntity {
     @Column(name = "session_id", nullable = false)
     private UUID sessionId;
 
+    @Column(name = "formation_id", nullable = false)
+    private UUID formationId;
+
+    @Column(name = "phase_id", nullable = false)
+    private UUID phaseId;
+
     @Column(name = "date_limite_depot", nullable = false)
     private LocalDate dateLimiteDepot;
 

@@ -75,7 +75,7 @@ public class DossierController {
     })
     @PostMapping
     public ResponseEntity<DossierResponse> ouvrirDossier(@Valid @RequestBody OuvrirDossierRequest request) {
-        Dossier dossier = ouvrirDossierUseCase.ouvrirDossier(request.apprenantId());
+        Dossier dossier = ouvrirDossierUseCase.ouvrirDossier(request.apprenantId(), request.sessionId());
         return ResponseEntity.status(HttpStatus.CREATED).body(versReponse(dossier));
     }
 

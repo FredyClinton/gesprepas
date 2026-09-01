@@ -8,14 +8,18 @@ public class Concours {
 
     private final UUID id;
     private final UUID sessionId;
+    private final UUID formationId;
+    private final UUID phaseId;
     private String nom;
     private LocalDate dateLimiteDepot;
     private LocalDate dateLimiteRecevabiliteCentre;
 
-    public Concours(UUID id, String nom, UUID sessionId, LocalDate dateLimiteDepot, LocalDate dateLimiteRecevabiliteCentre) {
+    public Concours(UUID id, String nom, UUID sessionId, UUID formationId, UUID phaseId, LocalDate dateLimiteDepot, LocalDate dateLimiteRecevabiliteCentre) {
         this.id = Objects.requireNonNull(id, "id ne peut pas être nul");
         this.nom = validerNom(nom);
         this.sessionId = Objects.requireNonNull(sessionId, "sessionId ne peut pas être nul");
+        this.formationId = Objects.requireNonNull(formationId, "formationId ne peut pas être nul");
+        this.phaseId = Objects.requireNonNull(phaseId, "phaseId ne peut pas être nul");
         this.dateLimiteDepot = Objects.requireNonNull(dateLimiteDepot, "dateLimiteDepot ne peut pas être nulle");
         this.dateLimiteRecevabiliteCentre = Objects.requireNonNull(
                 dateLimiteRecevabiliteCentre, "dateLimiteRecevabiliteCentre ne peut pas être nulle");
@@ -57,6 +61,14 @@ public class Concours {
 
     public UUID getSessionId() {
         return sessionId;
+    }
+
+    public UUID getFormationId() {
+        return formationId;
+    }
+
+    public UUID getPhaseId() {
+        return phaseId;
     }
 
     public LocalDate getDateLimiteDepot() {

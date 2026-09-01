@@ -8,7 +8,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -34,18 +33,15 @@ public class ApprenantEntity {
     @Column(name = "date_inscription", nullable = false)
     private LocalDate dateInscription;
 
-    @Column(name = "montant_contrat", nullable = false)
-    private BigDecimal montantContrat;
-
-    @Column(name = "date_definition_contrat", nullable = false)
-    private LocalDate dateDefinitionContrat;
-
     @Column(name = "centre_id", nullable = false)
     private UUID centreId; // référence brute — pas de @ManyToOne (bounded context séparé)
 
-    @Column(name = "session_id", nullable = false)
-    private UUID sessionId; // référence brute, dénormalisée depuis Formation, figée à l'inscription — module session
+    @Column(name = "contact_apprenant")
+    private String contactApprenant;
 
-    @Column(name = "formation_id", nullable = false)
-    private UUID formationId; // idem
+    @Column(name = "nom_parent")
+    private String nomParent;
+
+    @Column(name = "contact_parent")
+    private String contactParent;
 }

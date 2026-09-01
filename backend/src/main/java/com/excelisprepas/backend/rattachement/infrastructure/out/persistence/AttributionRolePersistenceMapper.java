@@ -1,12 +1,12 @@
 package com.excelisprepas.backend.rattachement.infrastructure.out.persistence;
 
 import com.excelisprepas.backend.rattachement.domain.model.AttributionRole;
-import org.mapstruct.Mapper;
+import org.springframework.stereotype.Component;
 
-@Mapper(componentModel = "spring")
-public interface AttributionRolePersistenceMapper {
+@Component
+public class AttributionRolePersistenceMapper {
 
-    default AttributionRoleEntity toEntity(AttributionRole domaine) {
+    public AttributionRoleEntity toEntity(AttributionRole domaine) {
         if (domaine == null) return null;
         AttributionRoleEntity entite = new AttributionRoleEntity();
         entite.setId(domaine.getId());
@@ -16,7 +16,7 @@ public interface AttributionRolePersistenceMapper {
         return entite;
     }
 
-    default AttributionRole toDomain(AttributionRoleEntity entite) {
+    public AttributionRole toDomain(AttributionRoleEntity entite) {
         if (entite == null) return null;
         return new AttributionRole(entite.getId(), entite.getUtilisateurId(),
                 entite.getSessionId(), entite.getRole());

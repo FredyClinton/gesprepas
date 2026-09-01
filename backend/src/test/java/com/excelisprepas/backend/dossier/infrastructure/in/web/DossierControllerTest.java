@@ -59,15 +59,16 @@ class DossierControllerTest {
     @Test
     @DisplayName("POST /api/dossiers avec des données valides retourne 201")
     void ouvrirDossier_donneesValides_retourne201() throws Exception {
-        when(ouvrirDossierUseCase.ouvrirDossier(APPRENANT_ID)).thenReturn(unDossierOuvert());
+        when(ouvrirDossierUseCase.ouvrirDossier(APPRENANT_ID, SESSION_ID)).thenReturn(unDossierOuvert());
 
         mockMvc.perform(post("/api/dossiers")
                         .contentType("application/json")
                         .content("""
                                 {
-                                    "apprenantId": "%s"
+                                    "apprenantId": "%s",
+                                    "sessionId": "%s"
                                 }
-                                """.formatted(APPRENANT_ID)))
+                                """.formatted(APPRENANT_ID, SESSION_ID)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.statut").value("OUVERT"));
     }
@@ -75,30 +76,32 @@ class DossierControllerTest {
     @Test
     @DisplayName("POST /api/dossiers avec un apprenant introuvable retourne 404")
     void ouvrirDossier_apprenantIntrouvable_retourne404() throws Exception {
-        when(ouvrirDossierUseCase.ouvrirDossier(APPRENANT_ID)).thenThrow(new ApprenantIntrouvableException(APPRENANT_ID));
+        when(ouvrirDossierUseCase.ouvrirDossier(APPRENANT_ID, SESSION_ID)).thenThrow(new ApprenantIntrouvableException(APPRENANT_ID));
 
         mockMvc.perform(post("/api/dossiers")
                         .contentType("application/json")
                         .content("""
                                 {
-                                    "apprenantId": "%s"
+                                    "apprenantId": "%s",
+                                    "sessionId": "%s"
                                 }
-                                """.formatted(APPRENANT_ID)))
+                                """.formatted(APPRENANT_ID, SESSION_ID)))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     @DisplayName("POST /api/dossiers avec un dossier déjà existant retourne 409")
     void ouvrirDossier_dejaExistant_retourne409() throws Exception {
-        when(ouvrirDossierUseCase.ouvrirDossier(APPRENANT_ID)).thenThrow(new DossierDejaExistantException(APPRENANT_ID));
+        when(ouvrirDossierUseCase.ouvrirDossier(APPRENANT_ID, SESSION_ID)).thenThrow(new DossierDejaExistantException(APPRENANT_ID));
 
         mockMvc.perform(post("/api/dossiers")
                         .contentType("application/json")
                         .content("""
                                 {
-                                    "apprenantId": "%s"
+                                    "apprenantId": "%s",
+                                    "sessionId": "%s"
                                 }
-                                """.formatted(APPRENANT_ID)))
+                                """.formatted(APPRENANT_ID, SESSION_ID)))
                 .andExpect(status().isConflict());
     }
 

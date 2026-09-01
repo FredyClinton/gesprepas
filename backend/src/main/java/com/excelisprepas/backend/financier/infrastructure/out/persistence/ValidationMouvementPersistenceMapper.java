@@ -1,12 +1,12 @@
 package com.excelisprepas.backend.financier.infrastructure.out.persistence;
 
 import com.excelisprepas.backend.financier.domain.model.ValidationMouvement;
-import org.mapstruct.Mapper;
+import org.springframework.stereotype.Component;
 
-@Mapper(componentModel = "spring")
-public interface ValidationMouvementPersistenceMapper {
+@Component
+public class ValidationMouvementPersistenceMapper {
 
-    default ValidationMouvementEntity toEntity(ValidationMouvement domaine) {
+    public ValidationMouvementEntity toEntity(ValidationMouvement domaine) {
         if (domaine == null) return null;
         ValidationMouvementEntity entite = new ValidationMouvementEntity();
         entite.setId(domaine.getId());
@@ -17,7 +17,7 @@ public interface ValidationMouvementPersistenceMapper {
         return entite;
     }
 
-    default ValidationMouvement toDomain(ValidationMouvementEntity entite) {
+    public ValidationMouvement toDomain(ValidationMouvementEntity entite) {
         if (entite == null) return null;
         return new ValidationMouvement(entite.getId(), entite.getMouvementFinancierId(),
                 entite.getValidateurUtilisateurId(), entite.getDecision(), entite.getDate());

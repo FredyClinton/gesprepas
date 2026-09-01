@@ -1,14 +1,13 @@
 package com.excelisprepas.backend.centre.domain.service;
 
-import com.excelisprepas.backend.affectation.domain.port.out.AffectationRepositoryPort;
+import com.excelisprepas.backend.academie.affectation.domain.port.out.AffectationRepositoryPort;
 import com.excelisprepas.backend.apprenant.domain.port.out.ApprenantRepositoryPort;
 import com.excelisprepas.backend.centre.domain.exception.CentreUtiliseException;
 import com.excelisprepas.backend.centre.domain.model.Centre;
 import com.excelisprepas.backend.centre.domain.model.StatutCentre;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
-import com.excelisprepas.backend.formation.domain.port.out.FormationRepositoryPort;
 import com.excelisprepas.backend.rattachement.domain.port.out.RattachementCentreRepositoryPort;
-import com.excelisprepas.backend.salle.domain.port.out.SalleRepositoryPort;
+import com.excelisprepas.backend.academie.salle.domain.port.out.SalleRepositoryPort;
 import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.model.StatutSession;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
@@ -34,7 +33,6 @@ import static org.mockito.Mockito.*;
 class CentreServiceTest {
 
     private CentreRepositoryPort centreRepository;
-    private FormationRepositoryPort formationRepository;
     private ApprenantRepositoryPort apprenantRepository;
     private SalleRepositoryPort salleRepository;
     private AffectationRepositoryPort affectationRepository;
@@ -45,13 +43,12 @@ class CentreServiceTest {
     @BeforeEach
     void setUp() {
         centreRepository = mock(CentreRepositoryPort.class);
-        formationRepository = mock(FormationRepositoryPort.class);
         apprenantRepository = mock(ApprenantRepositoryPort.class);
         salleRepository = mock(SalleRepositoryPort.class);
         affectationRepository = mock(AffectationRepositoryPort.class);
         rattachementRepository = mock(RattachementCentreRepositoryPort.class);
         sessionRepository = mock(SessionAcademiqueRepositoryPort.class);
-        service = new CentreService(centreRepository, formationRepository, apprenantRepository,
+        service = new CentreService(centreRepository, apprenantRepository,
                 salleRepository, affectationRepository, rattachementRepository, sessionRepository);
     }
 
@@ -202,7 +199,6 @@ class CentreServiceTest {
             // Given
             Centre centre = unCentre();
             when(centreRepository.findById(centre.getId())).thenReturn(Optional.of(centre));
-            when(formationRepository.existsByCentreId(centre.getId())).thenReturn(false);
             when(apprenantRepository.existsByCentreId(centre.getId())).thenReturn(false);
             when(salleRepository.existsByCentreId(centre.getId())).thenReturn(false);
             when(affectationRepository.existsByCentreId(centre.getId())).thenReturn(false);
@@ -216,12 +212,12 @@ class CentreServiceTest {
         }
 
         @Test
-        @DisplayName("supprimerCentre() refuse si une Formation référence encore le centre")
-        void supprimerCentreAvecFormationRefuse() {
+        @DisplayName("supprimerCentre() refuse si une Salle référence encore le centre")
+        void supprimerCentreAvecSalleRefuse() {
             // Given
             Centre centre = unCentre();
             when(centreRepository.findById(centre.getId())).thenReturn(Optional.of(centre));
-            when(formationRepository.existsByCentreId(centre.getId())).thenReturn(true);
+            when(salleRepository.existsByCentreId(centre.getId())).thenReturn(true);
 
             // When
             ThrowingCallable suppression = () -> service.supprimerCentre(centre.getId());
@@ -237,7 +233,6 @@ class CentreServiceTest {
             // Given
             Centre centre = unCentre();
             when(centreRepository.findById(centre.getId())).thenReturn(Optional.of(centre));
-            when(formationRepository.existsByCentreId(centre.getId())).thenReturn(false);
             when(apprenantRepository.existsByCentreId(centre.getId())).thenReturn(false);
             when(salleRepository.existsByCentreId(centre.getId())).thenReturn(false);
             when(affectationRepository.existsByCentreId(centre.getId())).thenReturn(false);

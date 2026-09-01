@@ -114,4 +114,18 @@ class EnseignantRepositoryAdapterTest extends AbstractIntegrationTest {
         assertThat(retrouve).isPresent();
         assertThat(retrouve.get().getStatut()).isEqualTo(StatutEnseignant.SUSPENDU);
     }
+
+    @Test
+    @DisplayName("save() persiste et retrouve la dateRecrutement")
+    void savePersisteEtRetrouveDateRecrutement() {
+        java.time.LocalDate date = java.time.LocalDate.of(2022, 10, 15);
+        Enseignant enseignant = new Enseignant(
+                UUID.randomUUID(), "Ossegue", "Jean", "MAT-008", new BigDecimal("5000"), date);
+
+        adapter.save(enseignant);
+        Optional<Enseignant> retrouve = adapter.findById(enseignant.getId());
+
+        assertThat(retrouve).isPresent();
+        assertThat(retrouve.get().getDateRecrutement()).isEqualTo(date);
+    }
 }

@@ -30,6 +30,9 @@ class DossierServiceTest {
     private final UUID concoursId = UUID.randomUUID();
     private final UUID pieceRequiseId = UUID.randomUUID();
 
+    private final UUID formationId = UUID.randomUUID();
+    private final UUID phaseId = UUID.randomUUID();
+
     private DossierRepositoryPort dossierRepository;
     private DossierConcoursRepositoryPort dossierConcoursRepository;
     private PieceDossierRepositoryPort pieceDossierRepository;
@@ -54,7 +57,7 @@ class DossierServiceTest {
 
     private Apprenant unApprenant() {
         return new Apprenant(apprenantId, "Essomba", "Paul", LocalDate.of(2005, 1, 1), LocalDate.of(2026, 9, 1),
-                new BigDecimal("50000"), LocalDate.of(2026, 9, 1), centreId, sessionId, UUID.randomUUID());
+                centreId, null, null, null);
     }
 
     private Dossier unDossierOuvert() {
@@ -62,7 +65,7 @@ class DossierServiceTest {
     }
 
     private Concours unConcours() {
-        return new Concours(concoursId, "ENSPY", sessionId, LocalDate.of(2027, 6, 30), LocalDate.of(2027, 6, 15));
+        return new Concours(concoursId, "ENSPY", sessionId, formationId, phaseId, LocalDate.of(2027, 6, 30), LocalDate.of(2027, 6, 15));
     }
 
     @Nested
@@ -76,7 +79,7 @@ class DossierServiceTest {
             when(dossierRepository.existsByApprenantId(apprenantId)).thenReturn(false);
             when(dossierRepository.save(any(Dossier.class))).thenAnswer(i -> i.getArgument(0));
 
-            Dossier resultat = service.ouvrirDossier(apprenantId);
+            Dossier resultat = service.ouvrirDossier(apprenantId, sessionId);
 
             assertThat(resultat.getApprenantId()).isEqualTo(apprenantId);
             assertThat(resultat.getCentreId()).isEqualTo(centreId);
@@ -89,7 +92,7 @@ class DossierServiceTest {
         void refuseSiApprenantInexistant() {
             when(apprenantRepository.findById(apprenantId)).thenReturn(Optional.empty());
 
-            ThrowingCallable action = () -> service.ouvrirDossier(apprenantId);
+            ThrowingCallable action = () -> service.ouvrirDossier(apprenantId, sessionId);
 
             assertThatThrownBy(action).isInstanceOf(ApprenantIntrouvableException.class);
         }
@@ -100,7 +103,7 @@ class DossierServiceTest {
             when(apprenantRepository.findById(apprenantId)).thenReturn(Optional.of(unApprenant()));
             when(dossierRepository.existsByApprenantId(apprenantId)).thenReturn(true);
 
-            ThrowingCallable action = () -> service.ouvrirDossier(apprenantId);
+            ThrowingCallable action = () -> service.ouvrirDossier(apprenantId, sessionId);
 
             assertThatThrownBy(action).isInstanceOf(DossierDejaExistantException.class);
             verify(dossierRepository, never()).save(any(Dossier.class));
@@ -267,7 +270,7 @@ class DossierServiceTest {
         @DisplayName("refuse si la date limite du concours est dépassée")
         void refuseSiDateLimiteDepassee() {
             Dossier dossier = unDossierOuvert();
-            Concours concoursExpire = new Concours(concoursId, "ENSPY", sessionId,
+            Concours concoursExpire = new Concours(concoursId, "ENSPY", sessionId, formationId, phaseId,
                     LocalDate.of(2020, 6, 30), LocalDate.of(2020, 6, 15));
             when(dossierRepository.findById(dossier.getId())).thenReturn(Optional.of(dossier));
             when(concoursRepository.findById(concoursId)).thenReturn(Optional.of(concoursExpire));

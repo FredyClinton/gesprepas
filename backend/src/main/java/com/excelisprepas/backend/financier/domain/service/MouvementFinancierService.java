@@ -32,6 +32,7 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
     private final ApprenantRepositoryPort apprenantRepository;
     private final SessionAcademiqueRepositoryPort sessionRepository;
     private final MouvementFinancierRepositoryPort mouvementRepository;
+    private final com.excelisprepas.backend.inscription.domain.port.out.DossierInscriptionRepositoryPort dossierInscriptionRepository;
 
     public MouvementFinancierService(EntreeRepositoryPort entreeRepository,
                                      SortieRepositoryPort sortieRepository,
@@ -39,7 +40,8 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
                                      CentreRepositoryPort centreRepository,
                                      ApprenantRepositoryPort apprenantRepository,
                                      SessionAcademiqueRepositoryPort sessionRepository,
-                                     MouvementFinancierRepositoryPort mouvementRepository) {
+                                     MouvementFinancierRepositoryPort mouvementRepository,
+                                     com.excelisprepas.backend.inscription.domain.port.out.DossierInscriptionRepositoryPort dossierInscriptionRepository) {
         this.entreeRepository = entreeRepository;
         this.sortieRepository = sortieRepository;
         this.motifRepository = motifRepository;
@@ -47,6 +49,7 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
         this.apprenantRepository = apprenantRepository;
         this.sessionRepository = sessionRepository;
         this.mouvementRepository = mouvementRepository;
+        this.dossierInscriptionRepository = dossierInscriptionRepository;
     }
 
     private Motif verifierMotif(UUID motifId, TypeMotif typeAttendu) {
@@ -85,7 +88,10 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
         if (apprenantId != null) {
             Apprenant apprenant = apprenantRepository.findById(apprenantId)
                     .orElseThrow(() -> new ApprenantIntrouvableException(apprenantId));
-            formationId = apprenant.getFormationId();
+            List<com.excelisprepas.backend.inscription.domain.model.DossierInscription> dossiers = dossierInscriptionRepository.findByApprenantIdAndSessionId(apprenantId, sessionId);
+            if (!dossiers.isEmpty() && dossiers.get(0).getFormationsCibles() != null && !dossiers.get(0).getFormationsCibles().isEmpty()) {
+                formationId = dossiers.get(0).getFormationsCibles().get(0);
+            }
         }
 
         Entree entree = new Entree(UUID.randomUUID(), sessionId, motifId, montant, date,

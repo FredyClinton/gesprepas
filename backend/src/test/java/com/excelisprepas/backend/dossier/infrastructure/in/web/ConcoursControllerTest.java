@@ -28,6 +28,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ConcoursControllerTest {
 
     private static final UUID SESSION_ID = UUID.randomUUID();
+    private static final UUID FORMATION_ID = UUID.randomUUID();
+    private static final UUID PHASE_ID = UUID.randomUUID();
 
     @Autowired
     private MockMvc mockMvc;
@@ -46,7 +48,7 @@ class ConcoursControllerTest {
     private ListerPiecesDuConcoursUseCase listerPiecesDuConcoursUseCase;
 
     private Concours unConcours() {
-        return new Concours(UUID.randomUUID(), "ENSPY", SESSION_ID, LocalDate.of(2027, 6, 30), LocalDate.of(2027, 6, 15));
+        return new Concours(UUID.randomUUID(), "ENSPY", SESSION_ID, FORMATION_ID, PHASE_ID, LocalDate.of(2027, 6, 30), LocalDate.of(2027, 6, 15));
     }
 
     private String jsonRequest() {
@@ -54,16 +56,18 @@ class ConcoursControllerTest {
                 {
                     "nom": "ENSPY",
                     "sessionId": "%s",
+                    "formationId": "%s",
+                    "phaseId": "%s",
                     "dateLimiteDepot": "2027-06-30",
                     "dateLimiteRecevabiliteCentre": "2027-06-15"
                 }
-                """.formatted(SESSION_ID);
+                """.formatted(SESSION_ID, FORMATION_ID, PHASE_ID);
     }
 
     @Test
     @DisplayName("POST /api/concours avec des données valides retourne 201")
     void creerConcours_donneesValides_retourne201() throws Exception {
-        when(creerConcoursUseCase.creerConcours(any(), any(), any(), any())).thenReturn(unConcours());
+        when(creerConcoursUseCase.creerConcours(any(), any(), any(), any(), any(), any())).thenReturn(unConcours());
 
         mockMvc.perform(post("/api/concours")
                         .contentType("application/json")
@@ -75,7 +79,7 @@ class ConcoursControllerTest {
     @Test
     @DisplayName("POST /api/concours avec une session clôturée retourne 409")
     void creerConcours_sessionCloturee_retourne409() throws Exception {
-        when(creerConcoursUseCase.creerConcours(any(), any(), any(), any()))
+        when(creerConcoursUseCase.creerConcours(any(), any(), any(), any(), any(), any()))
                 .thenThrow(new SessionNonUtilisableException(SESSION_ID));
 
         mockMvc.perform(post("/api/concours")
@@ -87,7 +91,7 @@ class ConcoursControllerTest {
     @Test
     @DisplayName("POST /api/concours avec une session introuvable retourne 404")
     void creerConcours_sessionIntrouvable_retourne404() throws Exception {
-        when(creerConcoursUseCase.creerConcours(any(), any(), any(), any()))
+        when(creerConcoursUseCase.creerConcours(any(), any(), any(), any(), any(), any()))
                 .thenThrow(new SessionIntrouvableException(SESSION_ID));
 
         mockMvc.perform(post("/api/concours")

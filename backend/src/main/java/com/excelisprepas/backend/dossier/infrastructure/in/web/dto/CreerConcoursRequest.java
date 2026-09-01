@@ -9,6 +9,8 @@ import java.util.UUID;
 public record CreerConcoursRequest(
         @NotBlank(message = "Le nom est obligatoire") String nom,
         @NotNull(message = "La session est obligatoire") UUID sessionId,
+        @NotNull(message = "La formation est obligatoire") UUID formationId,
+        @NotNull(message = "La phase est obligatoire") UUID phaseId,
         @NotNull(message = "La date limite de dépôt est obligatoire") LocalDate dateLimiteDepot,
         @NotNull(message = "La date limite de recevabilité au centre est obligatoire") LocalDate dateLimiteRecevabiliteCentre
 ) {

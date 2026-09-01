@@ -1,15 +1,14 @@
 package com.excelisprepas.backend.centre.domain.service;
 
 
-import com.excelisprepas.backend.affectation.domain.port.out.AffectationRepositoryPort;
+import com.excelisprepas.backend.academie.affectation.domain.port.out.AffectationRepositoryPort;
 import com.excelisprepas.backend.apprenant.domain.port.out.ApprenantRepositoryPort;
 import com.excelisprepas.backend.centre.domain.exception.CentreUtiliseException;
 import com.excelisprepas.backend.centre.domain.model.Centre;
 import com.excelisprepas.backend.centre.domain.port.in.*;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
-import com.excelisprepas.backend.formation.domain.port.out.FormationRepositoryPort;
 import com.excelisprepas.backend.rattachement.domain.port.out.RattachementCentreRepositoryPort;
-import com.excelisprepas.backend.salle.domain.port.out.SalleRepositoryPort;
+import com.excelisprepas.backend.academie.salle.domain.port.out.SalleRepositoryPort;
 import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.model.StatutSession;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
@@ -28,20 +27,18 @@ public class CentreService implements CreerCentreUseCase, RecupererCentreUseCase
         RejoindreSessionUseCase {
 
     private final CentreRepositoryPort centreRepository;
-    private final FormationRepositoryPort formationRepository;
     private final ApprenantRepositoryPort apprenantRepository;
     private final SalleRepositoryPort salleRepository;
     private final AffectationRepositoryPort affectationRepository;
     private final RattachementCentreRepositoryPort rattachementRepository;
     private final SessionAcademiqueRepositoryPort sessionRepository;
 
-    public CentreService(CentreRepositoryPort centreRepository, FormationRepositoryPort formationRepository,
+    public CentreService(CentreRepositoryPort centreRepository,
                          ApprenantRepositoryPort apprenantRepository, SalleRepositoryPort salleRepository,
                          AffectationRepositoryPort affectationRepository,
                          RattachementCentreRepositoryPort rattachementRepository,
                          SessionAcademiqueRepositoryPort sessionRepository) {
         this.centreRepository = centreRepository;
-        this.formationRepository = formationRepository;
         this.apprenantRepository = apprenantRepository;
         this.salleRepository = salleRepository;
         this.affectationRepository = affectationRepository;
@@ -101,8 +98,7 @@ public class CentreService implements CreerCentreUseCase, RecupererCentreUseCase
     public void supprimerCentre(UUID id) {
         // Verifie si le centre existe sinon lever une exception
         recupererCentre(id);
-        boolean referencerAilleurs = this.formationRepository.existsByCentreId(id)
-                || apprenantRepository.existsByCentreId(id)
+        boolean referencerAilleurs = apprenantRepository.existsByCentreId(id)
                 || salleRepository.existsByCentreId(id)
                 || affectationRepository.existsByCentreId(id)
                 || rattachementRepository.existsByCentreId(id);

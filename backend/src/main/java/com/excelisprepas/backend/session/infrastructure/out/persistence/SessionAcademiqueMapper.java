@@ -2,12 +2,12 @@ package com.excelisprepas.backend.session.infrastructure.out.persistence;
 
 
 import com.excelisprepas.backend.session.domain.model.SessionAcademique;
-import org.mapstruct.Mapper;
+import org.springframework.stereotype.Component;
 
-@Mapper(componentModel = "spring")
-public interface SessionAcademiqueMapper {
+@Component
+public class SessionAcademiqueMapper {
 
-    default SessionAcademiqueEntity toEntity(SessionAcademique domaine) {
+    public SessionAcademiqueEntity toEntity(SessionAcademique domaine) {
         if (domaine == null) return null;
         SessionAcademiqueEntity entite = new SessionAcademiqueEntity();
         entite.setId(domaine.getId());
@@ -18,7 +18,7 @@ public interface SessionAcademiqueMapper {
         return entite;
     }
 
-    default SessionAcademique toDomain(SessionAcademiqueEntity entite) {
+    public SessionAcademique toDomain(SessionAcademiqueEntity entite) {
         if (entite == null) return null;
         return SessionAcademique.reconstituer(
                 entite.getId(), entite.getAnnee(), entite.getDateDebut(),

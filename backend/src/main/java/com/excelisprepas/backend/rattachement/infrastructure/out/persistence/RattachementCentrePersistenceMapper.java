@@ -1,12 +1,12 @@
 package com.excelisprepas.backend.rattachement.infrastructure.out.persistence;
 
 import com.excelisprepas.backend.rattachement.domain.model.RattachementCentre;
-import org.mapstruct.Mapper;
+import org.springframework.stereotype.Component;
 
-@Mapper(componentModel = "spring")
-public interface RattachementCentrePersistenceMapper {
+@Component
+public class RattachementCentrePersistenceMapper {
 
-    default RattachementCentreEntity toEntity(RattachementCentre domaine) {
+    public RattachementCentreEntity toEntity(RattachementCentre domaine) {
         if (domaine == null) return null;
         RattachementCentreEntity entite = new RattachementCentreEntity();
         entite.setId(domaine.getId());
@@ -16,7 +16,7 @@ public interface RattachementCentrePersistenceMapper {
         return entite;
     }
 
-    default RattachementCentre toDomain(RattachementCentreEntity entite) {
+    public RattachementCentre toDomain(RattachementCentreEntity entite) {
         if (entite == null) return null;
         return new RattachementCentre(entite.getId(), entite.getUtilisateurId(),
                 entite.getSessionId(), entite.getCentreId());

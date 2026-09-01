@@ -81,7 +81,10 @@ public class DossierFinancierService implements EnregistrerPaiementDossierUseCas
                 .findByConcoursIdAndSessionId(concours.getId(), sessionId);
 
         Map<UUID, Long> parCentre = tousLesDossiersConcours.stream()
-                .collect(Collectors.groupingBy(DossierConcours::getCentreId, Collectors.counting()));
+                .collect(Collectors.groupingBy(
+                        dossierConcours -> dossierConcours.getCentreId(),
+                        Collectors.counting()
+                ));
 
         return parCentre.entrySet().stream()
                 .map(entry -> new StatistiqueDossierParCentre(entry.getKey(), entry.getValue()))

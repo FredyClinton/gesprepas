@@ -1,12 +1,12 @@
 package com.excelisprepas.backend.dossier.infrastructure.out.persistence;
 
 import com.excelisprepas.backend.dossier.domain.model.PieceRequise;
-import org.mapstruct.Mapper;
+import org.springframework.stereotype.Component;
 
-@Mapper(componentModel = "spring")
-public interface PieceRequisePersistenceMapper {
+@Component
+public class PieceRequisePersistenceMapper {
 
-    default PieceRequiseEntity toEntity(PieceRequise domaine) {
+    public PieceRequiseEntity toEntity(PieceRequise domaine) {
         if (domaine == null) return null;
         PieceRequiseEntity entite = new PieceRequiseEntity();
         entite.setId(domaine.getId());
@@ -16,7 +16,7 @@ public interface PieceRequisePersistenceMapper {
         return entite;
     }
 
-    default PieceRequise toDomain(PieceRequiseEntity entite) {
+    public PieceRequise toDomain(PieceRequiseEntity entite) {
         if (entite == null) return null;
         return PieceRequise.reconstituer(entite.getId(), entite.getNom(), entite.getMontant(), entite.isActif());
     }

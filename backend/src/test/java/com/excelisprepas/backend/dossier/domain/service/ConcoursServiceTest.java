@@ -33,6 +33,9 @@ class ConcoursServiceTest {
     private final LocalDate dateLimiteDepot = LocalDate.of(2027, 6, 30);
     private final LocalDate dateLimiteRecevabiliteCentre = LocalDate.of(2027, 6, 15);
 
+    private final UUID formationId = UUID.randomUUID();
+    private final UUID phaseId = UUID.randomUUID();
+
     private ConcoursRepositoryPort concoursRepository;
     private ConcoursPieceRequiseRepositoryPort associationRepository;
     private PieceRequiseRepositoryPort pieceRequiseRepository;
@@ -49,7 +52,7 @@ class ConcoursServiceTest {
     }
 
     private Concours unConcours() {
-        return new Concours(UUID.randomUUID(), "ENSPY", sessionId, dateLimiteDepot, dateLimiteRecevabiliteCentre);
+        return new Concours(UUID.randomUUID(), "ENSPY", sessionId, formationId, phaseId, dateLimiteDepot, dateLimiteRecevabiliteCentre);
     }
 
     private SessionAcademique uneSessionEnCours() {
@@ -67,7 +70,7 @@ class ConcoursServiceTest {
             when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
             when(concoursRepository.save(any(Concours.class))).thenAnswer(i -> i.getArgument(0));
 
-            Concours resultat = service.creerConcours("ENSPY", sessionId, dateLimiteDepot, dateLimiteRecevabiliteCentre);
+            Concours resultat = service.creerConcours("ENSPY", sessionId, formationId, phaseId, dateLimiteDepot, dateLimiteRecevabiliteCentre);
 
             assertThat(resultat.getNom()).isEqualTo("ENSPY");
             assertThat(resultat.getSessionId()).isEqualTo(sessionId);
@@ -79,7 +82,7 @@ class ConcoursServiceTest {
             when(sessionRepository.findById(sessionId)).thenReturn(Optional.empty());
 
             ThrowingCallable action = () -> service.creerConcours(
-                    "ENSPY", sessionId, dateLimiteDepot, dateLimiteRecevabiliteCentre);
+                    "ENSPY", sessionId, formationId, phaseId, dateLimiteDepot, dateLimiteRecevabiliteCentre);
 
             assertThatThrownBy(action).isInstanceOf(SessionIntrouvableException.class);
             verify(concoursRepository, never()).save(any(Concours.class));
@@ -93,7 +96,7 @@ class ConcoursServiceTest {
                             LocalDate.of(2025, 9, 1), LocalDate.of(2026, 6, 30), StatutSession.CLOTUREE)));
 
             ThrowingCallable action = () -> service.creerConcours(
-                    "ENSPY", sessionId, dateLimiteDepot, dateLimiteRecevabiliteCentre);
+                    "ENSPY", sessionId, formationId, phaseId, dateLimiteDepot, dateLimiteRecevabiliteCentre);
 
             assertThatThrownBy(action).isInstanceOf(SessionNonUtilisableException.class);
         }

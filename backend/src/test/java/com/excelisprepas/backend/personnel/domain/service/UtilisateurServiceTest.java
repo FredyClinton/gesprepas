@@ -2,8 +2,8 @@ package com.excelisprepas.backend.personnel.domain.service;
 
 import com.excelisprepas.backend.centre.domain.model.Centre;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
-import com.excelisprepas.backend.departement.domain.model.Departement;
-import com.excelisprepas.backend.departement.domain.port.out.DepartementRepositoryPort;
+import com.excelisprepas.backend.academie.departement.domain.model.Departement;
+import com.excelisprepas.backend.academie.departement.domain.port.out.DepartementRepositoryPort;
 import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
 import com.excelisprepas.backend.personnel.domain.model.Utilisateur;
 import com.excelisprepas.backend.personnel.domain.port.out.PasswordEncoderPort;

@@ -1,6 +1,6 @@
 package com.excelisprepas.backend.shared.exception;
 
-import com.excelisprepas.backend.affectation.domain.model.Jour;
+import com.excelisprepas.backend.academie.affectation.domain.model.Jour;
 
 import java.util.UUID;
 

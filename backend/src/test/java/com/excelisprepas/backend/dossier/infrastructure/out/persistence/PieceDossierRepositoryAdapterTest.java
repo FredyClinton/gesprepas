@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @TestPropertySource(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
-@Import({PieceDossierRepositoryAdapter.class, PieceDossierPersistenceMapperImpl.class})
+@Import({PieceDossierRepositoryAdapter.class, PieceDossierPersistenceMapper.class})
 @DisplayName("PieceDossierRepositoryAdapter (test d'intégration)")
 class PieceDossierRepositoryAdapterTest extends AbstractIntegrationTest {
 
