@@ -40,4 +40,6 @@ public interface AffectationRepositoryPort {
     List<Affectation> findByEnseignantIdAndStatut(UUID enseignantId, StatutAffectation statut);
 
     List<Affectation> findByEnseignantId(UUID enseignantId);
+    List<Affectation> findBySessionIdAndStatutAndStatutPaiement(UUID sessionId, StatutAffectation statut, com.excelisprepas.backend.academie.affectation.domain.model.StatutPaiement statutPaiement);
+    List<Affectation> findByEnseignantIdAndSessionIdAndStatutAndStatutPaiement(UUID enseignantId, UUID sessionId, StatutAffectation statut, com.excelisprepas.backend.academie.affectation.domain.model.StatutPaiement statutPaiement);
 }

@@ -29,23 +29,17 @@ class AuthControllerTest {
     @MockitoBean
     private SeConnecterUseCase seConnecterUseCase;
 
-    private static final UUID DEPARTEMENT_ID = UUID.randomUUID();
-
     private Utilisateur unUtilisateur() {
-        Utilisateur utilisateur = new Utilisateur(UUID.randomUUID(), "Bougang", "Pascal",
+        return new Utilisateur(UUID.randomUUID(), "Bougang", "Pascal",
                 "pascal@excelis.cm", "hash", RoleUtilisateur.CAISSIER);
-        utilisateur.rattacherADepartement(DEPARTEMENT_ID);
-        return utilisateur;
     }
 
     @Test
     @DisplayName("POST /api/auth/login avec des identifiants valides retourne 200")
     void login_identifiantsValides_retourne200() throws Exception {
-        // Given
         ResultatConnexion resultat = new ResultatConnexion("un-token-opaque", unUtilisateur());
         when(seConnecterUseCase.seConnecter("pascal@excelis.cm", "password")).thenReturn(resultat);
 
-        // When / Then
         mockMvc.perform(post("/api/auth/login")
                         .contentType("application/json")
                         .content("""
@@ -57,8 +51,7 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").value("un-token-opaque"))
                 .andExpect(jsonPath("$.utilisateur.email").value("pascal@excelis.cm"))
-                .andExpect(jsonPath("$.utilisateur.role").value("CAISSIER"))
-                .andExpect(jsonPath("$.utilisateur.departementId").value(DEPARTEMENT_ID.toString()));
+                .andExpect(jsonPath("$.utilisateur.role").value("CAISSIER"));
     }
 
     @Test
@@ -78,11 +71,9 @@ class AuthControllerTest {
     @Test
     @DisplayName("POST /api/auth/login avec des identifiants invalides retourne 401")
     void login_identifiantsInvalides_retourne401() throws Exception {
-        // Given
         when(seConnecterUseCase.seConnecter("pascal@excelis.cm", "mauvais-mdp"))
                 .thenThrow(new AuthentificationEchoueeException());
 
-        // When / Then
         mockMvc.perform(post("/api/auth/login")
                         .contentType("application/json")
                         .content("""

@@ -18,14 +18,12 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class PersonnelBeanConfiguration {
 
-
     @Bean
     public UtilisateurService utilisateurService(UtilisateurRepositoryPort utilisateurRepositoryPort,
                                                  PasswordEncoderPort passwordEncoderPort,
-                                                 CentreRepositoryPort centreRepositoryPort,
-                                                 DepartementRepositoryPort departementRepositoryPort) {
+                                                 CentreRepositoryPort centreRepositoryPort) {
         return new UtilisateurService(utilisateurRepositoryPort, passwordEncoderPort,
-                centreRepositoryPort, departementRepositoryPort);
+                centreRepositoryPort);
     }
 
     @Bean
@@ -60,16 +58,6 @@ public class PersonnelBeanConfiguration {
 
     @Bean
     public DetacherCentreUseCase detacherCentreUseCase(UtilisateurService utilisateurService) {
-        return utilisateurService;
-    }
-
-    @Bean
-    public RattacherDepartementUseCase rattacherDepartementUseCase(UtilisateurService utilisateurService) {
-        return utilisateurService;
-    }
-
-    @Bean
-    public DetacherDepartementUseCase detacherDepartementUseCase(UtilisateurService utilisateurService) {
         return utilisateurService;
     }
 
@@ -134,4 +122,33 @@ public class PersonnelBeanConfiguration {
     public ConsulterAncienneteEnseignantUseCase consulterAncienneteEnseignantUseCase(EnseignantService enseignantService) {
         return enseignantService;
     }
+
+
+    @Bean
+    public com.excelisprepas.backend.personnel.domain.service.PersonnelService personnelService(
+            com.excelisprepas.backend.personnel.domain.port.out.PersonnelRepositoryPort personnelRepositoryPort,
+            com.excelisprepas.backend.personnel.domain.port.out.HistoriqueSalairePersonnelRepositoryPort historiqueSalairePersonnelRepositoryPort) {
+        return new com.excelisprepas.backend.personnel.domain.service.PersonnelService(
+                personnelRepositoryPort, historiqueSalairePersonnelRepositoryPort);
+    }
+
+    @Bean
+    public CreerPersonnelUseCase creerPersonnelUseCase(com.excelisprepas.backend.personnel.domain.service.PersonnelService personnelService) {
+        return personnelService;
+    }
+
+    @Bean
+    public ListerPersonnelUseCase listerPersonnelUseCase(com.excelisprepas.backend.personnel.domain.service.PersonnelService personnelService) {
+        return personnelService;
+    }
+
+    @Bean
+    public DefinirSalairePersonnelUseCase definirSalairePersonnelUseCase(com.excelisprepas.backend.personnel.domain.service.PersonnelService personnelService) {
+        return personnelService;
+    }
+
+    @Bean
+    public ConsulterHistoriqueSalairePersonnelUseCase consulterHistoriqueSalairePersonnelUseCase(com.excelisprepas.backend.personnel.domain.service.PersonnelService personnelService) {
+        return personnelService;
+}
 }

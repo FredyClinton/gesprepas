@@ -26,12 +26,6 @@ public class EnseignantEntity extends PersonnelEntity {
     @Column(nullable = false)
     private StatutEnseignant statut;
 
-    @Column(name = "telephone")
-    private String telephone;
-
-    @Column(name = "numero_cni")
-    private String numeroCni;
-
     @Column(name = "ecole_fonction")
     private String ecoleFonction;
 

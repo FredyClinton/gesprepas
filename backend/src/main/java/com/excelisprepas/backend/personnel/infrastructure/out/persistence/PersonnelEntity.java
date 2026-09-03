@@ -1,6 +1,5 @@
 package com.excelisprepas.backend.personnel.infrastructure.out.persistence;
 
-import com.excelisprepas.backend.personnel.domain.model.ModeCalculPaie;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -14,13 +13,23 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-public abstract  class PersonnelEntity {
+public class PersonnelEntity {
 
     @Id
     private UUID id;
 
-    private  String nom;
-    private  String prenom;
-    @Enumerated(EnumType.STRING)
-    private ModeCalculPaie modeCalculPaie;
+    @Column(nullable = false)
+    private String nom;
+
+    @Column(nullable = false)
+    private String prenom;
+
+    @Column(name = "telephone")
+    private String telephone;
+
+    @Column(name = "numero_cni")
+    private String numeroCni;
+
+    @Column(name = "email", unique = true)
+    private String email;
 }

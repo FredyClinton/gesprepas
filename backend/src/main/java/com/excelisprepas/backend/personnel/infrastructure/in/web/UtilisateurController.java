@@ -31,8 +31,6 @@ public class UtilisateurController {
     private final ChangerMotDePasseUseCase changerMotDePasseUseCase;
     private final RattacherCentreUseCase rattacherCentreUseCase;
     private final DetacherCentreUseCase detacherCentreUseCase;
-    private final RattacherDepartementUseCase rattacherDepartementUseCase;
-    private final DetacherDepartementUseCase detacherDepartementUseCase;
     private final SupprimerUtilisateurUseCase supprimerUtilisateurUseCase;
 
     public UtilisateurController(CreerUtilisateurUseCase creerUtilisateurUseCase,
@@ -42,8 +40,6 @@ public class UtilisateurController {
                                  ChangerMotDePasseUseCase changerMotDePasseUseCase,
                                  RattacherCentreUseCase rattacherCentreUseCase,
                                  DetacherCentreUseCase detacherCentreUseCase,
-                                 RattacherDepartementUseCase rattacherDepartementUseCase,
-                                 DetacherDepartementUseCase detacherDepartementUseCase,
                                  SupprimerUtilisateurUseCase supprimerUtilisateurUseCase) {
         this.creerUtilisateurUseCase = creerUtilisateurUseCase;
         this.recupererUtilisateurUseCase = recupererUtilisateurUseCase;
@@ -52,16 +48,14 @@ public class UtilisateurController {
         this.changerMotDePasseUseCase = changerMotDePasseUseCase;
         this.rattacherCentreUseCase = rattacherCentreUseCase;
         this.detacherCentreUseCase = detacherCentreUseCase;
-        this.rattacherDepartementUseCase = rattacherDepartementUseCase;
-        this.detacherDepartementUseCase = detacherDepartementUseCase;
         this.supprimerUtilisateurUseCase = supprimerUtilisateurUseCase;
     }
 
     private static UtilisateurResponse versReponse(Utilisateur utilisateur) {
         return new UtilisateurResponse(
                 utilisateur.getId(), utilisateur.getNom(), utilisateur.getPrenom(),
-                utilisateur.getEmail(), utilisateur.getRole(), utilisateur.getCentreId(),
-                utilisateur.getDepartementId());
+                utilisateur.getTelephone(), utilisateur.getNumeroCni(),
+                utilisateur.getEmail(), utilisateur.getRole(), utilisateur.getCentreId());
     }
 
     @Operation(summary = "Créer un utilisateur", description = "Crée un nouveau compte utilisateur applicatif.")
@@ -155,32 +149,6 @@ public class UtilisateurController {
     public ResponseEntity<UtilisateurResponse> detacherCentre(
             @Parameter(description = "Identifiant de l'utilisateur") @PathVariable UUID id) {
         return ResponseEntity.ok(versReponse(detacherCentreUseCase.detacherCentre(id)));
-    }
-
-    @Operation(summary = "Rattacher un utilisateur à un département", description = "Associe l'utilisateur à un département.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Utilisateur rattaché",
-                    content = @Content(schema = @Schema(implementation = UtilisateurResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Utilisateur ou département introuvable", content = @Content)
-    })
-    @PatchMapping("/{id}/rattacher-departement")
-    public ResponseEntity<UtilisateurResponse> rattacherDepartement(
-            @Parameter(description = "Identifiant de l'utilisateur") @PathVariable UUID id,
-            @Valid @RequestBody RattacherDepartementRequest request) {
-        return ResponseEntity.ok(versReponse(rattacherDepartementUseCase.rattacherDepartement(id, request.departementId())));
-    }
-
-    @Operation(summary = "Détacher un utilisateur de son département", description = "Retire le rattachement département de l'utilisateur.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Utilisateur détaché",
-                    content = @Content(schema = @Schema(implementation = UtilisateurResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Utilisateur introuvable", content = @Content)
-    })
-    @PatchMapping("/{id}/detacher-departement")
-    public ResponseEntity<UtilisateurResponse> detacherDepartement(
-            @Parameter(description = "Identifiant de l'utilisateur") @PathVariable UUID id) {
-        return ResponseEntity.ok(versReponse(detacherDepartementUseCase.detacherDepartement(id)));
     }
 
     @Operation(summary = "Supprimer un utilisateur", description = "Supprime définitivement un utilisateur.")

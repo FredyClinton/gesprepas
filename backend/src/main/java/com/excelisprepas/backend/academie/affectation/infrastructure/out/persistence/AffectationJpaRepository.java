@@ -33,4 +33,6 @@ public interface AffectationJpaRepository extends JpaRepository<AffectationEntit
     List<AffectationEntity> findByEnseignantIdAndStatut(UUID enseignantId, StatutAffectation statut);
 
     List<AffectationEntity> findByEnseignantId(UUID enseignantId);
+    List<AffectationEntity> findBySessionIdAndStatutAndStatutPaiement(UUID sessionId, StatutAffectation statut, com.excelisprepas.backend.academie.affectation.domain.model.StatutPaiement statutPaiement);
+    List<AffectationEntity> findByEnseignantIdAndSessionIdAndStatutAndStatutPaiement(UUID enseignantId, UUID sessionId, StatutAffectation statut, com.excelisprepas.backend.academie.affectation.domain.model.StatutPaiement statutPaiement);
 }

@@ -19,6 +19,9 @@ public class Affectation {
     private final int semaine;
     private UUID enseignantId;
     private StatutAffectation statut;
+    private StatutPaiement statutPaiement;
+    private java.math.BigDecimal coutApplique;
+    private UUID fichePaieId;
 
     public Affectation(UUID id, UUID centreId, UUID sessionId, UUID formationId, UUID salleId, UUID matiereId,
                        UUID enseignantId, Jour jour, int seance, int semaine, StatutAffectation statut) {
@@ -33,6 +36,32 @@ public class Affectation {
         this.seance = validerPositif(seance, "seance");
         this.semaine = validerPositif(semaine, "semaine");
         this.statut = Objects.requireNonNull(statut, "statut ne peut pas être nul");
+        this.statutPaiement = StatutPaiement.NON_PAYEE;
+    }
+
+    private Affectation(UUID id, UUID centreId, UUID sessionId, UUID formationId, UUID salleId, UUID matiereId,
+                        UUID enseignantId, Jour jour, int seance, int semaine, StatutAffectation statut,
+                        StatutPaiement statutPaiement, java.math.BigDecimal coutApplique, UUID fichePaieId) {
+        this.id = id;
+        this.centreId = centreId;
+        this.sessionId = sessionId;
+        this.formationId = formationId;
+        this.salleId = salleId;
+        this.matiereId = matiereId;
+        this.enseignantId = enseignantId;
+        this.jour = jour;
+        this.seance = seance;
+        this.semaine = semaine;
+        this.statut = statut;
+        this.statutPaiement = statutPaiement != null ? statutPaiement : StatutPaiement.NON_PAYEE;
+        this.coutApplique = coutApplique;
+        this.fichePaieId = fichePaieId;
+    }
+
+    public static Affectation reconstituer(UUID id, UUID centreId, UUID sessionId, UUID formationId, UUID salleId, UUID matiereId,
+                                           UUID enseignantId, Jour jour, int seance, int semaine, StatutAffectation statut,
+                                           StatutPaiement statutPaiement, java.math.BigDecimal coutApplique, UUID fichePaieId) {
+        return new Affectation(id, centreId, sessionId, formationId, salleId, matiereId, enseignantId, jour, seance, semaine, statut, statutPaiement, coutApplique, fichePaieId);
     }
 
     private static int validerPositif(int valeur, String nomChamp) {
@@ -101,6 +130,18 @@ public class Affectation {
         this.statut = StatutAffectation.ANNULEE;
     }
 
+    public void marquerPayee(UUID fichePaieId, java.math.BigDecimal coutApplique) {
+        if (this.statut != StatutAffectation.EFFECTUEE) {
+            throw new IllegalStateException("Seule une séance EFFECTUEE peut être payée");
+        }
+        if (this.statutPaiement == StatutPaiement.PAYEE) {
+            throw new IllegalStateException("La séance est déjà marquée PAYEE");
+        }
+        this.statutPaiement = StatutPaiement.PAYEE;
+        this.fichePaieId = Objects.requireNonNull(fichePaieId, "fichePaieId ne peut pas être nul");
+        this.coutApplique = Objects.requireNonNull(coutApplique, "coutApplique ne peut pas être nul");
+    }
+
     public UUID getId() {
         return id;
     }
@@ -143,6 +184,18 @@ public class Affectation {
 
     public StatutAffectation getStatut() {
         return statut;
+    }
+
+    public StatutPaiement getStatutPaiement() {
+        return statutPaiement;
+    }
+
+    public java.math.BigDecimal getCoutApplique() {
+        return coutApplique;
+    }
+
+    public UUID getFichePaieId() {
+        return fichePaieId;
     }
 
     @Override

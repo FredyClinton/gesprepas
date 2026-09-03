@@ -1,6 +1,5 @@
 package com.excelisprepas.backend.personnel.domain.model;
 
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Objects;
@@ -16,8 +15,6 @@ public class Enseignant extends Personnel {
     private final String matricule;
     private BigDecimal coutParSeance;
     private StatutEnseignant statut;
-    private String telephone;
-    private String numeroCni;
     private String ecoleFonction;
     private String niveauGrade;
     private LocalDate dateRecrutement;
@@ -29,45 +26,41 @@ public class Enseignant extends Personnel {
 
     public Enseignant(UUID id, String nom, String prenom,
                       String matricule, BigDecimal coutParSeance, LocalDate dateRecrutement) {
-        super(id, nom, prenom, ModeCalculPaie.PAR_SEANCE);
-        this.matricule = validerMatricule(matricule);
-        this.coutParSeance = validerCout(coutParSeance);
-        this.statut = StatutEnseignant.ACTIF;
-        this.dateRecrutement = dateRecrutement != null ? dateRecrutement : LocalDate.now();
+        this(id, nom, prenom, null, null, null, matricule, coutParSeance, StatutEnseignant.ACTIF, null, null, dateRecrutement);
     }
 
-    private Enseignant(UUID id, String nom, String prenom, String matricule,
-                       BigDecimal coutParSeance, StatutEnseignant statut,
-                       String telephone, String numeroCni, String ecoleFonction, String niveauGrade,
-                       LocalDate dateRecrutement) {
-        super(id, nom, prenom, ModeCalculPaie.PAR_SEANCE);
-        this.matricule = matricule;
-        this.coutParSeance = coutParSeance;
-        this.statut = statut;
-        this.telephone = telephone;
-        this.numeroCni = numeroCni;
+    public Enseignant(UUID id, String nom, String prenom, String telephone, String numeroCni, String email,
+                      String matricule, BigDecimal coutParSeance, StatutEnseignant statut,
+                      String ecoleFonction, String niveauGrade, LocalDate dateRecrutement) {
+        super(id, nom, prenom, telephone, numeroCni, email);
+        this.matricule = validerMatricule(matricule);
+        this.coutParSeance = validerCout(coutParSeance);
+        this.statut = statut != null ? statut : StatutEnseignant.ACTIF;
         this.ecoleFonction = ecoleFonction;
         this.niveauGrade = niveauGrade;
         this.dateRecrutement = dateRecrutement != null ? dateRecrutement : LocalDate.now();
     }
 
-    /**
-     * Reconstruction d'un Enseignant depuis la persistance.
-     * Réservé aux adaptateurs infrastructure — ne jamais utiliser pour créer
-     * un nouvel Enseignant (utiliser le constructeur public pour ça).
-     */
     public static Enseignant reconstituer(UUID id, String nom, String prenom, String matricule,
                                           BigDecimal coutParSeance, StatutEnseignant statut,
                                           String telephone, String numeroCni, String ecoleFonction, String niveauGrade) {
-        return reconstituer(id, nom, prenom, matricule, coutParSeance, statut, telephone, numeroCni, ecoleFonction, niveauGrade, LocalDate.now());
+        return reconstituer(id, nom, prenom, matricule, coutParSeance, statut, telephone, numeroCni, null, ecoleFonction, niveauGrade, LocalDate.now());
     }
 
     public static Enseignant reconstituer(UUID id, String nom, String prenom, String matricule,
                                           BigDecimal coutParSeance, StatutEnseignant statut,
                                           String telephone, String numeroCni, String ecoleFonction, String niveauGrade,
                                           LocalDate dateRecrutement) {
+        return reconstituer(id, nom, prenom, matricule, coutParSeance, statut, telephone, numeroCni, null, ecoleFonction, niveauGrade, dateRecrutement);
+    }
+
+    public static Enseignant reconstituer(UUID id, String nom, String prenom, String matricule,
+                                          BigDecimal coutParSeance, StatutEnseignant statut,
+                                          String telephone, String numeroCni, String email,
+                                          String ecoleFonction, String niveauGrade,
+                                          LocalDate dateRecrutement) {
         Objects.requireNonNull(statut, "statut ne peut pas être nul");
-        return new Enseignant(id, nom, prenom, matricule, coutParSeance, statut, telephone, numeroCni, ecoleFonction, niveauGrade, dateRecrutement);
+        return new Enseignant(id, nom, prenom, telephone, numeroCni, email, matricule, coutParSeance, statut, ecoleFonction, niveauGrade, dateRecrutement);
     }
 
     private static String validerMatricule(String matricule) {
@@ -113,22 +106,6 @@ public class Enseignant extends Personnel {
 
     public StatutEnseignant getStatut() {
         return statut;
-    }
-
-    public String getTelephone() {
-        return telephone;
-    }
-
-    public void setTelephone(String telephone) {
-        this.telephone = telephone;
-    }
-
-    public String getNumeroCni() {
-        return numeroCni;
-    }
-
-    public void setNumeroCni(String numeroCni) {
-        this.numeroCni = numeroCni;
     }
 
     public String getEcoleFonction() {

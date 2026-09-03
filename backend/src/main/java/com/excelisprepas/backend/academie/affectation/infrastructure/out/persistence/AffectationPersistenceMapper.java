@@ -20,13 +20,17 @@ public class AffectationPersistenceMapper {
         entite.setSeance(domaine.getSeance());
         entite.setSemaine(domaine.getSemaine());
         entite.setStatut(domaine.getStatut());
+        entite.setStatutPaiement(domaine.getStatutPaiement());
+        entite.setCoutApplique(domaine.getCoutApplique());
+        entite.setFichePaieId(domaine.getFichePaieId());
         return entite;
     }
 
     public Affectation toDomain(AffectationEntity entite) {
         if (entite == null) return null;
-        return new Affectation(entite.getId(), entite.getCentreId(), entite.getSessionId(), entite.getFormationId(),
+        return Affectation.reconstituer(entite.getId(), entite.getCentreId(), entite.getSessionId(), entite.getFormationId(),
                 entite.getSalleId(), entite.getMatiereId(), entite.getEnseignantId(), entite.getJour(),
-                entite.getSeance(), entite.getSemaine(), entite.getStatut());
+                entite.getSeance(), entite.getSemaine(), entite.getStatut(),
+                entite.getStatutPaiement(), entite.getCoutApplique(), entite.getFichePaieId());
     }
 }

@@ -30,7 +30,6 @@ import com.excelisprepas.backend.personnel.domain.model.Utilisateur;
 import com.excelisprepas.backend.personnel.domain.port.in.CreerEnseignantUseCase;
 import com.excelisprepas.backend.personnel.domain.port.in.CreerUtilisateurUseCase;
 import com.excelisprepas.backend.personnel.domain.port.in.RattacherCentreUseCase;
-import com.excelisprepas.backend.personnel.domain.port.in.RattacherDepartementUseCase;
 import com.excelisprepas.backend.academie.progression.domain.port.in.CreerProgressionUseCase;
 import com.excelisprepas.backend.rattachement.domain.port.in.RattacherUtilisateurUseCase;
 import com.excelisprepas.backend.academie.salle.domain.model.Salle;
@@ -75,8 +74,7 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final CreerSalleUseCase creerSalleUseCase;
     private final CreerUtilisateurUseCase creerUtilisateurUseCase;
     private final RattacherCentreUseCase rattacherCentreUseCase;
-    private final RattacherDepartementUseCase rattacherDepartementUseCase;
-    private final RattacherUtilisateurUseCase rattacherUtilisateurUseCase;
+        private final RattacherUtilisateurUseCase rattacherUtilisateurUseCase;
     private final CreerEnseignantUseCase creerEnseignantUseCase;
     private final AjouterEnseignantUseCase ajouterEnseignantUseCase;
     private final CreerApprenantUseCase creerApprenantUseCase;
@@ -107,8 +105,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                           CreerSalleUseCase creerSalleUseCase,
                           CreerUtilisateurUseCase creerUtilisateurUseCase,
                           RattacherCentreUseCase rattacherCentreUseCase,
-                          RattacherDepartementUseCase rattacherDepartementUseCase,
-                          RattacherUtilisateurUseCase rattacherUtilisateurUseCase,
+                                                    RattacherUtilisateurUseCase rattacherUtilisateurUseCase,
                           CreerEnseignantUseCase creerEnseignantUseCase,
                           AjouterEnseignantUseCase ajouterEnseignantUseCase,
                           CreerApprenantUseCase creerApprenantUseCase,
@@ -138,8 +135,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         this.creerSalleUseCase = creerSalleUseCase;
         this.creerUtilisateurUseCase = creerUtilisateurUseCase;
         this.rattacherCentreUseCase = rattacherCentreUseCase;
-        this.rattacherDepartementUseCase = rattacherDepartementUseCase;
-        this.rattacherUtilisateurUseCase = rattacherUtilisateurUseCase;
+                this.rattacherUtilisateurUseCase = rattacherUtilisateurUseCase;
         this.creerEnseignantUseCase = creerEnseignantUseCase;
         this.ajouterEnseignantUseCase = ajouterEnseignantUseCase;
         this.creerApprenantUseCase = creerApprenantUseCase;
@@ -291,7 +287,7 @@ public class DatabaseSeeder implements CommandLineRunner {
             Utilisateur utilisateur = creerUtilisateurUseCase.creerUtilisateur(
                     noms[i % noms.length], prenoms[i % prenoms.length], email,
                     MOT_DE_PASSE_SEED, RoleUtilisateur.CHEF_DEPARTEMENT);
-            rattacherDepartementUseCase.rattacherDepartement(utilisateur.getId(), departement.departementId());
+            // Pas besoin de rattacher le département sur l'utilisateur
         }
     }
 

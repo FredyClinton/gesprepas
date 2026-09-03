@@ -30,7 +30,6 @@ class EnseignantTest {
             assertThat(enseignant.getPrenom()).isEqualTo("Jean");
             assertThat(enseignant.getMatricule()).isEqualTo("MAT-001");
             assertThat(enseignant.getCoutParSeance()).isEqualByComparingTo("5000");
-            assertThat(enseignant.getModeCalculPaie()).isEqualTo(ModeCalculPaie.PAR_SEANCE);
             assertThat(enseignant.getDateRecrutement()).isEqualTo(java.time.LocalDate.now());
         }
 

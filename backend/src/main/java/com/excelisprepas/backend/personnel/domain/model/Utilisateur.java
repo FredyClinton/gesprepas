@@ -1,6 +1,5 @@
 package com.excelisprepas.backend.personnel.domain.model;
 
-
 import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -15,21 +14,25 @@ public class Utilisateur extends Personnel {
     private static final Pattern EMAIL_PATTERN =
             Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
-    private String email;
     private String motDePasseHash;
     private final RoleUtilisateur role;
     private UUID centreId; // nullable : rattachement optionnel
-    private UUID departementId; // nullable : rattachement optionnel
 
     public Utilisateur(UUID id, String nom, String prenom,
                        String email, String motDePasseHash, RoleUtilisateur role) {
-        super(id, nom, prenom,  ModeCalculPaie.FIXE);
-        this.email = validerEmail(email);
-        this.motDePasseHash = validerMotDePasseHash(motDePasseHash);
-        this.role = Objects.requireNonNull(role, "role ne peut pas être nul");
+        this(id, nom, prenom, null, null, email, motDePasseHash, role, null);
     }
 
-    private static String validerEmail(String email) {
+    public Utilisateur(UUID id, String nom, String prenom,
+                       String telephone, String numeroCni, String email,
+                       String motDePasseHash, RoleUtilisateur role, UUID centreId) {
+        super(id, nom, prenom, telephone, numeroCni, validerEmailObligatoire(email));
+        this.motDePasseHash = validerMotDePasseHash(motDePasseHash);
+        this.role = Objects.requireNonNull(role, "role ne peut pas être nul");
+        this.centreId = centreId;
+    }
+
+    private static String validerEmailObligatoire(String email) {
         if (email == null || !EMAIL_PATTERN.matcher(email).matches()) {
             throw new IllegalArgumentException("email invalide : " + email);
         }
@@ -44,7 +47,7 @@ public class Utilisateur extends Personnel {
     }
 
     public void changerEmail(String nouvelEmail) {
-        this.email = validerEmail(nouvelEmail);
+        setEmail(validerEmailObligatoire(nouvelEmail));
     }
 
     public void changerMotDePasseHash(String nouveauHash) {
@@ -59,18 +62,6 @@ public class Utilisateur extends Personnel {
         this.centreId = null;
     }
 
-    public void rattacherADepartement(UUID departementId) {
-        this.departementId = departementId;
-    }
-
-    public void detacherDuDepartement() {
-        this.departementId = null;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
     public String getMotDePasseHash() {
         return motDePasseHash;
     }
@@ -81,9 +72,5 @@ public class Utilisateur extends Personnel {
 
     public UUID getCentreId() {
         return centreId;
-    }
-
-    public UUID getDepartementId() {
-        return departementId;
     }
 }

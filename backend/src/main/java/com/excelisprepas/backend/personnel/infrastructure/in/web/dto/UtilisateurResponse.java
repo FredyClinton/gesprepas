@@ -8,9 +8,10 @@ public record UtilisateurResponse(
         UUID id,
         String nom,
         String prenom,
+        String telephone,
+        String numeroCni,
         String email,
         RoleUtilisateur role,
-        UUID centreId,
-        UUID departementId
+        UUID centreId
 ) {
 }

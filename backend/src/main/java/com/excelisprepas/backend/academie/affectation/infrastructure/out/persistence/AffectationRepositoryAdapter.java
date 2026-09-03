@@ -107,4 +107,17 @@ public class AffectationRepositoryAdapter implements AffectationRepositoryPort {
         return jpaRepository.findByEnseignantId(enseignantId).stream()
                 .map(mapper::toDomain).toList();
     }
+    @Override
+    public List<Affectation> findBySessionIdAndStatutAndStatutPaiement(UUID sessionId, StatutAffectation statut, com.excelisprepas.backend.academie.affectation.domain.model.StatutPaiement statutPaiement) {
+        return jpaRepository.findBySessionIdAndStatutAndStatutPaiement(sessionId, statut, statutPaiement).stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<Affectation> findByEnseignantIdAndSessionIdAndStatutAndStatutPaiement(UUID enseignantId, UUID sessionId, StatutAffectation statut, com.excelisprepas.backend.academie.affectation.domain.model.StatutPaiement statutPaiement) {
+        return jpaRepository.findByEnseignantIdAndSessionIdAndStatutAndStatutPaiement(enseignantId, sessionId, statut, statutPaiement).stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
 }

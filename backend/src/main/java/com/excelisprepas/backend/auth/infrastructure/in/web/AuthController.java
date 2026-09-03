@@ -36,8 +36,7 @@ public class AuthController {
                 resultat.getUtilisateur().getPrenom(),
                 resultat.getUtilisateur().getEmail(),
                 resultat.getUtilisateur().getRole(),
-                resultat.getUtilisateur().getCentreId(),
-                resultat.getUtilisateur().getDepartementId());
+                resultat.getUtilisateur().getCentreId());
     }
 
     @Operation(summary = "Se connecter",

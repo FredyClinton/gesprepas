@@ -13,11 +13,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-
 public class UtilisateurEntity extends PersonnelEntity {
-
-    @Column(nullable = false, unique = true)
-    private String email;
 
     @Column(name = "mot_de_passe_hash", nullable = false)
     private String motDePasseHash;
@@ -28,7 +24,4 @@ public class UtilisateurEntity extends PersonnelEntity {
 
     @Column(name = "centre_id")
     private UUID centreId; // nullable : rattachement optionnel
-
-    @Column(name = "departement_id")
-    private UUID departementId; // nullable : rattachement optionnel
 }

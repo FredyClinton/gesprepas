@@ -31,7 +31,6 @@ class UtilisateurTest {
             assertThat(utilisateur.getNom()).isEqualTo("Abega");
             assertThat(utilisateur.getEmail()).isEqualTo("abega.flore@excelis.local");
             assertThat(utilisateur.getRole()).isEqualTo(RoleUtilisateur.CAISSIER);
-            assertThat(utilisateur.getModeCalculPaie()).isEqualTo(ModeCalculPaie.FIXE);
             assertThat(utilisateur.getCentreId()).isNull();
         }
 

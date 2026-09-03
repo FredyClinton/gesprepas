@@ -51,4 +51,14 @@ public class AffectationEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private StatutAffectation statut;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "statut_paiement", nullable = false)
+    private com.excelisprepas.backend.academie.affectation.domain.model.StatutPaiement statutPaiement = com.excelisprepas.backend.academie.affectation.domain.model.StatutPaiement.NON_PAYEE;
+
+    @Column(name = "cout_applique", precision = 12, scale = 2)
+    private java.math.BigDecimal coutApplique;
+
+    @Column(name = "fiche_paie_id")
+    private UUID fichePaieId;
 }

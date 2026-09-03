@@ -14,12 +14,12 @@ public class UtilisateurPersistenceMapper {
         entite.setId(domaine.getId());
         entite.setNom(domaine.getNom());
         entite.setPrenom(domaine.getPrenom());
-        entite.setModeCalculPaie(domaine.getModeCalculPaie());
+        entite.setTelephone(domaine.getTelephone());
+        entite.setNumeroCni(domaine.getNumeroCni());
         entite.setEmail(domaine.getEmail());
         entite.setMotDePasseHash(domaine.getMotDePasseHash());
         entite.setRole(domaine.getRole());
         entite.setCentreId(domaine.getCentreId());
-        entite.setDepartementId(domaine.getDepartementId());
         return entite;
     }
 
@@ -27,20 +27,16 @@ public class UtilisateurPersistenceMapper {
         if (entite == null) {
             return null;
         }
-        Utilisateur utilisateur = new Utilisateur(
+        return new Utilisateur(
                 entite.getId(),
                 entite.getNom(),
                 entite.getPrenom(),
+                entite.getTelephone(),
+                entite.getNumeroCni(),
                 entite.getEmail(),
                 entite.getMotDePasseHash(),
-                entite.getRole()
+                entite.getRole(),
+                entite.getCentreId()
         );
-        if (entite.getCentreId() != null) {
-            utilisateur.rattacherACentre(entite.getCentreId());
-        }
-        if (entite.getDepartementId() != null) {
-            utilisateur.rattacherADepartement(entite.getDepartementId());
-        }
-        return utilisateur;
     }
 }
