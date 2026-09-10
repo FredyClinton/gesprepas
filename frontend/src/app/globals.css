@@ -3,7 +3,9 @@
 @theme inline {
   /* Police */
   --font-sans: var(--font-montserrat);
+}
 
+@theme {
   /* Charte graphique EXCELIS PRÉPAS — tokens `brand.*` (ex. bg-brand-orange).
      Valeurs synchronisées avec src/shared/config/brand.ts. */
   --color-brand-orange: #f7931e;
