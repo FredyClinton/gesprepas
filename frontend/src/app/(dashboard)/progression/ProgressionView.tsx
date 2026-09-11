@@ -889,7 +889,7 @@ function ProgressionDirecteurAcademique() {
                   <optgroup label="Semaines du cursus (Début → Présent)">
                     {semainesDisponibles.map((s) => (
                       <option key={s} value={String(s)} className="bg-white text-slate-800 font-bold">
-                        Semaine {s} {s === semaineCourante ? "• (Semaine en cours)" : s > semaineCourante ? "(À venir)" : ""}
+                        Semaine {s} {s === semaineCourante ? "• (en cours)" : s > semaineCourante ? "(À venir)" : ""}
                       </option>
                     ))}
                   </optgroup>

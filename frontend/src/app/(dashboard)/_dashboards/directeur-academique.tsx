@@ -164,7 +164,7 @@ export function DirecteurAcademiqueDashboard() {
             {chargementAffectations ? "…" : (creneauxNonAssignes ?? 0)}
           </div>
           <p className="text-brand-gray relative mt-2 text-xs font-medium">
-            Semaine en cours (S{semaineCourante})
+            en cours (S{semaineCourante})
           </p>
         </Card>
 

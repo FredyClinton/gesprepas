@@ -24,3 +24,4 @@ export {
   type InfoProgressionAffectation,
 } from "./domain/mapping";
 export { useProgressionQuotas } from "./hooks/useProgressionQuotas";
+export { TransfererCoursModal } from "./components/TransfererCoursModal";

@@ -13,6 +13,7 @@ import {
   BookOpen,
   Printer,
   Lock,
+  ArrowRightLeft,
 } from "lucide-react";
 
 import {
@@ -27,6 +28,7 @@ import {
   useSupprimerProgression,
 } from "../data/queries";
 import { useProgressionQuotas } from "../hooks/useProgressionQuotas";
+import { TransfererCoursModal } from "./TransfererCoursModal";
 import type { Affectation } from "@/modules/affectation";
 
 // ── Utilitaires de conversion Lignes <-> Contenu texte ──
@@ -66,6 +68,7 @@ interface LigneCoursExcelisProps {
   phaseId: string;
   onAnnulerDraft?: () => void;
   onSupprimer?: (p: Progression) => void;
+  onTransferer?: (p: Progression) => void;
 }
 
 function LigneCoursExcelis({
@@ -78,6 +81,7 @@ function LigneCoursExcelis({
   phaseId,
   onAnnulerDraft,
   onSupprimer,
+  onTransferer,
 }: LigneCoursExcelisProps) {
   const creerMutation = useCreerProgression();
   const modifierMutation = useMettreAJourContenuProgression();
@@ -288,6 +292,16 @@ function LigneCoursExcelis({
             </div>
           )}
 
+          {/* Badge Rattrapage si applicable */}
+          {progression?.theme?.toUpperCase().includes("RATTRAPAGE") && (
+            <div className="flex items-center gap-1">
+              <span className="inline-flex items-center gap-1 rounded-md bg-purple-100 text-purple-800 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider border border-purple-200 shadow-2xs">
+                <Sparkles size={10} className="text-purple-600" />
+                <span>Rattrapage</span>
+              </span>
+            </div>
+          )}
+
           {/* 1. SÉLECTEUR THEME / TD & TITRE DU THÈME */}
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 border-b border-slate-200 pb-2">
             {/* Sélecteur THEME ou TD */}
@@ -447,24 +461,37 @@ function LigneCoursExcelis({
             </button>
           )}
 
-          {progression ? (
-            <button
-              type="button"
-              onClick={() => onSupprimer?.(progression)}
-              className="p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
-              title="Supprimer ce cours"
-            >
-              <Trash2 size={14} />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onAnnulerDraft}
-              className="p-1 text-[11px] font-medium text-slate-400 hover:text-slate-600 rounded cursor-pointer"
-            >
-              Annuler
-            </button>
-          )}
+          <div className="flex items-center justify-center gap-1">
+            {progression && onTransferer && (
+              <button
+                type="button"
+                onClick={() => onTransferer(progression)}
+                className="p-1.5 text-slate-400 hover:bg-orange-50 hover:text-brand-orange rounded-lg transition-colors cursor-pointer"
+                title="Transférer / Reporter ce cours (Rattrapage)"
+              >
+                <ArrowRightLeft size={14} />
+              </button>
+            )}
+
+            {progression ? (
+              <button
+                type="button"
+                onClick={() => onSupprimer?.(progression)}
+                className="p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
+                title="Supprimer ce cours"
+              >
+                <Trash2 size={14} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onAnnulerDraft}
+                className="p-1 text-[11px] font-medium text-slate-400 hover:text-slate-600 rounded cursor-pointer"
+              >
+                Annuler
+              </button>
+            )}
+          </div>
         </div>
       </td>
     </tr>
@@ -510,7 +537,8 @@ export function SyllabusFiliereView({
   onChangerSemaine,
 }: SyllabusFiliereViewProps) {
   const supprimerMutation = useSupprimerProgression();
-  const { getQuota } = useProgressionQuotas(formationId);
+  const { getQuota, setQuota } = useProgressionQuotas(formationId);
+  const [coursATransferer, setCoursATransferer] = useState<Progression | null>(null);
 
   // Semaines explicitement supprimées / masquées par l'utilisateur
   const [semainesSupprimees, setSemainesSupprimees] = useState<Set<number>>(
@@ -796,9 +824,27 @@ export function SyllabusFiliereView({
                     S{semaine}
                   </span>
                   <span>Semaine {semaine}</span>
-                  <span className="ml-2 rounded-md bg-white/90 border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600 normal-case">
-                    Quota fixé par la Dir. Académique : {coursList.length} / {quota} cours
-                  </span>
+                  <div className="ml-2 inline-flex items-center gap-1.5 rounded-md bg-white/90 border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600 normal-case shadow-2xs">
+                    <span>Quota fixé par la Dir. Académique : {coursList.length} / {quota} cours</span>
+                    <div className="flex items-center gap-0.5 ml-1 border-l border-slate-200 pl-1.5 no-print">
+                      <button
+                        type="button"
+                        onClick={() => setQuota(semaine, matiereId, Math.max(1, quota - 1))}
+                        className="h-4 w-4 rounded flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] transition-colors cursor-pointer"
+                        title="Diminuer le quota max"
+                      >
+                        -
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setQuota(semaine, matiereId, Math.min(10, quota + 1))}
+                        className="h-4 w-4 rounded flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] transition-colors cursor-pointer"
+                        title="Augmenter le quota max"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -826,7 +872,7 @@ export function SyllabusFiliereView({
                       COURS
                     </th>
                     <th className="p-3 text-center border-r border-orange-600/40">
-                      {matiereNom.toUpperCase()}
+                      {matiereNom.toUpperCase()} ({String(quota).padStart(2, "0")})
                     </th>
                     <th className="w-28 p-3 text-center">
                       ACTIONS
@@ -876,6 +922,7 @@ export function SyllabusFiliereView({
                         sessionId={sessionId}
                         phaseId={phaseId}
                         onSupprimer={handleSupprimer}
+                        onTransferer={setCoursATransferer}
                       />
                     ))
                   )}
@@ -925,6 +972,19 @@ export function SyllabusFiliereView({
           );
         })}
       </div>
+
+      {/* ── MODALE DE TRANSFERT / REPORT / RATTRAPAGE DE COURS ── */}
+      {coursATransferer && (
+        <TransfererCoursModal
+          isOpen={Boolean(coursATransferer)}
+          onClose={() => setCoursATransferer(null)}
+          progression={coursATransferer}
+          formationNom={formationNom}
+          matiereNom={matiereNom}
+          semainesDisponibles={semainesDisponibles}
+          toutesProgressions={progressions}
+        />
+      )}
     </div>
   );
 }

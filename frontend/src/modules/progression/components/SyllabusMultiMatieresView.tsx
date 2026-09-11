@@ -15,6 +15,7 @@ import {
   Sparkles,
   Printer,
   Lock,
+  ArrowRightLeft,
 } from "lucide-react";
 
 import {
@@ -29,6 +30,7 @@ import {
   useSupprimerProgression,
 } from "../data/queries";
 import { useProgressionQuotas } from "../hooks/useProgressionQuotas";
+import { TransfererCoursModal } from "./TransfererCoursModal";
 import type { Matiere } from "@/modules/matieres";
 import type { Affectation } from "@/modules/affectation";
 
@@ -68,6 +70,7 @@ interface CelluleMultiMatiereProps {
   sessionId: string;
   phaseId: string;
   onSupprimer?: (p: Progression) => void;
+  onTransferer?: (p: Progression) => void;
   estVerrouille?: boolean;
   quota?: number;
 }
@@ -82,6 +85,7 @@ function CelluleMultiMatiereInSitu({
   sessionId,
   phaseId,
   onSupprimer,
+  onTransferer,
   estVerrouille,
   quota,
 }: CelluleMultiMatiereProps) {
@@ -363,6 +367,16 @@ function CelluleMultiMatiereInSitu({
           </div>
 
           <div className="flex items-center gap-1">
+            {progression && onTransferer && (
+              <button
+                type="button"
+                onClick={() => onTransferer(progression)}
+                className="no-print p-1 text-slate-400 hover:text-brand-orange hover:bg-orange-50 rounded transition-colors cursor-pointer"
+                title="Transférer / Reporter ce cours (Rattrapage)"
+              >
+                <ArrowRightLeft size={13} />
+              </button>
+            )}
             {progression ? (
               <button
                 type="button"
@@ -384,6 +398,16 @@ function CelluleMultiMatiereInSitu({
             )}
           </div>
         </div>
+
+        {/* Badge Rattrapage si applicable */}
+        {progression?.theme?.toUpperCase().includes("RATTRAPAGE") && (
+          <div className="flex items-center gap-1">
+            <span className="inline-flex items-center gap-1 rounded-md bg-purple-100 text-purple-800 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider border border-purple-200 shadow-2xs">
+              <Sparkles size={10} className="text-purple-600" />
+              <span>Rattrapage</span>
+            </span>
+          </div>
+        )}
 
         {erreur && (
           <div className="rounded bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-700">
@@ -593,6 +617,10 @@ export function SyllabusMultiMatieresView({
       ? propSemaineSelectionnee
       : internalSemaine;
   const setSemaineSelectionnee = onChangerSemaine ?? setInternalSemaine;
+
+  // État du cours en cours de transfert (Rattrapage / Report)
+  const [coursATransferer, setCoursATransferer] =
+    useState<Progression | null>(null);
 
   // Semaines à afficher selon le filtre
   const semainesAffichees = useMemo(() => {
@@ -916,17 +944,14 @@ export function SyllabusMultiMatieresView({
                           <div className="flex flex-col items-center justify-center gap-1.5">
                             <div className="flex items-center gap-1.5">
                               <span>{m.nom}</span>
-                              {nbSeances > 0 && (
-                                <span className="text-[11px] font-semibold opacity-90">
-                                  ({String(nbSeances).padStart(2, "0")})
-                                </span>
-                              )}
+                              <span className="font-mono text-[12px] font-black opacity-95">
+                                ({String(quota).padStart(2, "0")})
+                              </span>
                             </div>
 
-                            {/* Option Quota : Édition pour le Directeur Académique / Lecture seule pour les autres */}
+                            {/* Quota : Boutons d'ajustement pour le Directeur Académique / Statut d'avancement */}
                             {estDirecteur ? (
                               <div className="no-print inline-flex items-center gap-1 rounded-lg bg-black/20 px-2 py-0.5 text-[11px] font-normal normal-case text-white/95">
-                                <span className="font-bold text-white">Quota :</span>
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -934,12 +959,12 @@ export function SyllabusMultiMatieresView({
                                   }
                                   disabled={quota <= 1}
                                   className="px-1.5 py-0.2 rounded hover:bg-white/20 font-bold disabled:opacity-30 cursor-pointer"
-                                  title="Diminuer le quota de cours autorisés"
+                                  title="Diminuer le quota hebdomadaire"
                                 >
                                   -
                                 </button>
-                                <span className="font-mono font-bold bg-white/20 px-1.5 py-0.2 rounded">
-                                  {quota} cours
+                                <span className="font-bold">
+                                  {nbProgsMatiere}/{quota} rédigé{nbProgsMatiere > 1 ? "s" : ""}
                                 </span>
                                 <button
                                   type="button"
@@ -948,19 +973,15 @@ export function SyllabusMultiMatieresView({
                                   }
                                   disabled={quota >= 10}
                                   className="px-1.5 py-0.2 rounded hover:bg-white/20 font-bold disabled:opacity-30 cursor-pointer"
-                                  title="Augmenter le quota de cours autorisés"
+                                  title="Augmenter le quota hebdomadaire"
                                 >
                                   +
                                 </button>
-                                <span className="text-[10px] opacity-75">
-                                  ({nbProgsMatiere}/{quota})
-                                </span>
                               </div>
                             ) : (
                               <span className="inline-flex items-center gap-1 rounded-lg bg-black/20 px-2 py-0.5 text-[11px] font-semibold normal-case text-white/90">
-                                <Lock size={10} />
                                 <span>
-                                  Quota : {nbProgsMatiere}/{quota} cours
+                                  {nbProgsMatiere}/{quota} rédigé{nbProgsMatiere > 1 ? "s" : ""}
                                 </span>
                               </span>
                             )}
@@ -1018,6 +1039,7 @@ export function SyllabusMultiMatieresView({
                             sessionId={sessionId}
                             phaseId={phaseId}
                             onSupprimer={handleSupprimerProgression}
+                            onTransferer={(p) => setCoursATransferer(p)}
                             estVerrouille={estVerrouille}
                             quota={quota}
                           />
@@ -1066,6 +1088,19 @@ export function SyllabusMultiMatieresView({
           </div>
         );
       })}
+
+      {/* Modale de Transfert / Rattrapage de cours */}
+      {coursATransferer && (
+        <TransfererCoursModal
+          isOpen={Boolean(coursATransferer)}
+          onClose={() => setCoursATransferer(null)}
+          progression={coursATransferer}
+          formationNom={formationNom}
+          matiereNom={matieres.find((m) => m.id === coursATransferer.matiereId)?.nom}
+          semainesDisponibles={semainesDisponibles}
+          toutesProgressions={progressions}
+        />
+      )}
     </div>
   );
 }
