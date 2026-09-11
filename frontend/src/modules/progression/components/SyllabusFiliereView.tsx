@@ -485,6 +485,8 @@ interface SyllabusFiliereViewProps {
   onSupprimer?: (progression: Progression) => void;
   onOuvrirSaisieLot?: () => void;
   onOuvrirDuplication?: () => void;
+  semaineSelectionnee?: number | "TOUTES";
+  onChangerSemaine?: (s: number | "TOUTES") => void;
 }
 
 export function SyllabusFiliereView({
@@ -501,6 +503,8 @@ export function SyllabusFiliereView({
   onOuvrirSaisieLot,
   onOuvrirDuplication,
   onAjouter,
+  semaineSelectionnee: propSemaineSelectionnee,
+  onChangerSemaine,
 }: SyllabusFiliereViewProps) {
   const supprimerMutation = useSupprimerProgression();
 
@@ -514,10 +518,15 @@ export function SyllabusFiliereView({
     return Array.from(sSet).sort((a, b) => a - b);
   }, [progressions, affectations]);
 
-  // Semaine sélectionnée (par défaut : première semaine ou "TOUTES")
-  const [semaineSelectionnee, setSemaineSelectionnee] = useState<number | "TOUTES">(
-    () => semainesDisponibles[0] ?? 1,
+  // Semaine sélectionnée (soit contrôlée par le parent, soit état local)
+  const [internalSemaine, setInternalSemaine] = useState<number | "TOUTES">(
+    () => propSemaineSelectionnee ?? "TOUTES",
   );
+  const semaineSelectionnee =
+    propSemaineSelectionnee !== undefined
+      ? propSemaineSelectionnee
+      : internalSemaine;
+  const setSemaineSelectionnee = onChangerSemaine ?? setInternalSemaine;
 
   // Brouillons en cours de création in-situ (par semaine)
   const [draftsParSemaine, setDraftsParSemaine] = useState<
@@ -641,60 +650,62 @@ export function SyllabusFiliereView({
           </div>
         </div>
 
-        {/* ── BARRE DE SÉLECTION DES SEMAINES ── */}
-        <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 pt-1">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            {semainesDisponibles.map((s) => {
-              const count = progressionsParSemaine.get(s)?.length ?? 0;
-              const estActive = semaineSelectionnee === s;
+        {/* ── BARRE DE SÉLECTION DES SEMAINES (affichée si non gérée par le parent) ── */}
+        {propSemaineSelectionnee === undefined && (
+          <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 pt-1">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              {semainesDisponibles.map((s) => {
+                const count = progressionsParSemaine.get(s)?.length ?? 0;
+                const estActive = semaineSelectionnee === s;
 
-              return (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setSemaineSelectionnee(s)}
-                  className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                    estActive
-                      ? "bg-brand-orange text-white shadow-xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200/70"
-                  }`}
-                >
-                  <span>Semaine {s}</span>
-                  <span
-                    className={`rounded-full px-1.5 py-0.2 text-[10px] ${
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setSemaineSelectionnee(s)}
+                    className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
                       estActive
-                        ? "bg-white/20 text-white"
-                        : "bg-slate-200 text-slate-600"
+                        ? "bg-brand-orange text-white shadow-xs"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200/70"
                     }`}
                   >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
+                    <span>Semaine {s}</span>
+                    <span
+                      className={`rounded-full px-1.5 py-0.2 text-[10px] ${
+                        estActive
+                          ? "bg-white/20 text-white"
+                          : "bg-slate-200 text-slate-600"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+
+              <button
+                type="button"
+                onClick={() => setSemaineSelectionnee("TOUTES")}
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                  semaineSelectionnee === "TOUTES"
+                    ? "bg-brand-orange text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200/70"
+                }`}
+              >
+                Toutes les semaines ({progressions.length})
+              </button>
+            </div>
 
             <button
               type="button"
-              onClick={() => setSemaineSelectionnee("TOUTES")}
-              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                semaineSelectionnee === "TOUTES"
-                  ? "bg-slate-900 text-white shadow-xs"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200/70"
-              }`}
+              onClick={handleAjouterNouvelleSemaine}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:border-brand-orange hover:text-brand-orange transition-colors cursor-pointer shrink-0"
             >
-              Toutes les semaines ({progressions.length})
+              <Plus size={13} />
+              <span>+ Nouvelle Semaine</span>
             </button>
           </div>
-
-          <button
-            type="button"
-            onClick={handleAjouterNouvelleSemaine}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:border-brand-orange hover:text-brand-orange transition-colors cursor-pointer shrink-0"
-          >
-            <Plus size={13} />
-            <span>+ Nouvelle Semaine</span>
-          </button>
-        </div>
+        )}
       </div>
 
       {/* ── TABLEAU ÉDITABLE SUR PLACE (STYLE EXCELIS PREPAS PAPIER) ── */}
@@ -711,8 +722,13 @@ export function SyllabusFiliereView({
             >
               {/* Titre de la semaine au-dessus du tableau si vue multi-semaines */}
               {semaineSelectionnee === "TOUTES" && (
-                <div className="bg-slate-100/80 px-4 py-2 text-xs font-black uppercase text-slate-700 flex items-center justify-between border-b border-slate-200">
-                  <span>Semaine {semaine}</span>
+                <div className="bg-slate-100/90 px-4 py-2.5 text-xs font-black uppercase text-slate-800 flex items-center justify-between border-b border-slate-200/90">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-md bg-brand-orange text-[10px] font-black text-white">
+                      S{semaine}
+                    </span>
+                    <span>Semaine {semaine}</span>
+                  </div>
                   <span className="text-[11px] font-semibold text-slate-500">
                     {coursList.length} cours rédigé{coursList.length > 1 ? "s" : ""}
                   </span>

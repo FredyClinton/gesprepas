@@ -501,6 +501,8 @@ export interface SyllabusMultiMatieresViewProps {
   onOuvrirSaisieLot?: (matiereId?: string) => void;
   onOuvrirDuplication?: () => void;
   onOuvrirAjout?: () => void;
+  semaineSelectionnee?: number | "TOUTES";
+  onChangerSemaine?: (s: number | "TOUTES") => void;
 }
 
 export function SyllabusMultiMatieresView({
@@ -516,6 +518,8 @@ export function SyllabusMultiMatieresView({
   onOuvrirSaisieLot,
   onOuvrirDuplication,
   onOuvrirAjout,
+  semaineSelectionnee: propSemaineSelectionnee,
+  onChangerSemaine,
 }: SyllabusMultiMatieresViewProps) {
   const supprimerMutation = useSupprimerProgression();
 
@@ -528,10 +532,16 @@ export function SyllabusMultiMatieresView({
     return Array.from(set).sort((a, b) => a - b);
   }, [progressions, affectations]);
 
-  // Semaine active (1 par défaut, ou première de la liste)
-  const [semaineSelectionnee, setSemaineSelectionnee] = useState<
+  // Semaine active (soit contrôlée par le parent, soit état local)
+  const [internalSemaine, setInternalSemaine] = useState<
     number | "TOUTES"
-  >(() => semainesDisponibles[0] ?? 1);
+  >(() => propSemaineSelectionnee ?? "TOUTES");
+
+  const semaineSelectionnee =
+    propSemaineSelectionnee !== undefined
+      ? propSemaineSelectionnee
+      : internalSemaine;
+  const setSemaineSelectionnee = onChangerSemaine ?? setInternalSemaine;
 
   // Semaines à afficher selon le filtre
   const semainesAffichees = useMemo(() => {
@@ -632,65 +642,70 @@ export function SyllabusMultiMatieresView({
           </div>
         </div>
 
-        {/* ── Sélecteur d'onglets de Semaines ── */}
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-1.5 bg-slate-100/80 p-1 rounded-xl">
-            {semainesDisponibles.map((sem) => {
-              const nbProgsSemaine = progressions.filter(
-                (p) => p.semaine === sem,
-              ).length;
-              const actif = semaineSelectionnee === sem;
+        {/* ── Sélecteur d'onglets de Semaines (affiché si non géré par le parent) ── */}
+        {propSemaineSelectionnee === undefined && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-1.5 bg-slate-100/80 p-1 rounded-xl">
+              {semainesDisponibles.map((sem) => {
+                const nbProgsSemaine = progressions.filter(
+                  (p) => p.semaine === sem,
+                ).length;
+                const actif = semaineSelectionnee === sem;
 
-              return (
-                <button
-                  key={sem}
-                  type="button"
-                  onClick={() => setSemaineSelectionnee(sem)}
-                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
-                    actif
-                      ? "bg-white text-slate-900 shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  <Calendar size={12} className={actif ? "text-brand-orange" : "text-slate-400"} />
-                  <span>Semaine {sem}</span>
-                  {nbProgsSemaine > 0 && (
-                    <span
-                      className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                        actif
-                          ? "bg-orange-100 text-brand-orange"
-                          : "bg-slate-200 text-slate-600"
-                      }`}
-                    >
-                      {nbProgsSemaine}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={sem}
+                    type="button"
+                    onClick={() => setSemaineSelectionnee(sem)}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                      actif
+                        ? "bg-brand-orange text-white shadow-xs font-black"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <Calendar
+                      size={12}
+                      className={actif ? "text-white" : "text-slate-400"}
+                    />
+                    <span>Semaine {sem}</span>
+                    {nbProgsSemaine > 0 && (
+                      <span
+                        className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                          actif
+                            ? "bg-white/20 text-white"
+                            : "bg-slate-200 text-slate-600"
+                        }`}
+                      >
+                        {nbProgsSemaine}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+
+              <button
+                type="button"
+                onClick={() => setSemaineSelectionnee("TOUTES")}
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                  semaineSelectionnee === "TOUTES"
+                    ? "bg-brand-orange text-white shadow-xs font-black"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Toutes les semaines
+              </button>
+            </div>
 
             <button
               type="button"
-              onClick={() => setSemaineSelectionnee("TOUTES")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
-                semaineSelectionnee === "TOUTES"
-                  ? "bg-white text-slate-900 shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
+              onClick={handleAjouterNouvelleSemaine}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-brand-orange/30 bg-orange-50/60 px-3 py-1.5 text-xs font-bold text-brand-orange hover:bg-orange-100/70 transition-all cursor-pointer"
             >
-              Toutes les semaines
+              <Plus size={13} />
+              <span>+ Nouvelle Semaine</span>
             </button>
           </div>
-
-          <button
-            type="button"
-            onClick={handleAjouterNouvelleSemaine}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-brand-orange/30 bg-orange-50/60 px-3 py-1.5 text-xs font-bold text-brand-orange hover:bg-orange-100/70 transition-all cursor-pointer"
-          >
-            <Plus size={13} />
-            <span>+ Nouvelle Semaine</span>
-          </button>
-        </div>
+        )}
       </div>
 
       {/* ── Tableaux des Semaines (Multi-Matières) ── */}
@@ -720,17 +735,17 @@ export function SyllabusMultiMatieresView({
             key={semaine}
             className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs space-y-0"
           >
-            {/* Sous-titre de la semaine (Semaine X) */}
-            <div className="flex items-center justify-between bg-slate-900 px-5 py-3 text-white">
+            {/* Sous-titre de la semaine (Semaine X) - Fond doux et lumineux */}
+            <div className="flex items-center justify-between bg-slate-100/90 border-b border-slate-200/90 px-5 py-2.5 text-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-orange text-[11px] font-black">
+                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-orange text-[11px] font-black text-white shadow-2xs">
                   S{semaine}
                 </div>
-                <span className="font-extrabold tracking-wide uppercase text-xs sm:text-sm">
+                <span className="font-black tracking-wide uppercase text-xs sm:text-sm text-slate-900">
                   SEMAINE {semaine} · {formationNom}
                 </span>
               </div>
-              <span className="text-[11px] font-semibold text-slate-400">
+              <span className="text-[11px] font-bold text-slate-500">
                 {progressionsSemaine.length} cours documenté{progressionsSemaine.length > 1 ? "s" : ""}
               </span>
             </div>
