@@ -21,6 +21,7 @@ import {
   useSupprimerMatiere,
 } from "../data/queries";
 import { PALETTE_COULEURS_SELECTION, trouverCouleurParHex } from "../couleurs";
+import { GoogleSheetColorPicker } from "./GoogleSheetColorPicker";
 import type { Matiere } from "../domain/types";
 
 interface CatalogueMatieresModalProps {
@@ -189,33 +190,11 @@ export function CatalogueMatieresModal({
                   Couleur représentative
                 </label>
                 <div className="flex items-center gap-2">
-                  <div className="flex flex-wrap gap-1.5">
-                    {PALETTE_COULEURS_SELECTION.slice(0, 8).map((c) => (
-                      <button
-                        key={c.hex}
-                        type="button"
-                        onClick={() => setNouvelleMatiereCouleur(c.hex)}
-                        title={c.label}
-                        className={`w-6 h-6 rounded-full border-2 transition-all ${
-                          nouvelleMatiereCouleur.toLowerCase() ===
-                          c.hex.toLowerCase()
-                            ? "border-brand-anthracite scale-110 shadow-sm"
-                            : "border-transparent hover:scale-105"
-                        }`}
-                        style={{ backgroundColor: c.hex }}
-                      />
-                    ))}
-                  </div>
-
-                  <div className="relative flex items-center">
-                    <input
-                      type="color"
-                      value={nouvelleMatiereCouleur}
-                      onChange={(e) => setNouvelleMatiereCouleur(e.target.value)}
-                      className="w-7 h-7 rounded-lg cursor-pointer border border-slate-300 p-0.5"
-                      title="Choisir une couleur personnalisée"
-                    />
-                  </div>
+                  <GoogleSheetColorPicker
+                    couleurActive={nouvelleMatiereCouleur}
+                    onSelectCouleur={setNouvelleMatiereCouleur}
+                    boutonLibelle="Choisir la couleur (nuancier)"
+                  />
                 </div>
               </div>
             </div>
@@ -331,48 +310,13 @@ export function CatalogueMatieresModal({
                     )}
                   </div>
 
-                  {/* Sélecteur de couleur (Palette + Custom Color Picker) */}
+                  {/* Sélecteur de couleur Google Sheets */}
                   <div className="flex items-center gap-3 shrink-0">
-                    <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
-                      {PALETTE_COULEURS_SELECTION.slice(0, 7).map((c) => {
-                        const isSelected =
-                          hexActuel.toLowerCase() === c.hex.toLowerCase();
-                        return (
-                          <button
-                            key={c.hex}
-                            type="button"
-                            onClick={() => handleChangerCouleur(matiere, c.hex)}
-                            title={c.label}
-                            className={`w-5 h-5 rounded-full transition-all relative ${
-                              isSelected
-                                ? "ring-2 ring-brand-anthracite ring-offset-1 scale-110 shadow-xs"
-                                : "hover:scale-105 opacity-85 hover:opacity-100"
-                            }`}
-                            style={{ backgroundColor: c.hex }}
-                          >
-                            {isSelected && (
-                              <Check
-                                size={10}
-                                className="absolute inset-0 m-auto text-white"
-                              />
-                            )}
-                          </button>
-                        );
-                      })}
-
-                      {/* Sélecteur personnalisé / color picker */}
-                      <div className="relative flex items-center ml-1 pl-1 border-l border-slate-200">
-                        <input
-                          type="color"
-                          value={hexActuel}
-                          onChange={(e) =>
-                            handleChangerCouleur(matiere, e.target.value)
-                          }
-                          className="w-6 h-6 rounded-md cursor-pointer border-0 p-0 bg-transparent"
-                          title="Choisir une teinte sur-mesure"
-                        />
-                      </div>
-                    </div>
+                    <GoogleSheetColorPicker
+                      couleurActive={hexActuel}
+                      onSelectCouleur={(hex) => handleChangerCouleur(matiere, hex)}
+                      align="right"
+                    />
 
                     {/* Aperçu du badge textuel */}
                     <div className="hidden sm:block">

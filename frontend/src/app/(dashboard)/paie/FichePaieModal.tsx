@@ -263,10 +263,10 @@ export function FichePaieModal({ ficheId, onClose }: FichePaieModalProps) {
                                     ({s.duree || "2h30"})
                                   </span>
                                 </div>
-                                <div className="font-mono text-[10px] text-slate-400">
+                                {/* <div className="font-mono text-[10px] text-slate-400">
                                   Sem. {s.semaine} • {s.jour} (Créneau{" "}
                                   {s.creneauSeance})
-                                </div>
+                                </div> */}
                               </td>
                               <td className="p-2.5">
                                 <div className="font-bold text-slate-900">

@@ -13,5 +13,7 @@ export {
   type CouleurMatiere,
 } from "./couleurs";
 export { CatalogueMatieresModal } from "./components/CatalogueMatieresModal";
+export { GoogleSheetColorPicker } from "./components/GoogleSheetColorPicker";
+
 
 

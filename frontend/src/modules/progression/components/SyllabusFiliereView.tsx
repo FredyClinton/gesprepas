@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useRef, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import {
   Plus,
   Minus,
@@ -30,6 +31,9 @@ import {
 } from "../data/queries";
 import { useProgressionQuotas } from "../hooks/useProgressionQuotas";
 import { TransfererCoursModal } from "./TransfererCoursModal";
+import { ExporterProgressionModal } from "./ExporterProgressionModal";
+import { useFormations } from "@/modules/academique";
+import { useMatieres } from "@/modules/matieres";
 import type { Affectation } from "@/modules/affectation";
 
 // ── Utilitaires de conversion Lignes <-> Contenu texte ──
@@ -580,7 +584,15 @@ export function SyllabusFiliereView({
   onChangerSemaine,
 }: SyllabusFiliereViewProps) {
   const supprimerMutation = useSupprimerProgression();
+  const { data: authSession } = useSession();
+  const estDirecteur =
+    authSession?.user?.role === "DIRECTEUR_ACADEMIQUE" ||
+    authSession?.user?.role === "DIRECTEUR";
+
   const { getQuota, setQuota } = useProgressionQuotas(formationId);
+  const { data: allFormations = [] } = useFormations();
+  const { data: allMatieres = [] } = useMatieres();
+  const [showExportModal, setShowExportModal] = useState(false);
   const [coursATransferer, setCoursATransferer] = useState<Progression | null>(null);
 
   // Semaines explicitement supprimées / masquées par l'utilisateur
@@ -752,7 +764,7 @@ export function SyllabusFiliereView({
             {/* Bouton Export PDF */}
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={() => setShowExportModal(true)}
               className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 hover:border-brand-orange hover:text-brand-orange transition-colors cursor-pointer"
               title="Exporter ou imprimer le syllabus en PDF A4 Paysage"
             >
@@ -868,43 +880,60 @@ export function SyllabusFiliereView({
                   </span>
                   <span>Semaine {semaine}</span>
 
-                  {/* Stepper Quota bien designé */}
-                  <div className="ml-2 inline-flex items-center gap-2 rounded-full bg-white border border-slate-200/90 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs no-print">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                      Quota :
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setQuota(semaine, matiereId, Math.max(0, quota - 1))}
-                        disabled={quota <= 0}
-                        className="h-5 w-5 rounded-full bg-slate-100 hover:bg-brand-orange hover:text-white text-slate-600 flex items-center justify-center transition-all cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed active:scale-95"
-                        title="Diminuer le quota hebdomadaire"
-                      >
-                        <Minus size={11} strokeWidth={3} />
-                      </button>
-                      <span className="font-mono font-black text-xs text-brand-orange min-w-[18px] text-center">
-                        {quota}
+                  {/* Stepper Quota : modifiable UNIQUEMENT par le Directeur Académique / Directeur, lecture seule pour les chefs de département */}
+                  {estDirecteur ? (
+                    <div className="ml-2 inline-flex items-center gap-2 rounded-full bg-white border border-slate-200/90 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs no-print">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                        Quota :
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => setQuota(semaine, matiereId, Math.min(10, quota + 1))}
-                        disabled={quota >= 10}
-                        className="h-5 w-5 rounded-full bg-slate-100 hover:bg-brand-orange hover:text-white text-slate-600 flex items-center justify-center transition-all cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed active:scale-95"
-                        title="Augmenter le quota hebdomadaire"
-                      >
-                        <Plus size={11} strokeWidth={3} />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setQuota(semaine, matiereId, Math.max(0, quota - 1))}
+                          disabled={quota <= 0}
+                          className="h-5 w-5 rounded-full bg-slate-100 hover:bg-brand-orange hover:text-white text-slate-600 flex items-center justify-center transition-all cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed active:scale-95"
+                          title="Diminuer le quota hebdomadaire"
+                        >
+                          <Minus size={11} strokeWidth={3} />
+                        </button>
+                        <span className="font-mono font-black text-xs text-brand-orange min-w-[18px] text-center">
+                          {quota}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setQuota(semaine, matiereId, Math.min(10, quota + 1))}
+                          disabled={quota >= 10}
+                          className="h-5 w-5 rounded-full bg-slate-100 hover:bg-brand-orange hover:text-white text-slate-600 flex items-center justify-center transition-all cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed active:scale-95"
+                          title="Augmenter le quota hebdomadaire"
+                        >
+                          <Plus size={11} strokeWidth={3} />
+                        </button>
+                      </div>
+
+                      <span className="text-slate-300">|</span>
+
+                      <span className="text-[11px] font-bold text-slate-600">
+                        {quota === 0
+                          ? "Aucun cours prévu"
+                          : `${coursList.length}/${quota} cours rédigé${coursList.length > 1 ? "s" : ""}`}
+                      </span>
                     </div>
-
-                    <span className="text-slate-300">|</span>
-
-                    <span className="text-[11px] font-bold text-slate-600">
-                      {quota === 0
-                        ? "Aucun cours prévu"
-                        : `${coursList.length}/${quota} cours rédigé${coursList.length > 1 ? "s" : ""}`}
-                    </span>
-                  </div>
+                  ) : (
+                    <div className="ml-2 inline-flex items-center gap-2 rounded-full bg-slate-50 border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs no-print">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                        Quota fixé :
+                      </span>
+                      <span className="font-mono font-black text-xs text-brand-orange">
+                        ({String(quota).padStart(2, "0")})
+                      </span>
+                      <span className="text-slate-300">|</span>
+                      <span className="text-[11px] font-bold text-slate-600">
+                        {quota === 0
+                          ? "Dispensé (0 cours)"
+                          : `${coursList.length}/${quota} cours rédigé${coursList.length > 1 ? "s" : ""}`}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Information compacte visible uniquement à l'impression */}
                   <span className="hidden print:inline text-[11px] font-bold text-slate-700 ml-2 normal-case">
@@ -1075,6 +1104,30 @@ export function SyllabusFiliereView({
           matiereNom={matiereNom}
           semainesDisponibles={semainesDisponibles}
           toutesProgressions={progressions}
+        />
+      )}
+
+      {/* Modale d'exportation PDF & Impression Multi-Formations */}
+      {showExportModal && (
+        <ExporterProgressionModal
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          formations={
+            allFormations.length > 0
+              ? allFormations
+              : [{ id: formationId, nom: formationNom }]
+          }
+          formationIdActive={formationId}
+          semaineActive={propSemaineSelectionnee ?? "TOUTES"}
+          matieres={
+            allMatieres.length > 0
+              ? allMatieres
+              : [{ id: matiereId, nom: matiereNom }]
+          }
+          sessionAnnee={sessionAnnee}
+          sessionId={sessionId}
+          progressions={progressions}
+          affectations={affectations}
         />
       )}
     </div>

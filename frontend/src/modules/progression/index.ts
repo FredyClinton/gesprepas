@@ -25,3 +25,4 @@ export {
 } from "./domain/mapping";
 export { useProgressionQuotas } from "./hooks/useProgressionQuotas";
 export { TransfererCoursModal } from "./components/TransfererCoursModal";
+export { ExporterProgressionModal } from "./components/ExporterProgressionModal";

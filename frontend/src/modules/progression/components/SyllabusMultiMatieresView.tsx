@@ -31,6 +31,8 @@ import {
 } from "../data/queries";
 import { useProgressionQuotas } from "../hooks/useProgressionQuotas";
 import { TransfererCoursModal } from "./TransfererCoursModal";
+import { ExporterProgressionModal } from "./ExporterProgressionModal";
+import { useFormations } from "@/modules/academique";
 import type { Matiere } from "@/modules/matieres";
 import type { Affectation } from "@/modules/affectation";
 
@@ -640,6 +642,8 @@ export function SyllabusMultiMatieresView({
     authSession?.user?.role === "DIRECTEUR";
 
   const { getQuota, setQuota } = useProgressionQuotas(formationId);
+  const { data: allFormations = [] } = useFormations();
+  const [showExportModal, setShowExportModal] = useState(false);
 
   // Semaines explicitement supprimées / masquées par l'utilisateur
   const [semainesSupprimees, setSemainesSupprimees] = useState<Set<number>>(
@@ -834,7 +838,7 @@ export function SyllabusMultiMatieresView({
             {/* Bouton Export PDF */}
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={() => setShowExportModal(true)}
               className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 hover:border-brand-orange hover:text-brand-orange transition-all cursor-pointer"
               title="Exporter ou imprimer le syllabus en PDF A4 Paysage"
             >
@@ -1235,6 +1239,26 @@ export function SyllabusMultiMatieresView({
           matiereNom={matieres.find((m) => m.id === coursATransferer.matiereId)?.nom}
           semainesDisponibles={semainesDisponibles}
           toutesProgressions={progressions}
+        />
+      )}
+
+      {/* Modale d'exportation PDF & Impression Multi-Formations */}
+      {showExportModal && (
+        <ExporterProgressionModal
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          formations={
+            allFormations.length > 0
+              ? allFormations
+              : [{ id: formationId, nom: formationNom }]
+          }
+          formationIdActive={formationId}
+          semaineActive={propSemaineSelectionnee ?? "TOUTES"}
+          matieres={matieres}
+          sessionAnnee={sessionAnnee}
+          sessionId={sessionId}
+          progressions={progressions}
+          affectations={affectations}
         />
       )}
     </div>
