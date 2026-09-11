@@ -688,22 +688,46 @@ export function SyllabusMultiMatieresView({
   const [coursSupplementairesParSemaine, setCoursSupplementairesParSemaine] =
     useState<Record<number, number>>({});
 
+  // Lignes de cours explicitement supprimées par semaine
+  const [lignesSupprimeesParSemaine, setLignesSupprimeesParSemaine] = useState<
+    Record<number, Set<number>>
+  >({});
+
   function ajouterLigneCours(semaine: number, prochainNumero: number) {
+    setLignesSupprimeesParSemaine((prev) => {
+      const set = new Set(prev[semaine] ?? []);
+      set.delete(prochainNumero);
+      return { ...prev, [semaine]: set };
+    });
     setCoursSupplementairesParSemaine((prev) => ({
       ...prev,
       [semaine]: Math.max(prev[semaine] ?? 0, prochainNumero),
     }));
   }
 
-  function retirerLigneCours(semaine: number) {
-    setCoursSupplementairesParSemaine((prev) => {
-      const current = prev[semaine] ?? 0;
-      if (current <= 1) {
-        const next = { ...prev };
-        delete next[semaine];
-        return next;
+  async function handleSupprimerLigne(semaine: number, numCours: number) {
+    const progsSurLigne = progressions.filter(
+      (p) => p.semaine === semaine && p.numeroCours === numCours,
+    );
+    if (progsSurLigne.length > 0) {
+      const ok = window.confirm(
+        `Attention : ${progsSurLigne.length} cours sont documentés sur la ligne "${labelNumeroCours(numCours)}" en Semaine ${semaine}.\n\nVoulez-vous vraiment supprimer cette ligne et effacer ces contenus ?`,
+      );
+      if (!ok) return;
+
+      for (const p of progsSurLigne) {
+        if (onSupprimer) {
+          await onSupprimer(p);
+        } else {
+          await supprimerMutation.mutateAsync(p.id);
+        }
       }
-      return { ...prev, [semaine]: current - 1 };
+    }
+
+    setLignesSupprimeesParSemaine((prev) => {
+      const set = new Set(prev[semaine] ?? []);
+      set.add(numCours);
+      return { ...prev, [semaine]: set };
     });
   }
 
@@ -744,6 +768,12 @@ export function SyllabusMultiMatieresView({
     }
 
     setCoursSupplementairesParSemaine((prev) => {
+      const next = { ...prev };
+      delete next[semaine];
+      return next;
+    });
+
+    setLignesSupprimeesParSemaine((prev) => {
       const next = { ...prev };
       delete next[semaine];
       return next;
@@ -927,10 +957,11 @@ export function SyllabusMultiMatieresView({
           extraCours,
         );
 
+        const setSupprimees = lignesSupprimeesParSemaine[semaine] ?? new Set();
         const numerosCours = Array.from(
           { length: nombreLignes },
           (_, i) => i + 1,
-        );
+        ).filter((num) => !setSupprimees.has(num));
 
         return (
           <div
@@ -957,7 +988,7 @@ export function SyllabusMultiMatieresView({
                   type="button"
                   onClick={() => handleSupprimerSemaine(semaine)}
                   className="no-print inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700 transition-all cursor-pointer shadow-2xs"
-                  title={`Supprimer le tableau de la Semaine ${semaine}`}
+                  title={`Supprimer le tableau complet de la Semaine ${semaine}`}
                 >
                   <Trash2 size={12} className="text-slate-400 group-hover:text-red-600" />
                   <span>Supprimer Semaine {semaine}</span>
@@ -1060,59 +1091,89 @@ export function SyllabusMultiMatieresView({
 
                 {/* Lignes du tableau : 1er COURS, 2e COURS, etc. */}
                 <tbody>
-                  {numerosCours.map((numCours) => (
-                    <tr
-                      key={numCours}
-                      className="hover:bg-slate-50/40 transition-colors"
-                    >
-                      {/* Colonne 1 : Numéro du cours (Sticky gauche) */}
-                      <td className="sticky left-0 z-10 w-28 border-r border-b border-slate-200 bg-slate-50/95 p-3 text-center align-middle shadow-xs">
-                        <div className="flex flex-col items-center justify-center gap-1">
-                          <span className="font-black text-slate-900 tracking-tight text-xs uppercase">
-                            {labelNumeroCours(numCours)}
-                          </span>
-                          <span className="text-[10px] font-bold text-slate-400">
-                            S{semaine}
-                          </span>
-                        </div>
+                  {numerosCours.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={matieres.length + 1}
+                        className="p-8 text-center bg-slate-50/50 text-slate-500"
+                      >
+                        <p className="font-semibold text-xs text-slate-700">
+                          Toutes les lignes de cours ont été retirées pour la Semaine {semaine}.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => ajouterLigneCours(semaine, 1)}
+                          className="mt-2.5 inline-flex items-center gap-1.5 rounded-xl bg-brand-orange px-3.5 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-brand-orange/90 transition-all cursor-pointer"
+                        >
+                          <Plus size={13} />
+                          <span>Ajouter le 1er Cours</span>
+                        </button>
                       </td>
-
-                      {/* Cellule pour chaque matière avec application du quota */}
-                      {matieres.map((m) => {
-                        const progMatiere = progressionsSemaine.find(
-                          (p) =>
-                            p.matiereId === m.id && p.numeroCours === numCours,
-                        );
-                        const nbSeances = affectationsSemaine.filter(
-                          (a) => a.matiereId === m.id,
-                        ).length;
-                        const quota = getQuota(
-                          semaine,
-                          m.id,
-                          nbSeances > 0 ? nbSeances : 3,
-                        );
-                        const estVerrouille = numCours > quota;
-
-                        return (
-                          <CelluleMultiMatiereInSitu
-                            key={m.id}
-                            progression={progMatiere}
-                            semaine={semaine}
-                            numeroCours={numCours}
-                            formationId={formationId}
-                            matiereId={m.id}
-                            matiereNom={m.nom}
-                            sessionId={sessionId}
-                            phaseId={phaseId}
-                            onSupprimer={handleSupprimerProgression}
-                            onTransferer={(p) => setCoursATransferer(p)}
-                            estVerrouille={estVerrouille}
-                            quota={quota}
-                          />
-                        );
-                      })}
                     </tr>
-                  ))}
+                  ) : (
+                    numerosCours.map((numCours) => (
+                      <tr
+                        key={numCours}
+                        className="hover:bg-slate-50/40 transition-colors group/row"
+                      >
+                        {/* Colonne 1 : Numéro du cours (Sticky gauche) avec bouton de suppression de la ligne */}
+                        <td className="sticky left-0 z-10 w-28 border-r border-b border-slate-200 bg-slate-50/95 p-3 text-center align-middle shadow-xs">
+                          <div className="flex flex-col items-center justify-center gap-1">
+                            <span className="font-black text-slate-900 tracking-tight text-xs uppercase">
+                              {labelNumeroCours(numCours)}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-400">
+                              S{semaine}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleSupprimerLigne(semaine, numCours)}
+                              className="no-print mt-1 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold text-slate-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-all cursor-pointer"
+                              title={`Supprimer la ligne du ${labelNumeroCours(numCours)}`}
+                            >
+                              <Trash2 size={10} />
+                              <span>Supprimer</span>
+                            </button>
+                          </div>
+                        </td>
+
+                        {/* Cellule pour chaque matière avec application du quota */}
+                        {matieres.map((m) => {
+                          const progMatiere = progressionsSemaine.find(
+                            (p) =>
+                              p.matiereId === m.id && p.numeroCours === numCours,
+                          );
+                          const nbSeances = affectationsSemaine.filter(
+                            (a) => a.matiereId === m.id,
+                          ).length;
+                          const quota = getQuota(
+                            semaine,
+                            m.id,
+                            nbSeances > 0 ? nbSeances : 3,
+                          );
+                          const estVerrouille = numCours > quota;
+
+                          return (
+                            <CelluleMultiMatiereInSitu
+                              key={m.id}
+                              progression={progMatiere}
+                              semaine={semaine}
+                              numeroCours={numCours}
+                              formationId={formationId}
+                              matiereId={m.id}
+                              matiereNom={m.nom}
+                              sessionId={sessionId}
+                              phaseId={phaseId}
+                              onSupprimer={handleSupprimerProgression}
+                              onTransferer={(p) => setCoursATransferer(p)}
+                              estVerrouille={estVerrouille}
+                              quota={quota}
+                            />
+                          );
+                        })}
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1122,27 +1183,36 @@ export function SyllabusMultiMatieresView({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() =>
-                    ajouterLigneCours(semaine, nombreLignes + 1)
-                  }
+                  onClick={() => {
+                    const maxActuel =
+                      numerosCours.length > 0 ? Math.max(...numerosCours) : 0;
+                    ajouterLigneCours(semaine, maxActuel + 1);
+                  }}
                   className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 hover:border-brand-orange bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:text-brand-orange shadow-2xs transition-all cursor-pointer"
                 >
                   <Plus size={13} />
                   <span>
-                    + Ajouter un cours ({labelNumeroCours(nombreLignes + 1)}) à la Semaine {semaine}
+                    + Ajouter une ligne de cours ({labelNumeroCours(
+                      (numerosCours.length > 0 ? Math.max(...numerosCours) : 0) + 1,
+                    )})
                   </span>
                 </button>
 
-                {/* Possibilité de retirer la ligne ajoutée si elle dépasse le quota ou les progressions enregistrées */}
-                {nombreLignes > Math.max(maxQuotaSemaine, maxProgressionNum) && (
+                {/* Possibilité de retirer la dernière ligne affichée */}
+                {numerosCours.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => retirerLigneCours(semaine)}
+                    onClick={() => {
+                      const dernierNumero = Math.max(...numerosCours);
+                      handleSupprimerLigne(semaine, dernierNumero);
+                    }}
                     className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 px-3 py-2 text-xs font-bold text-red-700 transition-all cursor-pointer shadow-2xs"
-                    title="Supprimer la dernière ligne ajoutée"
+                    title="Supprimer la dernière ligne du tableau"
                   >
                     <Minus size={13} />
-                    <span>Retirer la ligne ({labelNumeroCours(nombreLignes)})</span>
+                    <span>
+                      Retirer la ligne ({labelNumeroCours(Math.max(...numerosCours))})
+                    </span>
                   </button>
                 )}
               </div>

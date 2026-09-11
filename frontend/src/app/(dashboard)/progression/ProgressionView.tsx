@@ -16,6 +16,7 @@ import {
   Copy,
   FileText,
   CheckCircle2,
+  Palette,
 } from "lucide-react";
 
 import { Card } from "@/shared/ui";
@@ -26,7 +27,7 @@ import {
   useAffectationsMultiMatiere,
 } from "@/modules/affectation";
 import { useFormations, type Formation } from "@/modules/academique";
-import { useMatieres } from "@/modules/matieres";
+import { useMatieres, CatalogueMatieresModal } from "@/modules/matieres";
 import { useSalles } from "@/modules/salle";
 import {
   useProgressions,
@@ -222,6 +223,7 @@ function ProgressionChefDepartement({
   const [filiereActiveId, setFiliereActiveId] = useState<string>("");
   const [saisieLotOuverte, setSaisieLotOuverte] = useState(false);
   const [duplicationOuverte, setDuplicationOuverte] = useState(false);
+  const [catalogueMatieresOuvert, setCatalogueMatieresOuvert] = useState(false);
 
   const supprimerMutation = useSupprimerProgression();
 
@@ -382,6 +384,16 @@ function ProgressionChefDepartement({
           )}
 
           {/* Boutons d'action rapides */}
+          <button
+            type="button"
+            onClick={() => setCatalogueMatieresOuvert(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs sm:text-sm font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors cursor-pointer"
+            title="Gérer les matières et leurs couleurs associées"
+          >
+            <Palette size={15} className="text-brand-orange" />
+            <span>Catalogue matières</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setDuplicationOuverte(true)}
@@ -582,6 +594,10 @@ function ProgressionChefDepartement({
         </>
       )}
 
+      <CatalogueMatieresModal
+        isOpen={catalogueMatieresOuvert}
+        onClose={() => setCatalogueMatieresOuvert(false)}
+      />
     </div>
   );
 }
@@ -797,6 +813,7 @@ function ProgressionDirecteurAcademique() {
   const [saisieLotOuverte, setSaisieLotOuverte] = useState(false);
   const [matierePourLot, setMatierePourLot] = useState<string>("");
   const [duplicationOuverte, setDuplicationOuverte] = useState(false);
+  const [catalogueMatieresOuvert, setCatalogueMatieresOuvert] = useState(false);
 
   const supprimerMutation = useSupprimerProgression();
 
@@ -907,6 +924,16 @@ function ProgressionDirecteurAcademique() {
               </button>
             </div>
           )}
+
+          <button
+            type="button"
+            onClick={() => setCatalogueMatieresOuvert(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-2xs"
+            title="Gérer les matières et leurs couleurs associées"
+          >
+            <Palette size={14} className="text-brand-orange" />
+            <span>Catalogue matières</span>
+          </button>
 
           <button
             type="button"
@@ -1074,6 +1101,11 @@ function ProgressionDirecteurAcademique() {
           progressionsExistantes={toutesProgressions}
         />
       )}
+
+      <CatalogueMatieresModal
+        isOpen={catalogueMatieresOuvert}
+        onClose={() => setCatalogueMatieresOuvert(false)}
+      />
     </div>
   );
 }

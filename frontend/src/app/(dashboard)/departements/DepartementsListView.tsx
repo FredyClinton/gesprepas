@@ -20,6 +20,7 @@ import {
   ChevronRight,
   UserCheck,
   ShieldAlert,
+  Palette,
 } from "lucide-react";
 
 import {
@@ -34,6 +35,7 @@ import {
   useMatieres,
   construireCouleursMatieres,
   PALETTE_COULEURS_SELECTION,
+  CatalogueMatieresModal,
   type Matiere,
   type CouleurMatiere,
 } from "@/modules/matieres";
@@ -195,6 +197,7 @@ export function DepartementsListView() {
       : 100;
 
   // Modals state
+  const [modalCatalogueMatieres, setModalCatalogueMatieres] = useState(false);
   const [modalCreerOuvert, setModalCreerOuvert] = useState(false);
   const [modalRenommerDep, setModalRenommerDep] = useState<Departement | null>(
     null,
@@ -388,6 +391,16 @@ export function DepartementsListView() {
         </div>
 
         <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setModalCatalogueMatieres(true)}
+            className="flex items-center gap-2 border border-slate-200 bg-white text-slate-700 shadow-2xs hover:bg-slate-50 rounded-xl px-4 py-2.5 font-bold text-sm transition-all cursor-pointer"
+          >
+            <Palette size={16} className="text-brand-orange" />
+            <span>Catalogue matières</span>
+          </Button>
+
           <Button
             type="button"
             onClick={ouvrirCreer}
@@ -1166,6 +1179,12 @@ export function DepartementsListView() {
           }}
         />
       )}
+
+      {/* ── Modale Catalogue des Matières ── */}
+      <CatalogueMatieresModal
+        isOpen={modalCatalogueMatieres}
+        onClose={() => setModalCatalogueMatieres(false)}
+      />
     </div>
   );
 }
