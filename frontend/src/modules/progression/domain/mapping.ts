@@ -19,8 +19,11 @@ export interface InfoProgressionAffectation {
  * Associe chaque créneau (Affectation) de l'emploi du temps à son numéro d'ordre
  * chronologique dans la semaine (1er cours, 2e cours, etc.) et à sa fiche de progression.
  *
- * Résout la confusion entre `affectation.seance` (qui est la tranche horaire 1 à 4 de la journée)
- * et `progression.numeroCours` (qui est l'ordre pédagogique 1, 2, ... de la matière dans la semaine).
+ * Règle métier essentielle (Grille Publique) :
+ * Le classement des cours de la semaine s'effectue au sein d'une MÊME SALLE
+ * (formation + matière + semaine + salle), et non pas uniquement au niveau de la formation.
+ * Ainsi, le 1er cours de la matière dans la Salle A reçoit le Cours N°1 du syllabus,
+ * et le 1er cours de la même matière dans la Salle B reçoit également le Cours N°1 du syllabus.
  */
 export function construireMappingAffectationsProgressions(
   affectations: Affectation[],
@@ -49,9 +52,11 @@ export function construireMappingAffectationsProgressions(
 
     const [formationId, matiereId, semaineStr] = key.split(":");
     const semaine = parseInt(semaineStr, 10);
+    const sessionId = list[0]?.sessionId;
 
     const progsFiliere = progressions.filter(
       (p) =>
+        (!sessionId || !p.sessionId || p.sessionId === sessionId) &&
         p.formationId === formationId &&
         p.matiereId === matiereId &&
         p.semaine === semaine,

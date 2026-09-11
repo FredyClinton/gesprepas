@@ -82,9 +82,11 @@ function PlanningPublicContenu() {
     () =>
       construireMappingAffectationsProgressions(
         affectations ?? [],
-        progressions,
+        sessionId
+          ? progressions.filter((p) => p.sessionId === sessionId)
+          : progressions,
       ),
-    [affectations, progressions],
+    [affectations, progressions, sessionId],
   );
 
   const [creneauSelectionne, setCreneauSelectionne] = useState<Affectation | null>(null);
@@ -614,7 +616,7 @@ function ModalProgressionPublic({
       isOpen={true}
       onClose={onClose}
       title={`${formation?.nom ?? "Formation"} · ${matiere?.nom ?? "Matière"}`}
-      description={`Semaine ${creneau.semaine} · ${LABELS_JOUR[creneau.jour]} (Créneau N°${creneau.seance}) · ${numeroCours === 1 ? "1er Cours" : `${numeroCours}e Cours`} de ${matiere?.nom ?? "la matière"}`}
+      description={`Semaine ${creneau.semaine} · ${LABELS_JOUR[creneau.jour]} (Créneau N°${creneau.seance}) · ${numeroCours === 1 ? "1er Cours" : `${numeroCours}e Cours`} de ${matiere?.nom ?? "la matière"} en ${salle?.nom ?? "salle"}`}
     >
       <div className="space-y-5">
         {/* ── Bandeau Contexte Séance ── */}
