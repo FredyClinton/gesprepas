@@ -35,6 +35,8 @@ class MatiereControllerTest {
     @MockitoBean
     private RenommerMatiereUseCase renommerMatiereUseCase;
     @MockitoBean
+    private ModifierMatiereUseCase modifierMatiereUseCase;
+    @MockitoBean
     private SupprimerMatiereUseCase supprimerMatiereUseCase;
 
     private Matiere uneMatiere() {
@@ -163,5 +165,44 @@ class MatiereControllerTest {
 
         mockMvc.perform(delete("/api/matieres/" + id))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/matieres/{id} modifie le nom et la couleur et retourne 200")
+    void modifierMatiere_retourne200() throws Exception {
+        UUID id = UUID.randomUUID();
+        Matiere modifiee = new Matiere(id, "Physique-Chimie", "#3B82F6");
+        when(modifierMatiereUseCase.modifierMatiere(eq(id), eq("Physique-Chimie"), eq("#3B82F6"))).thenReturn(modifiee);
+
+        mockMvc.perform(patch("/api/matieres/" + id)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                    "nom": "Physique-Chimie",
+                                    "couleur": "#3B82F6"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nom").value("Physique-Chimie"))
+                .andExpect(jsonPath("$.couleur").value("#3B82F6"));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/matieres/{id}/couleur modifie la couleur et retourne 200")
+    void changerCouleur_retourne200() throws Exception {
+        UUID id = UUID.randomUUID();
+        Matiere modifiee = new Matiere(id, "Mathématiques", "#10B981");
+        when(modifierMatiereUseCase.modifierMatiere(eq(id), isNull(), eq("#10B981"))).thenReturn(modifiee);
+
+        mockMvc.perform(patch("/api/matieres/" + id + "/couleur")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                    "couleur": "#10B981"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nom").value("Mathématiques"))
+                .andExpect(jsonPath("$.couleur").value("#10B981"));
     }
 }

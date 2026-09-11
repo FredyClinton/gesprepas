@@ -16,7 +16,7 @@ import java.util.UUID;
 
 @Slf4j
 public class MatiereService implements CreerMatiereUseCase, RecupererMatiereUseCase,
-        ListerMatieresUseCase, RenommerMatiereUseCase, SupprimerMatiereUseCase {
+        ListerMatieresUseCase, RenommerMatiereUseCase, ModifierMatiereUseCase, SupprimerMatiereUseCase {
 
     private final MatiereRepositoryPort repository;
     private final DepartementRepositoryPort departementRepository;
@@ -66,6 +66,20 @@ public class MatiereService implements CreerMatiereUseCase, RecupererMatiereUseC
         matiere.renommer(nouveauNom);
         matiere = repository.save(matiere);
         log.info("Matière renommée : id={}, nouveauNom={}", id, nouveauNom);
+        return matiere;
+    }
+
+    @Override
+    public Matiere modifierMatiere(UUID id, String nom, String couleur) {
+        Matiere matiere = recupererMatiere(id);
+        if (nom != null && !nom.isBlank()) {
+            matiere.renommer(nom);
+        }
+        if (couleur != null) {
+            matiere.changerCouleur(couleur.trim().isEmpty() ? null : couleur.trim());
+        }
+        matiere = repository.save(matiere);
+        log.info("Matière modifiée : id={}, nom={}, couleur={}", id, matiere.getNom(), matiere.getCouleur());
         return matiere;
     }
 

@@ -63,7 +63,7 @@ public class AffectationBeanConfiguration {
     }
 
     @Bean
-    public ModifierMatiereUseCase modifierMatiereUseCase(AffectationService affectationService) {
+    public ModifierMatiereUseCase modifierMatiereAffectationUseCase(AffectationService affectationService) {
         return affectationService;
     }
 

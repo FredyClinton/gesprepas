@@ -4,6 +4,7 @@ import com.excelisprepas.backend.academie.matiere.domain.model.Matiere;
 import com.excelisprepas.backend.academie.matiere.domain.port.in.*;
 import com.excelisprepas.backend.academie.matiere.infrastructure.in.web.dto.CreerMatiereRequest;
 import com.excelisprepas.backend.academie.matiere.infrastructure.in.web.dto.MatiereResponse;
+import com.excelisprepas.backend.academie.matiere.infrastructure.in.web.dto.ModifierMatiereRequest;
 import com.excelisprepas.backend.academie.matiere.infrastructure.in.web.dto.RenommerMatiereRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -30,17 +31,20 @@ public class MatiereController {
     private final RecupererMatiereUseCase recupererMatiereUseCase;
     private final ListerMatieresUseCase listerMatieresUseCase;
     private final RenommerMatiereUseCase renommerMatiereUseCase;
+    private final ModifierMatiereUseCase modifierMatiereUseCase;
     private final SupprimerMatiereUseCase supprimerMatiereUseCase;
 
     public MatiereController(CreerMatiereUseCase creerMatiereUseCase,
                              RecupererMatiereUseCase recupererMatiereUseCase,
                              ListerMatieresUseCase listerMatieresUseCase,
                              RenommerMatiereUseCase renommerMatiereUseCase,
+                             ModifierMatiereUseCase modifierMatiereUseCase,
                              SupprimerMatiereUseCase supprimerMatiereUseCase) {
         this.creerMatiereUseCase = creerMatiereUseCase;
         this.recupererMatiereUseCase = recupererMatiereUseCase;
         this.listerMatieresUseCase = listerMatieresUseCase;
         this.renommerMatiereUseCase = renommerMatiereUseCase;
+        this.modifierMatiereUseCase = modifierMatiereUseCase;
         this.supprimerMatiereUseCase = supprimerMatiereUseCase;
     }
 
@@ -95,6 +99,32 @@ public class MatiereController {
             @Parameter(description = "Identifiant de la matière") @PathVariable UUID id,
             @Valid @RequestBody RenommerMatiereRequest request) {
         return ResponseEntity.ok(versReponse(renommerMatiereUseCase.renommerMatiere(id, request.nom())));
+    }
+
+    @Operation(summary = "Modifier une matière", description = "Modifie le nom et/ou la couleur d'une matière.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Matière modifiée",
+                    content = @Content(schema = @Schema(implementation = MatiereResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Matière introuvable", content = @Content)
+    })
+    @PatchMapping("/{id}")
+    public ResponseEntity<MatiereResponse> modifierMatiere(
+            @Parameter(description = "Identifiant de la matière") @PathVariable UUID id,
+            @RequestBody ModifierMatiereRequest request) {
+        return ResponseEntity.ok(versReponse(modifierMatiereUseCase.modifierMatiere(id, request.nom(), request.couleur())));
+    }
+
+    @Operation(summary = "Changer la couleur d'une matière", description = "Change la couleur d'une matière.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Couleur modifiée",
+                    content = @Content(schema = @Schema(implementation = MatiereResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Matière introuvable", content = @Content)
+    })
+    @PatchMapping("/{id}/couleur")
+    public ResponseEntity<MatiereResponse> changerCouleur(
+            @Parameter(description = "Identifiant de la matière") @PathVariable UUID id,
+            @RequestBody ModifierMatiereRequest request) {
+        return ResponseEntity.ok(versReponse(modifierMatiereUseCase.modifierMatiere(id, null, request.couleur())));
     }
 
     @Operation(summary = "Supprimer une matière", description = "Supprime définitivement une matière.")

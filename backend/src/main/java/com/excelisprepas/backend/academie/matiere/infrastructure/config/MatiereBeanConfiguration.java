@@ -42,6 +42,11 @@ public class MatiereBeanConfiguration {
     }
 
     @Bean
+    public ModifierMatiereUseCase modifierMatiereUseCase(MatiereService matiereService) {
+        return matiereService;
+    }
+
+    @Bean
     public SupprimerMatiereUseCase supprimerMatiereUseCase(MatiereService matiereService) {
         return matiereService;
     }
