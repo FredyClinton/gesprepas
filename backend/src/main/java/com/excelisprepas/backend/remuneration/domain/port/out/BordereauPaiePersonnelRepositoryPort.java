@@ -9,5 +9,6 @@ import java.util.UUID;
 public interface BordereauPaiePersonnelRepositoryPort {
     BordereauPaiePersonnel save(BordereauPaiePersonnel bordereau);
     Optional<BordereauPaiePersonnel> findById(UUID id);
+    Optional<BordereauPaiePersonnel> findByReference(String reference);
     List<BordereauPaiePersonnel> findBySessionId(UUID sessionId);
 }

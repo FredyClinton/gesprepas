@@ -8,6 +8,6 @@ import java.util.List;
 import java.util.UUID;
 
 public interface ValiderBordereauPersonnelUseCase {
-    BordereauPaiePersonnel validerBordereau(UUID sessionId, LocalDate datePaiement, String intitule,
+    BordereauPaiePersonnel validerBordereau(UUID sessionId, LocalDate datePaiement, String reference, String intitule,
                                             List<LigneSaisiePaiePersonnel> lignesSaisie, String saisiPar);
 }

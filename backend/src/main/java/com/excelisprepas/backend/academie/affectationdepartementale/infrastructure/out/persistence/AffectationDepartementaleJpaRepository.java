@@ -15,4 +15,8 @@ public interface AffectationDepartementaleJpaRepository extends JpaRepository<Af
     List<AffectationDepartementaleEntity> findByDepartementIdAndSessionId(UUID departementId, UUID sessionId);
 
     List<AffectationDepartementaleEntity> findByEnseignantId(UUID enseignantId);
+
+    boolean existsByDepartementId(UUID departementId);
+
+    void deleteByDepartementId(UUID departementId);
 }

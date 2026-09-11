@@ -46,6 +46,6 @@ public class DepartementRepositoryAdapter implements DepartementRepositoryPort {
 
     @Override
     public Optional<Departement> findByMatiereId(UUID matiereId) {
-        return jpaRepository.findByMatiereId(matiereId);
+        return jpaRepository.findByMatiereId(matiereId).map(mapper::toDomain);
     }
 }

@@ -6,7 +6,7 @@ import java.util.UUID;
 
 /**
  * Trace d'une décision individuelle du Contrôleur financier sur un
- * MouvementFinancier — qui a validé/rejeté, quand. Le statut résultant
+ * MouvementFinancier - qui a validé/rejeté, quand. Le statut résultant
  * (Valide/Rejete) est porté par le mouvement lui-même ; cette entité
  * n'est que l'audit de la décision.
  */

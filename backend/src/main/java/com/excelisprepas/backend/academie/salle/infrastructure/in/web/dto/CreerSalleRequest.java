@@ -10,6 +10,6 @@ public record CreerSalleRequest(
         @NotNull(message = "Le centre est obligatoire") UUID centreId,
         @NotNull(message = "La session est obligatoire") UUID sessionId,
         @NotNull(message = "La formation est obligatoire") UUID formationId,
-        @NotNull(message = "La phase est obligatoire") UUID phaseId
+        UUID phaseId
 ) {
 }

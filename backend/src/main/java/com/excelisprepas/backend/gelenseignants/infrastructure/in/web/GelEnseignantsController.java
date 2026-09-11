@@ -43,7 +43,7 @@ public class GelEnseignantsController {
     }
 
     @Operation(summary = "Activer ou désactiver le gel de la gestion des enseignants",
-            description = "Réservé au Directeur Académique — non vérifié côté serveur pour l'instant, "
+            description = "Réservé au Directeur Académique - non vérifié côté serveur pour l'instant, "
                     + "en attendant une authentification réelle.")
     @PutMapping
     public ResponseEntity<GelEnseignantsResponse> modifier(@Valid @RequestBody ModifierGelEnseignantsRequest request) {

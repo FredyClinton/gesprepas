@@ -75,6 +75,16 @@ public class AffectationExceptionHandler {
         return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
+    @ExceptionHandler(EnseignantNonRattacheDepartementException.class)
+    public ResponseEntity<ApiErrorResponse> gererEnseignantNonRattacheDepartement(EnseignantNonRattacheDepartementException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(MatiereNonRattacheeDepartementException.class)
+    public ResponseEntity<ApiErrorResponse> gererMatiereNonRattacheeDepartement(MatiereNonRattacheeDepartementException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     private ResponseEntity<ApiErrorResponse> construireReponse(HttpStatus statut, String message) {
         return ResponseEntity.status(statut).body(new ApiErrorResponse(statut.value(), statut.getReasonPhrase(), message));
     }

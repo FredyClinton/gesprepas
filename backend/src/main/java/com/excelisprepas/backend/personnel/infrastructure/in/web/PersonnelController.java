@@ -6,6 +6,7 @@ import com.excelisprepas.backend.personnel.domain.port.in.ConsulterHistoriqueSal
 import com.excelisprepas.backend.personnel.domain.port.in.CreerPersonnelUseCase;
 import com.excelisprepas.backend.personnel.domain.port.in.DefinirSalairePersonnelUseCase;
 import com.excelisprepas.backend.personnel.domain.port.in.ListerPersonnelUseCase;
+import com.excelisprepas.backend.personnel.domain.port.in.RecupererPersonnelUseCase;
 import com.excelisprepas.backend.personnel.infrastructure.in.web.dto.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,15 +24,18 @@ import java.util.UUID;
 public class PersonnelController {
 
     private final CreerPersonnelUseCase creerPersonnelUseCase;
+    private final RecupererPersonnelUseCase recupererPersonnelUseCase;
     private final ListerPersonnelUseCase listerPersonnelUseCase;
     private final DefinirSalairePersonnelUseCase definirSalairePersonnelUseCase;
     private final ConsulterHistoriqueSalairePersonnelUseCase consulterHistoriqueSalairePersonnelUseCase;
 
     public PersonnelController(CreerPersonnelUseCase creerPersonnelUseCase,
+                               RecupererPersonnelUseCase recupererPersonnelUseCase,
                                ListerPersonnelUseCase listerPersonnelUseCase,
                                DefinirSalairePersonnelUseCase definirSalairePersonnelUseCase,
                                ConsulterHistoriqueSalairePersonnelUseCase consulterHistoriqueSalairePersonnelUseCase) {
         this.creerPersonnelUseCase = creerPersonnelUseCase;
+        this.recupererPersonnelUseCase = recupererPersonnelUseCase;
         this.listerPersonnelUseCase = listerPersonnelUseCase;
         this.definirSalairePersonnelUseCase = definirSalairePersonnelUseCase;
         this.consulterHistoriqueSalairePersonnelUseCase = consulterHistoriqueSalairePersonnelUseCase;
@@ -43,6 +47,13 @@ public class PersonnelController {
         Personnel personnel = creerPersonnelUseCase.creerPersonnel(
                 request.nom(), request.prenom(), request.telephone(), request.numeroCni(), request.email());
         return ResponseEntity.status(HttpStatus.CREATED).body(PersonnelResponse.fromDomain(personnel));
+    }
+
+    @Operation(summary = "Récupérer un membre du personnel par son identifiant")
+    @GetMapping("/{id}")
+    public ResponseEntity<PersonnelResponse> recuperer(@PathVariable UUID id) {
+        Personnel personnel = recupererPersonnelUseCase.recupererPersonnel(id);
+        return ResponseEntity.ok(PersonnelResponse.fromDomain(personnel));
     }
 
     @Operation(summary = "Lister tous les membres du personnel")

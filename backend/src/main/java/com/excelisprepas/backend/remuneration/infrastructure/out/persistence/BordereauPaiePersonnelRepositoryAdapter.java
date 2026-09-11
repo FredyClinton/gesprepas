@@ -54,6 +54,11 @@ public class BordereauPaiePersonnelRepositoryAdapter implements BordereauPaiePer
     }
 
     @Override
+    public Optional<BordereauPaiePersonnel> findByReference(String reference) {
+        return repository.findByReference(reference).map(this::mapToDomain);
+    }
+
+    @Override
     public List<BordereauPaiePersonnel> findBySessionId(UUID sessionId) {
         return repository.findBySessionId(sessionId).stream().map(this::mapToDomain).collect(Collectors.toList());
     }

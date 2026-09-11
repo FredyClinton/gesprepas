@@ -21,4 +21,8 @@ public interface UtilisateurRepositoryPort {
     void deleteById(UUID id);
 
     boolean existsByCentreId(UUID centreId);
+
+    Optional<Utilisateur> findByDepartementId(UUID departementId);
+
+    List<Utilisateur> findByRole(com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur role);
 }

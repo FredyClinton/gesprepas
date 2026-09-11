@@ -53,4 +53,14 @@ public class AffectationDepartementaleRepositoryAdapter implements AffectationDe
     public void deleteById(UUID id) {
         jpaRepository.deleteById(id);
     }
+
+    @Override
+    public boolean existsByDepartementId(UUID departementId) {
+        return jpaRepository.existsByDepartementId(departementId);
+    }
+
+    @Override
+    public void deleteByDepartementId(UUID departementId) {
+        jpaRepository.deleteByDepartementId(departementId);
+    }
 }

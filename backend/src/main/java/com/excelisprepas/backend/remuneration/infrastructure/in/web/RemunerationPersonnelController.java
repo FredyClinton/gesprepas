@@ -18,6 +18,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Qualifier;
+
 @Tag(name = "Rémunération Personnel", description = "Programmation et validation de la paie du personnel par session")
 @RestController
 @RequestMapping("/api/remuneration/personnel")
@@ -27,9 +29,10 @@ public class RemunerationPersonnelController {
     private final ValiderBordereauPersonnelUseCase validerUseCase;
     private final ConsulterPaiePersonnelUseCase consulterUseCase;
 
-    public RemunerationPersonnelController(PreparerBordereauPersonnelUseCase preparerUseCase,
-                                           ValiderBordereauPersonnelUseCase validerUseCase,
-                                           ConsulterPaiePersonnelUseCase consulterUseCase) {
+    public RemunerationPersonnelController(
+            @Qualifier("preparerBordereauPersonnelUseCase") PreparerBordereauPersonnelUseCase preparerUseCase,
+            @Qualifier("validerBordereauPersonnelUseCase") ValiderBordereauPersonnelUseCase validerUseCase,
+            @Qualifier("consulterPaiePersonnelUseCase") ConsulterPaiePersonnelUseCase consulterUseCase) {
         this.preparerUseCase = preparerUseCase;
         this.validerUseCase = validerUseCase;
         this.consulterUseCase = consulterUseCase;
@@ -58,7 +61,7 @@ public class RemunerationPersonnelController {
                 .toList();
 
         BordereauPaiePersonnel valide = validerUseCase.validerBordereau(
-                sessionId, request.datePaiement(), request.intitule(), domainLignes, request.saisiPar());
+                sessionId, request.datePaiement(), request.reference(), request.intitule(), domainLignes, request.saisiPar());
 
         return ResponseEntity.ok(BordereauPaiePersonnelResponse.fromDomain(valide));
     }

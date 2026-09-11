@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project
 
 Spring Boot 4.1.1 / Java 21 backend for EXCELIS PRÉPAS, a multi-center school management system. This `backend/`
-directory is a subproject of a larger repo rooted at `../` (git root is `../`, not here) — `../docker-compose.yml`
+directory is a subproject of a larger repo rooted at `../` (git root is `../`, not here) - `../docker-compose.yml`
 provisions the Postgres database and `../.env` supplies datasource credentials (loaded via
 `spring.config.import: optional:file:../.env[.properties]` in `application.yaml`).
 
@@ -37,14 +37,14 @@ Repository-adapter tests use Testcontainers (real Postgres in a container), so D
 
 The codebase follows **hexagonal architecture (ports & adapters)**, organized by business module under
 `src/main/java/com/excelisprepas/backend/`, plus a `shared/` package for cross-cutting concerns
-(`shared/config/OpenApiConfig.java` and, for most modules, their exceptions — see below). Each module follows the
+(`shared/config/OpenApiConfig.java` and, for most modules, their exceptions - see below). Each module follows the
 same package shape:
 
 ```
 <module>/
   domain/
     model/       # plain Java domain objects, no framework annotations
-    exception/   # domain-specific exceptions (older modules only — see note below)
+    exception/   # domain-specific exceptions (older modules only - see note below)
     port/in/     # use-case interfaces the module exposes (driven by web/etc.)
     port/out/    # interfaces the domain needs from infrastructure (persistence, encoding, ...)
     service/     # use-case implementations, depend only on port/out interfaces
@@ -54,14 +54,13 @@ same package shape:
     out/persistence/  # JPA entities, Spring Data repositories, MapStruct mappers, port adapters
 ```
 
-Existing modules (roughly in dependency order — later ones depend on earlier ones' `port/out` interfaces):
-`personnel` (Enseignant, Utilisateur — staff and system users), `session` (SessionAcademique, the academic-year
-container almost everything else is scoped to), `centre`, `departement`, `matiere`, `formation`, `salle`,
-`apprenant` (students), `affectation` (teaching-slot scheduling), `affectationdepartementale` (per-department
-teacher roster per session), `rattachement` (attaching a `Utilisateur` to a `centre` with roles), `progression`
-(curriculum tracking), `financier` (entrées/sorties, motifs, bilans journaliers, validation workflow), `dossier`
-(admission concours, required pieces, a student's dossier and its financial paiement/solde tracking — depends on
-`financier` for payments and on `session`/`apprenant`).
+Existing modules (roughly in dependency order - later ones depend on earlier ones' `port/out` interfaces):
+`personnel` (Enseignant, Utilisateur - staff and system users), `session` (SessionAcademique, the academic-year
+container almost everything else is scoped to), `centre`, `academie` (submodules: `formation`, `departement`, `matiere`,
+`salle`, `affectation`, `affectationdepartementale`, `progression`), `apprenant` (students), `rattachement`
+(attaching a `Utilisateur` to a `centre` with roles), `financier` (entrées/sorties, motifs, bilans journaliers,
+validation workflow), `dossier` (admission concours, required pieces, a student's dossier and its financial
+paiement/solde tracking - depends on `financier` for payments and on `session`/`apprenant`).
 
 Key conventions to preserve when extending this:
 
@@ -73,7 +72,7 @@ Key conventions to preserve when extending this:
   `ValidationMouvementService`, `MotifService`).
 - **Cross-module composition happens in the domain layer, not just at wiring time**: a module's domain `service`
   routinely takes other modules' `port/out` repository interfaces as constructor dependencies (and reads their
-  domain models) to validate invariants — e.g. `AffectationService` depends on `CentreRepositoryPort`,
+  domain models) to validate invariants - e.g. `AffectationService` depends on `CentreRepositoryPort`,
   `FormationRepositoryPort`, `SalleRepositoryPort`, `EnseignantRepositoryPort`, `SessionAcademiqueRepositoryPort`,
   etc. The isolation boundary is "depend only on `port/out` interfaces of any module," not "never reference another
   module." When adding a new module that needs data from an existing one, inject that other module's `*RepositoryPort`
@@ -97,7 +96,7 @@ Key conventions to preserve when extending this:
 - **All REST endpoints are documented with springdoc/OpenAPI annotations**: a class-level `@Tag(name=..., description=...)`
   on the controller, and per-method `@Operation(summary=..., description=...)` plus `@ApiResponses`/`@ApiResponse`
   listing every realistic status code (400/404/409 as applicable) with its `@Content`/`@Schema` (use `@ArraySchema`
-  for list responses). Keep new endpoints consistent with this — check `Swagger UI` output when in doubt.
+  for list responses). Keep new endpoints consistent with this - check `Swagger UI` output when in doubt.
 - **Exception location is inconsistent across the codebase and both are in active use**: older modules
   (`personnel`, `affectation`, `centre`, `matiere`, `session`, `formation`, `salle`) keep their exceptions under
   their own `domain/exception/` package; every module added since keeps its exceptions in the shared
@@ -114,9 +113,9 @@ Testcontainers/`@DataJpaTest`-style tests for the persistence adapter layer.
 
 ## Configuration notes
 
-- `spring.jpa.hibernate.ddl-auto` defaults to `update` and Flyway is disabled by default (`FLYWAY_ENABLED:false`) —
+- `spring.jpa.hibernate.ddl-auto` defaults to `update` and Flyway is disabled by default (`FLYWAY_ENABLED:false`) -
   schema currently comes from Hibernate auto-DDL, not migrations, despite `flyway` dependencies being present in
   `pom.xml`.
 - Datasource/server settings are all environment-variable driven with local defaults (`DB_HOST`, `DB_PORT:5433`,
-  `DB_NAME:excelis_prepas`, `DB_USER`, `DB_PASSWORD`, `SERVER_PORT:8080`) — see `application.yaml` and
+  `DB_NAME:excelis_prepas`, `DB_USER`, `DB_PASSWORD`, `SERVER_PORT:8080`) - see `application.yaml` and
   `../docker-compose.yml`.

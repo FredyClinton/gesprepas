@@ -11,11 +11,12 @@ public class MatierePersistenceMapper {
         MatiereEntity entite = new MatiereEntity();
         entite.setId(domaine.getId());
         entite.setNom(domaine.getNom());
+        entite.setCouleur(domaine.getCouleur());
         return entite;
     }
 
     public Matiere toDomain(MatiereEntity entite) {
         if (entite == null) return null;
-        return new Matiere(entite.getId(), entite.getNom());
+        return new Matiere(entite.getId(), entite.getNom(), entite.getCouleur());
     }
 }

@@ -10,6 +10,11 @@ public record UtilisateurConnecteResponse(
         String prenom,
         String email,
         RoleUtilisateur role,
-        UUID centreId
+        UUID centreId,
+        UUID departementId
 ) {
+    public UtilisateurConnecteResponse(UUID id, String nom, String prenom, String email,
+                                       RoleUtilisateur role, UUID centreId) {
+        this(id, nom, prenom, email, role, centreId, null);
+    }
 }

@@ -6,7 +6,7 @@ import java.util.UUID;
 
 /**
  * Une SessionAcademique : période globale (ex: "2026-2027") sous laquelle
- * tous les centres ouverts opèrent. Ne référence aucun Centre —
+ * tous les centres ouverts opèrent. Ne référence aucun Centre -
  * ce sont les autres entités (Apprenant, MouvementFinancier, ...)
  * qui référencent la session, jamais l'inverse.
  */

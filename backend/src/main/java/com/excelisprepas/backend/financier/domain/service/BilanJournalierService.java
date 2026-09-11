@@ -29,7 +29,6 @@ public class BilanJournalierService implements ValiderBilanChefCentreUseCase, Va
     private final BilanJournalierRepositoryPort bilanRepository;
     private final EntreeRepositoryPort entreeRepository;
     private final SortieRepositoryPort sortieRepository;
-    private final ApprenantRepositoryPort apprenantRepository;
     private final CentreRepositoryPort centreRepository;
     private final UtilisateurRepositoryPort utilisateurRepository;
     private final SessionAcademiqueRepositoryPort sessionRepository;
@@ -44,7 +43,6 @@ public class BilanJournalierService implements ValiderBilanChefCentreUseCase, Va
         this.bilanRepository = bilanRepository;
         this.entreeRepository = entreeRepository;
         this.sortieRepository = sortieRepository;
-        this.apprenantRepository = apprenantRepository;
         this.centreRepository = centreRepository;
         this.utilisateurRepository = utilisateurRepository;
         this.sessionRepository = sessionRepository;

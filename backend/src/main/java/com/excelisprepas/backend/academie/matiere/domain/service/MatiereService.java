@@ -38,9 +38,14 @@ public class MatiereService implements CreerMatiereUseCase, RecupererMatiereUseC
 
     @Override
     public Matiere creerMatiere(String nom) {
-        Matiere matiere = new Matiere(UUID.randomUUID(), nom);
+        return creerMatiere(nom, null);
+    }
+
+    @Override
+    public Matiere creerMatiere(String nom, String couleur) {
+        Matiere matiere = new Matiere(UUID.randomUUID(), nom, couleur);
         matiere = repository.save(matiere);
-        log.info("Matière créée : id={}, nom={}", matiere.getId(), nom);
+        log.info("Matière créée : id={}, nom={}, couleur={}", matiere.getId(), nom, couleur);
         return matiere;
     }
 

@@ -5,7 +5,7 @@ import java.util.UUID;
 
 /**
  * Une entrée du roster : "cet enseignant fait partie de l'équipe de ce
- * département pour cette session". Registre, pas planning — le planning
+ * département pour cette session". Registre, pas planning - le planning
  * réel (salle, séance, semaine) reste porté par Affectation, qui valide
  * l'appartenance à ce roster avant d'assigner un enseignant à un créneau.
  */

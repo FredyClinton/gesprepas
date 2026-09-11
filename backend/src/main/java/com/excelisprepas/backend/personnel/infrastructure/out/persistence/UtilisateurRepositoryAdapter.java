@@ -58,4 +58,14 @@ public class UtilisateurRepositoryAdapter implements UtilisateurRepositoryPort {
     public boolean existsByCentreId(UUID centreId) {
         return jpaRepository.existsByCentreId(centreId);
     }
+
+    @Override
+    public Optional<Utilisateur> findByDepartementId(UUID departementId) {
+        return jpaRepository.findByDepartementId(departementId).map(mapper::toDomain);
+    }
+
+    @Override
+    public List<Utilisateur> findByRole(com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur role) {
+        return jpaRepository.findByRole(role).stream().map(mapper::toDomain).toList();
+    }
 }

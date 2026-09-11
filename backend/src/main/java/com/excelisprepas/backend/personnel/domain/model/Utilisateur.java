@@ -17,19 +17,27 @@ public class Utilisateur extends Personnel {
     private String motDePasseHash;
     private final RoleUtilisateur role;
     private UUID centreId; // nullable : rattachement optionnel
+    private UUID departementId; // nullable : rattachement département optionnel
 
     public Utilisateur(UUID id, String nom, String prenom,
                        String email, String motDePasseHash, RoleUtilisateur role) {
-        this(id, nom, prenom, null, null, email, motDePasseHash, role, null);
+        this(id, nom, prenom, null, null, email, motDePasseHash, role, null, null);
     }
 
     public Utilisateur(UUID id, String nom, String prenom,
                        String telephone, String numeroCni, String email,
                        String motDePasseHash, RoleUtilisateur role, UUID centreId) {
+        this(id, nom, prenom, telephone, numeroCni, email, motDePasseHash, role, centreId, null);
+    }
+
+    public Utilisateur(UUID id, String nom, String prenom,
+                       String telephone, String numeroCni, String email,
+                       String motDePasseHash, RoleUtilisateur role, UUID centreId, UUID departementId) {
         super(id, nom, prenom, telephone, numeroCni, validerEmailObligatoire(email));
         this.motDePasseHash = validerMotDePasseHash(motDePasseHash);
         this.role = Objects.requireNonNull(role, "role ne peut pas être nul");
         this.centreId = centreId;
+        this.departementId = departementId;
     }
 
     private static String validerEmailObligatoire(String email) {
@@ -62,6 +70,14 @@ public class Utilisateur extends Personnel {
         this.centreId = null;
     }
 
+    public void rattacherADepartement(UUID departementId) {
+        this.departementId = departementId;
+    }
+
+    public void detacherDuDepartement() {
+        this.departementId = null;
+    }
+
     public String getMotDePasseHash() {
         return motDePasseHash;
     }
@@ -72,5 +88,9 @@ public class Utilisateur extends Personnel {
 
     public UUID getCentreId() {
         return centreId;
+    }
+
+    public UUID getDepartementId() {
+        return departementId;
     }
 }

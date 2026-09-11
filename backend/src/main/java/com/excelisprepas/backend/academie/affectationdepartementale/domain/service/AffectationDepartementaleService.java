@@ -96,7 +96,7 @@ public class AffectationDepartementaleService implements AjouterEnseignantUseCas
                 throw new EnseignantNonDansRosterSourceException(enseignantId, sessionSourceId, departementId);
             }
             if (rosterRepository.existsByEnseignantIdAndSessionIdAndDepartementId(enseignantId, sessionCibleId, departementId)) {
-                continue; // déjà présent dans la session cible — idempotent
+                continue; // déjà présent dans la session cible - idempotent
             }
             resultat.add(rosterRepository.save(new AffectationDepartementale(
                     UUID.randomUUID(), enseignantId, sessionCibleId, departementId)));

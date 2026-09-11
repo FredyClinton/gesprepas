@@ -24,13 +24,13 @@ public class SalleEntity {
     private String nom;
 
     @Column(name = "centre_id", nullable = false)
-    private UUID centreId; // référence brute — bounded context séparé (module centre)
+    private UUID centreId; // référence brute - bounded context séparé (module centre)
 
     @Column(name = "session_id", nullable = false)
-    private UUID sessionId; // référence brute, dénormalisée depuis Formation, figée à la création — module session
+    private UUID sessionId; // référence brute, dénormalisée depuis Formation, figée à la création - module session
 
     @Column(name = "formation_id", nullable = false)
-    private UUID formationId; // référence brute — bounded context séparé (module formation)
+    private UUID formationId; // référence brute - bounded context séparé (module formation)
 
     @Column(name = "phase_id", nullable = false)
     private UUID phaseId;

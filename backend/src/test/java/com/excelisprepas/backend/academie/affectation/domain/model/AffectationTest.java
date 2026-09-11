@@ -268,4 +268,85 @@ class AffectationTest {
                     .isInstanceOf(IllegalStateException.class);
         }
     }
+
+    @Nested
+    @DisplayName("Tests du cycle de vie du paiement")
+    class PaiementTests {
+
+        private Affectation uneAffectationEffectuee() {
+            return Affectation.reconstituer(
+                    UUID.randomUUID(), centreId, sessionId, formationId, salleId, matiereId,
+                    UUID.randomUUID(), Jour.LUNDI, 1, 1,
+                    StatutAffectation.EFFECTUEE, StatutPaiement.NON_PAYEE, null, null
+            );
+        }
+
+        @Test
+        @DisplayName("marquerProgrammee() réussit si la séance est EFFECTUEE et NON_PAYEE")
+        void marquerProgrammeeReussit() {
+            Affectation aff = uneAffectationEffectuee();
+            UUID ficheId = UUID.randomUUID();
+            java.math.BigDecimal cout = new java.math.BigDecimal("25000");
+
+            aff.marquerProgrammee(ficheId, cout);
+
+            assertThat(aff.getStatutPaiement()).isEqualTo(StatutPaiement.PROGRAMMEE);
+            assertThat(aff.getFichePaieId()).isEqualTo(ficheId);
+            assertThat(aff.getCoutApplique()).isEqualByComparingTo(cout);
+        }
+
+        @Test
+        @DisplayName("marquerProgrammee() échoue si la séance est déjà PROGRAMMEE ou PAYEE (anti-doublon)")
+        void marquerProgrammeeEchoueSiDejaProgrammeeOuPayee() {
+            Affectation aff = uneAffectationEffectuee();
+            UUID ficheId = UUID.randomUUID();
+            aff.marquerProgrammee(ficheId, new java.math.BigDecimal("25000"));
+
+            // Deuxième tentative de programmation
+            assertThatThrownBy(() -> aff.marquerProgrammee(UUID.randomUUID(), new java.math.BigDecimal("30000")))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("PROGRAMMEE");
+
+            // Si déjà payée
+            aff.marquerPayee();
+            assertThatThrownBy(() -> aff.marquerProgrammee(UUID.randomUUID(), new java.math.BigDecimal("30000")))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("PAYEE");
+        }
+
+        @Test
+        @DisplayName("marquerProgrammee() échoue si la séance n'est pas EFFECTUEE")
+        void marquerProgrammeeEchoueSiNonEffectuee() {
+            Affectation aff = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId, salleId, matiereId,
+                    UUID.randomUUID(), Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE);
+
+            assertThatThrownBy(() -> aff.marquerProgrammee(UUID.randomUUID(), new java.math.BigDecimal("25000")))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("EFFECTUEE");
+        }
+
+        @Test
+        @DisplayName("marquerPayee() réussit sur une séance PROGRAMMEE et est idempotente sur une séance déjà PAYEE")
+        void marquerPayeeReussitEtEstIdempotente() {
+            Affectation aff = uneAffectationEffectuee();
+            aff.marquerProgrammee(UUID.randomUUID(), new java.math.BigDecimal("25000"));
+
+            aff.marquerPayee();
+            assertThat(aff.getStatutPaiement()).isEqualTo(StatutPaiement.PAYEE);
+
+            // Appel idempotent
+            aff.marquerPayee();
+            assertThat(aff.getStatutPaiement()).isEqualTo(StatutPaiement.PAYEE);
+        }
+
+        @Test
+        @DisplayName("marquerPayee() échoue si la séance n'est pas PROGRAMMEE")
+        void marquerPayeeEchoueSiNonProgrammee() {
+            Affectation aff = uneAffectationEffectuee();
+
+            assertThatThrownBy(aff::marquerPayee)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("PROGRAMMEE");
+        }
+    }
 }

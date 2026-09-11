@@ -6,17 +6,19 @@ import com.excelisprepas.backend.personnel.domain.port.in.ConsulterHistoriqueSal
 import com.excelisprepas.backend.personnel.domain.port.in.CreerPersonnelUseCase;
 import com.excelisprepas.backend.personnel.domain.port.in.DefinirSalairePersonnelUseCase;
 import com.excelisprepas.backend.personnel.domain.port.in.ListerPersonnelUseCase;
+import com.excelisprepas.backend.personnel.domain.port.in.RecupererPersonnelUseCase;
 import com.excelisprepas.backend.personnel.domain.port.out.HistoriqueSalairePersonnelRepositoryPort;
 import com.excelisprepas.backend.personnel.domain.port.out.PersonnelRepositoryPort;
+import com.excelisprepas.backend.shared.exception.PersonnelIntrouvableException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 
 public class PersonnelService implements CreerPersonnelUseCase, ListerPersonnelUseCase,
-        DefinirSalairePersonnelUseCase, ConsulterHistoriqueSalairePersonnelUseCase {
+        DefinirSalairePersonnelUseCase, ConsulterHistoriqueSalairePersonnelUseCase,
+        RecupererPersonnelUseCase {
 
     private final PersonnelRepositoryPort personnelRepository;
     private final HistoriqueSalairePersonnelRepositoryPort historiqueSalaireRepository;
@@ -36,6 +38,12 @@ public class PersonnelService implements CreerPersonnelUseCase, ListerPersonnelU
     @Override
     public List<Personnel> listerTous() {
         return personnelRepository.findAll();
+    }
+
+    @Override
+    public Personnel recupererPersonnel(UUID id) {
+        return personnelRepository.findById(id)
+                .orElseThrow(() -> new PersonnelIntrouvableException(id));
     }
 
     @Override

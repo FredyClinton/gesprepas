@@ -37,3 +37,10 @@ application-local.properties
 docker-compose.override.yml
 
 project_context.txt
+
+# Scratch and local dumps/backups
+backup_*.sql
+*.session.sql
+*.backup*
+scratch/
+backend/scratch/

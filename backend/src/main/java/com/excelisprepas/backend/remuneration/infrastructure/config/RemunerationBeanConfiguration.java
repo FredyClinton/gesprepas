@@ -1,6 +1,12 @@
 package com.excelisprepas.backend.remuneration.infrastructure.config;
 
 import com.excelisprepas.backend.academie.affectation.domain.port.out.AffectationRepositoryPort;
+import com.excelisprepas.backend.academie.affectationdepartementale.domain.port.out.AffectationDepartementaleRepositoryPort;
+import com.excelisprepas.backend.academie.departement.domain.port.out.DepartementRepositoryPort;
+import com.excelisprepas.backend.academie.formation.domain.port.out.FormationRepositoryPort;
+import com.excelisprepas.backend.academie.matiere.domain.port.out.MatiereRepositoryPort;
+import com.excelisprepas.backend.academie.salle.domain.port.out.SalleRepositoryPort;
+import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
 import com.excelisprepas.backend.financier.domain.port.in.SaisirSortieUseCase;
 import com.excelisprepas.backend.personnel.domain.port.out.EnseignantRepositoryPort;
 import com.excelisprepas.backend.personnel.domain.port.out.HistoriqueSalairePersonnelRepositoryPort;
@@ -11,6 +17,9 @@ import com.excelisprepas.backend.remuneration.domain.port.out.BordereauPaiePerso
 import com.excelisprepas.backend.remuneration.domain.port.out.BordereauPaieRepositoryPort;
 import com.excelisprepas.backend.remuneration.domain.service.RemunerationPersonnelService;
 import com.excelisprepas.backend.remuneration.domain.service.RemunerationService;
+import com.excelisprepas.backend.academie.progression.infrastructure.out.persistence.ProgressionJpaRepository;
+import com.excelisprepas.backend.remuneration.infrastructure.out.persistence.FichePaieEnseignantJpaRepository;
+import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -23,10 +32,22 @@ public class RemunerationBeanConfiguration {
             EnseignantRepositoryPort enseignantRepository,
             HistoriqueTarifRepositoryPort historiqueTarifRepository,
             BordereauPaieRepositoryPort bordereauPaieRepository,
-            SaisirSortieUseCase saisirSortieUseCase) {
+            SaisirSortieUseCase saisirSortieUseCase,
+            AffectationDepartementaleRepositoryPort rosterRepository,
+            DepartementRepositoryPort departementRepository,
+            FormationRepositoryPort formationRepository,
+            MatiereRepositoryPort matiereRepository,
+            CentreRepositoryPort centreRepository,
+            SalleRepositoryPort salleRepository,
+            SessionAcademiqueRepositoryPort sessionRepository,
+            ProgressionJpaRepository progressionJpaRepository,
+            FichePaieEnseignantJpaRepository fichePaieJpaRepository) {
         return new RemunerationService(
                 affectationRepository, enseignantRepository, historiqueTarifRepository,
-                bordereauPaieRepository, saisirSortieUseCase);
+                bordereauPaieRepository, saisirSortieUseCase,
+                rosterRepository, departementRepository, formationRepository, matiereRepository,
+                centreRepository, salleRepository, sessionRepository,
+                progressionJpaRepository, fichePaieJpaRepository);
     }
 
     @Bean
@@ -36,6 +57,16 @@ public class RemunerationBeanConfiguration {
 
     @Bean
     public ValiderBordereauPaieUseCase validerBordereauPaieUseCase(RemunerationService remunerationService) {
+        return remunerationService;
+    }
+
+    @Bean
+    public ExecuterPaiementFicheUseCase executerPaiementFicheUseCase(RemunerationService remunerationService) {
+        return remunerationService;
+    }
+
+    @Bean
+    public ConsulterPaieEnseignantUseCase consulterPaieEnseignantUseCase(RemunerationService remunerationService) {
         return remunerationService;
     }
 

@@ -6,7 +6,7 @@ import java.util.UUID;
 
 /**
  * Une LocalisationCentre : adresse d'un Centre valide sur une période donnée.
- * Objet enfant de l'agrégat Centre — jamais créé/modifié directement,
+ * Objet enfant de l'agrégat Centre - jamais créé/modifié directement,
  * uniquement via Centre.relocaliser().
  */
 public class LocalisationCentre {

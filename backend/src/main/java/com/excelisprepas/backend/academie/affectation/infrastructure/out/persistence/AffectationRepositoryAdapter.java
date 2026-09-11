@@ -23,7 +23,22 @@ public class AffectationRepositoryAdapter implements AffectationRepositoryPort {
 
     @Override
     public Affectation save(Affectation affectation) {
-        return mapper.toDomain(jpaRepository.save(mapper.toEntity(affectation)));
+        AffectationEntity entity = jpaRepository.findById(affectation.getId())
+                .orElseGet(() -> mapper.toEntity(affectation));
+        entity.setCentreId(affectation.getCentreId());
+        entity.setSessionId(affectation.getSessionId());
+        entity.setFormationId(affectation.getFormationId());
+        entity.setSalleId(affectation.getSalleId());
+        entity.setMatiereId(affectation.getMatiereId());
+        entity.setEnseignantId(affectation.getEnseignantId());
+        entity.setJour(affectation.getJour());
+        entity.setSeance(affectation.getSeance());
+        entity.setSemaine(affectation.getSemaine());
+        entity.setStatut(affectation.getStatut());
+        entity.setStatutPaiement(affectation.getStatutPaiement());
+        entity.setCoutApplique(affectation.getCoutApplique());
+        entity.setFichePaieId(affectation.getFichePaieId());
+        return mapper.toDomain(jpaRepository.saveAndFlush(entity));
     }
 
     @Override
@@ -117,7 +132,12 @@ public class AffectationRepositoryAdapter implements AffectationRepositoryPort {
     @Override
     public List<Affectation> findByEnseignantIdAndSessionIdAndStatutAndStatutPaiement(UUID enseignantId, UUID sessionId, StatutAffectation statut, com.excelisprepas.backend.academie.affectation.domain.model.StatutPaiement statutPaiement) {
         return jpaRepository.findByEnseignantIdAndSessionIdAndStatutAndStatutPaiement(enseignantId, sessionId, statut, statutPaiement).stream()
-                .map(mapper::toDomain)
-                .toList();
+                .map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Affectation> findByFichePaieId(UUID fichePaieId) {
+        return jpaRepository.findByFichePaieId(fichePaieId).stream()
+                .map(mapper::toDomain).toList();
     }
 }

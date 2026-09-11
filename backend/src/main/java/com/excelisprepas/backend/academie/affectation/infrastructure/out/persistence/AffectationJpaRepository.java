@@ -2,6 +2,7 @@ package com.excelisprepas.backend.academie.affectation.infrastructure.out.persis
 
 import com.excelisprepas.backend.academie.affectation.domain.model.Jour;
 import com.excelisprepas.backend.academie.affectation.domain.model.StatutAffectation;
+import com.excelisprepas.backend.academie.affectation.domain.model.StatutPaiement;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -34,5 +35,6 @@ public interface AffectationJpaRepository extends JpaRepository<AffectationEntit
 
     List<AffectationEntity> findByEnseignantId(UUID enseignantId);
     List<AffectationEntity> findBySessionIdAndStatutAndStatutPaiement(UUID sessionId, StatutAffectation statut, com.excelisprepas.backend.academie.affectation.domain.model.StatutPaiement statutPaiement);
-    List<AffectationEntity> findByEnseignantIdAndSessionIdAndStatutAndStatutPaiement(UUID enseignantId, UUID sessionId, StatutAffectation statut, com.excelisprepas.backend.academie.affectation.domain.model.StatutPaiement statutPaiement);
+    List<AffectationEntity> findByEnseignantIdAndSessionIdAndStatutAndStatutPaiement(UUID enseignantId, UUID sessionId, StatutAffectation statut, StatutPaiement statutPaiement);
+    List<AffectationEntity> findByFichePaieId(UUID fichePaieId);
 }

@@ -8,7 +8,7 @@ import java.util.UUID;
 
 /**
  * Clôture journalière à double signature : le Chef de centre valide en
- * premier (statut EN_ATTENTE_CONTROLEUR, totaux pas encore calculés — état
+ * premier (statut EN_ATTENTE_CONTROLEUR, totaux pas encore calculés - état
  * provisoire), puis le Contrôleur financier valide à son tour, ce qui
  * calcule et fige définitivement les totaux (statut CLOTURE). Une fois
  * CLOTURE, plus aucune modification n'est possible.

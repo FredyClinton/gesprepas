@@ -4,6 +4,8 @@ import com.excelisprepas.backend.abonnement.domain.port.out.CentreFormationAbonn
 import com.excelisprepas.backend.academie.affectation.domain.port.out.AffectationRepositoryPort;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
 import com.excelisprepas.backend.academie.formation.domain.port.out.FormationRepositoryPort;
+import com.excelisprepas.backend.academie.phase.domain.model.Phase;
+import com.excelisprepas.backend.academie.phase.domain.port.out.PhaseRepositoryPort;
 import com.excelisprepas.backend.academie.salle.domain.exception.SalleUtiliseeException;
 import com.excelisprepas.backend.academie.salle.domain.model.Salle;
 import com.excelisprepas.backend.academie.salle.domain.port.in.*;
@@ -27,6 +29,23 @@ public class SalleService implements CreerSalleUseCase, RecupererSalleUseCase, L
     private final AffectationRepositoryPort affectationRepository;
     private final SessionAcademiqueRepositoryPort sessionRepository;
     private final CentreFormationAbonnementRepositoryPort abonnementRepository;
+    private final PhaseRepositoryPort phaseRepository;
+
+    public SalleService(SalleRepositoryPort salleRepository,
+                        CentreRepositoryPort centreRepository,
+                        FormationRepositoryPort formationRepository,
+                        AffectationRepositoryPort affectationRepository,
+                        SessionAcademiqueRepositoryPort sessionRepository,
+                        CentreFormationAbonnementRepositoryPort abonnementRepository,
+                        PhaseRepositoryPort phaseRepository) {
+        this.salleRepository = salleRepository;
+        this.centreRepository = centreRepository;
+        this.formationRepository = formationRepository;
+        this.affectationRepository = affectationRepository;
+        this.sessionRepository = sessionRepository;
+        this.abonnementRepository = abonnementRepository;
+        this.phaseRepository = phaseRepository;
+    }
 
     public SalleService(SalleRepositoryPort salleRepository,
                         CentreRepositoryPort centreRepository,
@@ -34,12 +53,8 @@ public class SalleService implements CreerSalleUseCase, RecupererSalleUseCase, L
                         AffectationRepositoryPort affectationRepository,
                         SessionAcademiqueRepositoryPort sessionRepository,
                         CentreFormationAbonnementRepositoryPort abonnementRepository) {
-        this.salleRepository = salleRepository;
-        this.centreRepository = centreRepository;
-        this.formationRepository = formationRepository;
-        this.affectationRepository = affectationRepository;
-        this.sessionRepository = sessionRepository;
-        this.abonnementRepository = abonnementRepository;
+        this(salleRepository, centreRepository, formationRepository, affectationRepository,
+                sessionRepository, abonnementRepository, null);
     }
 
     @Override
@@ -62,6 +77,17 @@ public class SalleService implements CreerSalleUseCase, RecupererSalleUseCase, L
             log.warn("Création de salle refusée : le centre {} n'est pas abonné à la formation {} pour la session {}",
                     centreId, formationId, sessionId);
             throw new CentreNonAbonneFormationException(centreId, formationId, sessionId);
+        }
+
+        if (phaseId == null) {
+            if (phaseRepository != null) {
+                phaseId = phaseRepository.findByCode("PHASE_1")
+                        .map(Phase::getId)
+                        .or(() -> phaseRepository.findAll().stream().findFirst().map(Phase::getId))
+                        .orElse(UUID.fromString("c1234567-89ab-cdef-0123-456789abcdef"));
+            } else {
+                phaseId = UUID.fromString("c1234567-89ab-cdef-0123-456789abcdef");
+            }
         }
 
         Salle salle = new Salle(UUID.randomUUID(), nom, centreId, sessionId, formationId, phaseId);

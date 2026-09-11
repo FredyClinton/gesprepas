@@ -18,6 +18,8 @@ public interface CentreFormationAbonnementJpaRepository extends JpaRepository<Ce
 
     List<CentreFormationAbonnementEntity> findByFormationIdAndSessionId(UUID formationId, UUID sessionId);
 
+    List<CentreFormationAbonnementEntity> findBySessionId(UUID sessionId);
+
     boolean existsByCentreIdAndFormationIdAndSessionId(UUID centreId, UUID formationId, UUID sessionId);
 
     boolean existsByCentreId(UUID centreId);

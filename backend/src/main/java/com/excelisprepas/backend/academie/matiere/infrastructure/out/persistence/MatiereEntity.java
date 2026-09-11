@@ -22,4 +22,7 @@ public class MatiereEntity {
 
     @Column(nullable = false)
     private String nom;
+
+    @Column
+    private String couleur;
 }

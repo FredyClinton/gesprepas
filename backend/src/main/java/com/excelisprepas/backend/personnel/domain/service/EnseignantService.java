@@ -118,7 +118,7 @@ public class EnseignantService implements CreerEnseignantUseCase, RecupererEnsei
         log.info("Enseignant suspendu : id={}", id);
 
         // Les cours pas encore effectués (ASSIGNEE) redeviennent non assignés
-        // (PLANIFIEE) — un enseignant suspendu ne peut plus les assurer. Les
+        // (PLANIFIEE) - un enseignant suspendu ne peut plus les assurer. Les
         // séances déjà EFFECTUEE ne sont jamais touchées.
         List<Affectation> creneauxNonEffectues =
                 affectationRepository.findByEnseignantIdAndStatut(id, StatutAffectation.ASSIGNEE);

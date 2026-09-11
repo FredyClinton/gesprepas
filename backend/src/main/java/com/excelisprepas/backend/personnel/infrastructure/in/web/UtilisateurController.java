@@ -55,7 +55,8 @@ public class UtilisateurController {
         return new UtilisateurResponse(
                 utilisateur.getId(), utilisateur.getNom(), utilisateur.getPrenom(),
                 utilisateur.getTelephone(), utilisateur.getNumeroCni(),
-                utilisateur.getEmail(), utilisateur.getRole(), utilisateur.getCentreId());
+                utilisateur.getEmail(), utilisateur.getRole(), utilisateur.getCentreId(),
+                utilisateur.getDepartementId());
     }
 
     @Operation(summary = "Créer un utilisateur", description = "Crée un nouveau compte utilisateur applicatif.")

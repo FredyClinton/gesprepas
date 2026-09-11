@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
+@RequestMapping("/api")
 @Tag(name = "Mouvements financiers", description = "Saisie et consultation des entrées et sorties financières d'une session")
 @RestController
 public class MouvementFinancierController {
@@ -86,7 +87,7 @@ public class MouvementFinancierController {
             @ApiResponse(responseCode = "404", description = "Session, motif, centre, apprenant ou utilisateur introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Session non utilisable, motif inactif ou de type incorrect", content = @Content)
     })
-    @PostMapping("/api/entrees")
+    @PostMapping("/entrees")
     public ResponseEntity<EntreeResponse> saisirEntree(@Valid @RequestBody SaisirEntreeRequest request) {
         Entree entree = saisirEntreeUseCase.saisirEntree(request.sessionId(), request.motifId(), request.montant(),
                 request.date(), request.saisiParUtilisateurId(), request.centreId(), request.apprenantId(), null);
@@ -100,7 +101,7 @@ public class MouvementFinancierController {
                     content = @Content(schema = @Schema(implementation = EntreeResponse.class))),
             @ApiResponse(responseCode = "404", description = "Apprenant introuvable", content = @Content)
     })
-    @GetMapping("/api/entrees")
+    @GetMapping("/entrees")
     public ResponseEntity<List<EntreeResponse>> listerVersementsApprenant(@RequestParam UUID apprenantId) {
         List<EntreeResponse> reponses = listerVersementsApprenantUseCase.listerVersementsApprenant(apprenantId).stream()
                 .map(MouvementFinancierController::versReponse)
@@ -116,7 +117,7 @@ public class MouvementFinancierController {
             @ApiResponse(responseCode = "404", description = "Session, motif, centre ou utilisateur introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Session non utilisable, motif inactif ou de type incorrect", content = @Content)
     })
-    @PostMapping("/api/sorties")
+    @PostMapping("/sorties")
     public ResponseEntity<SortieResponse> saisirSortie(@Valid @RequestBody SaisirSortieRequest request) {
         Sortie sortie = saisirSortieUseCase.saisirSortie(request.sessionId(), request.motifId(), request.montant(),
                 request.date(), request.saisiParUtilisateurId(), request.centreId(), request.ordonnateur());
@@ -130,7 +131,7 @@ public class MouvementFinancierController {
                     content = @Content(schema = @Schema(implementation = MouvementFinancierResponse.class))),
             @ApiResponse(responseCode = "404", description = "Mouvement introuvable", content = @Content)
     })
-    @GetMapping("/api/mouvements-financiers/{id}")
+    @GetMapping("/mouvements-financiers/{id}")
     public ResponseEntity<MouvementFinancierResponse> recupererMouvement(@PathVariable UUID id) {
         return ResponseEntity.ok(versReponseGenerique(recupererMouvementUseCase.recupererMouvement(id)));
     }
@@ -142,7 +143,7 @@ public class MouvementFinancierController {
             @ApiResponse(responseCode = "200", description = "Liste des mouvements",
                     content = @Content(schema = @Schema(implementation = MouvementFinancierResponse.class)))
     })
-    @GetMapping("/api/mouvements-financiers")
+    @GetMapping("/mouvements-financiers")
     public ResponseEntity<List<MouvementFinancierResponse>> listerMouvements(
             @RequestParam UUID sessionId,
             @RequestParam(required = false) UUID centreId,

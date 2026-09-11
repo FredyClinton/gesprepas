@@ -3,6 +3,7 @@ package com.excelisprepas.backend.abonnement.infrastructure.in.web;
 import com.excelisprepas.backend.abonnement.domain.model.CentreFormationAbonnement;
 import com.excelisprepas.backend.abonnement.domain.port.in.AbonnerCentreFormationUseCase;
 import com.excelisprepas.backend.abonnement.domain.port.in.DesabonnerCentreFormationUseCase;
+import com.excelisprepas.backend.abonnement.domain.port.in.ListerAbonnementsParSessionUseCase;
 import com.excelisprepas.backend.abonnement.domain.port.in.ListerCentresAbonnesParFormationUseCase;
 import com.excelisprepas.backend.abonnement.domain.port.in.ListerFormationsAbonneesParCentreUseCase;
 import com.excelisprepas.backend.academie.formation.domain.model.Formation;
@@ -36,6 +37,8 @@ class AbonnementControllerTest {
     private ListerFormationsAbonneesParCentreUseCase listerFormationsAbonneesParCentreUseCase;
     @MockitoBean
     private ListerCentresAbonnesParFormationUseCase listerCentresAbonnesParFormationUseCase;
+    @MockitoBean
+    private ListerAbonnementsParSessionUseCase listerAbonnementsParSessionUseCase;
 
     private final UUID centreId = UUID.randomUUID();
     private final UUID formationId = UUID.randomUUID();
@@ -86,5 +89,19 @@ class AbonnementControllerTest {
         mockMvc.perform(get("/api/formations/" + formationId + "/centres").param("sessionId", sessionId.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    @DisplayName("GET listerAbonnementsParSession retourne 200")
+    void listerAbonnementsParSession_retourne200() throws Exception {
+        CentreFormationAbonnement abonnement = new CentreFormationAbonnement(centreId, formationId, sessionId);
+        when(listerAbonnementsParSessionUseCase.listerAbonnements(sessionId))
+                .thenReturn(List.of(abonnement));
+
+        mockMvc.perform(get("/api/sessions/" + sessionId + "/abonnements"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].centreId").value(centreId.toString()))
+                .andExpect(jsonPath("$[0].formationId").value(formationId.toString()));
     }
 }

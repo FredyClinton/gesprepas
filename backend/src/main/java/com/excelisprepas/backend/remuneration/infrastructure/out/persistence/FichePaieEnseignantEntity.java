@@ -32,6 +32,10 @@ public class FichePaieEnseignantEntity {
     @Column(name = "montant_total", nullable = false, precision = 12, scale = 2)
     private BigDecimal montantTotal;
 
+    @Column(name = "statut", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private com.excelisprepas.backend.remuneration.domain.model.StatutFichePaie statut;
+
     // Lignes de decompte seance - on les garde dans l'affectation, on n'a pas besoin de les redoubler en BD
     // sauf si on veut une table separee. Pour l'instant, l'Affectation a deja coutApplique et fichePaieId.
 }

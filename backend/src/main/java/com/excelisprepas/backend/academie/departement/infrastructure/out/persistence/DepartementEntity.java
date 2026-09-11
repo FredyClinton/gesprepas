@@ -24,5 +24,8 @@ public class DepartementEntity {
     private String nom;
 
     @Column(name = "matiere_id", nullable = false, unique = true)
-    private UUID matiereId; // référence brute — relation 1—1, pas de @OneToOne (module matiere séparé)
+    private UUID matiereId; // référence brute - relation 1-1, pas de @OneToOne (module matiere séparé)
+
+    @Column(name = "chef_id")
+    private UUID chefId;
 }

@@ -24,4 +24,7 @@ public class UtilisateurEntity extends PersonnelEntity {
 
     @Column(name = "centre_id")
     private UUID centreId; // nullable : rattachement optionnel
+
+    @Column(name = "departement_id")
+    private UUID departementId; // nullable : rattachement département optionnel
 }

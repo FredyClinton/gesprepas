@@ -8,7 +8,7 @@ import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
  * gel est effectif pour un Chef de Département.
  *
  * Placeholder de sécurité : {@code appelant} est aujourd'hui auto-déclaré par le
- * frontend (header HTTP), pas vérifié cryptographiquement — le backend n'a encore
+ * frontend (header HTTP), pas vérifié cryptographiquement - le backend n'a encore
  * aucun mécanisme d'authentification réel (voir notes du module `auth`). À remplacer
  * par un vrai principal une fois ce chantier fait.
  */

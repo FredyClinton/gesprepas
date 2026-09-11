@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class GelEnseignantsRepositoryAdapter implements GelEnseignantsRepositoryPort {
 
-    // Ligne unique en base — pas de clé métier, l'id est fixé arbitrairement.
+    // Ligne unique en base - pas de clé métier, l'id est fixé arbitrairement.
     private static final long SINGLETON_ID = 1L;
 
     private final GelEnseignantsJpaRepository jpaRepository;

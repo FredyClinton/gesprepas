@@ -4,6 +4,10 @@ import jakarta.validation.constraints.NotBlank;
 
 public record CreerDepartementRequest(
         @NotBlank(message = "Le nom du département est obligatoire") String nomDepartement,
-        @NotBlank(message = "Le nom de la matière est obligatoire") String nomMatiere
+        @NotBlank(message = "Le nom de la matière est obligatoire") String nomMatiere,
+        String couleur
 ) {
+    public CreerDepartementRequest(String nomDepartement, String nomMatiere) {
+        this(nomDepartement, nomMatiere, null);
+    }
 }

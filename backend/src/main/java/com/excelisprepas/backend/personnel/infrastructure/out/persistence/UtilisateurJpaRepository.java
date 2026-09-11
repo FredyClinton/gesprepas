@@ -11,4 +11,8 @@ public interface UtilisateurJpaRepository extends JpaRepository<UtilisateurEntit
     boolean existsByEmail(String email);
 
     boolean existsByCentreId(UUID centreId);
+
+    Optional<UtilisateurEntity> findByDepartementId(UUID departementId);
+
+    java.util.List<UtilisateurEntity> findByRole(com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur role);
 }

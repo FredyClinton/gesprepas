@@ -2,6 +2,7 @@ package com.excelisprepas.backend.academie.departement.infrastructure.in.web;
 
 import com.excelisprepas.backend.academie.departement.domain.model.Departement;
 import com.excelisprepas.backend.academie.departement.domain.port.in.*;
+import com.excelisprepas.backend.academie.departement.infrastructure.in.web.dto.AssignerChefRequest;
 import com.excelisprepas.backend.academie.departement.infrastructure.in.web.dto.CreerDepartementRequest;
 import com.excelisprepas.backend.academie.departement.infrastructure.in.web.dto.DepartementResponse;
 import com.excelisprepas.backend.academie.departement.infrastructure.in.web.dto.RenommerDepartementRequest;
@@ -31,21 +32,24 @@ public class DepartementController {
     private final ListerDepartementsUseCase listerDepartementsUseCase;
     private final RenommerDepartementUseCase renommerDepartementUseCase;
     private final SupprimerDepartementUseCase supprimerDepartementUseCase;
+    private final AssignerChefDepartementUseCase assignerChefDepartementUseCase;
 
     public DepartementController(CreerDepartementUseCase creerDepartementUseCase,
                                  RecupererDepartementUseCase recupererDepartementUseCase,
                                  ListerDepartementsUseCase listerDepartementsUseCase,
                                  RenommerDepartementUseCase renommerDepartementUseCase,
-                                 SupprimerDepartementUseCase supprimerDepartementUseCase) {
+                                 SupprimerDepartementUseCase supprimerDepartementUseCase,
+                                 AssignerChefDepartementUseCase assignerChefDepartementUseCase) {
         this.creerDepartementUseCase = creerDepartementUseCase;
         this.recupererDepartementUseCase = recupererDepartementUseCase;
         this.listerDepartementsUseCase = listerDepartementsUseCase;
         this.renommerDepartementUseCase = renommerDepartementUseCase;
         this.supprimerDepartementUseCase = supprimerDepartementUseCase;
+        this.assignerChefDepartementUseCase = assignerChefDepartementUseCase;
     }
 
     private static DepartementResponse versReponse(Departement departement) {
-        return new DepartementResponse(departement.getId(), departement.getNom(), departement.getMatiereId());
+        return new DepartementResponse(departement.getId(), departement.getNom(), departement.getMatiereId(), departement.getChefId());
     }
 
     @Operation(summary = "Créer un département",
@@ -58,7 +62,7 @@ public class DepartementController {
     @PostMapping
     public ResponseEntity<DepartementResponse> creerDepartement(@Valid @RequestBody CreerDepartementRequest request) {
         Departement departement = creerDepartementUseCase.creerDepartement(
-                request.nomDepartement(), request.nomMatiere());
+                request.nomDepartement(), request.nomMatiere(), request.couleur());
         return ResponseEntity.status(HttpStatus.CREATED).body(versReponse(departement));
     }
 
@@ -99,10 +103,26 @@ public class DepartementController {
         return ResponseEntity.ok(versReponse(renommerDepartementUseCase.renommerDepartement(id, request.nom())));
     }
 
-    @Operation(summary = "Supprimer un département", description = "Supprime définitivement un département.")
+    @Operation(summary = "Assigner ou modifier le chef de département",
+            description = "Assigne un utilisateur avec le rôle CHEF_DEPARTEMENT au département (transmettre null pour libérer le poste).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Chef assigné ou poste libéré"),
+            @ApiResponse(responseCode = "400", description = "Utilisateur invalide ou rôle non conforme", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Département introuvable", content = @Content)
+    })
+    @PutMapping("/{id}/chef")
+    public ResponseEntity<Void> assignerChef(
+            @Parameter(description = "Identifiant du département") @PathVariable UUID id,
+            @RequestBody AssignerChefRequest request) {
+        assignerChefDepartementUseCase.assignerChef(id, request != null ? request.utilisateurId() : null);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Supprimer un département", description = "Supprime définitivement un département avec ses gardes-fous.")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Département supprimé", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Département introuvable", content = @Content)
+            @ApiResponse(responseCode = "404", description = "Département introuvable", content = @Content),
+            @ApiResponse(responseCode = "409", description = "Département utilisé (enseignants dans le roster ou cours planifiés)", content = @Content)
     })
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> supprimerDepartement(

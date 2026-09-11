@@ -36,6 +36,8 @@ class DepartementControllerTest {
     private RenommerDepartementUseCase renommerDepartementUseCase;
     @MockitoBean
     private SupprimerDepartementUseCase supprimerDepartementUseCase;
+    @MockitoBean
+    private AssignerChefDepartementUseCase assignerChefDepartementUseCase;
 
     private String jsonRequest() {
         return """
@@ -53,13 +55,29 @@ class DepartementControllerTest {
     @Test
     @DisplayName("POST /api/departements avec des données valides retourne 201")
     void creerDepartement_donneesValides_retourne201() throws Exception {
-        when(creerDepartementUseCase.creerDepartement(any(), any())).thenReturn(unDepartement());
+        when(creerDepartementUseCase.creerDepartement(any(), any(), any())).thenReturn(unDepartement());
 
         mockMvc.perform(post("/api/departements")
                         .contentType("application/json")
                         .content(jsonRequest()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.nom").value("Mathématiques"));
+    }
+
+    @Test
+    @DisplayName("PUT /api/departements/{id}/chef assigne le chef et retourne 204")
+    void assignerChef_donneesValides_retourne204() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID chefId = UUID.randomUUID();
+
+        doNothing().when(assignerChefDepartementUseCase).assignerChef(id, chefId);
+
+        mockMvc.perform(put("/api/departements/{id}/chef", id)
+                        .contentType("application/json")
+                        .content("{\"utilisateurId\": \"" + chefId + "\"}"))
+                .andExpect(status().isNoContent());
+
+        verify(assignerChefDepartementUseCase).assignerChef(id, chefId);
     }
 
     @Test
@@ -93,7 +111,7 @@ class DepartementControllerTest {
     @Test
     @DisplayName("POST /api/departements avec une violation domaine retourne 400")
     void creerDepartement_violationDomaine_retourne400() throws Exception {
-        when(creerDepartementUseCase.creerDepartement(any(), any()))
+        when(creerDepartementUseCase.creerDepartement(any(), any(), any()))
                 .thenThrow(new IllegalArgumentException("nom ne peut pas être vide"));
 
         mockMvc.perform(post("/api/departements")

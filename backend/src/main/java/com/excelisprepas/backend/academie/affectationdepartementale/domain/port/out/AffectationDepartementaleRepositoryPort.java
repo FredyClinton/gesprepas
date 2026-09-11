@@ -19,4 +19,8 @@ public interface AffectationDepartementaleRepositoryPort {
     List<AffectationDepartementale> findByEnseignantId(UUID enseignantId);
 
     void deleteById(UUID id);
+
+    boolean existsByDepartementId(UUID departementId);
+
+    void deleteByDepartementId(UUID departementId);
 }

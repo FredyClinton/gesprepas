@@ -5,6 +5,7 @@ import java.util.UUID;
 public record DepartementResponse(
         UUID id,
         String nom,
-        UUID matiereId
+        UUID matiereId,
+        UUID chefId
 ) {
 }

@@ -3,6 +3,7 @@ package com.excelisprepas.backend.abonnement.infrastructure.in.web;
 import com.excelisprepas.backend.abonnement.domain.model.CentreFormationAbonnement;
 import com.excelisprepas.backend.abonnement.domain.port.in.AbonnerCentreFormationUseCase;
 import com.excelisprepas.backend.abonnement.domain.port.in.DesabonnerCentreFormationUseCase;
+import com.excelisprepas.backend.abonnement.domain.port.in.ListerAbonnementsParSessionUseCase;
 import com.excelisprepas.backend.abonnement.domain.port.in.ListerCentresAbonnesParFormationUseCase;
 import com.excelisprepas.backend.abonnement.domain.port.in.ListerFormationsAbonneesParCentreUseCase;
 import com.excelisprepas.backend.abonnement.infrastructure.in.web.dto.AbonnementResponse;
@@ -31,15 +32,18 @@ public class AbonnementController {
     private final DesabonnerCentreFormationUseCase desabonnerCentreFormationUseCase;
     private final ListerFormationsAbonneesParCentreUseCase listerFormationsAbonneesParCentreUseCase;
     private final ListerCentresAbonnesParFormationUseCase listerCentresAbonnesParFormationUseCase;
+    private final ListerAbonnementsParSessionUseCase listerAbonnementsParSessionUseCase;
 
     public AbonnementController(AbonnerCentreFormationUseCase abonnerCentreFormationUseCase,
                                 DesabonnerCentreFormationUseCase desabonnerCentreFormationUseCase,
                                 ListerFormationsAbonneesParCentreUseCase listerFormationsAbonneesParCentreUseCase,
-                                ListerCentresAbonnesParFormationUseCase listerCentresAbonnesParFormationUseCase) {
+                                ListerCentresAbonnesParFormationUseCase listerCentresAbonnesParFormationUseCase,
+                                ListerAbonnementsParSessionUseCase listerAbonnementsParSessionUseCase) {
         this.abonnerCentreFormationUseCase = abonnerCentreFormationUseCase;
         this.desabonnerCentreFormationUseCase = desabonnerCentreFormationUseCase;
         this.listerFormationsAbonneesParCentreUseCase = listerFormationsAbonneesParCentreUseCase;
         this.listerCentresAbonnesParFormationUseCase = listerCentresAbonnesParFormationUseCase;
+        this.listerAbonnementsParSessionUseCase = listerAbonnementsParSessionUseCase;
     }
 
     private static AbonnementResponse versReponse(CentreFormationAbonnement abonnement) {
@@ -130,6 +134,17 @@ public class AbonnementController {
                 ? listerCentresAbonnesParFormationUseCase.listerCentresAbonnes(formationId, sessionId)
                 : listerCentresAbonnesParFormationUseCase.listerCentresAbonnes(formationId);
         List<AbonnementResponse> responses = abonnements.stream()
+                .map(AbonnementController::versReponse)
+                .toList();
+        return ResponseEntity.ok(responses);
+    }
+
+    @Operation(summary = "Lister les abonnements d'une session",
+            description = "Retourne la liste des abonnements centre-formation pour une session donnée")
+    @GetMapping("/sessions/{sessionId}/abonnements")
+    public ResponseEntity<List<AbonnementResponse>> listerAbonnementsParSession(
+            @Parameter(description = "Identifiant de la session") @PathVariable UUID sessionId) {
+        List<AbonnementResponse> responses = listerAbonnementsParSessionUseCase.listerAbonnements(sessionId).stream()
                 .map(AbonnementController::versReponse)
                 .toList();
         return ResponseEntity.ok(responses);

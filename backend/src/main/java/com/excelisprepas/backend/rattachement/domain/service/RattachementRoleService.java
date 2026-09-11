@@ -106,7 +106,7 @@ public class RattachementRoleService implements RattacherUtilisateurUseCase, Aff
         }
         verifierRolesCentreScopes(nouveauxRoles);
 
-        // Retire tous les rôles centre-scopés actuels — ils n'ont plus de sens au nouveau centre
+        // Retire tous les rôles centre-scopés actuels - ils n'ont plus de sens au nouveau centre
         List<AttributionRole> attributionsActuelles = attributionRepository.findByUtilisateurIdAndSessionId(
                 rattachement.getUtilisateurId(), rattachement.getSessionId());
         for (AttributionRole attribution : attributionsActuelles) {

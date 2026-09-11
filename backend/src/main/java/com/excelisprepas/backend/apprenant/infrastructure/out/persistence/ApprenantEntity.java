@@ -34,7 +34,7 @@ public class ApprenantEntity {
     private LocalDate dateInscription;
 
     @Column(name = "centre_id", nullable = false)
-    private UUID centreId; // référence brute — pas de @ManyToOne (bounded context séparé)
+    private UUID centreId; // référence brute - pas de @ManyToOne (bounded context séparé)
 
     @Column(name = "contact_apprenant")
     private String contactApprenant;

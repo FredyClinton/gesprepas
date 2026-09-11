@@ -3,6 +3,7 @@ package com.excelisprepas.backend.abonnement.domain.service;
 import com.excelisprepas.backend.abonnement.domain.model.CentreFormationAbonnement;
 import com.excelisprepas.backend.abonnement.domain.port.in.AbonnerCentreFormationUseCase;
 import com.excelisprepas.backend.abonnement.domain.port.in.DesabonnerCentreFormationUseCase;
+import com.excelisprepas.backend.abonnement.domain.port.in.ListerAbonnementsParSessionUseCase;
 import com.excelisprepas.backend.abonnement.domain.port.in.ListerCentresAbonnesParFormationUseCase;
 import com.excelisprepas.backend.abonnement.domain.port.in.ListerFormationsAbonneesParCentreUseCase;
 import com.excelisprepas.backend.abonnement.domain.port.out.CentreFormationAbonnementRepositoryPort;
@@ -24,7 +25,8 @@ import java.util.UUID;
 
 @Slf4j
 public class AbonnementService implements AbonnerCentreFormationUseCase, DesabonnerCentreFormationUseCase,
-        ListerFormationsAbonneesParCentreUseCase, ListerCentresAbonnesParFormationUseCase {
+        ListerFormationsAbonneesParCentreUseCase, ListerCentresAbonnesParFormationUseCase,
+        ListerAbonnementsParSessionUseCase {
 
     private final CentreFormationAbonnementRepositoryPort abonnementRepository;
     private final CentreRepositoryPort centreRepository;
@@ -151,5 +153,13 @@ public class AbonnementService implements AbonnerCentreFormationUseCase, Desabon
             throw new SessionIntrouvableException(sessionId);
         }
         return abonnementRepository.findByFormationIdAndSessionId(formationId, sessionId);
+    }
+
+    @Override
+    public List<CentreFormationAbonnement> listerAbonnements(UUID sessionId) {
+        if (sessionRepository.findById(sessionId).isEmpty()) {
+            throw new SessionIntrouvableException(sessionId);
+        }
+        return abonnementRepository.findBySessionId(sessionId);
     }
 }

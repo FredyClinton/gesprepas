@@ -9,7 +9,6 @@ import java.util.UUID;
  */
 public class FormationUtiliseeException extends IllegalStateException {
     public FormationUtiliseeException(UUID formationId) {
-        super("Impossible de supprimer la formation " + formationId
-                + " : elle est encore référencée par des données existantes");
+        super("Cette formation ne peut pas être supprimée car elle est encore référencée par des données existantes (salles, apprenants ou plannings).");
     }
 }

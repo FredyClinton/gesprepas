@@ -11,7 +11,7 @@ public class Entree extends MouvementFinancier {
     private final UUID centreId;
     private final UUID apprenantId;
     private final UUID formationId;
-    private final UUID dossierConcoursId; // nullable — renseigné uniquement lors d'un paiement de dossier
+    private final UUID dossierConcoursId; // nullable - renseigné uniquement lors d'un paiement de dossier
 
     public Entree(UUID id, UUID sessionId, UUID motifId, BigDecimal montant, LocalDate date,
                   UUID saisiParUtilisateurId, UUID centreId, UUID apprenantId, UUID formationId, UUID dossierConcoursId) {

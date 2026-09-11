@@ -33,7 +33,7 @@ public class Salle {
     }
 
     /**
-     * Réaffecte la salle à une nouvelle formation. sessionId reste inchangé —
+     * Réaffecte la salle à une nouvelle formation. sessionId reste inchangé -
      * une salle est créée pour une session donnée et n'en change jamais ;
      * la cohérence (nouvelle formation appartenant à la même session) est
      * vérifiée en amont, dans SalleService, qui a accès au FormationRepositoryPort.

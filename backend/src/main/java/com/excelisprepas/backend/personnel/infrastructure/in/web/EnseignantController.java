@@ -60,8 +60,8 @@ public class EnseignantController {
         return new EnseignantResponse(
                 enseignant.getId(), enseignant.getNom(), enseignant.getPrenom(),
                 enseignant.getMatricule(), enseignant.getCoutParSeance(), enseignant.getStatut(),
-                enseignant.getTelephone(), enseignant.getNumeroCni(), enseignant.getEcoleFonction(),
-                enseignant.getNiveauGrade(), enseignant.getDateRecrutement());
+                enseignant.getTelephone(), enseignant.getNumeroCni(), enseignant.getEmail(),
+                enseignant.getEcoleFonction(), enseignant.getNiveauGrade(), enseignant.getDateRecrutement());
     }
 
     // Placeholder de sécurité : rôle auto-déclaré par le frontend, pas vérifié

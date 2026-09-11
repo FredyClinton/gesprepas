@@ -61,7 +61,8 @@ public class AffectationController {
         return new AffectationResponse(
                 affectation.getId(), affectation.getCentreId(), affectation.getSessionId(), affectation.getFormationId(),
                 affectation.getSalleId(), affectation.getMatiereId(), affectation.getEnseignantId(),
-                affectation.getJour(), affectation.getSeance(), affectation.getSemaine(), affectation.getStatut());
+                affectation.getJour(), affectation.getSeance(), affectation.getSemaine(), affectation.getStatut(),
+                affectation.getStatutPaiement(), affectation.getCoutApplique(), affectation.getFichePaieId());
     }
 
     @Operation(summary = "Lister les affectations",

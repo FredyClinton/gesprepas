@@ -2,6 +2,7 @@ package com.excelisprepas.backend.abonnement.infrastructure.config;
 
 import com.excelisprepas.backend.abonnement.domain.port.in.AbonnerCentreFormationUseCase;
 import com.excelisprepas.backend.abonnement.domain.port.in.DesabonnerCentreFormationUseCase;
+import com.excelisprepas.backend.abonnement.domain.port.in.ListerAbonnementsParSessionUseCase;
 import com.excelisprepas.backend.abonnement.domain.port.in.ListerCentresAbonnesParFormationUseCase;
 import com.excelisprepas.backend.abonnement.domain.port.in.ListerFormationsAbonneesParCentreUseCase;
 import com.excelisprepas.backend.abonnement.domain.port.out.CentreFormationAbonnementRepositoryPort;
@@ -41,6 +42,11 @@ public class AbonnementBeanConfiguration {
 
     @Bean
     public ListerCentresAbonnesParFormationUseCase listerCentresAbonnesParFormationUseCase(AbonnementService abonnementService) {
+        return abonnementService;
+    }
+
+    @Bean
+    public ListerAbonnementsParSessionUseCase listerAbonnementsParSessionUseCase(AbonnementService abonnementService) {
         return abonnementService;
     }
 }

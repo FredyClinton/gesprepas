@@ -29,6 +29,11 @@ public class PersonnelExceptionHandler {
         return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
+    @ExceptionHandler(PersonnelIntrouvableException.class)
+    public ResponseEntity<ApiErrorResponse> gererPersonnelIntrouvable(PersonnelIntrouvableException ex) {
+        return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
     @ExceptionHandler(CentreIntrouvableException.class)
     public ResponseEntity<ApiErrorResponse> gererCentreIntrouvable(CentreIntrouvableException ex) {
         return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());

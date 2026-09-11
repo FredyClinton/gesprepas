@@ -12,6 +12,11 @@ public record UtilisateurResponse(
         String numeroCni,
         String email,
         RoleUtilisateur role,
-        UUID centreId
+        UUID centreId,
+        UUID departementId
 ) {
+    public UtilisateurResponse(UUID id, String nom, String prenom, String telephone,
+                               String numeroCni, String email, RoleUtilisateur role, UUID centreId) {
+        this(id, nom, prenom, telephone, numeroCni, email, role, centreId, null);
+    }
 }

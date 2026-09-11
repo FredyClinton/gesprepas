@@ -82,11 +82,12 @@ class RemunerationPersonnelServiceTest {
                 any(LocalDate.class), any(UUID.class), isNull(), anyString()))
                 .thenReturn(sortie);
 
+        when(bordereauPaiePersonnelRepository.findByReference("BORD-PERS-TEST-001")).thenReturn(Optional.empty());
         when(bordereauPaiePersonnelRepository.save(any(BordereauPaiePersonnel.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         BordereauPaiePersonnel resultat = service.validerBordereau(
-                sessionId, LocalDate.of(2026, 7, 15), "Paie Mi-Juillet", lignes, "DIRECTEUR");
+                sessionId, LocalDate.of(2026, 7, 15), "BORD-PERS-TEST-001", "Paie Mi-Juillet", lignes, "DIRECTEUR");
 
         assertThat(resultat.getNombrePersonnelsPayes()).isEqualTo(1);
         assertThat(resultat.getMontantTotalGlobal()).isEqualByComparingTo("150000");
@@ -104,7 +105,7 @@ class RemunerationPersonnelServiceTest {
                 new LigneSaisiePaiePersonnel(UUID.randomUUID(), new BigDecimal("150000"), BigDecimal.ZERO, "Reporté")
         );
 
-        assertThatThrownBy(() -> service.validerBordereau(sessionId, LocalDate.now(), "Test", lignes, "ADMIN"))
+        assertThatThrownBy(() -> service.validerBordereau(sessionId, LocalDate.now(), "BORD-PERS-TEST-002", "Test", lignes, "ADMIN"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Aucun personnel sélectionné");
     }

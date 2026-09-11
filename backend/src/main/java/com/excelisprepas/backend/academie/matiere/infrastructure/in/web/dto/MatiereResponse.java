@@ -4,6 +4,10 @@ import java.util.UUID;
 
 public record MatiereResponse(
         UUID id,
-        String nom
+        String nom,
+        String couleur
 ) {
+    public MatiereResponse(UUID id, String nom) {
+        this(id, nom, null);
+    }
 }

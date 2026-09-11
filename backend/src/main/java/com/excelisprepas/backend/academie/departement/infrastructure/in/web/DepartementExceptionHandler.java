@@ -23,6 +23,14 @@ public class DepartementExceptionHandler {
         return construireReponse(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    @ExceptionHandler({
+            com.excelisprepas.backend.academie.departement.domain.exception.DepartementAvecRosterException.class,
+            com.excelisprepas.backend.academie.departement.domain.exception.DepartementMatiereUtiliseeException.class
+    })
+    public ResponseEntity<ApiErrorResponse> gererConflitDepartement(RuntimeException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     private ResponseEntity<ApiErrorResponse> construireReponse(HttpStatus statut, String message) {
         return ResponseEntity.status(statut).body(new ApiErrorResponse(statut.value(), statut.getReasonPhrase(), message));
     }

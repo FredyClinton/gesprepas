@@ -44,7 +44,7 @@ public class Concours {
 
     /**
      * Vrai si les deux échéances (officielle et interne au centre) ne sont
-     * pas encore dépassées à la date donnée — réutilisé à l'étape 2 pour
+     * pas encore dépassées à la date donnée - réutilisé à l'étape 2 pour
      * valider l'ajout d'un concours à un dossier.
      */
     public boolean estEncoreOuvert(LocalDate date) {

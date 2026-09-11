@@ -9,7 +9,7 @@ import java.util.UUID;
  * Un rôle tenu par un Utilisateur durant une SessionAcademique. Un même
  * utilisateur peut cumuler plusieurs AttributionRole pour la même session
  * (ex : Chef de centre + Chargé de dossier au même centre, ou Directeur +
- * Comptable sans centre). Immuable — pas de "changerRole" : on retire et
+ * Comptable sans centre). Immuable - pas de "changerRole" : on retire et
  * on ajoute plutôt que de muter, ce qui garde l'historique de chaque
  * attribution explicite.
  */

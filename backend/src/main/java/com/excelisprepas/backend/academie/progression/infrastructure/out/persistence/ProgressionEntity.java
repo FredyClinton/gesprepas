@@ -20,16 +20,16 @@ public class ProgressionEntity {
     private UUID id;
 
     @Column(name = "formation_id", nullable = false)
-    private UUID formationId; // référence brute — module formation
+    private UUID formationId; // référence brute - module formation
 
     @Column(name = "session_id", nullable = false)
-    private UUID sessionId; // référence brute, dénormalisée depuis Formation, figée à la création — module session
+    private UUID sessionId; // référence brute, dénormalisée depuis Formation, figée à la création - module session
 
     @Column(name = "phase_id", nullable = false)
     private UUID phaseId;
 
     @Column(name = "matiere_id", nullable = false)
-    private UUID matiereId; // référence brute — module matiere
+    private UUID matiereId; // référence brute - module matiere
 
     @Column(nullable = false)
     private int semaine;

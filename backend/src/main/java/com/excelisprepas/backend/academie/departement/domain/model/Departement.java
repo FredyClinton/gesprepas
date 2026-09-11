@@ -8,11 +8,17 @@ public class Departement {
     private final UUID id;
     private final UUID matiereId;
     private String nom;
+    private UUID chefId;
 
     public Departement(UUID id, String nom, UUID matiereId) {
+        this(id, nom, matiereId, null);
+    }
+
+    public Departement(UUID id, String nom, UUID matiereId, UUID chefId) {
         this.id = Objects.requireNonNull(id, "id ne peut pas être nul");
         this.nom = validerNom(nom);
         this.matiereId = Objects.requireNonNull(matiereId, "matiereId ne peut pas être nul");
+        this.chefId = chefId;
     }
 
     private static String validerNom(String nom) {
@@ -24,6 +30,18 @@ public class Departement {
 
     public void renommer(String nouveauNom) {
         this.nom = validerNom(nouveauNom);
+    }
+
+    public void assignerChef(UUID chefId) {
+        this.chefId = chefId;
+    }
+
+    public void retirerChef() {
+        this.chefId = null;
+    }
+
+    public UUID getChefId() {
+        return chefId;
     }
 
     public UUID getId() {

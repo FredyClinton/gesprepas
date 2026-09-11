@@ -42,7 +42,7 @@ public class DossierConcours {
     }
 
     /**
-     * Recalculé intégralement par le service à chaque ajout de pièce —
+     * Recalculé intégralement par le service à chaque ajout de pièce -
      * jamais incrémenté, pour éviter toute dérive (même principe que les
      * totaux de BilanJournalier).
      */

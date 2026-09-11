@@ -19,9 +19,10 @@ public class SalleBeanConfiguration {
                                      FormationRepositoryPort formationRepository,
                                      AffectationRepositoryPort affectationRepository,
                                      SessionAcademiqueRepositoryPort sessionRepository,
-                                     com.excelisprepas.backend.abonnement.domain.port.out.CentreFormationAbonnementRepositoryPort abonnementRepository) {
+                                     com.excelisprepas.backend.abonnement.domain.port.out.CentreFormationAbonnementRepositoryPort abonnementRepository,
+                                     com.excelisprepas.backend.academie.phase.domain.port.out.PhaseRepositoryPort phaseRepository) {
         return new SalleService(salleRepository, centreRepository, formationRepository,
-                affectationRepository, sessionRepository, abonnementRepository);
+                affectationRepository, sessionRepository, abonnementRepository, phaseRepository);
     }
 
     @Bean

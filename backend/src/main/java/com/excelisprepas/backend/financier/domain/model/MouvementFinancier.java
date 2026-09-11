@@ -15,7 +15,7 @@ public abstract class MouvementFinancier {
     protected final LocalDate date;
     protected final UUID saisiParUtilisateurId;
     protected StatutMouvement statut;
-    protected UUID bilanJournalierId; // nullable — renseigné seulement à la clôture du bilan du jour
+    protected UUID bilanJournalierId; // nullable - renseigné seulement à la clôture du bilan du jour
 
     protected MouvementFinancier(UUID id, UUID sessionId, UUID motifId, BigDecimal montant, LocalDate date,
                                  UUID saisiParUtilisateurId, StatutMouvement statut, UUID bilanJournalierId) {

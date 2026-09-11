@@ -41,7 +41,7 @@ public class Centre {
 
     /**
      * Reconstruction d'un Centre depuis la persistance.
-     * Réservé aux adaptateurs infrastructure — ne jamais utiliser pour créer
+     * Réservé aux adaptateurs infrastructure - ne jamais utiliser pour créer
      * un nouveau Centre (utiliser le constructeur public pour ça).
      */
     public static Centre reconstituer(UUID id, String nom, StatutCentre statut,
@@ -84,7 +84,7 @@ public class Centre {
     }
 
     /**
-     * Enregistre la participation du centre à une session. Idempotent —
+     * Enregistre la participation du centre à une session. Idempotent -
      * rejoindre une session déjà rejointe n'a aucun effet. C'est la trace
      * qui permet de reconstituer l'historique d'un centre à travers les
      * sessions, indépendamment de la création de Formations.
@@ -100,7 +100,7 @@ public class Centre {
         return localisations.stream()
                 .filter(LocalisationCentre::estActive)
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Aucune localisation active — état incohérent"));
+                .orElseThrow(() -> new IllegalStateException("Aucune localisation active - état incohérent"));
     }
 
     public List<LocalisationCentre> getHistoriqueLocalisations() {

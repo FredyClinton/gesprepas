@@ -1,1 +1,1 @@
-ALTER TABLE utilisateurs ADD COLUMN departement_id uuid;
+ALTER TABLE utilisateurs ADD COLUMN IF NOT EXISTS departement_id uuid;

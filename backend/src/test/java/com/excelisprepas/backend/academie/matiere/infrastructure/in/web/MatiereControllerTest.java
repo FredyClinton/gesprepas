@@ -44,7 +44,7 @@ class MatiereControllerTest {
     @Test
     @DisplayName("POST /api/matieres avec des données valides retourne 201")
     void creerMatiere_donneesValides_retourne201() throws Exception {
-        when(creerMatiereUseCase.creerMatiere(any())).thenReturn(uneMatiere());
+        when(creerMatiereUseCase.creerMatiere(any(), any())).thenReturn(uneMatiere());
 
         mockMvc.perform(post("/api/matieres")
                         .contentType("application/json")
@@ -73,7 +73,7 @@ class MatiereControllerTest {
     @Test
     @DisplayName("POST /api/matieres avec une violation domaine retourne 400")
     void creerMatiere_domaineRejette_retourne400() throws Exception {
-        when(creerMatiereUseCase.creerMatiere(any()))
+        when(creerMatiereUseCase.creerMatiere(any(), any()))
                 .thenThrow(new IllegalArgumentException("nom ne peut pas être vide"));
 
         mockMvc.perform(post("/api/matieres")

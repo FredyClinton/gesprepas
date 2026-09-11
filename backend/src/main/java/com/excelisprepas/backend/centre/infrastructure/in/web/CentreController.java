@@ -171,7 +171,7 @@ public class CentreController {
     }
 
     @Operation(summary = "Lister l'historique des localisations d'un centre",
-            description = "Retourne toutes les adresses successives du centre, la plus récente en premier n'est pas garantie — trié par ordre de création.")
+            description = "Retourne toutes les adresses successives du centre, la plus récente en premier n'est pas garantie - trié par ordre de création.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Historique des localisations",
                     content = @Content(array = @ArraySchema(schema = @Schema(implementation = LocalisationCentreResponse.class)))),

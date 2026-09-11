@@ -23,7 +23,7 @@ import java.util.UUID;
 
 @Tag(name = "Dossiers - Concours", description = "Gestion des pièces déposées pour l'inscription d'un dossier à un concours")
 @RestController
-@RequestMapping("/api/dossiers-concours")
+@RequestMapping("/api/dossiers-concours/{id}")
 public class DossierConcoursController {
 
     private final AjouterPieceADossierConcoursUseCase ajouterPieceADossierConcoursUseCase;
@@ -59,7 +59,7 @@ public class DossierConcoursController {
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "404", description = "Dossier-concours ou pièce requise introuvable", content = @Content)
     })
-    @PostMapping("/{id}/pieces")
+    @PostMapping("/pieces")
     public ResponseEntity<PieceDossierResponse> ajouterPiece(
             @Parameter(description = "Identifiant du dossier-concours") @PathVariable UUID id,
             @Valid @RequestBody AjouterPieceRequest request) {
@@ -74,7 +74,7 @@ public class DossierConcoursController {
                     content = @Content(array = @ArraySchema(schema = @Schema(implementation = PieceDossierResponse.class)))),
             @ApiResponse(responseCode = "404", description = "Dossier-concours introuvable", content = @Content)
     })
-    @GetMapping("/{id}/pieces")
+    @GetMapping("/pieces")
     public ResponseEntity<List<PieceDossierResponse>> listerPieces(
             @Parameter(description = "Identifiant du dossier-concours") @PathVariable UUID id) {
         List<PieceDossierResponse> reponses = listerPiecesDossierUseCase.listerPiecesDossier(id).stream()
@@ -91,7 +91,7 @@ public class DossierConcoursController {
             @ApiResponse(responseCode = "404", description = "Dossier-concours, motif ou utilisateur introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Motif inactif ou de type incorrect", content = @Content)
     })
-    @PostMapping("/{id}/paiements")
+    @PostMapping("/paiements")
     public ResponseEntity<PaiementResponse> enregistrerPaiement(
             @Parameter(description = "Identifiant du dossier-concours") @PathVariable UUID id,
             @Valid @RequestBody EnregistrerPaiementRequest request) {
@@ -107,7 +107,7 @@ public class DossierConcoursController {
                     content = @Content(schema = @Schema(implementation = SoldeDossierConcoursResponse.class))),
             @ApiResponse(responseCode = "404", description = "Dossier-concours introuvable", content = @Content)
     })
-    @GetMapping("/{id}/solde")
+    @GetMapping("/solde")
     public ResponseEntity<SoldeDossierConcoursResponse> consulterSolde(
             @Parameter(description = "Identifiant du dossier-concours") @PathVariable UUID id) {
         SoldeDossierConcours solde = consulterSoldeDossierConcoursUseCase.consulterSolde(id);

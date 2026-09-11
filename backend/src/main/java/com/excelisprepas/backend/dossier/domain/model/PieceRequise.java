@@ -7,7 +7,7 @@ import java.util.UUID;
 /**
  * Catalogue réutilisable des pièces administratives (ACTE_NAISSANCE,
  * RELEVE_NOTES, CAUTION, ...), chacune avec son tarif. Un Concours
- * sélectionne un sous-ensemble de ce catalogue — pas de possession
+ * sélectionne un sous-ensemble de ce catalogue - pas de possession
  * exclusive : une pièce peut être utilisée par plusieurs concours.
  */
 public class PieceRequise {

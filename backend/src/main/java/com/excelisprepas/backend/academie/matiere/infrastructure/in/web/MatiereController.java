@@ -45,7 +45,7 @@ public class MatiereController {
     }
 
     private static MatiereResponse versReponse(Matiere matiere) {
-        return new MatiereResponse(matiere.getId(), matiere.getNom());
+        return new MatiereResponse(matiere.getId(), matiere.getNom(), matiere.getCouleur());
     }
 
     @Operation(summary = "Créer une matière", description = "Crée une nouvelle matière.")
@@ -56,7 +56,7 @@ public class MatiereController {
     })
     @PostMapping
     public ResponseEntity<MatiereResponse> creerMatiere(@Valid @RequestBody CreerMatiereRequest request) {
-        Matiere matiere = creerMatiereUseCase.creerMatiere(request.nom());
+        Matiere matiere = creerMatiereUseCase.creerMatiere(request.nom(), request.couleur());
         return ResponseEntity.status(HttpStatus.CREATED).body(versReponse(matiere));
     }
 

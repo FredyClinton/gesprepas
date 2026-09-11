@@ -150,5 +150,10 @@ public class PersonnelBeanConfiguration {
     @Bean
     public ConsulterHistoriqueSalairePersonnelUseCase consulterHistoriqueSalairePersonnelUseCase(com.excelisprepas.backend.personnel.domain.service.PersonnelService personnelService) {
         return personnelService;
-}
+    }
+
+    @Bean
+    public RecupererPersonnelUseCase recupererPersonnelUseCase(com.excelisprepas.backend.personnel.domain.service.PersonnelService personnelService) {
+        return personnelService;
+    }
 }

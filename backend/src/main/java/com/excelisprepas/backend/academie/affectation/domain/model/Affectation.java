@@ -130,16 +130,26 @@ public class Affectation {
         this.statut = StatutAffectation.ANNULEE;
     }
 
-    public void marquerPayee(UUID fichePaieId, java.math.BigDecimal coutApplique) {
+    public void marquerProgrammee(UUID fichePaieId, java.math.BigDecimal coutApplique) {
         if (this.statut != StatutAffectation.EFFECTUEE) {
-            throw new IllegalStateException("Seule une séance EFFECTUEE peut être payée");
+            throw new IllegalStateException("Seule une séance EFFECTUEE peut être programmée pour paiement");
         }
-        if (this.statutPaiement == StatutPaiement.PAYEE) {
-            throw new IllegalStateException("La séance est déjà marquée PAYEE");
+        if (this.statutPaiement != StatutPaiement.NON_PAYEE) {
+            throw new IllegalStateException("La séance a déjà été programmée ou payée (statut: " + this.statutPaiement + ")");
         }
-        this.statutPaiement = StatutPaiement.PAYEE;
+        this.statutPaiement = StatutPaiement.PROGRAMMEE;
         this.fichePaieId = Objects.requireNonNull(fichePaieId, "fichePaieId ne peut pas être nul");
         this.coutApplique = Objects.requireNonNull(coutApplique, "coutApplique ne peut pas être nul");
+    }
+
+    public void marquerPayee() {
+        if (this.statutPaiement == StatutPaiement.PAYEE) {
+            return; // Déjà payée, idempotent
+        }
+        if (this.statutPaiement != StatutPaiement.PROGRAMMEE) {
+            throw new IllegalStateException("La séance doit être PROGRAMMEE pour être marquée PAYEE (statut actuel: " + this.statutPaiement + ")");
+        }
+        this.statutPaiement = StatutPaiement.PAYEE;
     }
 
     public UUID getId() {

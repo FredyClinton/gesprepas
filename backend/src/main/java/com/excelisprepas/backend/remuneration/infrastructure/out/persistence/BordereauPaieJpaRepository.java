@@ -6,4 +6,5 @@ import java.util.UUID;
 
 public interface BordereauPaieJpaRepository extends JpaRepository<BordereauPaieEntity, UUID> {
     List<BordereauPaieEntity> findBySessionId(UUID sessionId);
+    java.util.Optional<BordereauPaieEntity> findByReference(String reference);
 }

@@ -66,6 +66,13 @@ public class CentreFormationAbonnementRepositoryAdapter implements CentreFormati
     }
 
     @Override
+    public List<CentreFormationAbonnement> findBySessionId(UUID sessionId) {
+        return jpaRepository.findBySessionId(sessionId).stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+
+    @Override
     public List<CentreFormationAbonnement> findAll() {
         return jpaRepository.findAll().stream()
                 .map(mapper::toDomain)

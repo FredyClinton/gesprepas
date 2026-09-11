@@ -84,7 +84,7 @@ class DossierConcoursRepositoryAdapterTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("findByConcoursIdAndSessionId() filtre par concours et session — sert aux statistiques par centre")
+    @DisplayName("findByConcoursIdAndSessionId() filtre par concours et session - sert aux statistiques par centre")
     void findByConcoursIdAndSessionIdFiltreCorrectement() {
         UUID concoursId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();

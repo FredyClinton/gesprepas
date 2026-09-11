@@ -15,8 +15,24 @@ public record EnseignantResponse(
         StatutEnseignant statut,
         String telephone,
         String numeroCni,
+        String email,
         String ecoleFonction,
         String niveauGrade,
         LocalDate dateRecrutement
 ) {
+    public EnseignantResponse(
+            UUID id,
+            String nom,
+            String prenom,
+            String matricule,
+            BigDecimal coutParSeance,
+            StatutEnseignant statut,
+            String telephone,
+            String numeroCni,
+            String ecoleFonction,
+            String niveauGrade,
+            LocalDate dateRecrutement
+    ) {
+        this(id, nom, prenom, matricule, coutParSeance, statut, telephone, numeroCni, null, ecoleFonction, niveauGrade, dateRecrutement);
+    }
 }

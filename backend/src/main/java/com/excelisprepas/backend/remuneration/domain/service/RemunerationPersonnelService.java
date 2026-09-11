@@ -14,10 +14,13 @@ import com.excelisprepas.backend.remuneration.domain.port.in.PreparerBordereauPe
 import com.excelisprepas.backend.remuneration.domain.port.in.ValiderBordereauPersonnelUseCase;
 import com.excelisprepas.backend.remuneration.domain.port.out.BordereauPaiePersonnelRepositoryPort;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
 
+@Transactional
 public class RemunerationPersonnelService implements PreparerBordereauPersonnelUseCase,
         ValiderBordereauPersonnelUseCase, ConsulterPaiePersonnelUseCase {
 
@@ -60,10 +63,24 @@ public class RemunerationPersonnelService implements PreparerBordereauPersonnelU
     }
 
     @Override
-    public BordereauPaiePersonnel validerBordereau(UUID sessionId, LocalDate datePaiement, String intitule,
-                                                   List<LigneSaisiePaiePersonnel> lignesSaisie, String saisiPar) {
+    public synchronized BordereauPaiePersonnel validerBordereau(UUID sessionId, LocalDate datePaiement, String reference,
+                                                   String intitule, List<LigneSaisiePaiePersonnel> lignesSaisie,
+                                                   String saisiPar) {
         LocalDate date = datePaiement != null ? datePaiement : LocalDate.now();
+
+        // Anti-doublon : un retry/double clic avec la même référence renvoie le bordereau déjà validé
+        // au lieu de ré-émettre une sortie financière.
+        if (reference != null && !reference.isBlank()) {
+            Optional<BordereauPaiePersonnel> existant = bordereauPaiePersonnelRepository.findByReference(reference);
+            if (existant.isPresent()) {
+                return existant.get();
+            }
+        }
+
         UUID bordereauId = UUID.randomUUID();
+        String ref = (reference != null && !reference.isBlank())
+                ? reference
+                : "BORD-PERS-" + date + "-" + UUID.randomUUID().toString().substring(0, 5).toUpperCase();
         List<FichePaiePersonnel> fiches = new ArrayList<>();
 
         BigDecimal total = BigDecimal.ZERO;
@@ -92,7 +109,7 @@ public class RemunerationPersonnelService implements PreparerBordereauPersonnelU
         );
 
         BordereauPaiePersonnel bordereau = new BordereauPaiePersonnel(
-                bordereauId, sessionId, "BORD-PERS-" + LocalDate.now() + "-" + UUID.randomUUID().toString().substring(0, 5),
+                bordereauId, sessionId, ref,
                 intitule != null ? intitule : "Paie Personnel", date, fiches, sortie.getId(), saisiPar != null ? saisiPar : "DIRECTION");
 
         return bordereauPaiePersonnelRepository.save(bordereau);

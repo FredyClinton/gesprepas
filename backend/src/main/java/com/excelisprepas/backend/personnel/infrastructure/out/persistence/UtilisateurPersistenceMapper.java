@@ -20,6 +20,7 @@ public class UtilisateurPersistenceMapper {
         entite.setMotDePasseHash(domaine.getMotDePasseHash());
         entite.setRole(domaine.getRole());
         entite.setCentreId(domaine.getCentreId());
+        entite.setDepartementId(domaine.getDepartementId());
         return entite;
     }
 
@@ -36,7 +37,8 @@ public class UtilisateurPersistenceMapper {
                 entite.getEmail(),
                 entite.getMotDePasseHash(),
                 entite.getRole(),
-                entite.getCentreId()
+                entite.getCentreId(),
+                entite.getDepartementId()
         );
     }
 }

@@ -4,8 +4,12 @@ import com.excelisprepas.backend.academie.departement.domain.model.Departement;
 
 public interface CreerDepartementUseCase {
     /**
-     * Crée un Departement avec sa Matiere associée (relation 1—1 imposée dès la création :
+     * Crée un Departement avec sa Matiere associée (relation 1-1 imposée dès la création :
      * un Departement ne peut exister sans sa Matiere, et vice-versa).
      */
-    Departement creerDepartement(String nomDepartement, String nomMatiere);
+    default Departement creerDepartement(String nomDepartement, String nomMatiere) {
+        return creerDepartement(nomDepartement, nomMatiere, null);
+    }
+
+    Departement creerDepartement(String nomDepartement, String nomMatiere, String couleur);
 }

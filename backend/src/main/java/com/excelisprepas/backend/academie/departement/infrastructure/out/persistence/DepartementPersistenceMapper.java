@@ -12,11 +12,12 @@ public class DepartementPersistenceMapper {
         entite.setId(domaine.getId());
         entite.setNom(domaine.getNom());
         entite.setMatiereId(domaine.getMatiereId());
+        entite.setChefId(domaine.getChefId());
         return entite;
     }
 
     public Departement toDomain(DepartementEntity entite) {
         if (entite == null) return null;
-        return new Departement(entite.getId(), entite.getNom(), entite.getMatiereId());
+        return new Departement(entite.getId(), entite.getNom(), entite.getMatiereId(), entite.getChefId());
     }
 }

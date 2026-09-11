@@ -22,6 +22,8 @@ public interface CentreFormationAbonnementRepositoryPort {
 
     List<CentreFormationAbonnement> findByFormationIdAndSessionId(UUID formationId, UUID sessionId);
 
+    List<CentreFormationAbonnement> findBySessionId(UUID sessionId);
+
     List<CentreFormationAbonnement> findAll();
 
     boolean existsByCentreIdAndFormationIdAndSessionId(UUID centreId, UUID formationId, UUID sessionId);
