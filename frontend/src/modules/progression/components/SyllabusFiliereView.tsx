@@ -508,14 +508,13 @@ export function SyllabusFiliereView({
 }: SyllabusFiliereViewProps) {
   const supprimerMutation = useSupprimerProgression();
 
-  // Liste ordonnée de toutes les semaines disponibles
+  // Liste ordonnée continue de toutes les semaines (de 1 à maxSemaine)
   const semainesDisponibles = useMemo(() => {
     const sSet = new Set<number>();
     progressions.forEach((p) => sSet.add(p.semaine));
     affectations.forEach((a) => sSet.add(a.semaine));
-    if (sSet.size === 0) sSet.add(1);
-
-    return Array.from(sSet).sort((a, b) => a - b);
+    const maxS = Math.max(1, ...Array.from(sSet));
+    return Array.from({ length: maxS }, (_, i) => i + 1);
   }, [progressions, affectations]);
 
   // Semaine sélectionnée (soit contrôlée par le parent, soit état local)
@@ -653,47 +652,38 @@ export function SyllabusFiliereView({
         {/* ── BARRE DE SÉLECTION DES SEMAINES (affichée si non gérée par le parent) ── */}
         {propSemaineSelectionnee === undefined && (
           <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 pt-1">
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-              {semainesDisponibles.map((s) => {
-                const count = progressionsParSemaine.get(s)?.length ?? 0;
-                const estActive = semaineSelectionnee === s;
-
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setSemaineSelectionnee(s)}
-                    className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                      estActive
-                        ? "bg-brand-orange text-white shadow-xs"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200/70"
-                    }`}
-                  >
-                    <span>Semaine {s}</span>
-                    <span
-                      className={`rounded-full px-1.5 py-0.2 text-[10px] ${
-                        estActive
-                          ? "bg-white/20 text-white"
-                          : "bg-slate-200 text-slate-600"
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-
-              <button
-                type="button"
-                onClick={() => setSemaineSelectionnee("TOUTES")}
-                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                  semaineSelectionnee === "TOUTES"
-                    ? "bg-brand-orange text-white shadow-xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200/70"
-                }`}
+            <div className="flex items-center gap-2">
+              <label
+                htmlFor="select-semaine-filiere"
+                className="text-xs font-bold uppercase tracking-wider text-slate-500 shrink-0"
               >
-                Toutes les semaines ({progressions.length})
-              </button>
+                Semaine :
+              </label>
+              <select
+                id="select-semaine-filiere"
+                value={semaineSelectionnee}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSemaineSelectionnee(
+                    val === "TOUTES" ? "TOUTES" : Number(val),
+                  );
+                }}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 shadow-2xs focus:border-brand-orange focus:outline-hidden focus:ring-1 focus:ring-brand-orange/20 cursor-pointer"
+              >
+                <option value="TOUTES">
+                  Toutes les semaines (S1 à S
+                  {semainesDisponibles[semainesDisponibles.length - 1] || 1}) ·{" "}
+                  {progressions.length} cours
+                </option>
+                {semainesDisponibles.map((s) => {
+                  const count = progressionsParSemaine.get(s)?.length ?? 0;
+                  return (
+                    <option key={s} value={s}>
+                      Semaine {s} ({count} cours)
+                    </option>
+                  );
+                })}
+              </select>
             </div>
 
             <button

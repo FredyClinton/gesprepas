@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { AlertCircle } from "lucide-react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { AlertCircle, Sparkles } from "lucide-react";
 
 import { Modal, Button } from "@/shared/ui";
 import { messageErreurApi } from "@/shared/lib/api-client";
@@ -63,9 +63,9 @@ export function ProgressionFormModal({
       title={
         progressionExistante
           ? "Modifier le contenu dispensé"
-          : "Ajouter une entrée de progression"
+          : "Progression pédagogique · Saisie de cours"
       }
-      description="Thème, contenu et exercices couverts pour cette séance."
+      description="Thème, contenu et exercices. Si le cours existe déjà sur ce créneau, ses informations sont chargées pour modification."
     >
       {/* Remonté à chaque ouverture / changement de cible (clé) plutôt que
           réinitialisé via un effet : évite un rendu en cascade au montage. */}
@@ -88,7 +88,7 @@ function ProgressionForm({
   matieres,
   prefill,
   progressionExistante,
-  progressionsExistantes,
+  progressionsExistantes = [],
 }: Omit<ProgressionFormModalProps, "isOpen">) {
   const modeEdition = Boolean(progressionExistante);
 
@@ -108,17 +108,80 @@ function ProgressionForm({
   const [numeroCours, setNumeroCours] = useState(
     () => progressionExistante?.numeroCours ?? prefill?.numeroCours ?? 1,
   );
-  const initThemeData = decomposerTheme(progressionExistante?.theme);
+
+  // Détecter dynamiquement si une fiche de progression existe déjà pour le créneau sélectionné
+  const progressionTrouvee = useMemo(() => {
+    if (progressionExistante) return progressionExistante;
+    if (!formationId || !matiereId || !semaine || !numeroCours) return null;
+    return (
+      progressionsExistantes?.find(
+        (p) =>
+          p.formationId === formationId &&
+          p.matiereId === matiereId &&
+          Number(p.semaine) === Number(semaine) &&
+          Number(p.numeroCours) === Number(numeroCours),
+      ) ?? null
+    );
+  }, [
+    progressionExistante,
+    progressionsExistantes,
+    formationId,
+    matiereId,
+    semaine,
+    numeroCours,
+  ]);
+
+  const estEnModeModification = Boolean(progressionExistante || progressionTrouvee);
+  const progressionActive = progressionExistante ?? progressionTrouvee;
+
+  const initThemeData = decomposerTheme(
+    progressionExistante?.theme ?? progressionTrouvee?.theme,
+  );
   const [typeProgression, setTypeProgression] = useState<TypeProgression>(
     initThemeData.type,
   );
   const [titreTheme, setTitreTheme] = useState(initThemeData.titre);
-  const [contenu, setContenu] = useState(progressionExistante?.contenu ?? "");
+  const [contenu, setContenu] = useState(
+    progressionExistante?.contenu ?? progressionTrouvee?.contenu ?? "",
+  );
   const [exercices, setExercices] = useState(
-    progressionExistante?.exercices ?? "",
+    progressionExistante?.exercices ?? progressionTrouvee?.exercices ?? "",
   );
   const [erreur, setErreur] = useState<string | null>(null);
   const [succesInfo, setSuccesInfo] = useState<string | null>(null);
+
+  // Référence du dernier créneau chargé pour synchroniser proprement
+  const dernierCreneauChargeRef = useRef<string | null>(null);
+
+  // Synchronisation automatique : quand on sélectionne un créneau existant, pré-remplir les données
+  useEffect(() => {
+    const cleCreneau = `${formationId}:${matiereId}:${semaine}:${numeroCours}`;
+    if (progressionTrouvee) {
+      const dec = decomposerTheme(progressionTrouvee.theme);
+      setTypeProgression(dec.type);
+      setTitreTheme(dec.titre);
+      setContenu(progressionTrouvee.contenu);
+      setExercices(progressionTrouvee.exercices ?? "");
+      dernierCreneauChargeRef.current = cleCreneau;
+    } else if (
+      dernierCreneauChargeRef.current &&
+      dernierCreneauChargeRef.current !== cleCreneau &&
+      !progressionExistante
+    ) {
+      setTypeProgression("THEME");
+      setTitreTheme("");
+      setContenu("");
+      setExercices("");
+      dernierCreneauChargeRef.current = null;
+    }
+  }, [
+    progressionTrouvee,
+    formationId,
+    matiereId,
+    semaine,
+    numeroCours,
+    progressionExistante,
+  ]);
 
   const formationsDisponibles = matiereId
     ? formations.filter((f) => f.matiereIds?.includes(matiereId))
@@ -142,16 +205,28 @@ function ProgressionForm({
     }
 
     try {
-      if (modeEdition && progressionExistante) {
+      if (estEnModeModification && progressionActive) {
         await modifier.mutateAsync({
-          id: progressionExistante.id,
+          id: progressionActive.id,
           payload: {
             theme: themeFinal,
             contenu: contenu.trim(),
             exercices: exercices.trim() || null,
           },
         });
-        onClose();
+        if (enchainer) {
+          setSuccesInfo(
+            `Cours N°${numeroCours} (semaine ${semaine}) mis à jour avec succès !`,
+          );
+          if (numeroCours < 2) {
+            setNumeroCours(numeroCours + 1);
+          } else {
+            setSemaine(semaine + 1);
+            setNumeroCours(1);
+          }
+        } else {
+          onClose();
+        }
       } else {
         if (!matiereId || !formationId) {
           setErreur("La matière et la formation sont obligatoires.");
@@ -226,6 +301,20 @@ function ProgressionForm({
         </div>
       )}
 
+      {progressionTrouvee && !progressionExistante && (
+        <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs text-amber-950 shadow-2xs">
+          <Sparkles size={16} className="text-brand-orange shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <p className="font-bold text-slate-900">
+              Cours existant détecté pour ce créneau (S{semaine} · Cours {numeroCours})
+            </p>
+            <p className="text-[11px] text-slate-600">
+              Les informations déjà saisies ont été chargées automatiquement. Vous pouvez les modifier directement ci-dessous.
+            </p>
+          </div>
+        </div>
+      )}
+
       {erreur && (
         <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
           <AlertCircle size={15} className="shrink-0 text-rose-500" />
@@ -281,14 +370,14 @@ function ProgressionForm({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="mb-1.5 block text-xs font-bold tracking-wider text-slate-600 uppercase">
             Semaine *
           </label>
           {modeEdition ? (
             <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700">
-              {semaine}
+              Semaine {semaine}
             </p>
           ) : (
             <input
@@ -306,17 +395,48 @@ function ProgressionForm({
           </label>
           {modeEdition ? (
             <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700">
-              {numeroCours}
+              Cours {numeroCours}
             </p>
           ) : (
-            <input
-              type="number"
-              min={1}
-              max={6}
-              value={numeroCours}
-              onChange={(e) => setNumeroCours(Number(e.target.value) || 1)}
-              className="focus:border-brand-orange focus:ring-brand-orange/10 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:outline-none"
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                max={6}
+                value={numeroCours}
+                onChange={(e) => setNumeroCours(Number(e.target.value) || 1)}
+                className="focus:border-brand-orange focus:ring-brand-orange/10 w-16 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:ring-2 focus:outline-none"
+              />
+              <div className="flex items-center gap-1">
+                {[1, 2, 3].map((n) => {
+                  const existe = progressionsExistantes?.some(
+                    (p) =>
+                      p.formationId === formationId &&
+                      p.matiereId === matiereId &&
+                      Number(p.semaine) === Number(semaine) &&
+                      Number(p.numeroCours) === n,
+                  );
+                  const actif = numeroCours === n;
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setNumeroCours(n)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        actif
+                          ? "bg-brand-orange text-white shadow-2xs"
+                          : existe
+                            ? "bg-orange-100 text-brand-orange border border-orange-200 hover:bg-orange-200"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                      title={existe ? `Cours ${n} (Déjà saisi - cliquer pour charger et modifier)` : `Cours ${n} (Nouveau)`}
+                    >
+                      C{n}{existe ? " •" : ""}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -422,7 +542,13 @@ function ProgressionForm({
               onClick={() => enregistrer(true)}
               className="inline-flex items-center gap-1.5 rounded-xl border border-brand-orange/30 bg-orange-50 px-3.5 py-2 text-xs font-bold text-brand-orange hover:bg-orange-100 transition-colors disabled:opacity-50 cursor-pointer"
             >
-              <span>{enCours ? "En cours..." : "Enregistrer et cours suivant"}</span>
+              <span>
+                {enCours
+                  ? "En cours..."
+                  : estEnModeModification
+                    ? "Mettre à jour et cours suivant"
+                    : "Enregistrer et cours suivant"}
+              </span>
               <span className="text-[10px] opacity-75">→</span>
             </button>
           )}
@@ -434,7 +560,7 @@ function ProgressionForm({
           >
             {enCours
               ? "Enregistrement..."
-              : modeEdition
+              : estEnModeModification
                 ? "Enregistrer les modifications"
                 : "Ajouter et fermer"}
           </Button>

@@ -523,13 +523,13 @@ export function SyllabusMultiMatieresView({
 }: SyllabusMultiMatieresViewProps) {
   const supprimerMutation = useSupprimerProgression();
 
-  // Liste ordonnée de toutes les semaines disponibles
+  // Liste ordonnée continue de toutes les semaines (de 1 à maxSemaine)
   const semainesDisponibles = useMemo(() => {
     const set = new Set<number>();
     progressions.forEach((p) => set.add(p.semaine));
     affectations.forEach((a) => set.add(a.semaine));
-    if (set.size === 0) set.add(1);
-    return Array.from(set).sort((a, b) => a - b);
+    const maxS = Math.max(1, ...Array.from(set));
+    return Array.from({ length: maxS }, (_, i) => i + 1);
   }, [progressions, affectations]);
 
   // Semaine active (soit contrôlée par le parent, soit état local)
@@ -645,61 +645,46 @@ export function SyllabusMultiMatieresView({
         {/* ── Sélecteur d'onglets de Semaines (affiché si non géré par le parent) ── */}
         {propSemaineSelectionnee === undefined && (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-1.5 bg-slate-100/80 p-1 rounded-xl">
-              {semainesDisponibles.map((sem) => {
-                const nbProgsSemaine = progressions.filter(
-                  (p) => p.semaine === sem,
-                ).length;
-                const actif = semaineSelectionnee === sem;
-
-                return (
-                  <button
-                    key={sem}
-                    type="button"
-                    onClick={() => setSemaineSelectionnee(sem)}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
-                      actif
-                        ? "bg-brand-orange text-white shadow-xs font-black"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    <Calendar
-                      size={12}
-                      className={actif ? "text-white" : "text-slate-400"}
-                    />
-                    <span>Semaine {sem}</span>
-                    {nbProgsSemaine > 0 && (
-                      <span
-                        className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                          actif
-                            ? "bg-white/20 text-white"
-                            : "bg-slate-200 text-slate-600"
-                        }`}
-                      >
-                        {nbProgsSemaine}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-
-              <button
-                type="button"
-                onClick={() => setSemaineSelectionnee("TOUTES")}
-                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
-                  semaineSelectionnee === "TOUTES"
-                    ? "bg-brand-orange text-white shadow-xs font-black"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
+            <div className="flex items-center gap-2">
+              <label
+                htmlFor="select-semaine-multi"
+                className="text-xs font-bold uppercase tracking-wider text-slate-500 shrink-0"
               >
-                Toutes les semaines
-              </button>
+                Semaine :
+              </label>
+              <select
+                id="select-semaine-multi"
+                value={semaineSelectionnee}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSemaineSelectionnee(
+                    val === "TOUTES" ? "TOUTES" : Number(val),
+                  );
+                }}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 shadow-2xs focus:border-brand-orange focus:outline-hidden focus:ring-1 focus:ring-brand-orange/20 cursor-pointer"
+              >
+                <option value="TOUTES">
+                  Toutes les semaines (S1 à S
+                  {semainesDisponibles[semainesDisponibles.length - 1] || 1}) ·{" "}
+                  {progressions.length} cours
+                </option>
+                {semainesDisponibles.map((sem) => {
+                  const nbProgsSemaine = progressions.filter(
+                    (p) => p.semaine === sem,
+                  ).length;
+                  return (
+                    <option key={sem} value={sem}>
+                      Semaine {sem} ({nbProgsSemaine} cours)
+                    </option>
+                  );
+                })}
+              </select>
             </div>
 
             <button
               type="button"
               onClick={handleAjouterNouvelleSemaine}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-brand-orange/30 bg-orange-50/60 px-3 py-1.5 text-xs font-bold text-brand-orange hover:bg-orange-100/70 transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-brand-orange/30 bg-orange-50/60 px-3 py-1.5 text-xs font-bold text-brand-orange hover:bg-orange-100/70 transition-all cursor-pointer shrink-0"
             >
               <Plus size={13} />
               <span>+ Nouvelle Semaine</span>

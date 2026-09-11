@@ -247,17 +247,32 @@ function ProgressionChefDepartement({
     );
   }, [affectations, formationSelectionnee]);
 
+  const maxSemaine = useMemo(() => {
+    let max = Math.max(1, semaineCourante);
+    progressionsFiliereActive.forEach((p) => {
+      if (p.semaine > max) max = p.semaine;
+    });
+    affectationsFiliereActive.forEach((a) => {
+      if (a.semaine > max) max = a.semaine;
+    });
+    if (typeof semaineSelectionnee === "number" && semaineSelectionnee > max) {
+      max = semaineSelectionnee;
+    }
+    return max;
+  }, [
+    semaineCourante,
+    progressionsFiliereActive,
+    affectationsFiliereActive,
+    semaineSelectionnee,
+  ]);
+
+  // Toutes les semaines du début du cursus (S1) jusqu'à présent (semaineCourante), et plus si prévu
   const semainesDisponibles = useMemo(() => {
-    const set = new Set<number>();
-    progressionsFiliereActive.forEach((p) => set.add(p.semaine));
-    affectationsFiliereActive.forEach((a) => set.add(a.semaine));
-    if (set.size === 0) return [1];
-    return Array.from(set).sort((a, b) => a - b);
-  }, [progressionsFiliereActive, affectationsFiliereActive]);
+    return Array.from({ length: maxSemaine }, (_, i) => i + 1);
+  }, [maxSemaine]);
 
   function handleAjouterNouvelleSemaine() {
-    const maxS = semainesDisponibles.length > 0 ? Math.max(...semainesDisponibles) : 0;
-    const next = maxS + 1;
+    const next = maxSemaine + 1;
     setSemaineSelectionnee(next);
   }
 
@@ -396,7 +411,7 @@ function ProgressionChefDepartement({
                   ? {
                       formationId: formationSelectionnee.id,
                       matiereId: departementUnique?.matiereId,
-                      semaine: semaineCourante,
+                      semaine: typeof semaineSelectionnee === "number" ? semaineSelectionnee : semaineCourante,
                       numeroCours: 1,
                     }
                   : undefined,
@@ -448,48 +463,46 @@ function ProgressionChefDepartement({
           })}
         </div>
 
-        {/* Sélecteur de semaine */}
-        <div className="inline-flex items-center gap-1.5 overflow-x-auto rounded-xl bg-slate-100/80 p-1 shrink-0 self-start sm:self-auto scrollbar-none">
-          <span className="flex items-center gap-1 pl-2 pr-1 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-            <Calendar size={13} className="text-brand-orange" />
-            <span>Semaine :</span>
-          </span>
-          {semainesDisponibles.map((s) => {
-            const active = semaineSelectionnee === s;
-            return (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setSemaineSelectionnee(s)}
-                className={`cursor-pointer rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                  active
-                    ? "bg-white text-brand-orange shadow-2xs font-extrabold"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                S{s}
-              </button>
-            );
-          })}
-          <button
-            type="button"
-            onClick={() => setSemaineSelectionnee("TOUTES")}
-            className={`cursor-pointer rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-              semaineSelectionnee === "TOUTES"
-                ? "bg-brand-orange text-white shadow-2xs font-extrabold"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            Toutes
-          </button>
+        {/* Sélecteur de semaine en liste déroulante */}
+        <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs">
+            <Calendar size={15} className="text-brand-orange shrink-0" />
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider hidden sm:inline">
+              Semaine :
+            </span>
+            <select
+              value={semaineSelectionnee === "TOUTES" ? "TOUTES" : String(semaineSelectionnee)}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "TOUTES") {
+                  setSemaineSelectionnee("TOUTES");
+                } else {
+                  setSemaineSelectionnee(Number(val));
+                }
+              }}
+              className="cursor-pointer bg-transparent text-xs sm:text-sm font-bold text-slate-800 outline-none pr-1"
+            >
+              <option value="TOUTES" className="bg-white text-slate-800">
+                Toutes les semaines (S1 à S{maxSemaine})
+              </option>
+              <optgroup label="Semaines du cursus (Début → Présent)">
+                {semainesDisponibles.map((s) => (
+                  <option key={s} value={String(s)} className="bg-white text-slate-800 font-bold">
+                    Semaine {s} {s === semaineCourante ? "• (Semaine en cours)" : s > semaineCourante ? "(À venir)" : ""}
+                  </option>
+                ))}
+              </optgroup>
+            </select>
+          </div>
+
           <button
             type="button"
             onClick={handleAjouterNouvelleSemaine}
-            title="Ajouter une nouvelle semaine"
-            className="cursor-pointer inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 bg-white/60 px-2 py-1 text-xs font-semibold text-slate-600 hover:border-brand-orange hover:bg-orange-50 hover:text-brand-orange transition-colors"
+            title="Ajouter une nouvelle semaine au syllabus"
+            className="inline-flex items-center gap-1 rounded-xl border border-dashed border-slate-300 bg-white px-2.5 py-1.5 text-xs sm:text-sm font-bold text-slate-700 shadow-2xs hover:border-brand-orange hover:bg-orange-50 hover:text-brand-orange transition-colors cursor-pointer shrink-0"
           >
-            <Plus size={12} />
-            <span>Semaine</span>
+            <Plus size={13} className="text-brand-orange" />
+            <span>+ Semaine</span>
           </button>
         </div>
       </div>
@@ -746,17 +759,31 @@ function ProgressionDirecteurAcademique() {
   );
   const [semaineSelectionnee, setSemaineSelectionnee] = useState<number | "TOUTES">(1);
 
+  const maxSemaine = useMemo(() => {
+    let max = Math.max(1, semaineCourante);
+    progressionsFiliereActive.forEach((p) => {
+      if (p.semaine > max) max = p.semaine;
+    });
+    affectationsFiliereActive.forEach((a) => {
+      if (a.semaine > max) max = a.semaine;
+    });
+    if (typeof semaineSelectionnee === "number" && semaineSelectionnee > max) {
+      max = semaineSelectionnee;
+    }
+    return max;
+  }, [
+    semaineCourante,
+    progressionsFiliereActive,
+    affectationsFiliereActive,
+    semaineSelectionnee,
+  ]);
+
   const semainesDisponibles = useMemo(() => {
-    const set = new Set<number>();
-    progressionsFiliereActive.forEach((p) => set.add(p.semaine));
-    affectationsFiliereActive.forEach((a) => set.add(a.semaine));
-    if (set.size === 0) return [1];
-    return Array.from(set).sort((a, b) => a - b);
-  }, [progressionsFiliereActive, affectationsFiliereActive]);
+    return Array.from({ length: maxSemaine }, (_, i) => i + 1);
+  }, [maxSemaine]);
 
   function handleAjouterNouvelleSemaine() {
-    const maxS = semainesDisponibles.length > 0 ? Math.max(...semainesDisponibles) : 0;
-    const next = maxS + 1;
+    const next = maxSemaine + 1;
     setSemaineSelectionnee(next);
   }
 
@@ -838,47 +865,45 @@ function ProgressionDirecteurAcademique() {
         {/* Sélecteur de Semaine & Commutateur Départements */}
         <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto">
           {modeVue === "syllabus" && (
-            <div className="inline-flex items-center gap-1.5 overflow-x-auto rounded-xl bg-slate-100/80 p-1 scrollbar-none">
-              <span className="flex items-center gap-1 pl-2 pr-1 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                <Calendar size={13} className="text-brand-orange" />
-                <span>Semaine :</span>
-              </span>
-              {semainesDisponibles.map((s) => {
-                const active = semaineSelectionnee === s;
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setSemaineSelectionnee(s)}
-                    className={`cursor-pointer rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                      active
-                        ? "bg-white text-brand-orange shadow-2xs font-extrabold"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    S{s}
-                  </button>
-                );
-              })}
-              <button
-                type="button"
-                onClick={() => setSemaineSelectionnee("TOUTES")}
-                className={`cursor-pointer rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                  semaineSelectionnee === "TOUTES"
-                    ? "bg-brand-orange text-white shadow-2xs font-extrabold"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                Toutes
-              </button>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs">
+                <Calendar size={15} className="text-brand-orange shrink-0" />
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider hidden sm:inline">
+                  Semaine :
+                </span>
+                <select
+                  value={semaineSelectionnee === "TOUTES" ? "TOUTES" : String(semaineSelectionnee)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "TOUTES") {
+                      setSemaineSelectionnee("TOUTES");
+                    } else {
+                      setSemaineSelectionnee(Number(val));
+                    }
+                  }}
+                  className="cursor-pointer bg-transparent text-xs sm:text-sm font-bold text-slate-800 outline-none pr-1"
+                >
+                  <option value="TOUTES" className="bg-white text-slate-800">
+                    Toutes les semaines (S1 à S{maxSemaine})
+                  </option>
+                  <optgroup label="Semaines du cursus (Début → Présent)">
+                    {semainesDisponibles.map((s) => (
+                      <option key={s} value={String(s)} className="bg-white text-slate-800 font-bold">
+                        Semaine {s} {s === semaineCourante ? "• (Semaine en cours)" : s > semaineCourante ? "(À venir)" : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+              </div>
+
               <button
                 type="button"
                 onClick={handleAjouterNouvelleSemaine}
-                title="Ajouter une nouvelle semaine"
-                className="cursor-pointer inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 bg-white/60 px-2 py-1 text-xs font-semibold text-slate-600 hover:border-brand-orange hover:bg-orange-50 hover:text-brand-orange transition-colors"
+                title="Ajouter une nouvelle semaine au syllabus"
+                className="inline-flex items-center gap-1 rounded-xl border border-dashed border-slate-300 bg-white px-2.5 py-1.5 text-xs sm:text-sm font-bold text-slate-700 shadow-2xs hover:border-brand-orange hover:bg-orange-50 hover:text-brand-orange transition-colors cursor-pointer shrink-0"
               >
-                <Plus size={12} />
-                <span>Semaine</span>
+                <Plus size={13} className="text-brand-orange" />
+                <span>+ Semaine</span>
               </button>
             </div>
           )}
@@ -1046,6 +1071,7 @@ function ProgressionDirecteurAcademique() {
           matieres={matieres}
           prefill={prefill}
           progressionExistante={progressionEnEdition ?? undefined}
+          progressionsExistantes={toutesProgressions}
         />
       )}
     </div>
