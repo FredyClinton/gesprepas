@@ -2,7 +2,9 @@ package com.excelisprepas.backend.academie.matiere.infrastructure.out.persistenc
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Optional;
 import java.util.UUID;
 
 public interface MatiereJpaRepository extends JpaRepository<MatiereEntity, UUID> {
+    Optional<MatiereEntity> findByNomIgnoreCase(String nom);
 }

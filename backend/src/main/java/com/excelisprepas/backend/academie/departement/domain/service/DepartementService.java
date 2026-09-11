@@ -18,6 +18,7 @@ import com.excelisprepas.backend.shared.exception.DepartementIntrouvableExceptio
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -56,13 +57,24 @@ public class DepartementService implements CreerDepartementUseCase, RecupererDep
 
     @Override
     public Departement creerDepartement(String nomDepartement, String nomMatiere, String couleur) {
-        UUID matiereId = UUID.randomUUID();
-        Matiere matiere = new Matiere(matiereId, nomMatiere, couleur);
-        Departement departement = new Departement(UUID.randomUUID(), nomDepartement, matiereId);
+        if (nomDepartement == null || nomDepartement.isBlank()) {
+            throw new IllegalArgumentException("Le nom du département ne peut pas être vide");
+        }
+        if (nomMatiere == null || nomMatiere.isBlank()) {
+            throw new IllegalArgumentException("Le nom de la matière ne peut pas être vide");
+        }
+        String nomMatiereEffectif = nomMatiere.trim();
+        Optional<Matiere> opt = matiereRepository.findByNom(nomMatiereEffectif);
+        Matiere matiere = (opt != null && opt.isPresent())
+                ? opt.get()
+                : matiereRepository.save(new Matiere(UUID.randomUUID(), nomMatiereEffectif, couleur));
+        if (matiere == null) {
+            matiere = new Matiere(UUID.randomUUID(), nomMatiereEffectif, couleur);
+        }
 
-        matiereRepository.save(matiere);
+        Departement departement = new Departement(UUID.randomUUID(), nomDepartement.trim(), matiere.getId());
         departement = departementRepository.save(departement);
-        log.info("Département créé : id={}, nom={}, matiereId={}, couleur={}", departement.getId(), nomDepartement, matiereId, couleur);
+        log.info("Département créé : id={}, nom={}, matiereId={}, couleur={}", departement.getId(), nomDepartement.trim(), matiere.getId(), couleur);
         return departement;
     }
 

@@ -60,6 +60,19 @@ class MatiereServiceTest {
             assertThat(resultat.getNom()).isEqualTo("Mathématiques");
             verify(repository).save(any(Matiere.class));
         }
+
+        @Test
+        @DisplayName("réutilise la matière existante si le nom existe déjà sans créer de doublon")
+        void reutiliseMatiereExistanteSiNomExiste() {
+            Matiere existante = new Matiere(UUID.randomUUID(), "Mathématiques", "#10B981");
+            when(repository.findByNom("Mathématiques")).thenReturn(Optional.of(existante));
+
+            Matiere resultat = service.creerMatiere("Mathématiques");
+
+            assertThat(resultat.getId()).isEqualTo(existante.getId());
+            assertThat(resultat.getNom()).isEqualTo("Mathématiques");
+            verify(repository, never()).save(argThat(m -> !m.getId().equals(existante.getId())));
+        }
     }
 
     @Nested

@@ -11,6 +11,8 @@ public interface MatiereRepositoryPort {
 
     Optional<Matiere> findById(UUID id);
 
+    Optional<Matiere> findByNom(String nom);
+
     List<Matiere> findAll();
 
     void deleteById(UUID id);

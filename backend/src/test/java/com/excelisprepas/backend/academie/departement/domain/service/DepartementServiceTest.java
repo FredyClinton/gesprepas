@@ -84,6 +84,20 @@ class DepartementServiceTest {
         }
 
         @Test
+        @DisplayName("réutilise la matière existante si elle existe déjà pour le département")
+        void reutiliseMatiereExistanteSiNomIdentique() {
+            Matiere existante = new Matiere(UUID.randomUUID(), "Mathématiques", "#10B981");
+            when(matiereRepository.findByNom("Mathématiques")).thenReturn(Optional.of(existante));
+            when(departementRepository.save(any(Departement.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            Departement resultat = service.creerDepartement("Mathématiques", "Mathématiques");
+
+            assertThat(resultat.getMatiereId()).isEqualTo(existante.getId());
+            verify(matiereRepository, never()).save(any(Matiere.class));
+            verify(departementRepository).save(any(Departement.class));
+        }
+
+        @Test
         @DisplayName("refuse la création si le nom du département est vide")
         void refuseCreationSiNomDepartementVide() {
             ThrowingCallable creation = () -> service.creerDepartement("  ", "Mathématiques");

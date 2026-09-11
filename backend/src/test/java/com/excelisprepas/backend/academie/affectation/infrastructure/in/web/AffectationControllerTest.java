@@ -55,7 +55,7 @@ class AffectationControllerTest {
     @MockitoBean
     private ListerAffectationUseCase listerAffectationUseCase;
 
-    @MockitoBean
+    @MockitoBean(name = "modifierMatiereAffectationUseCase")
     private ModifierMatiereUseCase modifierMatiereUseCase;
 
     @MockitoBean

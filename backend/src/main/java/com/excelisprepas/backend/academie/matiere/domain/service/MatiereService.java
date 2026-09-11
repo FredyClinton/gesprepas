@@ -12,6 +12,7 @@ import com.excelisprepas.backend.shared.exception.MatiereIntrouvableException;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -43,9 +44,24 @@ public class MatiereService implements CreerMatiereUseCase, RecupererMatiereUseC
 
     @Override
     public Matiere creerMatiere(String nom, String couleur) {
-        Matiere matiere = new Matiere(UUID.randomUUID(), nom, couleur);
+        if (nom == null || nom.isBlank()) {
+            throw new IllegalArgumentException("Le nom de la matière ne peut pas être vide");
+        }
+        String nomNormalise = nom.trim();
+        Optional<Matiere> existante = repository.findByNom(nomNormalise);
+        if (existante != null && existante.isPresent()) {
+            Matiere matiere = existante.get();
+            if (couleur != null && !couleur.isBlank() && !couleur.equals(matiere.getCouleur())) {
+                matiere.changerCouleur(couleur.trim());
+                matiere = repository.save(matiere);
+            }
+            log.info("Matière existante réutilisée : id={}, nom={}", matiere.getId(), nomNormalise);
+            return matiere;
+        }
+
+        Matiere matiere = new Matiere(UUID.randomUUID(), nomNormalise, couleur);
         matiere = repository.save(matiere);
-        log.info("Matière créée : id={}, nom={}, couleur={}", matiere.getId(), nom, couleur);
+        log.info("Matière créée : id={}, nom={}, couleur={}", matiere.getId(), nomNormalise, couleur);
         return matiere;
     }
 

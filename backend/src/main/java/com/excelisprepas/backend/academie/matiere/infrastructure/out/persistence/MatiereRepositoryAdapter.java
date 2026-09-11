@@ -30,6 +30,14 @@ public class MatiereRepositoryAdapter implements MatiereRepositoryPort {
     }
 
     @Override
+    public Optional<Matiere> findByNom(String nom) {
+        if (nom == null || nom.isBlank()) {
+            return Optional.empty();
+        }
+        return jpaRepository.findByNomIgnoreCase(nom.trim()).map(mapper::toDomain);
+    }
+
+    @Override
     public List<Matiere> findAll() {
         return jpaRepository.findAll().stream().map(mapper::toDomain).toList();
     }
