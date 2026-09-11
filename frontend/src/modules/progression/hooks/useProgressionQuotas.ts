@@ -70,7 +70,7 @@ export function useProgressionQuotas(formationId?: string) {
       const key = `${semaine}_${matiereId}`;
       const updated = {
         ...quotas,
-        [key]: Math.max(1, Math.min(10, maxCours)),
+        [key]: Math.max(0, Math.min(10, maxCours)),
       };
       try {
         localStorage.setItem(storageKey, JSON.stringify(updated));

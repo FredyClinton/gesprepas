@@ -276,11 +276,28 @@ function CelluleMultiMatiereInSitu({
     setStatutSauvegarde("idle");
   }
 
+  // Si quota fixé à 0 et pas de progression enregistrée : discipline non dispensée cette semaine
+  if (quota === 0 && !progression) {
+    return (
+      <td className="p-3 align-middle text-center border-r border-b border-slate-200 bg-slate-50/40 min-w-[280px] max-w-[340px]">
+        <div className="flex flex-col items-center justify-center gap-1 py-3 text-slate-400 select-none no-print">
+          <span className="text-[11px] font-bold text-slate-400">
+            Aucun cours prévu (Quota : 0)
+          </span>
+          <span className="text-[10px] text-slate-400">
+            Discipline non dispensée cette semaine
+          </span>
+        </div>
+        <span className="hidden print:inline text-slate-300 select-none text-xs">—</span>
+      </td>
+    );
+  }
+
   // Si verrouillé par le quota fixé et aucun cours n'y est déjà enregistré : case inactive
   if (estVerrouille && !progression) {
     return (
       <td className="p-3 align-middle text-center border-r border-b border-slate-200 bg-slate-50/50 min-w-[280px] max-w-[340px]">
-        <div className="flex flex-col items-center justify-center gap-1.5 py-4 text-slate-400 select-none">
+        <div className="flex flex-col items-center justify-center gap-1.5 py-4 text-slate-400 select-none no-print">
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-200/70 text-slate-400">
             <Lock size={13} />
           </div>
@@ -291,6 +308,7 @@ function CelluleMultiMatiereInSitu({
             Quota fixé à {quota ?? 3} cours par la Direction
           </span>
         </div>
+        <span className="hidden print:inline text-slate-300 select-none text-xs">—</span>
       </td>
     );
   }
@@ -302,7 +320,7 @@ function CelluleMultiMatiereInSitu({
         <button
           type="button"
           onClick={activerEdition}
-          className="group inline-flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 hover:border-brand-orange bg-white/80 hover:bg-white px-3 py-4 text-xs font-semibold text-slate-500 hover:text-brand-orange transition-all cursor-pointer w-full min-h-[90px]"
+          className="no-print group inline-flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 hover:border-brand-orange bg-white/80 hover:bg-white px-3 py-4 text-xs font-semibold text-slate-500 hover:text-brand-orange transition-all cursor-pointer w-full min-h-[90px]"
         >
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 group-hover:bg-orange-100 text-slate-400 group-hover:text-brand-orange transition-colors">
             <Plus size={14} />
@@ -314,6 +332,7 @@ function CelluleMultiMatiereInSitu({
             {matiereNom}
           </span>
         </button>
+        <span className="hidden print:inline text-slate-300 select-none text-xs">—</span>
       </td>
     );
   }
@@ -330,7 +349,42 @@ function CelluleMultiMatiereInSitu({
         }
       }}
     >
-      <div className="space-y-2.5">
+      {/* ── Vue Impression Haute Fidélité (Pure lecture, masquée à l'écran) ── */}
+      <div className="hidden print:block space-y-1.5 text-left p-0.5">
+        <div className="border-b border-slate-300 pb-1">
+          <span className="font-black text-[10px] uppercase mr-1 px-1.5 py-0.5 border border-slate-800 rounded bg-slate-100">
+            {typeProgression}
+          </span>
+          <span className="font-extrabold text-[11px] uppercase tracking-tight text-slate-900">
+            {titreTheme || progression?.theme || "Sans titre"}
+          </span>
+          {progression?.theme?.toUpperCase().includes("RATTRAPAGE") && (
+            <span className="ml-1 text-[9px] font-black uppercase px-1 py-0.2 border border-purple-400 bg-purple-50 text-purple-900 rounded">
+              [RATTRAPAGE]
+            </span>
+          )}
+        </div>
+
+        {lines.filter((l) => l.trim().length > 0).length > 0 && (
+          <ul className="list-disc list-inside space-y-0.5 text-[11px] text-slate-800 leading-snug py-0.5">
+            {lines
+              .filter((l) => l.trim().length > 0)
+              .map((line, idx) => (
+                <li key={idx}>{line}</li>
+              ))}
+          </ul>
+        )}
+
+        {exercices.trim() && (
+          <p className="text-[10px] text-slate-800 pt-0.5 border-t border-slate-200">
+            <strong className="font-bold uppercase text-[9px] text-slate-600">Exercices : </strong>
+            <span>{exercices}</span>
+          </p>
+        )}
+      </div>
+
+      {/* ── Formulaire d'édition In-Situ (Écran uniquement) ── */}
+      <div className="space-y-2.5 print:hidden">
         {/* Barre d'état & Actions de la cellule */}
         <div className="flex items-center justify-between gap-1 border-b border-slate-100 pb-1.5">
           <div className="flex items-center gap-1.5">
@@ -725,8 +779,8 @@ export function SyllabusMultiMatieresView({
         </div>
       </div>
 
-      {/* ── En-tête de la Fiche Style Papier Excelis Prépas ── */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
+      {/* ── En-tête de la Fiche Style Papier Excelis Prépas (Écran uniquement) ── */}
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs no-print print:hidden">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-slate-100 pb-5">
           <div className="space-y-1">
             <span className="text-[11px] font-black tracking-widest text-brand-orange uppercase">
@@ -949,41 +1003,53 @@ export function SyllabusMultiMatieresView({
                               </span>
                             </div>
 
-                            {/* Quota : Boutons d'ajustement pour le Directeur Académique / Statut d'avancement */}
+                            {/* Quota : Stepper bien designé pour le Directeur Académique / Statut pour les autres */}
                             {estDirecteur ? (
-                              <div className="no-print inline-flex items-center gap-1 rounded-lg bg-black/20 px-2 py-0.5 text-[11px] font-normal normal-case text-white/95">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setQuota(semaine, m.id, Math.max(1, quota - 1))
-                                  }
-                                  disabled={quota <= 1}
-                                  className="px-1.5 py-0.2 rounded hover:bg-white/20 font-bold disabled:opacity-30 cursor-pointer"
-                                  title="Diminuer le quota hebdomadaire"
-                                >
-                                  -
-                                </button>
-                                <span className="font-bold">
-                                  {nbProgsMatiere}/{quota} rédigé{nbProgsMatiere > 1 ? "s" : ""}
+                              <div className="no-print flex flex-col items-center gap-1">
+                                <div className="inline-flex items-center gap-1.5 rounded-full bg-black/25 backdrop-blur-xs border border-white/20 px-2 py-0.5 shadow-xs">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setQuota(semaine, m.id, Math.max(0, quota - 1))
+                                    }
+                                    disabled={quota <= 0}
+                                    className="h-5 w-5 rounded-full bg-white/10 hover:bg-white/30 active:scale-90 text-white flex items-center justify-center transition-all disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer"
+                                    title="Diminuer le quota hebdomadaire"
+                                  >
+                                    <Minus size={11} strokeWidth={3} />
+                                  </button>
+
+                                  <span className="font-mono font-black text-xs min-w-[28px] text-center text-white">
+                                    {quota === 0 ? "0" : `${quota}`}
+                                  </span>
+
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setQuota(semaine, m.id, Math.min(10, quota + 1))
+                                    }
+                                    disabled={quota >= 10}
+                                    className="h-5 w-5 rounded-full bg-white/10 hover:bg-white/30 active:scale-90 text-white flex items-center justify-center transition-all disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer"
+                                    title="Augmenter le quota hebdomadaire"
+                                  >
+                                    <Plus size={11} strokeWidth={3} />
+                                  </button>
+                                </div>
+
+                                <span className="text-[10px] font-bold text-white/90">
+                                  {quota === 0
+                                    ? "Dispensé (0 cours)"
+                                    : `${nbProgsMatiere}/${quota} rédigé${nbProgsMatiere > 1 ? "s" : ""}`}
                                 </span>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setQuota(semaine, m.id, Math.min(10, quota + 1))
-                                  }
-                                  disabled={quota >= 10}
-                                  className="px-1.5 py-0.2 rounded hover:bg-white/20 font-bold disabled:opacity-30 cursor-pointer"
-                                  title="Augmenter le quota hebdomadaire"
-                                >
-                                  +
-                                </button>
                               </div>
                             ) : (
-                              <span className="inline-flex items-center gap-1 rounded-lg bg-black/20 px-2 py-0.5 text-[11px] font-semibold normal-case text-white/90">
+                              <div className="no-print inline-flex items-center gap-1 rounded-full bg-black/20 border border-white/10 px-2.5 py-0.5 text-[10px] font-bold text-white">
                                 <span>
-                                  {nbProgsMatiere}/{quota} rédigé{nbProgsMatiere > 1 ? "s" : ""}
+                                  {quota === 0
+                                    ? "Dispensé · 0 cours"
+                                    : `${nbProgsMatiere}/${quota} rédigé${nbProgsMatiere > 1 ? "s" : ""}`}
                                 </span>
-                              </span>
+                              </div>
                             )}
                           </div>
                         </th>

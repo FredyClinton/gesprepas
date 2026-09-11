@@ -3,6 +3,7 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import {
   Plus,
+  Minus,
   Trash2,
   Save,
   Check,
@@ -285,7 +286,49 @@ function LigneCoursExcelis({
 
       {/* ── COLONNE 2 : FICHE PÉDAGOGIQUE (THEME CENTRÉ, CONTENU LIGNE PAR LIGNE, EXERCICES) ── */}
       <td className="p-4 align-top">
-        <div className="space-y-3">
+        {/* ── Vue Impression Haute Fidélité (Pure lecture, sans champs ni boutons) ── */}
+        <div className="hidden print:block space-y-2 text-left">
+          <div className="flex items-center gap-2 border-b border-slate-300 pb-1">
+            <span className="font-black text-[11px] uppercase px-1.5 py-0.5 border border-slate-800 rounded bg-slate-100">
+              {typeProgression}
+            </span>
+            <span className="font-extrabold text-xs uppercase tracking-wide text-slate-900">
+              {titreTheme || progression?.theme || "Sans titre"}
+            </span>
+            {progression?.theme?.toUpperCase().includes("RATTRAPAGE") && (
+              <span className="text-[10px] font-black uppercase px-1.5 py-0.5 border border-purple-400 bg-purple-50 text-purple-900 rounded">
+                [RATTRAPAGE]
+              </span>
+            )}
+          </div>
+
+          {lines.filter((l) => l.trim().length > 0).length > 0 && (
+            <div className="py-0.5">
+              <span className="text-[10px] font-bold uppercase text-slate-700 tracking-wider">
+                Contenu abordé :
+              </span>
+              <ul className="list-disc list-inside mt-0.5 space-y-0.5 text-xs text-slate-800">
+                {lines
+                  .filter((l) => l.trim().length > 0)
+                  .map((line, idx) => (
+                    <li key={idx} className="leading-snug">{line}</li>
+                  ))}
+              </ul>
+            </div>
+          )}
+
+          {exercices.trim() && (
+            <div className="pt-1 text-xs text-slate-800 border-t border-slate-200">
+              <span className="font-bold text-[10px] uppercase text-slate-700 tracking-wider">
+                Exercices traités :{" "}
+              </span>
+              <span className="font-medium">{exercices}</span>
+            </div>
+          )}
+        </div>
+
+        {/* ── Formulaire d'édition In-Situ (Écran interactif uniquement) ── */}
+        <div className="space-y-3 print:hidden">
           {erreur && (
             <div className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700">
               {erreur}
@@ -431,8 +474,8 @@ function LigneCoursExcelis({
         </div>
       </td>
 
-      {/* ── COLONNE 3 : ACTIONS & STATUT ── */}
-      <td className="w-28 border-l border-slate-200 p-4 text-center align-middle">
+      {/* ── COLONNE 3 : ACTIONS & STATUT (Masquée à l'export/impression) ── */}
+      <td className="w-28 border-l border-slate-200 p-4 text-center align-middle no-print print:hidden">
         <div className="flex flex-col items-center justify-center gap-2">
           {statutSauvegarde === "saving" && (
             <span className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-orange">
@@ -687,8 +730,8 @@ export function SyllabusFiliereView({
         </div>
       </div>
 
-      {/* ── BANDEAU EN-TÊTE DE LA FICHE PAPIER EXCELIS PRÉPAS ── */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs">
+      {/* ── BANDEAU EN-TÊTE DE LA FICHE PAPIER EXCELIS PRÉPAS (Écran uniquement) ── */}
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs no-print print:hidden">
         <div className="flex flex-col gap-3 text-center sm:text-left sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-3.5">
           <div>
             <h2 className="text-base sm:text-lg font-black tracking-tight text-slate-900 uppercase">
@@ -824,31 +867,53 @@ export function SyllabusFiliereView({
                     S{semaine}
                   </span>
                   <span>Semaine {semaine}</span>
-                  <div className="ml-2 inline-flex items-center gap-1.5 rounded-md bg-white/90 border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600 normal-case shadow-2xs">
-                    <span>Quota fixé par la Dir. Académique : {coursList.length} / {quota} cours</span>
-                    <div className="flex items-center gap-0.5 ml-1 border-l border-slate-200 pl-1.5 no-print">
+
+                  {/* Stepper Quota bien designé */}
+                  <div className="ml-2 inline-flex items-center gap-2 rounded-full bg-white border border-slate-200/90 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs no-print">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      Quota :
+                    </span>
+                    <div className="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => setQuota(semaine, matiereId, Math.max(1, quota - 1))}
-                        className="h-4 w-4 rounded flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] transition-colors cursor-pointer"
-                        title="Diminuer le quota max"
+                        onClick={() => setQuota(semaine, matiereId, Math.max(0, quota - 1))}
+                        disabled={quota <= 0}
+                        className="h-5 w-5 rounded-full bg-slate-100 hover:bg-brand-orange hover:text-white text-slate-600 flex items-center justify-center transition-all cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed active:scale-95"
+                        title="Diminuer le quota hebdomadaire"
                       >
-                        -
+                        <Minus size={11} strokeWidth={3} />
                       </button>
+                      <span className="font-mono font-black text-xs text-brand-orange min-w-[18px] text-center">
+                        {quota}
+                      </span>
                       <button
                         type="button"
                         onClick={() => setQuota(semaine, matiereId, Math.min(10, quota + 1))}
-                        className="h-4 w-4 rounded flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] transition-colors cursor-pointer"
-                        title="Augmenter le quota max"
+                        disabled={quota >= 10}
+                        className="h-5 w-5 rounded-full bg-slate-100 hover:bg-brand-orange hover:text-white text-slate-600 flex items-center justify-center transition-all cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed active:scale-95"
+                        title="Augmenter le quota hebdomadaire"
                       >
-                        +
+                        <Plus size={11} strokeWidth={3} />
                       </button>
                     </div>
+
+                    <span className="text-slate-300">|</span>
+
+                    <span className="text-[11px] font-bold text-slate-600">
+                      {quota === 0
+                        ? "Aucun cours prévu"
+                        : `${coursList.length}/${quota} cours rédigé${coursList.length > 1 ? "s" : ""}`}
+                    </span>
                   </div>
+
+                  {/* Information compacte visible uniquement à l'impression */}
+                  <span className="hidden print:inline text-[11px] font-bold text-slate-700 ml-2 normal-case">
+                    ({coursList.length} cours)
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <span className="text-[11px] font-semibold text-slate-500">
+                  <span className="text-[11px] font-semibold text-slate-500 no-print">
                     {coursList.length} cours rédigé{coursList.length > 1 ? "s" : ""}
                   </span>
 
@@ -874,7 +939,7 @@ export function SyllabusFiliereView({
                     <th className="p-3 text-center border-r border-orange-600/40">
                       {matiereNom.toUpperCase()} ({String(quota).padStart(2, "0")})
                     </th>
-                    <th className="w-28 p-3 text-center">
+                    <th className="w-28 p-3 text-center no-print print:hidden">
                       ACTIONS
                     </th>
                   </tr>
@@ -882,31 +947,53 @@ export function SyllabusFiliereView({
 
                 {/* ── LIGNES DU TABLEAU DE PROGRESSION ── */}
                 <tbody className="divide-y divide-slate-200">
-                  {/* Si aucun cours et pas de brouillon, proposer immédiatement un brouillon */}
+                  {/* Si aucun cours et pas de brouillon */}
                   {coursList.length === 0 && !aBrouillon ? (
                     <tr>
                       <td colSpan={3} className="p-8 text-center bg-slate-50/40">
-                        <BookOpen className="mx-auto h-8 w-8 text-slate-300 mb-2" />
-                        <p className="text-xs font-bold text-slate-700">
-                          Aucun cours renseigné pour la Semaine {semaine}
-                        </p>
-                        <p className="text-[11px] text-slate-400 mt-0.5 mb-3">
-                          Commencez à remplir directement la progression dans le tableau ci-dessous.
-                        </p>
-                        {quotaAtteint ? (
-                          <div className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-bold text-slate-500 shadow-2xs">
-                            <Lock size={13} className="text-slate-400" />
-                            <span>Quota hebdomadaire atteint ({quota}/{quota} cours max)</span>
+                        {quota === 0 ? (
+                          <div className="max-w-md mx-auto space-y-2 py-2">
+                            <div className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-200/70 text-slate-500">
+                              <Lock size={16} />
+                            </div>
+                            <p className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                              Aucun cours prévu en Semaine {semaine} (Quota : 0)
+                            </p>
+                            <p className="text-[11px] text-slate-500 font-medium no-print">
+                              La Direction Académique a fixé le quota de cette discipline à 0 pour cette semaine (matière non dispensée ou semaine libérée).
+                            </p>
+                            <p className="hidden print:block text-xs italic text-slate-600">
+                              Matière non programmée sur cette semaine.
+                            </p>
                           </div>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleCreerBrouillon(semaine)}
-                            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-orange px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-brand-orange/90 transition-all cursor-pointer"
-                          >
-                            <Plus size={14} />
-                            <span>Remplir le 1er Cours de la Semaine {semaine}</span>
-                          </button>
+                          <>
+                            <BookOpen className="mx-auto h-8 w-8 text-slate-300 mb-2 no-print" />
+                            <p className="text-xs font-bold text-slate-700">
+                              Aucun cours renseigné pour la Semaine {semaine}
+                            </p>
+                            <p className="text-[11px] text-slate-400 mt-0.5 mb-3 no-print">
+                              Commencez à remplir directement la progression dans le tableau ci-dessous.
+                            </p>
+                            <p className="hidden print:block text-xs italic text-slate-500">
+                              Aucun cours documenté pour cette semaine.
+                            </p>
+                            {quotaAtteint ? (
+                              <div className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-bold text-slate-500 shadow-2xs no-print">
+                                <Lock size={13} className="text-slate-400" />
+                                <span>Quota hebdomadaire atteint ({quota}/{quota} cours max)</span>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleCreerBrouillon(semaine)}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-brand-orange px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-brand-orange/90 transition-all cursor-pointer no-print"
+                              >
+                                <Plus size={14} />
+                                <span>Remplir le 1er Cours de la Semaine {semaine}</span>
+                              </button>
+                            )}
+                          </>
                         )}
                       </td>
                     </tr>
@@ -946,7 +1033,12 @@ export function SyllabusFiliereView({
                   {!aBrouillon && coursList.length > 0 && (
                     <tr className="bg-slate-50/50 hover:bg-orange-50/30 transition-colors no-print">
                       <td colSpan={3} className="p-3 text-center">
-                        {quotaAtteint ? (
+                        {quota === 0 ? (
+                          <div className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-bold text-slate-500 shadow-2xs select-none">
+                            <Lock size={13} className="text-slate-400" />
+                            <span>Quota fixé à 0 cours par la Direction (matière dispensée cette semaine)</span>
+                          </div>
+                        ) : quotaAtteint ? (
                           <div className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-bold text-slate-500 shadow-2xs select-none">
                             <Lock size={13} className="text-slate-400" />
                             <span>Quota hebdomadaire atteint ({quota}/{quota} cours max autorisés par la Direction)</span>

@@ -335,8 +335,8 @@ function ProgressionChefDepartement({
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      {/* ── En-tête de page moderne ── */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs lg:flex-row lg:items-center lg:justify-between">
+      {/* ── En-tête de page moderne (Masqué à l'export/impression) ── */}
+      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs lg:flex-row lg:items-center lg:justify-between no-print print:hidden">
         <div className="space-y-1.5">
           <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">
@@ -427,8 +427,8 @@ function ProgressionChefDepartement({
 
 
 
-      {/* ── Navigation Filières & Sélecteur de Semaine ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3">
+      {/* ── Navigation Filières & Sélecteur de Semaine (Masqué à l'export/impression) ── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3 no-print print:hidden">
         {/* Onglets des filières */}
         <div className="flex items-center gap-1.5 overflow-x-auto p-1 bg-slate-100/80 rounded-xl scrollbar-none">
           {formationsPerimetre.map((f) => {
@@ -819,8 +819,8 @@ function ProgressionDirecteurAcademique() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-5">
-      {/* ── Navigation Filières & Commutateur de Mode / Sélecteur de Semaine ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3">
+      {/* ── Navigation Filières & Commutateur de Mode / Sélecteur de Semaine (Masqué à l'export/impression) ── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3 no-print print:hidden">
         {/* Onglets des filières (en mode syllabus) */}
         {modeVue === "syllabus" ? (
           <div className="flex items-center gap-1.5 overflow-x-auto p-1 bg-slate-100/80 rounded-xl scrollbar-none">

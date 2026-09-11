@@ -29,7 +29,7 @@ select option {
 @media print {
   @page {
     size: A4 landscape;
-    margin: 6mm 8mm;
+    margin: 8mm 10mm;
   }
 
   body {
@@ -39,11 +39,14 @@ select option {
     print-color-adjust: exact !important;
   }
 
-  /* Cacher les menus, barres de navigation et éléments interactifs */
+  /* Cacher les menus, barres de navigation, boutons et éléments interactifs */
   aside,
   nav,
   header,
+  footer,
+  button,
   [role="navigation"],
+  [role="dialog"],
   .no-print {
     display: none !important;
   }
@@ -62,11 +65,20 @@ select option {
     print-color-adjust: exact !important;
   }
 
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+
+  th, td {
+    border-color: #cbd5e1 !important;
+  }
+
   /* Éviter les coupures de page intempestives */
   .semaine-card {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
-    margin-bottom: 16px !important;
+    margin-bottom: 20px !important;
   }
 }
 
