@@ -6,12 +6,12 @@ import { ROLE_LABELS, type Role } from "@/types/roles";
 
 type TopBarProps = {
   role: Role;
-  // Nom du centre déjà résolu par (dashboard)/layout.tsx (Server Component) —
+  // Nom du centre déjà résolu par (dashboard)/layout.tsx (Server Component) -
   // absent pour les rôles non centre-scope (Directeur...).
   centreName?: string;
 };
 
-// Barre fine du haut — commune à tous les écrans, peu importe le rôle. Version
+// Barre fine du haut - commune à tous les écrans, peu importe le rôle. Version
 // confirmée par la maquette Chef de Centre : pas de barre de recherche (contrairement
 // à la première version, basée sur la maquette Directeur), badge rôle+centre à gauche.
 export function TopBar({ role, centreName }: TopBarProps) {
@@ -23,7 +23,7 @@ export function TopBar({ role, centreName }: TopBarProps) {
       >
         <MapPin size={14} className="text-brand-orange" />
         {ROLE_LABELS[role]}
-        {centreName ? ` — ${centreName}` : ""}
+        {centreName ? ` - ${centreName}` : ""}
         <ChevronDown size={14} />
       </button>
 

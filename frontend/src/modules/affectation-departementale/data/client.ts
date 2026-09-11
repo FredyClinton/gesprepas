@@ -50,3 +50,23 @@ export function retirerEnseignant(
     headers: headerRole(role),
   });
 }
+
+export function copierRosterDepuisSession(
+  payload: {
+    departementId: string;
+    sessionSourceId: string;
+    sessionCibleId: string;
+    enseignantIdsSelectionnes: string[];
+  },
+  role: Role | undefined,
+): Promise<AffectationDepartementale[]> {
+  return apiFetch<AffectationDepartementale[]>(
+    "/api/affectations-departementales/copier",
+    {
+      method: "POST",
+      headers: headerRole(role),
+      body: JSON.stringify(payload),
+    },
+  );
+}
+

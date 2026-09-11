@@ -6,7 +6,7 @@
 }
 
 @theme {
-  /* Charte graphique EXCELIS PRÉPAS — tokens `brand.*` (ex. bg-brand-orange).
+  /* Charte graphique EXCELIS PRÉPAS - tokens `brand.*` (ex. bg-brand-orange).
      Valeurs synchronisées avec src/shared/config/brand.ts. */
   --color-brand-orange: #f7931e;
   --color-brand-anthracite: #1a1a1a;
@@ -19,3 +19,10 @@ body {
   background: var(--color-brand-white);
   color: var(--color-brand-black);
 }
+
+select option {
+  background-color: #ffffff;
+  color: #1e293b;
+  padding: 8px 12px;
+}
+

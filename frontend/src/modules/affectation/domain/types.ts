@@ -1,16 +1,24 @@
 // Miroir de `StatutAffectation` / `Jour` / `AffectationResponse` (backend, module
 // affectation) : un créneau (salle/matière/jour/séance/semaine) au sein d'une
 // formation, avec ou sans enseignant assigné. `semaine` est un entier positif simple
-// (numéro de semaine relatif à la session), pas une semaine calendaire ISO — aucun
+// (numéro de semaine relatif à la session), pas une semaine calendaire ISO - aucun
 // endpoint ne fournit de correspondance date <-> semaine côté backend. `jour` est en
 // revanche un vrai jour fixe (Lundi→Samedi), indépendant de `seance`.
 export type StatutAffectation =
   "PLANIFIEE" | "ASSIGNEE" | "EFFECTUEE" | "ANNULEE";
 
+export type StatutPaiementAffectation = "NON_PAYEE" | "PROGRAMMEE" | "PAYEE";
+
+export const LABELS_STATUT_PAIEMENT: Record<StatutPaiementAffectation, string> = {
+  NON_PAYEE: "Non payée",
+  PROGRAMMEE: "Programmée",
+  PAYEE: "Payée",
+};
+
 export type Jour =
   "LUNDI" | "MARDI" | "MERCREDI" | "JEUDI" | "VENDREDI" | "SAMEDI";
 
-// Ordre d'affichage fixe (Lundi→Samedi) — mêmes valeurs que l'enum backend.
+// Ordre d'affichage fixe (Lundi→Samedi) - mêmes valeurs que l'enum backend.
 export const JOURS: Jour[] = [
   "LUNDI",
   "MARDI",
@@ -41,4 +49,7 @@ export type Affectation = {
   seance: number;
   semaine: number;
   statut: StatutAffectation;
+  statutPaiement?: StatutPaiementAffectation;
+  coutApplique?: number | null;
+  fichePaieId?: string | null;
 };

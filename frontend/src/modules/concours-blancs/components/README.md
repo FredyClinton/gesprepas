@@ -1,3 +1,3 @@
 # components
 
-Placeholder — contenu du module `concours-blancs` à ajouter lors de son implémentation.
+Placeholder - contenu du module `concours-blancs` à ajouter lors de son implémentation.

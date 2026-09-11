@@ -6,14 +6,14 @@ type Props = {
   onChange: (page: number) => void;
   totalItems: number;
   pageSize: number;
-  // Nom (singulier) de ce qui est compté, pour un message explicite —
+  // Nom (singulier) de ce qui est compté, pour un message explicite -
   // ex. "enseignant" -> "1–10 sur 47 enseignants". Pluriel naïf (+ "s"),
   // suffisant pour le vocabulaire de l'app.
   label?: string;
 };
 
 // Pagination purement client (le backend ne propose pas encore d'endpoints
-// paginés) : découpe une liste déjà chargée/filtrée en pages. Simple exprès —
+// paginés) : découpe une liste déjà chargée/filtrée en pages. Simple exprès -
 // pas de saut direct à une page arbitraire, juste précédent/suivant + le
 // numéro de la page courante.
 export function Pagination({

@@ -17,7 +17,7 @@ export type RepartitionFormation = {
 
 // Miroir de `EntreeResponse` (backend, module financier). Module volontairement
 // minimal : sert uniquement à calculer le statut de paiement d'un apprenant (écran
-// Apprenants) — pas encore de saisie d'entrées/sorties côté frontend.
+// Apprenants) - pas encore de saisie d'entrées/sorties côté frontend.
 export type StatutMouvement = "EN_ATTENTE" | "VALIDE" | "REJETE";
 
 export type TypeMotif = "ENTREE" | "SORTIE";

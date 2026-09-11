@@ -39,7 +39,7 @@ const ICONES_JUSTIFICATION: Record<StatutJustification, typeof AlertCircle> = {
   EN_ATTENTE: Clock3,
 };
 
-// MOCK — l'onglet Présence reprend la maquette produit à l'identique, mais aucun
+// MOCK - l'onglet Présence reprend la maquette produit à l'identique, mais aucun
 // module "présence/absences/retards" n'existe côté backend aujourd'hui (pas de
 // modèle, pas d'endpoint). Toutes les données ci-dessous viennent de mocks.ts ;
 // remplacer ce composant par de vrais hooks dès qu'un module présence existera.
@@ -62,7 +62,7 @@ export function PresenceTab() {
         </span>
         <span className="text-brand-gray">
           {" "}
-          — le suivi des présences n&rsquo;est pas encore relié à l&rsquo;API.
+          - le suivi des présences n&rsquo;est pas encore relié à l&rsquo;API.
           Les données ci-dessous sont fictives.
         </span>
       </div>
@@ -128,25 +128,28 @@ export function PresenceTab() {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-brand-anthracite text-brand-white">
+            <thead className="border-b border-slate-200 bg-slate-100/90 text-slate-700">
               <tr>
                 {["Date", "Séance", "Type", "Justification"].map((titre) => (
                   <th
                     key={titre}
-                    className="p-4 text-xs font-bold tracking-wide uppercase"
+                    className="p-3.5 text-xs font-bold tracking-wider uppercase"
                   >
                     {titre}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-brand-gray/10 divide-y">
+            <tbody className="divide-y divide-slate-100">
               {historique.map((ligne, index) => {
                 const IconeJustification = ligne.justification
                   ? ICONES_JUSTIFICATION[ligne.justification]
                   : null;
                 return (
-                  <tr key={index}>
+                  <tr
+                    key={index}
+                    className="hover:bg-amber-50/70 transition-colors duration-150 border-b border-slate-100 last:border-0"
+                  >
                     <td className="text-brand-gray p-4">
                       {new Date(ligne.date).toLocaleDateString("fr-FR")}
                     </td>
@@ -169,7 +172,7 @@ export function PresenceTab() {
                           {LABELS_JUSTIFICATION[ligne.justification]}
                         </span>
                       ) : (
-                        <span className="text-brand-gray/50 text-sm">—</span>
+                        <span className="text-brand-gray/50 text-sm">-</span>
                       )}
                     </td>
                   </tr>
@@ -189,7 +192,7 @@ function JaugeCirculaire({ pourcentage }: { pourcentage: number }) {
       className="relative flex h-32 w-32 items-center justify-center rounded-full"
       style={{
         // color-mix() dérive la piste grise depuis le token --color-brand-gray
-        // (charte graphique) au lieu d'une couleur en dur — le raccourci
+        // (charte graphique) au lieu d'une couleur en dur - le raccourci
         // Tailwind `var(--x)/15` n'est pas du CSS valide en style inline.
         background: `conic-gradient(var(--color-brand-orange) ${pourcentage * 3.6}deg, color-mix(in srgb, var(--color-brand-gray) 15%, white) 0deg)`,
       }}

@@ -1,0 +1,761 @@
+"use client";
+
+import { useMemo, useState, useRef, useEffect } from "react";
+import {
+  Plus,
+  Trash2,
+  Save,
+  Check,
+  X,
+  Loader2,
+  Sparkles,
+  Copy,
+  BookOpen,
+} from "lucide-react";
+
+import type { Progression } from "../domain/types";
+import {
+  useCreerProgression,
+  useMettreAJourContenuProgression,
+  useSupprimerProgression,
+} from "../data/queries";
+import type { Affectation } from "@/modules/affectation";
+
+// ── Utilitaires de conversion Lignes <-> Contenu texte ──
+
+function parseContenuLines(contenu?: string | null): string[] {
+  if (!contenu) return [""];
+  const lines = contenu
+    .split("\n")
+    .map((l) => l.replace(/^[-•*]\s*/, "").trim())
+    .filter((l) => l.length > 0);
+  return lines.length > 0 ? lines : [""];
+}
+
+function serializeContenuLines(lines: string[]): string {
+  return lines
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+    .map((l) => `- ${l}`)
+    .join("\n");
+}
+
+function labelNumeroCours(num: number): string {
+  if (num === 1) return "1er COURS";
+  return `${num}e COURS`;
+}
+
+// ── Ligne Éditrice In-Situ (Fidèle à la Fiche Papier Excelis) ──
+
+interface LigneCoursExcelisProps {
+  progression?: Progression;
+  draftId?: string;
+  semaine: number;
+  numeroCours: number;
+  formationId: string;
+  matiereId: string;
+  sessionId: string;
+  phaseId: string;
+  onAnnulerDraft?: () => void;
+  onSupprimer?: (p: Progression) => void;
+}
+
+function LigneCoursExcelis({
+  progression,
+  semaine,
+  numeroCours,
+  formationId,
+  matiereId,
+  sessionId,
+  phaseId,
+  onAnnulerDraft,
+  onSupprimer,
+}: LigneCoursExcelisProps) {
+  const creerMutation = useCreerProgression();
+  const modifierMutation = useMettreAJourContenuProgression();
+
+  const [theme, setTheme] = useState(progression?.theme ?? "");
+  const [lines, setLines] = useState<string[]>(() =>
+    parseContenuLines(progression?.contenu),
+  );
+  const [exercices, setExercices] = useState(progression?.exercices ?? "");
+  const [statutSauvegarde, setStatutSauvegarde] = useState<
+    "idle" | "dirty" | "saving" | "saved" | "error"
+  >(progression ? "saved" : "dirty");
+  const [erreur, setErreur] = useState<string | null>(null);
+
+  const lineInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const themeInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Synchronisation si la progression change à distance
+  useEffect(() => {
+    if (progression) {
+      setTheme(progression.theme);
+      setLines(parseContenuLines(progression.contenu));
+      setExercices(progression.exercices ?? "");
+      setStatutSauvegarde("saved");
+    }
+  }, [
+    progression?.id,
+    progression?.theme,
+    progression?.contenu,
+    progression?.exercices,
+  ]);
+
+  // Si c'est un nouveau brouillon, placer le focus sur le thème
+  useEffect(() => {
+    if (!progression) {
+      themeInputRef.current?.focus();
+    }
+  }, [progression]);
+
+  // Gestion des touches dans les lignes de contenu (Entrée / Retour arrière)
+  function handleLineKeyDown(
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      const newLines = [...lines];
+      newLines.splice(index + 1, 0, "");
+      setLines(newLines);
+      setStatutSauvegarde("dirty");
+      setTimeout(() => {
+        lineInputRefs.current[index + 1]?.focus();
+      }, 10);
+    } else if (
+      e.key === "Backspace" &&
+      lines[index] === "" &&
+      lines.length > 1
+    ) {
+      e.preventDefault();
+      const newLines = lines.filter((_, i) => i !== index);
+      setLines(newLines);
+      setStatutSauvegarde("dirty");
+      const targetIdx = Math.max(0, index - 1);
+      setTimeout(() => {
+        lineInputRefs.current[targetIdx]?.focus();
+      }, 10);
+    }
+  }
+
+  // Collage multi-lignes automatique
+  function handleLinePaste(
+    index: number,
+    e: React.ClipboardEvent<HTMLInputElement>,
+  ) {
+    const pasteData = e.clipboardData.getData("text");
+    if (pasteData.includes("\n")) {
+      e.preventDefault();
+      const pastedLines = pasteData
+        .split("\n")
+        .map((l) => l.replace(/^[-•*]\s*/, "").trim())
+        .filter((l) => l.length > 0);
+
+      if (pastedLines.length > 0) {
+        const newLines = [...lines];
+        newLines.splice(index, 1, ...pastedLines);
+        setLines(newLines);
+        setStatutSauvegarde("dirty");
+        setTimeout(() => {
+          lineInputRefs.current[index + pastedLines.length - 1]?.focus();
+        }, 10);
+      }
+    }
+  }
+
+  function handleLineChange(index: number, val: string) {
+    const newLines = [...lines];
+    newLines[index] = val;
+    setLines(newLines);
+    setStatutSauvegarde("dirty");
+  }
+
+  function handleRemoveLine(index: number) {
+    if (lines.length <= 1) {
+      setLines([""]);
+    } else {
+      setLines(lines.filter((_, i) => i !== index));
+    }
+    setStatutSauvegarde("dirty");
+  }
+
+  function handleAddLine() {
+    setLines([...lines, ""]);
+    setStatutSauvegarde("dirty");
+    setTimeout(() => {
+      lineInputRefs.current[lines.length]?.focus();
+    }, 10);
+  }
+
+  // Sauvegarde sur place
+  async function sauvegarder() {
+    if (!theme.trim()) {
+      setErreur("Le thème est obligatoire.");
+      themeInputRef.current?.focus();
+      return;
+    }
+    const serialized = serializeContenuLines(lines);
+    if (!serialized.trim()) {
+      setErreur("Veuillez renseigner au moins une ligne de contenu.");
+      lineInputRefs.current[0]?.focus();
+      return;
+    }
+
+    setErreur(null);
+    setStatutSauvegarde("saving");
+
+    try {
+      if (progression?.id) {
+        await modifierMutation.mutateAsync({
+          id: progression.id,
+          payload: {
+            theme: theme.trim(),
+            contenu: serialized,
+            exercices: exercices.trim() || null,
+          },
+        });
+      } else {
+        await creerMutation.mutateAsync({
+          formationId,
+          sessionId,
+          phaseId: phaseId || "phase-default",
+          matiereId,
+          semaine,
+          numeroCours,
+          theme: theme.trim(),
+          contenu: serialized,
+          exercices: exercices.trim() || null,
+        });
+        onAnnulerDraft?.();
+      }
+      setStatutSauvegarde("saved");
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "Erreur lors de l'enregistrement.";
+      setErreur(msg);
+      setStatutSauvegarde("error");
+    }
+  }
+
+  return (
+    <tr
+      className={`border-b border-slate-200 transition-colors ${
+        statutSauvegarde === "dirty" ? "bg-orange-50/20" : "bg-white"
+      }`}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          sauvegarder();
+        }
+      }}
+    >
+      {/* ── COLONNE 1 : COURS (1er COURS, 2e COURS...) ── */}
+      <td className="w-28 border-r border-slate-200 bg-slate-50/60 p-4 text-center align-middle">
+        <div className="flex flex-col items-center justify-center gap-1">
+          <span className="font-extrabold text-slate-900 tracking-tight text-xs uppercase">
+            {labelNumeroCours(numeroCours)}
+          </span>
+          <span className="text-[10px] font-semibold text-slate-400">
+            S{semaine}
+          </span>
+        </div>
+      </td>
+
+      {/* ── COLONNE 2 : FICHE PÉDAGOGIQUE (THEME CENTRÉ, CONTENU LIGNE PAR LIGNE, EXERCICES) ── */}
+      <td className="p-4 align-top">
+        <div className="space-y-3">
+          {erreur && (
+            <div className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700">
+              {erreur}
+            </div>
+          )}
+
+          {/* 1. THÈME CENTRÉ */}
+          <div className="border-b border-slate-200 pb-2">
+            <input
+              ref={themeInputRef}
+              type="text"
+              value={theme}
+              placeholder="THÈME : EX. LOGIQUE ET RAISONNEMENT"
+              onChange={(e) => {
+                setTheme(e.target.value);
+                setStatutSauvegarde("dirty");
+              }}
+              className="w-full text-center font-black text-slate-900 uppercase tracking-wide text-xs sm:text-sm py-2 px-3 bg-slate-50/50 hover:bg-slate-100/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-orange/30 rounded-xl transition-all"
+            />
+          </div>
+
+          {/* 2. CONTENU LIGNE PAR LIGNE */}
+          <div className="space-y-1.5 py-1">
+            <span className="text-[11px] font-black text-slate-700 tracking-wider uppercase block">
+              CONTENU :
+            </span>
+
+            <div className="space-y-1.5">
+              {lines.map((line, idx) => (
+                <div key={idx} className="group/line flex items-center gap-2">
+                  <span className="select-none font-bold text-slate-400 text-xs shrink-0">
+                    -
+                  </span>
+                  <input
+                    ref={(el) => {
+                      lineInputRefs.current[idx] = el;
+                    }}
+                    type="text"
+                    value={line}
+                    placeholder={
+                      idx === 0
+                        ? "Ex: Définir une proposition logique et ses connecteurs..."
+                        : "Ajouter un point clé..."
+                    }
+                    onChange={(e) => handleLineChange(idx, e.target.value)}
+                    onKeyDown={(e) => handleLineKeyDown(idx, e)}
+                    onPaste={(e) => handleLinePaste(idx, e)}
+                    className="flex-1 rounded-lg border border-transparent hover:border-slate-200 focus:border-brand-orange bg-transparent focus:bg-white px-2.5 py-1 text-xs text-slate-800 focus:outline-none transition-all"
+                  />
+                  {lines.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveLine(idx)}
+                      className="opacity-0 group-hover/line:opacity-100 p-1 text-slate-400 hover:text-rose-600 rounded cursor-pointer transition-opacity"
+                      title="Supprimer cette ligne"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAddLine}
+              className="inline-flex items-center gap-1 pt-1 text-[11px] font-semibold text-brand-orange hover:text-brand-orange/80 cursor-pointer"
+            >
+              <Plus size={12} />
+              <span>Ajouter une ligne (ou appuyez sur Entrée)</span>
+            </button>
+          </div>
+
+          {/* 3. EXERCICES */}
+          <div className="flex items-center gap-2 border-t border-slate-200 pt-2.5 text-xs">
+            <span className="text-[11px] font-black text-slate-700 tracking-wider uppercase shrink-0">
+              EXERCICES :
+            </span>
+            <input
+              type="text"
+              value={exercices}
+              placeholder="Ex: 1, 2, 4, 12 ou Planche TD N° 1..."
+              onChange={(e) => {
+                setExercices(e.target.value);
+                setStatutSauvegarde("dirty");
+              }}
+              className="flex-1 rounded-lg border border-transparent hover:border-slate-200 focus:border-brand-orange bg-transparent focus:bg-white px-2.5 py-1 font-semibold text-slate-800 text-xs focus:outline-none transition-all"
+            />
+          </div>
+        </div>
+      </td>
+
+      {/* ── COLONNE 3 : ACTIONS & STATUT ── */}
+      <td className="w-28 border-l border-slate-200 p-4 text-center align-middle">
+        <div className="flex flex-col items-center justify-center gap-2">
+          {statutSauvegarde === "saving" && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-orange">
+              <Loader2 size={12} className="animate-spin" />
+              <span>Sauvegarde...</span>
+            </span>
+          )}
+
+          {statutSauvegarde === "saved" && (
+            <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700">
+              <Check size={12} />
+              <span>À jour</span>
+            </span>
+          )}
+
+          {statutSauvegarde === "dirty" && (
+            <button
+              type="button"
+              onClick={sauvegarder}
+              disabled={creerMutation.isPending || modifierMutation.isPending}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-brand-orange px-3 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-brand-orange/90 transition-all cursor-pointer"
+              title="Raccourci : Ctrl + Entrée"
+            >
+              <Save size={12} />
+              <span>Enregistrer</span>
+            </button>
+          )}
+
+          {progression ? (
+            <button
+              type="button"
+              onClick={() => onSupprimer?.(progression)}
+              className="p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
+              title="Supprimer ce cours"
+            >
+              <Trash2 size={14} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onAnnulerDraft}
+              className="p-1 text-[11px] font-medium text-slate-400 hover:text-slate-600 rounded cursor-pointer"
+            >
+              Annuler
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+// ── Composant Principal : Fiche de Progression Éditable In-Situ ──
+
+interface SyllabusFiliereViewProps {
+  formationId: string;
+  formationNom: string;
+  matiereId: string;
+  matiereNom?: string;
+  sessionId: string;
+  phaseId?: string;
+  sessionAnnee?: string;
+  progressions: Progression[];
+  affectations: Affectation[];
+  onAjouter?: (prefill?: { semaine?: number; numeroCours?: number }) => void;
+  onModifier?: (progression: Progression) => void;
+  onSupprimer?: (progression: Progression) => void;
+  onOuvrirSaisieLot?: () => void;
+  onOuvrirDuplication?: () => void;
+}
+
+export function SyllabusFiliereView({
+  formationId,
+  formationNom,
+  matiereId,
+  matiereNom = "MATHEMATIQUES",
+  sessionId,
+  phaseId = "",
+  sessionAnnee = "2026",
+  progressions,
+  affectations,
+  onSupprimer,
+  onOuvrirSaisieLot,
+  onOuvrirDuplication,
+  onAjouter,
+}: SyllabusFiliereViewProps) {
+  const supprimerMutation = useSupprimerProgression();
+
+  // Liste ordonnée de toutes les semaines disponibles
+  const semainesDisponibles = useMemo(() => {
+    const sSet = new Set<number>();
+    progressions.forEach((p) => sSet.add(p.semaine));
+    affectations.forEach((a) => sSet.add(a.semaine));
+    if (sSet.size === 0) sSet.add(1);
+
+    return Array.from(sSet).sort((a, b) => a - b);
+  }, [progressions, affectations]);
+
+  // Semaine sélectionnée (par défaut : première semaine ou "TOUTES")
+  const [semaineSelectionnee, setSemaineSelectionnee] = useState<number | "TOUTES">(
+    () => semainesDisponibles[0] ?? 1,
+  );
+
+  // Brouillons en cours de création in-situ (par semaine)
+  const [draftsParSemaine, setDraftsParSemaine] = useState<
+    Record<number, boolean>
+  >({});
+
+  // Groupement des progressions par semaine
+  const progressionsParSemaine = useMemo(() => {
+    const map = new Map<number, Progression[]>();
+    semainesDisponibles.forEach((s) => map.set(s, []));
+
+    progressions.forEach((p) => {
+      const list = map.get(p.semaine) ?? [];
+      list.push(p);
+      map.set(p.semaine, list);
+    });
+
+    map.forEach((list) => {
+      list.sort((a, b) => a.numeroCours - b.numeroCours);
+    });
+
+    return map;
+  }, [semainesDisponibles, progressions]);
+
+  // Semaines à afficher dans le tableau
+  const semainesAffichees = useMemo(() => {
+    if (semaineSelectionnee === "TOUTES") {
+      return semainesDisponibles;
+    }
+    return [semaineSelectionnee];
+  }, [semaineSelectionnee, semainesDisponibles]);
+
+  async function handleSupprimer(p: Progression) {
+    if (onSupprimer) {
+      onSupprimer(p);
+      return;
+    }
+    if (
+      !window.confirm(
+        `Supprimer définitivement le cours "${p.theme || `Cours ${p.numeroCours}`}" ?`,
+      )
+    ) {
+      return;
+    }
+    await supprimerMutation.mutateAsync(p.id);
+  }
+
+  function handleCreerBrouillon(semaine: number) {
+    setDraftsParSemaine((prev) => ({ ...prev, [semaine]: true }));
+  }
+
+  function handleAnnulerBrouillon(semaine: number) {
+    setDraftsParSemaine((prev) => ({ ...prev, [semaine]: false }));
+  }
+
+  function handleAjouterNouvelleSemaine() {
+    const maxSemaine =
+      semainesDisponibles.length > 0
+        ? Math.max(...semainesDisponibles)
+        : 1;
+    const nouvelleSemaine = maxSemaine + 1;
+    setSemaineSelectionnee(nouvelleSemaine);
+    setDraftsParSemaine((prev) => ({ ...prev, [nouvelleSemaine]: true }));
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* ── BANDEAU EN-TÊTE DE LA FICHE PAPIER EXCELIS PRÉPAS ── */}
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs">
+        <div className="flex flex-col gap-3 text-center sm:text-left sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-3.5">
+          <div>
+            <h2 className="text-base sm:text-lg font-black tracking-tight text-slate-900 uppercase">
+              FICHE DE PROGRESSION EXCELIS PREPAS {sessionAnnee}
+            </h2>
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600">
+              <span className="rounded-md bg-orange-100 px-2 py-0.5 text-brand-orange uppercase">
+                FORMATION : {formationNom}
+              </span>
+              <span>•</span>
+              <span className="text-slate-800 uppercase font-bold">
+                MATIÈRE : {matiereNom}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2">
+            {onOuvrirDuplication && (
+              <button
+                type="button"
+                onClick={onOuvrirDuplication}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors cursor-pointer"
+                title="Copier le syllabus vers ou depuis une autre filière"
+              >
+                <Copy size={13} className="text-slate-500" />
+                <span>Dupliquer</span>
+              </button>
+            )}
+
+            {onOuvrirSaisieLot && (
+              <button
+                type="button"
+                onClick={onOuvrirSaisieLot}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-2xs hover:border-brand-orange hover:text-brand-orange transition-colors cursor-pointer"
+                title="Coller plusieurs thèmes en une seule fois"
+              >
+                <Sparkles size={13} className="text-amber-500" />
+                <span>Saisie en lot</span>
+              </button>
+            )}
+
+            {onAjouter && (
+              <button
+                type="button"
+                onClick={() => onAjouter()}
+                className="bg-brand-orange hover:bg-brand-orange/90 inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-white shadow-xs transition-all hover:shadow-md cursor-pointer"
+              >
+                <Plus size={14} />
+                <span>Nouveau cours</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ── BARRE DE SÉLECTION DES SEMAINES ── */}
+        <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 pt-1">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            {semainesDisponibles.map((s) => {
+              const count = progressionsParSemaine.get(s)?.length ?? 0;
+              const estActive = semaineSelectionnee === s;
+
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setSemaineSelectionnee(s)}
+                  className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                    estActive
+                      ? "bg-brand-orange text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200/70"
+                  }`}
+                >
+                  <span>Semaine {s}</span>
+                  <span
+                    className={`rounded-full px-1.5 py-0.2 text-[10px] ${
+                      estActive
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-200 text-slate-600"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+
+            <button
+              type="button"
+              onClick={() => setSemaineSelectionnee("TOUTES")}
+              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                semaineSelectionnee === "TOUTES"
+                  ? "bg-slate-900 text-white shadow-xs"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200/70"
+              }`}
+            >
+              Toutes les semaines ({progressions.length})
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleAjouterNouvelleSemaine}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:border-brand-orange hover:text-brand-orange transition-colors cursor-pointer shrink-0"
+          >
+            <Plus size={13} />
+            <span>+ Nouvelle Semaine</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── TABLEAU ÉDITABLE SUR PLACE (STYLE EXCELIS PREPAS PAPIER) ── */}
+      <div className="space-y-6">
+        {semainesAffichees.map((semaine) => {
+          const coursList = progressionsParSemaine.get(semaine) ?? [];
+          const aBrouillon = draftsParSemaine[semaine];
+          const prochainNumero = coursList.length + 1;
+
+          return (
+            <div
+              key={semaine}
+              className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs"
+            >
+              {/* Titre de la semaine au-dessus du tableau si vue multi-semaines */}
+              {semaineSelectionnee === "TOUTES" && (
+                <div className="bg-slate-100/80 px-4 py-2 text-xs font-black uppercase text-slate-700 flex items-center justify-between border-b border-slate-200">
+                  <span>Semaine {semaine}</span>
+                  <span className="text-[11px] font-semibold text-slate-500">
+                    {coursList.length} cours rédigé{coursList.length > 1 ? "s" : ""}
+                  </span>
+                </div>
+              )}
+
+              <table className="w-full border-collapse text-left">
+                {/* ── EN-TÊTE ORANGE FIDÈLE AU PAPIER EXCELIS ── */}
+                <thead>
+                  <tr className="bg-brand-orange text-white text-xs font-bold tracking-wider uppercase">
+                    <th className="w-28 p-3 text-center border-r border-orange-600/40">
+                      COURS
+                    </th>
+                    <th className="p-3 text-center border-r border-orange-600/40">
+                      {matiereNom.toUpperCase()}
+                    </th>
+                    <th className="w-28 p-3 text-center">
+                      ACTIONS
+                    </th>
+                  </tr>
+                </thead>
+
+                {/* ── LIGNES DU TABLEAU DE PROGRESSION ── */}
+                <tbody className="divide-y divide-slate-200">
+                  {/* Si aucun cours et pas de brouillon, proposer immédiatement un brouillon */}
+                  {coursList.length === 0 && !aBrouillon ? (
+                    <tr>
+                      <td colSpan={3} className="p-8 text-center bg-slate-50/40">
+                        <BookOpen className="mx-auto h-8 w-8 text-slate-300 mb-2" />
+                        <p className="text-xs font-bold text-slate-700">
+                          Aucun cours renseigné pour la Semaine {semaine}
+                        </p>
+                        <p className="text-[11px] text-slate-400 mt-0.5 mb-3">
+                          Commencez à remplir directement la progression dans le tableau ci-dessous.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => handleCreerBrouillon(semaine)}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-brand-orange px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-brand-orange/90 transition-all cursor-pointer"
+                        >
+                          <Plus size={14} />
+                          <span>Remplir le 1er Cours de la Semaine {semaine}</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ) : (
+                    coursList.map((cours) => (
+                      <LigneCoursExcelis
+                        key={cours.id}
+                        progression={cours}
+                        semaine={cours.semaine}
+                        numeroCours={cours.numeroCours}
+                        formationId={formationId}
+                        matiereId={matiereId}
+                        sessionId={sessionId}
+                        phaseId={phaseId}
+                        onSupprimer={handleSupprimer}
+                      />
+                    ))
+                  )}
+
+                  {/* Ligne de brouillon in-situ (ajout direct dans le tableau) */}
+                  {aBrouillon && (
+                    <LigneCoursExcelis
+                      key={`draft-${semaine}-${prochainNumero}`}
+                      draftId={`draft-${semaine}-${prochainNumero}`}
+                      semaine={semaine}
+                      numeroCours={prochainNumero}
+                      formationId={formationId}
+                      matiereId={matiereId}
+                      sessionId={sessionId}
+                      phaseId={phaseId}
+                      onAnnulerDraft={() => handleAnnulerBrouillon(semaine)}
+                    />
+                  )}
+
+                  {/* Bouton pour ajouter un cours suivant directement dans la table */}
+                  {!aBrouillon && coursList.length > 0 && (
+                    <tr className="bg-slate-50/50 hover:bg-orange-50/30 transition-colors">
+                      <td colSpan={3} className="p-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleCreerBrouillon(semaine)}
+                          className="inline-flex items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:border-brand-orange hover:text-brand-orange transition-all cursor-pointer"
+                        >
+                          <Plus size={14} className="text-brand-orange" />
+                          <span>
+                            + Ajouter un cours ({labelNumeroCours(prochainNumero)}) à la Semaine {semaine}
+                          </span>
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+

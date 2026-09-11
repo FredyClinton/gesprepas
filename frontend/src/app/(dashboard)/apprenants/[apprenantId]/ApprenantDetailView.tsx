@@ -85,11 +85,11 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
         </Link>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-brand-anthracite text-3xl font-bold">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
               {apprenant.prenom} {apprenant.nom}
             </h1>
             <p className="text-brand-gray mt-1 text-sm">
-              {formation?.nom ?? "—"} · {centre?.nom ?? "—"}
+              {formation?.nom ?? "-"} · {centre?.nom ?? "-"}
               {session ? ` · Session ${session.annee}` : ""}
             </p>
           </div>

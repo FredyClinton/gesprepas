@@ -5,4 +5,5 @@
 export type Matiere = {
   id: string;
   nom: string;
+  couleur?: string;
 };

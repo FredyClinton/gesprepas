@@ -1,7 +1,7 @@
 import type { HTMLAttributes } from "react";
 
 // Conteneur de carte générique (KPI, panneau, ligne de contenu). Pas de logique
-// métier — uniquement la charte visuelle (fond blanc, bordure fine grise).
+// métier - uniquement la charte visuelle (fond blanc, bordure fine grise).
 export function Card({
   className = "",
   ...props

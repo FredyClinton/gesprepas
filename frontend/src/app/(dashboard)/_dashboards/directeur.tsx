@@ -16,7 +16,7 @@ import { useApprenants } from "@/modules/apprenants";
 import { useCentres, useSessionActive } from "@/modules/centres-sessions";
 import Link from "next/link";
 // manque côté API (taux de recouvrement, dossiers, soldes financiers consolidés).
-const PLACEHOLDER = "—";
+const PLACEHOLDER = "-";
 
 export function DirecteurDashboard() {
   const { data: apprenants, isLoading: chargementApprenants } = useApprenants();
@@ -34,15 +34,15 @@ export function DirecteurDashboard() {
       {/* En-tête de page : spécifique à cet écran, pas dans le TopBar partagé */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-brand-anthracite text-4xl font-bold">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
             Vision Globale
           </h1>
-          <p className="text-brand-gray mt-1.5 text-base">
+          <p className="mt-1 text-sm text-slate-500">
             Aperçu consolidé des performances du réseau EXCELIS PRÉPAS
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {/* Affiche la session active réelle — changer de session n'est pas encore
+          {/* Affiche la session active réelle - changer de session n'est pas encore
               possible depuis cet écran (pas de sélecteur multi-session construit). */}
           <button
             type="button"
@@ -51,7 +51,7 @@ export function DirecteurDashboard() {
             {sessionActive ? `Session ${sessionActive.annee}` : "…"}
             <ChevronDown size={16} />
           </button>
-          {/* Export — visuel uniquement, aucune logique d'export n'existe encore */}
+          {/* Export - visuel uniquement, aucune logique d'export n'existe encore */}
           <Button>
             <Download size={18} />
             Exporter le rapport
@@ -112,7 +112,7 @@ export function DirecteurDashboard() {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-brand-anthracite text-brand-white">
+            <thead className="border-b border-slate-200 bg-slate-100/90 text-slate-700">
               <tr>
                 {[
                   "Centre",
@@ -126,14 +126,14 @@ export function DirecteurDashboard() {
                 ].map((titre) => (
                   <th
                     key={titre}
-                    className="p-4 text-xs font-bold tracking-wide uppercase"
+                    className="p-3.5 text-xs font-bold tracking-wider uppercase"
                   >
                     {titre}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-brand-gray/10 divide-y">
+            <tbody className="divide-y divide-slate-100">
               {chargementCentres && (
                 <tr>
                   <td colSpan={8} className="text-brand-gray p-5 text-center">
@@ -142,7 +142,10 @@ export function DirecteurDashboard() {
                 </tr>
               )}
               {centres?.map((centre) => (
-                <tr key={centre.id}>
+                <tr
+                  key={centre.id}
+                  className="hover:bg-amber-50/70 transition-colors duration-150 border-b border-slate-100 last:border-0"
+                >
                   <td className="text-brand-anthracite p-4 font-bold">
                     {centre.nom}
                   </td>

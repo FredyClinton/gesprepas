@@ -6,14 +6,22 @@ export function listFormations(): Promise<Formation[]> {
   return apiFetch<Formation[]>("/api/formations");
 }
 
+export function getFormation(id: string): Promise<Formation> {
+  return apiFetch<Formation>(`/api/formations/${id}`);
+}
+
 export function createFormation(input: {
   nom: string;
-  centreId: string;
-  sessionId: string;
+  centreId?: string;
+  sessionId?: string;
+  matiereIds?: string[];
 }): Promise<Formation> {
   return apiFetch<Formation>("/api/formations", {
     method: "POST",
-    body: JSON.stringify(input),
+    body: JSON.stringify({
+      nom: input.nom,
+      matiereIds: input.matiereIds ?? [],
+    }),
   });
 }
 
@@ -29,3 +37,28 @@ export function supprimerFormation(id: string): Promise<void> {
     method: "DELETE",
   });
 }
+
+export function associerMatiereFormation(
+  id: string,
+  matiereId: string,
+): Promise<Formation> {
+  return apiFetch<Formation>(`/api/formations/${id}/matieres/${matiereId}`, {
+    method: "POST",
+  });
+}
+
+export function dissocierMatiereFormation(
+  id: string,
+  matiereId: string,
+): Promise<Formation> {
+  return apiFetch<Formation>(`/api/formations/${id}/matieres/${matiereId}`, {
+    method: "DELETE",
+  });
+}
+
+export function listMatieresFormation(
+  id: string,
+): Promise<{ id: string; nom: string }[]> {
+  return apiFetch<{ id: string; nom: string }[]>(`/api/formations/${id}/matieres`);
+}
+

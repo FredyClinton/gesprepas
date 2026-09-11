@@ -5,8 +5,13 @@ import { useSession } from "next-auth/react";
 
 import {
   creerEnseignant,
+  definirSalairePersonnel,
+  getAncienneteEnseignant,
   getEnseignant,
+  getHistoriqueSalairePersonnel,
+  getPersonnel,
   listEnseignants,
+  listPersonnel,
   modifierCoutParSeance,
   reactiverEnseignant,
   renommerEnseignant,
@@ -25,6 +30,14 @@ export function useEnseignant(id: string | undefined) {
   return useQuery({
     queryKey: ["enseignant", id],
     queryFn: () => getEnseignant(id!),
+    enabled: Boolean(id),
+  });
+}
+
+export function useAncienneteEnseignant(id: string | undefined) {
+  return useQuery({
+    queryKey: ["enseignant-anciennete", id],
+    queryFn: () => getAncienneteEnseignant(id!),
     enabled: Boolean(id),
   });
 }
@@ -86,7 +99,7 @@ export function useSuspendreEnseignant() {
   return useMutation({
     mutationFn: (id: string) => suspendreEnseignant(id, session?.user.role),
     // La suspension désassigne aussi côté backend les créneaux ASSIGNEE de cet
-    // enseignant (voir AffectationService.suspendreEnseignant) — sans invalider
+    // enseignant (voir AffectationService.suspendreEnseignant) - sans invalider
     // ces requêtes, le planning et la fiche enseignant restent affichés comme
     // avant la suspension jusqu'au prochain rechargement manuel.
     onSuccess: () => {
@@ -112,5 +125,63 @@ export function useSupprimerEnseignant() {
   return useMutation({
     mutationFn: (id: string) => supprimerEnseignant(id, session?.user.role),
     onSuccess: invalider,
+  });
+}
+
+export function usePersonnel(id: string | undefined) {
+  return useQuery({
+    queryKey: ["personnel", id],
+    queryFn: () => getPersonnel(id!),
+    enabled: Boolean(id),
+  });
+}
+
+export function usePersonnelList() {
+  return useQuery({
+    queryKey: ["personnel-list"],
+    queryFn: listPersonnel,
+  });
+}
+
+export function useHistoriqueSalairePersonnel(
+  personnelId: string | undefined,
+  sessionId: string | undefined,
+) {
+  return useQuery({
+    queryKey: ["personnel-salaire-historique", personnelId, sessionId],
+    queryFn: () => getHistoriqueSalairePersonnel(personnelId!, sessionId!),
+    enabled: Boolean(personnelId && sessionId),
+  });
+}
+
+export function useDefinirSalairePersonnel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      personnelId,
+      sessionId,
+      salaireReference,
+      dateDebutEffet,
+    }: {
+      personnelId: string;
+      sessionId: string;
+      salaireReference: number;
+      dateDebutEffet?: string;
+    }) =>
+      definirSalairePersonnel(
+        personnelId,
+        sessionId,
+        salaireReference,
+        dateDebutEffet,
+      ),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: [
+          "personnel-salaire-historique",
+          variables.personnelId,
+          variables.sessionId,
+        ],
+      });
+    },
   });
 }

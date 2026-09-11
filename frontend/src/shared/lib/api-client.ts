@@ -1,5 +1,5 @@
 // Wrapper fetch générique vers l'API backend EXCELIS PRÉPAS. Les modules l'utilisent
-// dans leur `data/client.ts` pour construire leurs appels typés — pas d'appel fetch()
+// dans leur `data/client.ts` pour construire leurs appels typés - pas d'appel fetch()
 // brut ailleurs dans l'app.
 
 const API_BASE_URL =
@@ -16,7 +16,7 @@ export class ApiError extends Error {
   }
 }
 
-// Message à afficher à l'utilisateur pour une erreur d'appel API — jamais le
+// Message à afficher à l'utilisateur pour une erreur d'appel API - jamais le
 // message brut du backend en 5xx (exception non gérée par un handler domaine
 // dédié, ex : erreur DB, bug non mappé) qui peut être un texte technique/Java,
 // pas rédigé pour un humain. En 4xx, le backend a un handler dédié qui rédige

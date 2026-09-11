@@ -8,6 +8,8 @@ export type Utilisateur = {
   role: Role;
   centreId: string | null;
   departementId: string | null;
+  telephone?: string | null;
+  numeroCni?: string | null;
 };
 
 export type LoginRequest = {

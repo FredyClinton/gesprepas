@@ -5,4 +5,5 @@ export type Salle = {
   centreId: string;
   sessionId: string;
   formationId: string;
+  phaseId: string;
 };

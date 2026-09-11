@@ -18,6 +18,7 @@ export function createSalle(input: {
   centreId: string;
   sessionId: string;
   formationId: string;
+  phaseId?: string;
 }): Promise<Salle> {
   return apiFetch<Salle>("/api/salles", {
     method: "POST",

@@ -1,6 +1,11 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import {
   assignerEnseignant,
@@ -38,8 +43,48 @@ export function useAffectations({
   });
 }
 
+type UseAffectationsMultiMatiereParams = {
+  sessionId: string | undefined;
+  semaine: number;
+  matiereIds: string[];
+  centreId?: string;
+};
+
+// Vue combinée pour un Chef de plusieurs départements ("Tous mes départements") :
+// une requête par matière (même clé de cache que useAffectations, donc invalidée par
+// les mêmes mutations), fusionnées en une seule liste. Le filtre `matiereId` de
+// l'API ne prend qu'une valeur — pas de endpoint liste côté backend pour l'instant.
+export function useAffectationsMultiMatiere({
+  sessionId,
+  semaine,
+  matiereIds,
+  centreId,
+}: UseAffectationsMultiMatiereParams) {
+  const résultats = useQueries({
+    queries: matiereIds.map((matiereId) => ({
+      queryKey: ["affectations", sessionId, semaine, matiereId, centreId],
+      queryFn: () =>
+        listAffectations({
+          sessionId: sessionId!,
+          semaine,
+          matiereId,
+          centreId,
+        }),
+      enabled: Boolean(sessionId),
+    })),
+  });
+
+  return {
+    data: résultats.every((r) => r.data !== undefined)
+      ? résultats.flatMap((r) => r.data!)
+      : undefined,
+    isLoading: résultats.some((r) => r.isLoading),
+    isError: résultats.some((r) => r.isError),
+  };
+}
+
 // Pas de mise à jour optimiste : le backend valide la disponibilité de l'enseignant
-// au moment de l'assignation (409 possible) — on préfère réinterroger plutôt que
+// au moment de l'assignation (409 possible) - on préfère réinterroger plutôt que
 // de supposer le succès dans l'UI avant confirmation du serveur.
 export function useAssignerEnseignant() {
   const queryClient = useQueryClient();
@@ -52,7 +97,7 @@ export function useAssignerEnseignant() {
   });
 }
 
-// Création d'un créneau — matière uniquement, sans enseignant (statut PLANIFIEE en
+// Création d'un créneau - matière uniquement, sans enseignant (statut PLANIFIEE en
 // sortie). L'assignation est une étape séparée volontaire, via useAssignerEnseignant
 // (décision du 30/08/2026 : créer d'abord, assigner ensuite, pas les deux en un clic).
 export function useCreerCreneau() {
@@ -110,7 +155,7 @@ export function useAnnulerEffectuee() {
   });
 }
 
-// Suppression définitive — utilisée par le bouton "Supprimer le créneau" de la
+// Suppression définitive - utilisée par le bouton "Supprimer le créneau" de la
 // grille (voir client.ts : distincte de useAnnulerCreneau, qui reste disponible
 // mais n'est plus branché sur aucun bouton pour l'instant).
 export function useSupprimerCreneau() {
@@ -123,7 +168,7 @@ export function useSupprimerCreneau() {
   });
 }
 
-// Historique des séances d'un enseignant (fiche enseignant) — toutes semaines
+// Historique des séances d'un enseignant (fiche enseignant) - toutes semaines
 // confondues, pour une session donnée.
 export function useAffectationsParEnseignant(
   enseignantId: string | undefined,

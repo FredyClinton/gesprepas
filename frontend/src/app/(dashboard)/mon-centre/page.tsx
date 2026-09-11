@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { CentreDetailView } from "../centres/[centreId]/CentreDetailView";
 
-// Réservé au Chef de Centre — remplace les anciens écrans séparés Formations/Salles
+// Réservé au Chef de Centre - remplace les anciens écrans séparés Formations/Salles
 // par la même vue que la fiche centre du Directeur Académique, sur son propre centre.
 export default async function MonCentrePage() {
   const session = await auth();

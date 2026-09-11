@@ -53,7 +53,7 @@ export function InscriptionApprenantView({ centreId }: { centreId: string }) {
                 prenom: values.prenom,
                 dateNaissance: values.dateNaissance,
                 // Pas de champ visible pour la date d'inscription (absente de la
-                // maquette) — on envoie la date du jour, hypothèse à confirmer si
+                // maquette) - on envoie la date du jour, hypothèse à confirmer si
                 // ça ne convient pas.
                 dateInscription: new Date().toISOString().slice(0, 10),
                 montantContrat: values.montantContrat,
@@ -83,7 +83,7 @@ export function InscriptionApprenantView({ centreId }: { centreId: string }) {
                     <UserPlus size={18} />
                 </div>
                 <div>
-                    <h1 className="text-brand-anthracite text-2xl font-bold">
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">
                         Inscription Apprenant
                     </h1>
                     <p className="text-brand-gray text-sm">
@@ -95,7 +95,7 @@ export function InscriptionApprenantView({ centreId }: { centreId: string }) {
             {!sessionActive && (
                 <Card className="p-4">
                     <p className="text-brand-gray text-sm">
-                        Aucune session en cours — impossible d&rsquo;inscrire un apprenant
+                        Aucune session en cours - impossible d&rsquo;inscrire un apprenant
                         tant qu&rsquo;une session n&rsquo;est pas active.
                     </p>
                 </Card>
@@ -298,7 +298,7 @@ export function InscriptionApprenantView({ centreId }: { centreId: string }) {
                                                                     className="border-brand-gray/20 mb-2 w-full rounded border px-2 py-1.5 text-sm outline-none"
                                                                 />
                                                                 <p className="text-brand-gray p-2 text-xs">
-                                                                    Fonctionnalité à venir — la
+                                                                    Fonctionnalité à venir - la
                                                                     liste des reçus n&rsquo;est
                                                                     pas encore disponible côté
                                                                     serveur.
@@ -313,7 +313,7 @@ export function InscriptionApprenantView({ centreId }: { centreId: string }) {
 
                                     <p className="text-brand-gray text-xs">
                                         Établissement d&rsquo;origine, informations du parent et
-                                        pré-inscription : pas encore enregistrés côté serveur —
+                                        pré-inscription : pas encore enregistrés côté serveur -
                                         capturés ici en prévision d&rsquo;une future mise à jour
                                         du backend.
                                     </p>

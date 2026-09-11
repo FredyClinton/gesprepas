@@ -1,6 +1,6 @@
 // Miroir de `DossierResponse` (backend, module dossier). Module volontairement
 // minimal : sert uniquement à résoudre le statut du dossier d'un apprenant (écran
-// Apprenants) — pas encore de gestion des concours/pièces côté frontend.
+// Apprenants) - pas encore de gestion des concours/pièces côté frontend.
 export type StatutDossier = "OUVERT" | "COMPLET" | "CLOTURE";
 
 export type Dossier = {

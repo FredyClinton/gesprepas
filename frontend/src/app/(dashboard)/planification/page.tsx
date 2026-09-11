@@ -7,7 +7,7 @@ import { PlanificationView } from "./PlanificationView";
 // que marquer les séances de son propre centre comme effectuées, une fois un
 // enseignant assigné (les autres centres restent visibles mais désactivés). Les
 // autres rôles ont aussi ce lien de nav (shared/layout/nav-items.ts) mais n'ont pas
-// de workflow confirmé ici — vue en lecture seule pour eux, pas de contenu inventé.
+// de workflow confirmé ici - vue en lecture seule pour eux, pas de contenu inventé.
 export default async function PlanificationPage() {
   const session = await auth();
   const utilisateur = session!.user;
@@ -22,6 +22,7 @@ export default async function PlanificationPage() {
         <PlanificationView
           role="CHEF_DEPARTEMENT"
           departementId={utilisateur.departementId}
+          chefId={utilisateur.id}
         />
       );
     case "CHEF_CENTRE":
@@ -37,6 +38,7 @@ export default async function PlanificationPage() {
         <PlanificationView
           role={utilisateur.role}
           departementId={null}
+          centreId={utilisateur.centreId}
           readOnly
         />
       );

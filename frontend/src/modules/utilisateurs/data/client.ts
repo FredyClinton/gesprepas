@@ -9,9 +9,13 @@ export function login(payload: LoginRequest): Promise<LoginResponse> {
   });
 }
 
-// Pas de filtre côté backend (GET /api/utilisateurs retourne la liste complète) —
+// Pas de filtre côté backend (GET /api/utilisateurs retourne la liste complète) -
 // le filtrage par centre se fait côté client, comme pour les autres écrans qui
 // dérivent un sous-ensemble d'une liste globale déjà chargée.
 export function listUtilisateurs(): Promise<Utilisateur[]> {
   return apiFetch<Utilisateur[]>("/api/utilisateurs");
+}
+
+export function getUtilisateur(id: string): Promise<Utilisateur> {
+  return apiFetch<Utilisateur>(`/api/utilisateurs/${id}`);
 }

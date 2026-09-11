@@ -13,8 +13,8 @@ export function CentresListView() {
   return (
     <div className="mx-auto max-w-5xl space-y-8">
       <div>
-        <h1 className="text-brand-anthracite text-4xl font-bold">Centres</h1>
-        <p className="text-brand-gray mt-1.5 text-base">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Centres</h1>
+        <p className="mt-1 text-sm text-slate-500">
           Choisissez un centre pour voir sa fiche.
         </p>
       </div>

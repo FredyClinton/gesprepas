@@ -55,7 +55,7 @@ export function DossierAdministratifTab({
     useConcoursDuDossier(dossier?.id);
   const { data: piecesRequises } = usePiecesRequises();
 
-  // MOCK — pas encore de dossier réel pour cet apprenant (base de dev vide, ou
+  // MOCK - pas encore de dossier réel pour cet apprenant (base de dev vide, ou
   // apprenant qui n'a simplement pas encore de dossier ouvert). On affiche l'état
   // final attendu de l'onglet avec des données fictives plutôt qu'un onglet vide,
   // voir MOCK_DOSSIER dans mocks.ts.
@@ -68,7 +68,7 @@ export function DossierAdministratifTab({
           </span>
           <span className="text-brand-gray">
             {" "}
-            — cet apprenant n&rsquo;a pas encore de dossier réel. Les données
+            - cet apprenant n&rsquo;a pas encore de dossier réel. Les données
             ci-dessous sont fictives, à titre d&rsquo;illustration.
           </span>
         </div>

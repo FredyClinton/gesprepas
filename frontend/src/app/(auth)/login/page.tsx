@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Eye, EyeOff } from "lucide-react";
 
-import { Button, Card, Input } from "@/shared/ui";
+import { Button, Input } from "@/shared/ui";
 import { loginSchema, type LoginFormValues } from "@/modules/utilisateurs";
 
 export default function LoginPage() {
@@ -25,7 +25,7 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
   });
 
-  // Déjà connecté (ex: revenu manuellement sur /login) : pas la peine d'y rester —
+  // Déjà connecté (ex: revenu manuellement sur /login) : pas la peine d'y rester -
   // le proxy (étape 5) exclut volontairement /login de sa protection, donc cette
   // page reste accessible même avec une session active.
   useEffect(() => {
@@ -42,7 +42,7 @@ export default function LoginPage() {
 
     if (resultat?.error) {
       // "CredentialsSignin" est le code SPÉCIFIQUE renvoyé quand authorize() (auth.ts)
-      // retourne `null` — c.-à-d. email inconnu ou mot de passe incorrect (volontairement
+      // retourne `null` - c.-à-d. email inconnu ou mot de passe incorrect (volontairement
       // indifférenciés, par sécurité). Tout autre code (backend injoignable, erreur 500...)
       // mérite un message différent : dire "mot de passe incorrect" alors que le vrai
       // problème est un serveur injoignable serait trompeur.

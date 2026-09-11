@@ -17,6 +17,7 @@ import {
   ClipboardList,
   UserRound,
   TrendingUp,
+  GraduationCap,
 } from "lucide-react";
 
 import type { Role } from "@/types/roles";
@@ -30,6 +31,7 @@ export type NavItem = {
 const NAV_DIRECTEUR: NavItem[] = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
   { href: "/centres", label: "Centres", icon: MapPin },
+  { href: "/departements", label: "Départements", icon: Building2 },
   { href: "/planification", label: "Planification", icon: CalendarClock },
   { href: "/finances", label: "Finances", icon: Wallet },
   { href: "/paie", label: "Paie", icon: Banknote },
@@ -60,15 +62,16 @@ const NAV_CHEF_CENTRE: NavItem[] = [
   { href: "/parametres", label: "Paramètres", icon: Settings },
 ];
 
-// Maquette Directeur Académique (Stitch) — troisième maquette confirmée.
+// Maquette Directeur Académique (Stitch) - troisième maquette confirmée.
 const NAV_DIRECTEUR_ACADEMIQUE: NavItem[] = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
   { href: "/centres", label: "Centres", icon: MapPin },
+  { href: "/formations", label: "Formations", icon: GraduationCap },
   { href: "/enseignants", label: "Enseignants", icon: UserRound },
   { href: "/departements", label: "Départements", icon: Building2 },
   { href: "/planification", label: "Planification", icon: CalendarClock },
   { href: "/concours-blancs", label: "Concours blancs", icon: ClipboardList },
-  { href: "/progressions", label: "Progressions", icon: TrendingUp },
+  { href: "/progression", label: "Progression", icon: TrendingUp },
   { href: "/parametres", label: "Paramètres", icon: Settings },
   { href: "/rapports", label: "Rapports", icon: BarChart3 },
 ];
@@ -83,6 +86,29 @@ const NAV_CHEF_DEPARTEMENT: NavItem[] = [
   { href: "/parametres", label: "Paramètres", icon: Settings },
 ];
 
+const NAV_COMPTABLE: NavItem[] = [
+  { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
+  { href: "/finances", label: "Finances", icon: Wallet },
+  { href: "/paie", label: "Paie", icon: Banknote },
+  {
+    href: "/bilan-journalier",
+    label: "Bilan Journalier",
+    icon: ClipboardCheck,
+  },
+  { href: "/rapports", label: "Rapports", icon: BarChart3 },
+];
+
+const NAV_CAISSIER: NavItem[] = [
+  { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
+  { href: "/finances", label: "Finances", icon: Wallet },
+  { href: "/paie", label: "Paie", icon: Banknote },
+  {
+    href: "/bilan-journalier",
+    label: "Bilan Journalier",
+    icon: ClipboardCheck,
+  },
+];
+
 const NAV_ITEMS_BY_ROLE: Record<Role, NavItem[]> = {
   DIRECTEUR: NAV_DIRECTEUR,
   DIRECTEUR_ACADEMIQUE: NAV_DIRECTEUR_ACADEMIQUE,
@@ -90,8 +116,8 @@ const NAV_ITEMS_BY_ROLE: Record<Role, NavItem[]> = {
   CHEF_DEPARTEMENT: NAV_CHEF_DEPARTEMENT,
   CHARGE_DOSSIER: NAV_PAR_DEFAUT,
   SUPERVISEUR_DOSSIERS: NAV_PAR_DEFAUT,
-  CAISSIER: NAV_PAR_DEFAUT,
-  COMPTABLE: NAV_PAR_DEFAUT,
+  CAISSIER: NAV_CAISSIER,
+  COMPTABLE: NAV_COMPTABLE,
 };
 
 export function getNavItems(role: Role): NavItem[] {

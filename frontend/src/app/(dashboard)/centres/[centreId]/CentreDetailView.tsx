@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -23,9 +23,13 @@ import {
   ArrowRightLeft,
   Mail,
   UserRound,
+  Building2,
+  AlertTriangle,
+  Calendar,
+  ChevronRight,
 } from "lucide-react";
 
-import { Button, Card, Input, iconButtonClass } from "@/shared/ui";
+import { Button, Card, Input, Modal } from "@/shared/ui";
 import { messageErreurApi } from "@/shared/lib/api-client";
 import {
   useCentres,
@@ -42,13 +46,13 @@ import {
 } from "@/modules/centres-sessions";
 import {
   useFormations,
-  useCreateFormation,
-  useRenommerFormation,
-  useSupprimerFormation,
-  formationSchema,
   type Formation,
-  type FormationFormValues,
 } from "@/modules/academique";
+import {
+  useFormationsAbonneesCentre,
+  useAbonnerCentreFormation,
+  useDesabonnerCentreFormation,
+} from "@/modules/abonnement";
 import {
   useSalles,
   useCreateSalle,
@@ -58,9 +62,42 @@ import {
   type Salle,
 } from "@/modules/salle";
 import { useUtilisateurs } from "@/modules/utilisateurs";
+import { useEnseignants } from "@/modules/personnel";
 import { ROLE_LABELS, type Role } from "@/types/roles";
 
 type Onglet = "informations" | "personnel" | "performances";
+
+const ORDRE_ROLES_PERSONNEL: Role[] = [
+  "CHEF_CENTRE",
+  "CHARGE_DOSSIER",
+  "CAISSIER",
+];
+
+const AVATAR_COLORS = [
+  "bg-blue-50 text-blue-700 border-blue-200",
+  "bg-emerald-50 text-emerald-700 border-emerald-200",
+  "bg-purple-50 text-purple-700 border-purple-200",
+  "bg-amber-50 text-amber-700 border-amber-200",
+  "bg-rose-50 text-rose-700 border-rose-200",
+  "bg-cyan-50 text-cyan-700 border-cyan-200",
+  "bg-indigo-50 text-indigo-700 border-indigo-200",
+  "bg-orange-50 text-brand-orange border-orange-200",
+];
+
+function getAvatarStyles(str: string) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % AVATAR_COLORS.length;
+  return AVATAR_COLORS[index];
+}
+
+function getInitials(prenom: string, nom: string) {
+  const p = prenom?.trim().charAt(0) ?? "";
+  const n = nom?.trim().charAt(0) ?? "";
+  return `${p}${n}`.toUpperCase() || "-";
+}
 
 export function CentreDetailView({
   centreId,
@@ -72,20 +109,20 @@ export function CentreDetailView({
 }: {
   centreId: string;
   peutGererAcademique: boolean;
-  // Réservé au Directeur et au Chef de Centre — le Directeur Académique gère les
-  // formations/salles depuis cette même page mais ne relocalise pas le centre.
   peutRelocaliser: boolean;
-  // Réservé au Directeur seul — ni le Directeur Académique ni le Chef de Centre ne
-  // peuvent fermer/rouvrir un centre.
   peutFermerCentre?: boolean;
-  // Réservé au Directeur et au Directeur Académique — pas au Chef de Centre.
   peutRejoindreSession?: boolean;
-  // Le Chef de Centre (écran "Mon centre") n'a pas accès à /centres — pas de lien de
-  // retour à afficher dans ce cas.
   masquerRetour?: boolean;
 }) {
-  const { data: centres, isLoading } = useCentres();
+  const { data: centres, isLoading: chargementCentres } = useCentres();
   const { data: sessionActive } = useSessionActive();
+  const { data: formationsDuCentre = [] } = useFormationsAbonneesCentre(
+    centreId,
+    sessionActive?.id,
+  );
+  const { data: salles = [] } = useSalles(sessionActive?.id);
+  const { data: utilisateurs = [] } = useUtilisateurs();
+
   const [onglet, setOnglet] = useState<Onglet>("informations");
   const fermerCentre = useFermerCentre();
   const rouvrirCentre = useRouvrirCentre();
@@ -96,6 +133,34 @@ export function CentreDetailView({
       ? centre.sessionIds.includes(sessionActive.id)
       : false;
 
+  const formationsAbonneesIds = useMemo(
+    () => new Set(formationsDuCentre.map((f) => f.id)),
+    [formationsDuCentre],
+  );
+
+  const sallesDuCentre = useMemo(() => {
+    if (!rejointSessionActive) return [];
+    return salles.filter(
+      (s) =>
+        s.centreId === centreId && formationsAbonneesIds.has(s.formationId),
+    );
+  }, [salles, centreId, rejointSessionActive, formationsAbonneesIds]);
+
+  const personnelDuCentre = useMemo(
+    () =>
+      utilisateurs
+        .filter(
+          (u) =>
+            u.centreId === centreId && ORDRE_ROLES_PERSONNEL.includes(u.role),
+        )
+        .sort(
+          (a, b) =>
+            ORDRE_ROLES_PERSONNEL.indexOf(a.role) -
+            ORDRE_ROLES_PERSONNEL.indexOf(b.role),
+        ),
+    [utilisateurs, centreId],
+  );
+
   async function toggleStatutCentre() {
     if (!centre) return;
     if (centre.statut === "OUVERT") {
@@ -105,11 +170,11 @@ export function CentreDetailView({
     }
   }
 
-  if (isLoading) {
+  if (chargementCentres) {
     return (
       <div className="mx-auto max-w-7xl">
-        <p className="text-brand-gray p-8 text-center text-base">
-          Chargement...
+        <p className="text-slate-400 p-12 text-center text-sm">
+          Chargement du centre...
         </p>
       </div>
     );
@@ -118,14 +183,14 @@ export function CentreDetailView({
   if (!centre) {
     return (
       <div className="mx-auto max-w-7xl">
-        <Card className="p-10 text-center">
-          <p className="text-brand-anthracite text-lg font-bold">
+        <Card className="p-10 text-center rounded-2xl border border-slate-200">
+          <p className="text-slate-800 text-lg font-bold">
             Centre introuvable
           </p>
           {!masquerRetour && (
             <Link
               href="/centres"
-              className="text-brand-orange mt-3 inline-block text-sm font-bold"
+              className="text-brand-orange mt-3 inline-block text-sm font-bold hover:underline"
             >
               Retour à la liste des centres
             </Link>
@@ -136,104 +201,252 @@ export function CentreDetailView({
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
-      <div>
-        {!masquerRetour && (
+    <div className="mx-auto max-w-7xl space-y-6 pb-12 animate-in fade-in duration-200">
+      {/* Fil d'Ariane */}
+      {!masquerRetour && (
+        <div className="flex items-center gap-2 text-sm text-slate-500">
           <Link
             href="/centres"
-            className="text-brand-gray hover:text-brand-anthracite mb-4 inline-flex items-center gap-1.5 text-sm font-bold"
+            className="hover:text-brand-orange inline-flex items-center gap-1.5 font-medium transition-colors"
           >
             <ArrowLeft size={16} />
-            Retour à la liste des centres
+            Centres
           </Link>
-        )}
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="bg-brand-orange/10 text-brand-orange rounded-lg p-3">
-              <MapPin size={26} />
+          <span className="text-slate-300">/</span>
+          <span className="font-semibold text-slate-900 truncate">
+            {centre.nom}
+          </span>
+        </div>
+      )}
+
+      {/* Hero Banner d'identité du Centre */}
+      <Card className="p-6 relative overflow-hidden bg-gradient-to-r from-white via-white to-slate-50/70 border border-slate-200/80 shadow-sm rounded-2xl">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-start sm:items-center gap-4">
+            {/* Avatar / Icône du Centre */}
+            <div className="relative shrink-0">
+              <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-brand-orange to-amber-500 text-white font-black text-xl flex items-center justify-center shadow-md shadow-brand-orange/20">
+                <Building2 size={30} />
+              </div>
+              <span
+                className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white ${
+                  centre.statut === "OUVERT" ? "bg-emerald-500" : "bg-slate-400"
+                }`}
+                title={
+                  centre.statut === "OUVERT"
+                    ? "Centre ouvert"
+                    : "Centre fermé"
+                }
+              />
             </div>
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-brand-anthracite text-4xl font-bold">
+
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">
                   {centre.nom}
                 </h1>
                 <span
-                  className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${
                     centre.statut === "OUVERT"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-brand-gray/10 text-brand-gray"
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
+                      : "bg-slate-100 text-slate-600 border border-slate-200"
                   }`}
                 >
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      centre.statut === "OUVERT"
+                        ? "bg-emerald-500"
+                        : "bg-slate-400"
+                    }`}
+                  />
                   {centre.statut === "OUVERT" ? "Ouvert" : "Fermé"}
                 </span>
+
+                {rejointSessionActive ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200/70">
+                    <CalendarRange size={12} />
+                    Session active
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200/70">
+                    Non rattaché à la session active
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-y-1 gap-x-4 text-xs text-slate-500">
+                <div className="flex items-center gap-1.5">
+                  <MapPin size={13} className="text-brand-orange" />
+                  <span className="font-semibold text-slate-700">
+                    {centre.villeActuelle}
+                  </span>
+                  <span className="text-slate-300">•</span>
+                  <span>{centre.adresseActuelle}</span>
+                </div>
               </div>
             </div>
           </div>
-          {peutFermerCentre && (
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={toggleStatutCentre}
-              disabled={fermerCentre.isPending || rouvrirCentre.isPending}
-            >
-              <span className="flex items-center gap-1.5">
-                {centre.statut === "OUVERT" ? (
-                  <Ban size={16} />
-                ) : (
-                  <RotateCcw size={16} />
-                )}
-                {centre.statut === "OUVERT"
-                  ? "Fermer le centre"
-                  : "Rouvrir le centre"}
+
+          {/* Actions d'administration du centre */}
+          <div className="flex flex-wrap items-center gap-2.5 self-start md:self-center">
+            {peutFermerCentre && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={toggleStatutCentre}
+                disabled={fermerCentre.isPending || rouvrirCentre.isPending}
+                className="text-xs h-9 px-3.5"
+              >
+                <span className="flex items-center gap-1.5 font-bold">
+                  {centre.statut === "OUVERT" ? (
+                    <>
+                      <Ban size={14} className="text-red-500" />
+                      Fermer le centre
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw size={14} className="text-emerald-600" />
+                      Rouvrir le centre
+                    </>
+                  )}
+                </span>
+              </Button>
+            )}
+          </div>
+        </div>
+      </Card>
+
+      {/* 4 Cartes KPI Synthèse */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* KPI 1 : Sessions */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center gap-3.5 hover:shadow-sm transition-all">
+          <div className="h-12 w-12 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 shrink-0">
+            <CalendarRange size={22} />
+          </div>
+          <div>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              Sessions
+            </p>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="text-2xl font-extrabold text-slate-900">
+                {centre.sessionIds.length}
               </span>
-            </Button>
-          )}
+              <span className="text-xs text-slate-400">rejointe(s)</span>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 2 : Formations */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center gap-3.5 hover:shadow-sm transition-all">
+          <div className="h-12 w-12 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center text-brand-orange shrink-0">
+            <GraduationCap size={22} />
+          </div>
+          <div>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              Formations
+            </p>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="text-2xl font-extrabold text-slate-900">
+                {formationsDuCentre.length}
+              </span>
+              <span className="text-xs text-slate-400">filière(s)</span>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 3 : Salles */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center gap-3.5 hover:shadow-sm transition-all">
+          <div className="h-12 w-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+            <DoorOpen size={22} />
+          </div>
+          <div>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              Salles
+            </p>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="text-2xl font-extrabold text-slate-900">
+                {sallesDuCentre.length}
+              </span>
+              <span className="text-xs text-slate-400">aménagée(s)</span>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 4 : Personnel */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center gap-3.5 hover:shadow-sm transition-all">
+          <div className="h-12 w-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+            <Users size={22} />
+          </div>
+          <div>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              Personnel
+            </p>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="text-2xl font-extrabold text-slate-900">
+                {personnelDuCentre.length}
+              </span>
+              <span className="text-xs text-slate-400">collaborateur(s)</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Onglets */}
-      <div className="border-brand-gray/20 flex gap-8 border-b">
+      {/* Navigation par Onglets moderne */}
+      <div className="flex items-center gap-2 border-b border-slate-200/80 pb-px">
         <button
           type="button"
           onClick={() => setOnglet("informations")}
-          className={`flex items-center gap-2 border-b-2 pb-3 text-base font-bold ${
+          className={`flex items-center gap-2 pb-3 px-3 text-sm font-bold border-b-2 transition-all ${
             onglet === "informations"
               ? "border-brand-orange text-brand-orange"
-              : "text-brand-gray border-transparent"
+              : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
-          <Info size={18} />
-          Informations &amp; Paramètres
+          <Info size={16} />
+          Informations &amp; Infrastructure
         </button>
         <button
           type="button"
           onClick={() => setOnglet("personnel")}
-          className={`flex items-center gap-2 border-b-2 pb-3 text-base font-bold ${
+          className={`flex items-center gap-2 pb-3 px-3 text-sm font-bold border-b-2 transition-all ${
             onglet === "personnel"
               ? "border-brand-orange text-brand-orange"
-              : "text-brand-gray border-transparent"
+              : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
-          <Users size={18} />
-          Personnel
+          <Users size={16} />
+          Personnel du Centre
+          <span
+            className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+              onglet === "personnel"
+                ? "bg-orange-100 text-brand-orange"
+                : "bg-slate-100 text-slate-500"
+            }`}
+          >
+            {personnelDuCentre.length}
+          </span>
         </button>
         <button
           type="button"
           onClick={() => setOnglet("performances")}
-          className={`flex items-center gap-2 border-b-2 pb-3 text-base font-bold ${
+          className={`flex items-center gap-2 pb-3 px-3 text-sm font-bold border-b-2 transition-all ${
             onglet === "performances"
               ? "border-brand-orange text-brand-orange"
-              : "text-brand-gray border-transparent"
+              : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
-          <LineChart size={18} />
+          <LineChart size={16} />
           Performances
+          <span className="text-[10px] uppercase font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-400">
+            Bientôt
+          </span>
         </button>
       </div>
 
+      {/* Contenu des Onglets */}
       {onglet === "informations" && (
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-          <div className="space-y-8">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-start">
+          <div className="space-y-6">
             <SessionsRejointes
               centreId={centre.id}
               sessionIds={centre.sessionIds}
@@ -244,6 +457,7 @@ export function CentreDetailView({
               peutRelocaliser={peutRelocaliser}
             />
           </div>
+
           <FormationsEtSalles
             centreId={centre.id}
             sessionId={sessionActive?.id}
@@ -253,100 +467,148 @@ export function CentreDetailView({
         </div>
       )}
 
-      {onglet === "personnel" && <PersonnelDuCentre centreId={centre.id} />}
+      {onglet === "personnel" && (
+        <PersonnelDuCentre personnel={personnelDuCentre} />
+      )}
 
       {onglet === "performances" && (
-        <OngletPlaceholder icone={<LineChart size={28} />} />
+        <OngletPlaceholder icone={<LineChart size={32} />} />
       )}
     </div>
   );
 }
 
-// Onglet "Performances" : pas encore implémenté côté backend pour ce périmètre —
-// simple placeholder en attendant.
+// Onglet "Performances" : placeholder
 function OngletPlaceholder({ icone }: { icone: React.ReactNode }) {
   return (
-    <Card className="flex flex-col items-center gap-3 p-16 text-center">
-      <div className="bg-brand-gray/10 text-brand-gray rounded-full p-4">
+    <Card className="flex flex-col items-center gap-3 p-16 text-center rounded-2xl border border-slate-200/80">
+      <div className="bg-slate-50 text-slate-400 rounded-2xl p-4 border border-slate-100">
         {icone}
       </div>
-      <p className="text-brand-anthracite text-base font-bold">
-        Bientôt disponible
+      <p className="text-slate-800 text-lg font-bold">
+        Tableau de bord des performances
       </p>
-      <p className="text-brand-gray text-sm">
-        Cet onglet sera implémenté dans une prochaine version.
+      <p className="text-slate-400 text-sm max-w-sm">
+        Les indicateurs de fréquentation, taux d&rsquo;occupation des salles et statistiques financières de ce centre seront consultables ici.
       </p>
     </Card>
   );
 }
 
-// Colocalisé : personnel administratif rattaché à ce centre (Chef de Centre, Chargé
-// des dossiers, Caissier — les rôles centre-scope, voir CENTRE_SCOPE_ROLES). Pas
-// d'endpoint dédié côté backend : GET /api/utilisateurs retourne la liste complète,
-// filtrée ici côté client par centreId, comme pour les autres listes dérivées de
-// cet écran.
-const ORDRE_ROLES_PERSONNEL: Role[] = [
-  "CHEF_CENTRE",
-  "CHARGE_DOSSIER",
-  "CAISSIER",
-];
+// Personnel rattaché au centre
+function PersonnelDuCentre({
+  personnel,
+}: {
+  personnel: ReturnType<typeof useUtilisateurs>["data"];
+}) {
+  const personnelList = personnel ?? [];
+  const { data: enseignants = [] } = useEnseignants();
 
-function PersonnelDuCentre({ centreId }: { centreId: string }) {
-  const { data: utilisateurs, isLoading } = useUtilisateurs();
-
-  const personnelDuCentre = (utilisateurs ?? [])
-    .filter(
-      (u) => u.centreId === centreId && ORDRE_ROLES_PERSONNEL.includes(u.role),
-    )
-    .sort(
-      (a, b) =>
-        ORDRE_ROLES_PERSONNEL.indexOf(a.role) -
-        ORDRE_ROLES_PERSONNEL.indexOf(b.role),
+  // Détection de statut enseignant pour chaque membre du personnel
+  const trouverEnseignantAssocie = (u: {
+    id: string;
+    email?: string | null;
+    telephone?: string | null;
+    nom: string;
+    prenom: string;
+  }) => {
+    return enseignants.find(
+      (e) =>
+        e.id === u.id ||
+        (u.email && e.email && e.email.toLowerCase() === u.email.toLowerCase()) ||
+        (u.telephone && e.telephone && e.telephone === u.telephone) ||
+        (e.nom.trim().toLowerCase() === u.nom.trim().toLowerCase() &&
+          e.prenom.trim().toLowerCase() === u.prenom.trim().toLowerCase()),
     );
+  };
 
   return (
-    <Card className="overflow-hidden">
-      <ul className="divide-brand-gray/10 divide-y">
-        {isLoading && (
-          <li className="text-brand-gray p-5 text-center text-sm">
-            Chargement...
-          </li>
-        )}
-        {!isLoading && personnelDuCentre.length === 0 && (
-          <li className="text-brand-gray p-5 text-center text-sm">
-            Aucun personnel rattaché à ce centre pour l&rsquo;instant.
-          </li>
-        )}
-        {personnelDuCentre.map((u) => (
-          <li key={u.id} className="flex items-center justify-between p-5">
-            <div className="flex items-center gap-4">
-              <div className="bg-brand-orange/10 text-brand-orange rounded-lg p-2">
-                <UserRound size={20} />
-              </div>
-              <div>
-                <p className="text-brand-anthracite text-base font-bold">
-                  {u.prenom} {u.nom}
-                </p>
-                <p className="text-brand-gray flex items-center gap-1.5 text-sm">
-                  <Mail size={13} />
-                  {u.email}
-                </p>
-              </div>
-            </div>
-            <span className="bg-brand-anthracite/10 text-brand-anthracite rounded-full px-3 py-1.5 text-xs font-bold uppercase">
-              {ROLE_LABELS[u.role]}
-            </span>
-          </li>
-        ))}
-      </ul>
+    <Card className="overflow-hidden rounded-2xl border border-slate-200/80 shadow-xs">
+      <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+        <div>
+          <h3 className="font-bold text-slate-900 text-base">
+            Personnel Administratif &amp; Opérationnel
+          </h3>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Membres de l&rsquo;équipe assignés à la gestion de ce centre
+          </p>
+        </div>
+        <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+          {personnelList.length} collaborateur{personnelList.length > 1 ? "s" : ""}
+        </span>
+      </div>
+
+      {personnelList.length === 0 ? (
+        <div className="p-12 text-center">
+          <UserRound className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+          <p className="text-sm font-semibold text-slate-700">
+            Aucun personnel rattaché à ce centre
+          </p>
+          <p className="text-xs text-slate-400 mt-1">
+            Les collaborateurs rattachés au centre apparaîtront automatiquement dans cette liste.
+          </p>
+        </div>
+      ) : (
+        <ul className="divide-y divide-slate-100">
+          {personnelList.map((u) => {
+            const enseignantAssocie = trouverEnseignantAssocie(u);
+            return (
+              <li key={u.id}>
+                <Link
+                  href={`/personnel/${u.id}`}
+                  className="flex items-center justify-between p-4 sm:p-5 hover:bg-amber-50/60 transition-colors group cursor-pointer"
+                  title="Cliquer pour voir la fiche détaillée de ce personnel"
+                >
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div
+                      className={`h-11 w-11 rounded-xl flex items-center justify-center font-bold text-xs border shrink-0 ${getAvatarStyles(
+                        `${u.prenom} ${u.nom}`,
+                      )}`}
+                    >
+                      {getInitials(u.prenom, u.nom)}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-bold text-slate-900 group-hover:text-brand-orange transition-colors truncate">
+                          {u.prenom} {u.nom}
+                        </p>
+                        {enseignantAssocie && (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-orange-50 text-brand-orange border border-orange-200/80"
+                            title="Ce collaborateur exerce également en tant qu'enseignant"
+                          >
+                            <GraduationCap size={12} />
+                            Enseignant
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5 truncate">
+                        <Mail size={12} className="text-slate-400 shrink-0" />
+                        {u.email}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0 ml-3">
+                    <span className="bg-slate-100 text-slate-700 font-bold border border-slate-200/80 rounded-full px-3 py-1 text-xs">
+                      {ROLE_LABELS[u.role]}
+                    </span>
+                    <ChevronRight
+                      size={16}
+                      className="text-slate-300 group-hover:text-brand-orange group-hover:translate-x-0.5 transition-all"
+                    />
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </Card>
   );
 }
 
-// Colocalisé : liste des sessions académiques rejointes par ce centre, plus un point
-// d'entrée pour en rejoindre une nouvelle. On ne propose que les sessions EN_COURS ou
-// PLANIFIEE (pas les CLOTUREE) — le backend rejette de toute façon une session
-// clôturée (SessionNonUtilisableException), mais autant ne pas la proposer.
+// Sessions rejointes par ce centre
 function SessionsRejointes({
   centreId,
   sessionIds,
@@ -356,7 +618,7 @@ function SessionsRejointes({
   sessionIds: string[];
   peutRejoindreSession: boolean;
 }) {
-  const { data: sessions } = useSessions();
+  const { data: sessions, isLoading } = useSessions();
   const sessionsDuCentre = sessions?.filter((s) => sessionIds.includes(s.id));
   const sessionsDisponibles = sessions?.filter(
     (s) => !sessionIds.includes(s.id) && s.statut !== "CLOTUREE",
@@ -371,104 +633,118 @@ function SessionsRejointes({
   }
 
   return (
-    <section>
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-brand-anthracite text-xl font-bold">
-          Sessions rejointes
-        </h2>
+    <Card className="rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+      <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/40">
+        <div className="flex items-center gap-2.5">
+          <span className="p-2 rounded-xl bg-purple-50 text-purple-600 border border-purple-100">
+            <CalendarRange size={18} />
+          </span>
+          <div>
+            <h2 className="text-base font-bold text-slate-900">
+              Sessions Rejointes
+            </h2>
+            <p className="text-xs text-slate-400">
+              Années académiques associées à ce centre
+            </p>
+          </div>
+        </div>
+
         {peutRejoindreSession &&
           sessionsDisponibles &&
           sessionsDisponibles.length > 0 && (
             <button
               type="button"
               onClick={() => setSelecteurOuvert((o) => !o)}
-              className="text-brand-orange flex items-center gap-1 text-xs font-bold"
+              className="text-brand-orange hover:text-brand-orange/80 inline-flex items-center gap-1 text-xs font-bold transition-colors"
             >
-              <Plus size={12} />
+              <Plus size={14} />
               Rejoindre une session
             </button>
           )}
       </div>
 
       {selecteurOuvert && (
-        <div className="border-brand-gray/20 mb-3 flex flex-wrap gap-2 rounded-md border p-3">
-          {sessionsDisponibles?.map((session) => (
-            <button
-              key={session.id}
-              type="button"
-              onClick={() => rejoindreSession(session.id)}
-              disabled={rejoindre.isPending}
-              className="border-brand-gray/30 text-brand-anthracite hover:border-brand-orange rounded-full border px-3 py-1.5 text-xs font-bold disabled:opacity-50"
-            >
-              {session.annee} —{" "}
-              {session.statut === "EN_COURS" ? "En cours" : "Planifiée"}
-            </button>
-          ))}
+        <div className="p-4 bg-purple-50/50 border-b border-purple-100/60 space-y-2">
+          <p className="text-xs font-bold text-purple-900 uppercase tracking-wider">
+            Sélectionner une session disponible :
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {sessionsDisponibles?.map((session) => (
+              <button
+                key={session.id}
+                type="button"
+                onClick={() => rejoindreSession(session.id)}
+                disabled={rejoindre.isPending}
+                className="bg-white border border-purple-200 text-purple-900 hover:border-brand-orange hover:text-brand-orange rounded-xl px-3 py-1.5 text-xs font-bold shadow-xs transition-all disabled:opacity-50"
+              >
+                {session.annee} -{" "}
+                {session.statut === "EN_COURS" ? "En cours" : "Planifiée"}
+              </button>
+            ))}
+          </div>
         </div>
       )}
+
       {rejoindre.isError && (
-        <p className="mb-3 text-xs font-bold text-red-600">
-          Échec de l&rsquo;opération. Réessayez.
-        </p>
+        <div className="p-3 bg-red-50 text-red-700 text-xs font-semibold border-b border-red-100 flex items-center gap-2">
+          <AlertTriangle size={14} className="text-red-500 shrink-0" />
+          <span>Échec du rattachement à la session. Veuillez réessayer.</span>
+        </div>
       )}
 
-      <Card className="overflow-hidden">
-        <ul className="divide-brand-gray/10 divide-y">
-          {sessionsDuCentre === undefined && (
-            <li className="text-brand-gray p-5 text-center text-sm">
-              Chargement...
-            </li>
-          )}
-          {sessionsDuCentre?.length === 0 && (
-            <li className="text-brand-gray p-5 text-center text-sm">
-              Ce centre n&rsquo;a rejoint aucune session pour l&rsquo;instant.
-            </li>
-          )}
-          {sessionsDuCentre?.map((session) => (
-            <li
-              key={session.id}
-              className="flex items-center justify-between p-5"
-            >
-              <div className="flex items-center gap-4">
-                <div className="bg-brand-orange/10 text-brand-orange rounded-lg p-2">
-                  <CalendarRange size={20} />
-                </div>
-                <div>
-                  <p className="text-brand-anthracite text-base font-bold">
-                    {session.annee}
-                  </p>
-                  <p className="text-brand-gray text-sm">
-                    {new Date(session.dateDebut).toLocaleDateString("fr-FR")} —{" "}
-                    {new Date(session.dateFin).toLocaleDateString("fr-FR")}
-                  </p>
-                </div>
+      <div className="divide-y divide-slate-100">
+        {isLoading && (
+          <p className="p-5 text-center text-xs text-slate-400">
+            Chargement des sessions...
+          </p>
+        )}
+        {!isLoading && sessionsDuCentre?.length === 0 && (
+          <p className="p-6 text-center text-xs text-slate-400">
+            Ce centre n&rsquo;a rejoint aucune session pour l&rsquo;instant.
+          </p>
+        )}
+        {sessionsDuCentre?.map((session) => (
+          <div
+            key={session.id}
+            className="flex items-center justify-between p-4 hover:bg-slate-50/50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs">
+                <Calendar size={16} />
               </div>
-              <span
-                className={`rounded-full px-3 py-1.5 text-xs font-bold uppercase ${
-                  session.statut === "EN_COURS"
-                    ? "bg-green-100 text-green-800"
-                    : session.statut === "PLANIFIEE"
-                      ? "bg-brand-orange/10 text-brand-orange"
-                      : "bg-brand-gray/10 text-brand-gray"
-                }`}
-              >
-                {session.statut === "EN_COURS"
-                  ? "En cours"
+              <div>
+                <p className="text-sm font-bold text-slate-900">
+                  {session.annee}
+                </p>
+                <p className="text-xs text-slate-400">
+                  {new Date(session.dateDebut).toLocaleDateString("fr-FR")} -{" "}
+                  {new Date(session.dateFin).toLocaleDateString("fr-FR")}
+                </p>
+              </div>
+            </div>
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide ${
+                session.statut === "EN_COURS"
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
                   : session.statut === "PLANIFIEE"
-                    ? "Planifiée"
-                    : "Clôturée"}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </Card>
-    </section>
+                    ? "bg-blue-50 text-blue-700 border border-blue-200/80"
+                    : "bg-slate-100 text-slate-600 border border-slate-200"
+              }`}
+            >
+              {session.statut === "EN_COURS"
+                ? "En cours"
+                : session.statut === "PLANIFIEE"
+                  ? "Planifiée"
+                  : "Clôturée"}
+            </span>
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 
-// Colocalisé : adresse actuelle, relocalisation, historique des adresses (repliable).
-// L'historique n'est PAS sur `Centre` (CentreResponse ne l'embarque pas) : c'est un
-// endpoint séparé, GET /api/centres/{id}/localisations (voir useLocalisations).
+// Localisation et historique des adresses
 function InformationsDuCentre({
   centre,
   peutRelocaliser,
@@ -507,7 +783,6 @@ function InformationsDuCentre({
     }
   });
 
-  // Historique trié le plus récent en premier, comme sur la maquette.
   const historiqueTrie = [...(historique ?? [])].sort(
     (a, b) =>
       new Date(b.dateDebutValidite).getTime() -
@@ -515,123 +790,145 @@ function InformationsDuCentre({
   );
 
   return (
-    <section>
-      <h2 className="text-brand-anthracite mb-4 text-xl font-bold">
-        Informations du Centre
-      </h2>
-      <Card className="p-6">
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <h3 className="text-brand-anthracite text-sm font-bold tracking-wide uppercase">
-            Adresse actuelle
-          </h3>
-          {peutRelocaliser && (
+    <Card className="rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2.5">
+          <span className="p-2 rounded-xl bg-orange-50 text-brand-orange border border-orange-100">
+            <MapPin size={18} />
+          </span>
+          <div>
+            <h3 className="text-base font-bold text-slate-900">
+              Adresse &amp; Localisation
+            </h3>
+            <p className="text-xs text-slate-400">
+              Emplacement géographique actuel du centre
+            </p>
+          </div>
+        </div>
+
+        {peutRelocaliser && (
+          <Button
+            type="button"
+            variant="secondary"
+            className="text-xs h-8 px-3 font-semibold"
+            onClick={() => setOuvrirFormulaire((o) => !o)}
+          >
+            {ouvrirFormulaire ? "Annuler" : "Relocaliser"}
+          </Button>
+        )}
+      </div>
+
+      {!ouvrirFormulaire || !peutRelocaliser ? (
+        <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-slate-400 font-medium">Adresse courante</p>
+            <p className="text-sm font-bold text-slate-900 mt-0.5">
+              {centre.adresseActuelle}, {centre.villeActuelle}
+            </p>
+          </div>
+          <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-2 py-0.5 rounded-full">
+            Actuelle
+          </span>
+        </div>
+      ) : (
+        <form
+          onSubmit={onSubmit}
+          className="space-y-3 p-4 rounded-xl bg-slate-50 border border-slate-200"
+          noValidate
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Input
+              label="Nouvelle adresse"
+              placeholder="Ex : Avenue Kennedy"
+              error={errors.adresse?.message}
+              {...register("adresse")}
+            />
+            <Input
+              label="Nouvelle ville"
+              placeholder="Ex : Yaoundé"
+              error={errors.ville?.message}
+              {...register("ville")}
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
             <Button
               type="button"
               variant="secondary"
-              onClick={() => setOuvrirFormulaire((o) => !o)}
+              className="text-xs"
+              onClick={() => setOuvrirFormulaire(false)}
             >
-              {ouvrirFormulaire ? "Annuler" : "Relocaliser le centre"}
+              Annuler
             </Button>
+            <Button type="submit" disabled={isSubmitting} className="text-xs font-bold">
+              {isSubmitting ? "Enregistrement..." : "Confirmer"}
+            </Button>
+          </div>
+          {errors.root && (
+            <p className="text-xs font-bold text-red-600">
+              {errors.root.message}
+            </p>
           )}
-        </div>
+        </form>
+      )}
 
-        {!ouvrirFormulaire || !peutRelocaliser ? (
-          <p className="text-brand-anthracite text-base">
-            {centre.adresseActuelle}, {centre.villeActuelle}
-          </p>
-        ) : (
-          <form onSubmit={onSubmit} className="space-y-4" noValidate>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Input
-                label="Nouvelle adresse"
-                placeholder="Ex : Avenue Kennedy"
-                error={errors.adresse?.message}
-                {...register("adresse")}
-              />
-              <Input
-                label="Nouvelle ville"
-                placeholder="Ex : Yaoundé"
-                error={errors.ville?.message}
-                {...register("ville")}
-              />
-            </div>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting
-                ? "Enregistrement..."
-                : "Confirmer la relocalisation"}
-            </Button>
-            {errors.root && (
-              <p className="text-sm font-bold text-red-600">
-                {errors.root.message}
-              </p>
-            )}
-          </form>
-        )}
-
+      {/* Accordéon Historique */}
+      <div className="pt-2 border-t border-slate-100">
         <button
           type="button"
           onClick={() => setHistoriqueOuvert((o) => !o)}
-          className="text-brand-anthracite border-brand-gray/15 mt-5 flex w-full items-center justify-between border-t pt-4 text-sm font-bold tracking-wide uppercase"
+          className="flex w-full items-center justify-between text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors uppercase tracking-wider"
         >
-          Historique des adresses
+          <span>Historique des adresses ({historiqueTrie.length})</span>
           <ChevronDown
             size={16}
-            className={`transition-transform ${historiqueOuvert ? "rotate-180" : ""}`}
+            className={`transition-transform duration-200 ${
+              historiqueOuvert ? "rotate-180 text-brand-orange" : "text-slate-400"
+            }`}
           />
         </button>
 
         {historiqueOuvert && (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-brand-gray/15 border-b">
-                  {["Adresse", "Ville", "Date de début", "Date de fin"].map(
-                    (titre) => (
-                      <th
-                        key={titre}
-                        className="text-brand-gray p-3 text-xs font-bold tracking-wide uppercase"
-                      >
-                        {titre}
-                      </th>
-                    ),
-                  )}
+          <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200/70">
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
+                <tr>
+                  <th className="p-2.5 font-bold uppercase tracking-wider">Adresse</th>
+                  <th className="p-2.5 font-bold uppercase tracking-wider">Ville</th>
+                  <th className="p-2.5 font-bold uppercase tracking-wider">Période</th>
+                  <th className="p-2.5 font-bold uppercase tracking-wider">Statut</th>
                 </tr>
               </thead>
-              <tbody className="divide-brand-gray/10 divide-y">
+              <tbody className="divide-y divide-slate-100">
                 {chargementHistorique && (
                   <tr>
-                    <td colSpan={4} className="text-brand-gray p-4 text-center">
+                    <td colSpan={4} className="p-4 text-center text-slate-400">
                       Chargement...
                     </td>
                   </tr>
                 )}
                 {!chargementHistorique && historiqueTrie.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="text-brand-gray p-4 text-center">
-                      Aucun historique pour l&rsquo;instant.
+                    <td colSpan={4} className="p-4 text-center text-slate-400">
+                      Aucun historique d&rsquo;adresse enregistré.
                     </td>
                   </tr>
                 )}
                 {historiqueTrie.map((loc) => (
-                  <tr key={loc.id}>
-                    <td className="text-brand-anthracite p-3 font-bold">
-                      {loc.adresse}
+                  <tr key={loc.id} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="p-2.5 font-semibold text-slate-900">{loc.adresse}</td>
+                    <td className="p-2.5 text-slate-600">{loc.ville}</td>
+                    <td className="p-2.5 text-slate-500 font-mono text-[11px]">
+                      {new Date(loc.dateDebutValidite).toLocaleDateString("fr-FR")}{" "}
+                      -{" "}
+                      {loc.dateFinValidite
+                        ? new Date(loc.dateFinValidite).toLocaleDateString("fr-FR")
+                        : "Aujourd'hui"}
                     </td>
-                    <td className="text-brand-gray p-3">{loc.ville}</td>
-                    <td className="text-brand-gray p-3">
-                      {new Date(loc.dateDebutValidite).toLocaleDateString(
-                        "fr-FR",
-                      )}
-                    </td>
-                    <td className="p-3">
+                    <td className="p-2.5">
                       {loc.dateFinValidite ? (
-                        <span className="text-brand-gray">
-                          {new Date(loc.dateFinValidite).toLocaleDateString(
-                            "fr-FR",
-                          )}
-                        </span>
+                        <span className="text-slate-400 font-medium">Archivée</span>
                       ) : (
-                        <span className="rounded-full bg-green-100 px-3 py-1.5 text-xs font-bold text-green-800 uppercase">
+                        <span className="rounded-full bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 border border-emerald-200/60">
                           Actuelle
                         </span>
                       )}
@@ -642,13 +939,12 @@ function InformationsDuCentre({
             </table>
           </div>
         )}
-      </Card>
-    </section>
+      </div>
+    </Card>
   );
 }
 
-// Colocalisé : panneau "Formations & Salles associées" — création de formation,
-// puis chaque formation existante avec ses salles et un point d'ajout de salle dédié.
+// Formations & Salles associées
 function FormationsEtSalles({
   centreId,
   sessionId,
@@ -660,81 +956,111 @@ function FormationsEtSalles({
   rejointSessionActive: boolean;
   peutGererAcademique: boolean;
 }) {
-  const { data: formations, isLoading: chargementFormations } = useFormations();
-  const { data: salles } = useSalles(sessionId);
-  const creerFormation = useCreateFormation();
+  const { data: formationsDuCentre = [], isLoading: chargementFormations } =
+    useFormationsAbonneesCentre(centreId, sessionId);
+  const { data: catalogueFormations = [] } = useFormations();
+  const { data: salles = [] } = useSalles(sessionId);
 
-  const formationsDuCentre = formations?.filter((f) => f.centreId === centreId);
-  const sallesDuCentre = salles?.filter((s) => s.centreId === centreId);
+  const [modalAbonnementOuvert, setModalAbonnementOuvert] = useState(false);
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    setError,
-    formState: { errors, isSubmitting },
-  } = useForm<FormationFormValues>({ resolver: zodResolver(formationSchema) });
+  const formationsAbonneesIds = useMemo(
+    () => new Set(formationsDuCentre.map((f) => f.id)),
+    [formationsDuCentre],
+  );
 
-  const onSubmit = handleSubmit(async (values) => {
-    if (!sessionId) return;
-    try {
-      await creerFormation.mutateAsync({
-        nom: values.nom,
-        centreId,
-        sessionId,
-      });
-      reset();
-    } catch (erreur) {
-      setError("root", {
-        message: messageErreurApi(
-          erreur,
-          "Création impossible pour le moment. Réessayez.",
-        ),
-      });
-    }
-  });
+  const sallesDuCentre = useMemo(() => {
+    if (!rejointSessionActive) return [];
+    return salles.filter(
+      (s) =>
+        s.centreId === centreId && formationsAbonneesIds.has(s.formationId),
+    );
+  }, [salles, centreId, rejointSessionActive, formationsAbonneesIds]);
+
+  // Formations disponibles à l'abonnement
+  const formationsDisponibles = useMemo(() => {
+    return catalogueFormations.filter(
+      (f) => !formationsDuCentre.some((fa) => fa.id === f.id),
+    );
+  }, [catalogueFormations, formationsDuCentre]);
 
   return (
-    <section className="space-y-6">
-      <h2 className="text-brand-anthracite text-xl font-bold">
-        Formations &amp; Salles
-      </h2>
+    <div className="space-y-5">
+      <Card className="rounded-2xl border border-slate-200/80 shadow-xs p-5">
+        <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-2.5">
+            <span className="p-2 rounded-xl bg-orange-50 text-brand-orange border border-orange-100">
+              <GraduationCap size={18} />
+            </span>
+            <div>
+              <h2 className="text-base font-bold text-slate-900">
+                Formations &amp; Salles
+              </h2>
+              <p className="text-xs text-slate-400">
+                Filières et salles de cours hébergées dans ce centre pour la session active
+              </p>
+            </div>
+          </div>
 
-      {peutGererAcademique && !rejointSessionActive && (
-        <Card className="p-6">
-          <p className="text-brand-gray text-sm">
-            Ce centre n&rsquo;a pas rejoint la session active — la création de
-            formations n&rsquo;est pas possible tant que ce n&rsquo;est pas
-            fait.
-          </p>
-        </Card>
-      )}
+          {peutGererAcademique && rejointSessionActive && (
+            <Button
+              type="button"
+              className="text-xs h-8 px-3 font-semibold flex items-center gap-1.5"
+              onClick={() => setModalAbonnementOuvert(true)}
+            >
+              <Plus size={14} />
+              Abonner à une formation
+            </Button>
+          )}
+        </div>
 
-      <div>
-        <h3 className="text-brand-anthracite mb-3 text-sm font-bold tracking-wide uppercase">
-          Mes Formations
-        </h3>
-        <div className="space-y-4">
+        {peutGererAcademique && !rejointSessionActive && (
+          <div className="mt-4 p-3.5 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-800 text-xs flex items-start gap-2.5">
+            <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+            <p>
+              Ce centre n&rsquo;a pas encore rejoint la session active. Veuillez d&rsquo;abord rattacher ce centre à la session active pour l&rsquo;abonner à des formations et aménager des salles.
+            </p>
+          </div>
+        )}
+
+        <div className="mt-5 space-y-3">
           {chargementFormations && (
-            <Card className="text-brand-gray p-5 text-center text-sm">
-              Chargement...
-            </Card>
+            <p className="p-6 text-center text-xs text-slate-400">
+              Chargement des formations du centre...
+            </p>
           )}
-          {!chargementFormations && formationsDuCentre?.length === 0 && (
-            <Card className="text-brand-gray p-5 text-center text-sm">
-              Aucune formation pour ce centre pour l&rsquo;instant.
-            </Card>
+          {!chargementFormations && formationsDuCentre.length === 0 && (
+            <div className="p-8 text-center rounded-xl border border-dashed border-slate-200">
+              <GraduationCap className="h-8 w-8 text-slate-300 mx-auto mb-1.5" />
+              <p className="text-xs font-semibold text-slate-600">
+                Aucune formation abonnée pour ce centre
+              </p>
+              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                {rejointSessionActive
+                  ? "Abonnez ce centre aux formations du catalogue pour y rattacher des salles et des cours."
+                  : "Rattachez d'abord ce centre à la session active pour pouvoir l'abonner."}
+              </p>
+              {peutGererAcademique && rejointSessionActive && (
+                <Button
+                  type="button"
+                  onClick={() => setModalAbonnementOuvert(true)}
+                  className="mt-3 text-xs inline-flex items-center gap-1.5"
+                >
+                  <Plus size={14} />
+                  Abonner à une formation
+                </Button>
+              )}
+            </div>
           )}
-          {formationsDuCentre?.map((formation) => (
+
+          {formationsDuCentre.map((formation) => (
             <CarteFormation
               key={formation.id}
               formation={formation}
               autresFormationsDuCentre={
-                formationsDuCentre.filter((f) => f.id !== formation.id) ?? []
+                formationsDuCentre.filter((f) => f.id !== formation.id)
               }
               salles={
-                sallesDuCentre?.filter((s) => s.formationId === formation.id) ??
-                []
+                sallesDuCentre.filter((s) => s.formationId === formation.id)
               }
               centreId={centreId}
               sessionId={sessionId}
@@ -742,43 +1068,140 @@ function FormationsEtSalles({
             />
           ))}
         </div>
-      </div>
+      </Card>
 
-      {peutGererAcademique && (
-        <Card className="p-6">
-          <h3 className="text-brand-anthracite mb-3 text-sm font-bold tracking-wide uppercase">
-            Ajouter une formation
-          </h3>
-          <form
-            onSubmit={onSubmit}
-            className="flex flex-wrap items-start gap-3"
-            noValidate
-          >
-            <div className="min-w-40 flex-1">
-              <Input
-                label="Nom de la formation"
-                placeholder="Saisir une nouvelle formation..."
-                error={errors.nom?.message}
-                {...register("nom")}
-              />
-            </div>
-            <div className="pt-6">
-              <Button type="submit" disabled={isSubmitting || !sessionId}>
-                <span className="flex items-center gap-1.5">
-                  <Plus size={16} />
-                  {isSubmitting ? "Ajout..." : "Ajouter"}
-                </span>
-              </Button>
-            </div>
-          </form>
-          {errors.root && (
-            <p className="mt-2 text-xs font-bold text-red-600">
-              {errors.root.message}
-            </p>
-          )}
-        </Card>
+      {modalAbonnementOuvert && (
+        <ModalAbonnerCentreFormation
+          isOpen={modalAbonnementOuvert}
+          onClose={() => setModalAbonnementOuvert(false)}
+          centreId={centreId}
+          sessionId={sessionId}
+          formationsDisponibles={formationsDisponibles}
+        />
       )}
-    </section>
+    </div>
+  );
+}
+
+function ModalAbonnerCentreFormation({
+  isOpen,
+  onClose,
+  centreId,
+  sessionId,
+  formationsDisponibles,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  centreId: string;
+  sessionId: string | undefined;
+  formationsDisponibles: Formation[];
+}) {
+  const [formationSelectionneeId, setFormationSelectionneeId] = useState<string>("");
+  const [erreur, setErreur] = useState<string | null>(null);
+  const abonnerCentre = useAbonnerCentreFormation();
+
+  async function handleAbonner() {
+    if (!sessionId || !formationSelectionneeId) return;
+    setErreur(null);
+    try {
+      await abonnerCentre.mutateAsync({
+        centreId,
+        sessionId,
+        formationId: formationSelectionneeId,
+      });
+      setFormationSelectionneeId("");
+      onClose();
+    } catch (err) {
+      setErreur(
+        messageErreurApi(
+          err,
+          "Impossible d'abonner le centre à cette formation.",
+        ),
+      );
+    }
+  }
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Abonner à une formation"
+      description="Sélectionnez une filière du catalogue permanent pour l'activer dans ce centre pour la session en cours."
+      maxWidth="max-w-lg"
+    >
+      <div className="space-y-4 pt-2">
+        {erreur && (
+          <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-red-500" />
+            <span>{erreur}</span>
+          </div>
+        )}
+
+        {formationsDisponibles.length === 0 ? (
+          <div className="p-6 text-center rounded-xl border border-dashed border-slate-200">
+            <GraduationCap className="h-8 w-8 text-slate-300 mx-auto mb-1.5" />
+            <p className="text-xs font-semibold text-slate-600">
+              Toutes les formations du catalogue sont déjà rattachées à ce centre.
+            </p>
+          </div>
+        ) : (
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-2">
+              Choisir une formation parmi le catalogue *
+            </label>
+            <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-xl">
+              {formationsDisponibles.map((formation) => {
+                const estSelectionnee = formationSelectionneeId === formation.id;
+                const nbMatieres = formation.matiereIds?.length || 0;
+
+                return (
+                  <label
+                    key={formation.id}
+                    className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${
+                      estSelectionnee ? "bg-orange-50/70" : "hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <input
+                        type="radio"
+                        name="formationAbonnement"
+                        checked={estSelectionnee}
+                        onChange={() => setFormationSelectionneeId(formation.id)}
+                        className="text-brand-orange focus:ring-brand-orange h-4 w-4 shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-800 truncate">
+                          {formation.nom}
+                        </p>
+                        <p className="text-[11px] text-slate-400">
+                          {nbMatieres} matière{nbMatieres > 1 ? "s" : ""} au programme
+                        </p>
+                      </div>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+          <Button type="button" variant="secondary" onClick={onClose} className="text-xs">
+            Annuler
+          </Button>
+          {formationsDisponibles.length > 0 && (
+            <Button
+              type="button"
+              disabled={!formationSelectionneeId || abonnerCentre.isPending || !sessionId}
+              onClick={handleAbonner}
+              className="text-xs font-bold"
+            >
+              {abonnerCentre.isPending ? "Abonnement..." : "Confirmer l'abonnement"}
+            </Button>
+          )}
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -802,33 +1225,23 @@ function CarteFormation({
   sessionId: string | undefined;
   peutGerer: boolean;
 }) {
-  // Pliable comme la zone de relocalisation du centre : repliée par défaut, pour une
-  // interface plus épurée quand il y a beaucoup de formations.
   const [ouvert, setOuvert] = useState(false);
   const [ajoutOuvert, setAjoutOuvert] = useState(false);
-  const [renommageOuvert, setRenommageOuvert] = useState(false);
-  const [confirmationSuppression, setConfirmationSuppression] = useState(false);
+  const [confirmationDesabonnement, setConfirmationDesabonnement] = useState(false);
+  const [erreurDesabonnement, setErreurDesabonnement] = useState<string | null>(null);
+
   const creerSalle = useCreateSalle();
-  const renommerFormation = useRenommerFormation();
-  const supprimerFormation = useSupprimerFormation();
+  const desabonnerCentre = useDesabonnerCentreFormation();
 
   const {
     register,
     handleSubmit,
     reset,
     setError,
-    formState: { errors, isSubmitting },
+    formState: { isSubmitting },
   } = useForm<z.infer<typeof nomInlineSchema>>({
     resolver: zodResolver(nomInlineSchema),
   });
-
-  const {
-    register: registerRenommer,
-    handleSubmit: handleSubmitRenommer,
-    reset: resetRenommer,
-    setError: setErrorRenommer,
-    formState: { errors: errorsRenommer, isSubmitting: renommageEnCours },
-  } = useForm<NomInlineFormValues>({ resolver: zodResolver(nomInlineSchema) });
 
   const onSubmit = handleSubmit(async (values) => {
     if (!sessionId) return;
@@ -851,153 +1264,131 @@ function CarteFormation({
     }
   });
 
-  const onSubmitRenommer = handleSubmitRenommer(async (values) => {
+  async function confirmerDesabonnement() {
+    if (!sessionId) return;
+    setErreurDesabonnement(null);
     try {
-      await renommerFormation.mutateAsync({ id: formation.id, ...values });
-      setRenommageOuvert(false);
-    } catch (erreur) {
-      setErrorRenommer("root", {
-        message: messageErreurApi(
-          erreur,
-          "Renommage impossible pour le moment. Réessayez.",
-        ),
+      await desabonnerCentre.mutateAsync({
+        centreId,
+        sessionId,
+        formationId: formation.id,
       });
+      setConfirmationDesabonnement(false);
+    } catch (erreur) {
+      setErreurDesabonnement(
+        messageErreurApi(
+          erreur,
+          "Impossible de désabonner le centre de cette formation. Des salles y sont peut-être encore rattachées.",
+        ),
+      );
     }
-  });
-
-  async function confirmerSuppression() {
-    await supprimerFormation.mutateAsync(formation.id);
   }
 
   return (
-    <Card className="overflow-hidden">
-      <div className="flex items-center justify-between gap-3 p-5">
-        <div className="flex flex-1 items-center gap-2">
-          <GraduationCap size={18} className="text-brand-orange shrink-0" />
-          {renommageOuvert ? (
-            <div className="min-w-0 flex-1">
-              <form
-                onSubmit={onSubmitRenommer}
-                className="flex flex-wrap items-center gap-2"
-                noValidate
-              >
-                <input
-                  autoFocus
-                  className="border-brand-gray/30 text-brand-anthracite w-full min-w-0 flex-1 rounded border px-2 py-1 text-sm font-bold"
-                  defaultValue={formation.nom}
-                  {...registerRenommer("nom")}
-                />
-                <Button type="submit" disabled={renommageEnCours}>
-                  OK
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setRenommageOuvert(false)}
-                >
-                  Annuler
-                </Button>
-              </form>
-              {errorsRenommer.nom && (
-                <p className="mt-1 text-xs font-bold text-red-600">
-                  {errorsRenommer.nom.message}
-                </p>
-              )}
-              {errorsRenommer.root && (
-                <p className="mt-1 text-xs font-bold text-red-600">
-                  {errorsRenommer.root.message}
-                </p>
-              )}
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setOuvert((o) => !o)}
-              className="text-brand-anthracite flex-1 text-left text-base font-bold"
-            >
-              {formation.nom}
-            </button>
-          )}
+    <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden transition-all hover:border-slate-300">
+      <div className="flex items-center justify-between gap-3 p-3.5 bg-slate-50/40">
+        <div className="flex flex-1 items-center gap-2.5 min-w-0">
+          <div className="h-8 w-8 rounded-lg bg-orange-50 border border-orange-100 flex items-center justify-center text-brand-orange shrink-0">
+            <GraduationCap size={16} />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setOuvert((o) => !o)}
+            className="text-sm font-bold text-slate-800 hover:text-brand-orange text-left truncate flex-1"
+          >
+            {formation.nom}
+          </button>
         </div>
-        <span className="flex shrink-0 items-center gap-3">
-          <span className="text-brand-gray text-xs font-bold">
+
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
             {salles.length} salle{salles.length > 1 ? "s" : ""}
           </span>
-          {peutGerer && !renommageOuvert && (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  resetRenommer({ nom: formation.nom });
-                  setRenommageOuvert(true);
-                }}
-                className={iconButtonClass()}
-                title="Renommer la formation"
-              >
-                <Pencil size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmationSuppression(true)}
-                className={iconButtonClass("danger")}
-                title="Supprimer la formation"
-              >
-                <Trash2 size={14} />
-              </button>
-            </>
-          )}
-          <button type="button" onClick={() => setOuvert((o) => !o)}>
-            <ChevronDown
-              size={16}
-              className={`text-brand-gray transition-transform ${ouvert ? "rotate-180" : ""}`}
-            />
-          </button>
-        </span>
-      </div>
 
-      {confirmationSuppression && (
-        <div className="mx-5 mb-4 rounded-md border border-red-200 p-3">
-          <p className="text-brand-anthracite text-sm font-bold">
-            Supprimer définitivement la formation {formation.nom} ?
-          </p>
-          <p className="text-brand-gray mt-1 text-xs">
-            Impossible tant que des salles ou des créneaux sont encore rattachés
-            à cette formation.
-          </p>
-          <div className="mt-3 flex gap-2">
+          {peutGerer && (
             <button
               type="button"
-              onClick={confirmerSuppression}
-              disabled={supprimerFormation.isPending}
-              className="rounded bg-red-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
+              onClick={() => {
+                setErreurDesabonnement(null);
+                setConfirmationDesabonnement(true);
+              }}
+              className="p-1 text-slate-400 hover:text-red-600 rounded transition-colors"
+              title="Désabonner le centre de cette formation"
             >
-              {supprimerFormation.isPending ? "Suppression..." : "Confirmer"}
+              <Trash2 size={13} />
             </button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setConfirmationSuppression(false)}
-            >
-              Annuler
-            </Button>
-          </div>
-          {supprimerFormation.isError && (
-            <p className="mt-2 text-xs font-bold text-red-600">
-              Échec de la suppression — vérifiez qu&rsquo;aucune salle ni
-              créneau n&rsquo;y fait encore référence.
+          )}
+
+          <button
+            type="button"
+            onClick={() => setOuvert((o) => !o)}
+            className="p-1 text-slate-400 hover:text-slate-700 rounded transition-colors"
+          >
+            <ChevronDown
+              size={15}
+              className={`transition-transform duration-200 ${
+                ouvert ? "rotate-180 text-brand-orange" : ""
+              }`}
+            />
+          </button>
+        </div>
+      </div>
+
+      {confirmationDesabonnement && (
+        <div className="m-3 p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-800 space-y-2">
+          <p className="font-bold">
+            Désabonner le centre de la formation « {formation.nom} » ?
+          </p>
+          {salles.length > 0 ? (
+            <p className="text-red-700 text-[11px]">
+              Impossible de désabonner le centre : il possède encore {salles.length} salle(s) rattachée(s) à cette formation. Veuillez d&rsquo;abord supprimer ou réaffecter ces salles.
+            </p>
+          ) : (
+            <p className="text-slate-600 text-[11px]">
+              Cette action retirera cette filière de ce centre pour la session en cours.
             </p>
           )}
+
+          {erreurDesabonnement && (
+            <p className="text-red-600 font-semibold text-[11px]">
+              {erreurDesabonnement}
+            </p>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            {salles.length === 0 && (
+              <button
+                type="button"
+                onClick={confirmerDesabonnement}
+                disabled={desabonnerCentre.isPending}
+                className="px-2.5 py-1 rounded bg-red-600 text-white font-bold text-xs hover:bg-red-700 disabled:opacity-50"
+              >
+                {desabonnerCentre.isPending ? "Désabonnement..." : "Confirmer le désabonnement"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setConfirmationDesabonnement(false);
+                setErreurDesabonnement(null);
+              }}
+              className="px-2.5 py-1 rounded border border-slate-300 text-slate-700 font-semibold text-xs hover:bg-white"
+            >
+              {salles.length > 0 ? "Fermer" : "Annuler"}
+            </button>
+          </div>
         </div>
       )}
 
       {ouvert && (
-        <div className="border-brand-gray/15 border-t p-5 pt-4">
+        <div className="p-3.5 border-t border-slate-100 bg-white space-y-3">
           {salles.length === 0 ? (
-            <p className="text-brand-gray mb-3 text-sm">
-              Aucune salle pour cette formation.
+            <p className="text-xs text-slate-400 italic">
+              Aucune salle configurée pour cette formation.
             </p>
           ) : (
-            <ul className="divide-brand-gray/10 mb-3 divide-y">
+            <ul className="divide-y divide-slate-100 border border-slate-100 rounded-lg overflow-hidden">
               {salles.map((salle) => (
                 <SalleItem
                   key={salle.id}
@@ -1013,57 +1404,48 @@ function CarteFormation({
             (ajoutOuvert ? (
               <form
                 onSubmit={onSubmit}
-                className="flex flex-wrap items-start gap-3"
+                className="flex items-center gap-2 pt-1"
                 noValidate
               >
-                <div className="min-w-40 flex-1">
-                  <Input
-                    label="Nom de la salle"
-                    placeholder="Ex : Salle 102"
-                    error={errors.nom?.message}
-                    {...register("nom")}
-                  />
-                </div>
-                <div className="flex items-center gap-3 pt-6">
-                  <Button type="submit" disabled={isSubmitting || !sessionId}>
-                    {isSubmitting ? "..." : "OK"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => {
-                      reset();
-                      setAjoutOuvert(false);
-                    }}
-                  >
-                    Annuler
-                  </Button>
-                </div>
+                <input
+                  autoFocus
+                  placeholder="Nom de la salle (ex: Salle 102)"
+                  className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-orange/30"
+                  {...register("nom")}
+                />
+                <Button type="submit" disabled={isSubmitting || !sessionId} className="text-xs h-8 px-3">
+                  {isSubmitting ? "..." : "Ajouter"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    reset();
+                    setAjoutOuvert(false);
+                  }}
+                  className="text-xs h-8 px-3"
+                >
+                  Annuler
+                </Button>
               </form>
             ) : (
               <button
                 type="button"
                 onClick={() => setAjoutOuvert(true)}
                 disabled={!sessionId}
-                className="border-brand-gray/30 text-brand-gray hover:border-brand-orange hover:text-brand-orange w-full rounded-md border border-dashed py-2.5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full py-2 rounded-lg border border-dashed border-slate-200 text-xs font-semibold text-slate-500 hover:border-brand-orange hover:text-brand-orange transition-colors flex items-center justify-center gap-1"
               >
-                + Ajouter une salle
+                <Plus size={13} />
+                Ajouter une salle
               </button>
             ))}
-          {errors.root && (
-            <p className="mt-2 text-xs font-bold text-red-600">
-              {errors.root.message}
-            </p>
-          )}
         </div>
       )}
-    </Card>
+    </div>
   );
 }
 
-// Ligne "salle" repliable en édition : renommer, réaffecter à une autre formation du
-// même centre, ou supprimer. `autresFormationsDuCentre` exclut déjà la formation
-// courante — on ne propose que des destinations réellement différentes.
+// Salle individuelle
 function SalleItem({
   salle,
   autresFormationsDuCentre,
@@ -1076,6 +1458,7 @@ function SalleItem({
   const [renommageOuvert, setRenommageOuvert] = useState(false);
   const [reaffectationOuverte, setReaffectationOuverte] = useState(false);
   const [confirmationSuppression, setConfirmationSuppression] = useState(false);
+
   const renommerSalle = useRenommerSalle();
   const reaffecterFormation = useReaffecterFormationSalle();
   const supprimerSalle = useSupprimerSalle();
@@ -1085,7 +1468,7 @@ function SalleItem({
     handleSubmit,
     reset,
     setError,
-    formState: { errors, isSubmitting },
+    formState: { isSubmitting },
   } = useForm<NomInlineFormValues>({ resolver: zodResolver(nomInlineSchema) });
 
   const onSubmit = handleSubmit(async (values) => {
@@ -1113,20 +1496,20 @@ function SalleItem({
 
   if (renommageOuvert) {
     return (
-      <li className="py-2">
+      <li className="p-2 bg-slate-50">
         <form
           onSubmit={onSubmit}
-          className="flex flex-wrap items-center gap-2"
+          className="flex items-center gap-2"
           noValidate
         >
-          <DoorOpen size={14} className="text-brand-gray shrink-0" />
+          <DoorOpen size={14} className="text-slate-400 shrink-0" />
           <input
             autoFocus
-            className="border-brand-gray/30 text-brand-anthracite w-full min-w-0 flex-1 rounded border px-2 py-1 text-sm font-bold"
+            className="flex-1 rounded border border-slate-300 px-2 py-1 text-xs font-bold text-slate-800"
             defaultValue={salle.nom}
             {...register("nom")}
           />
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="submit" disabled={isSubmitting} className="text-xs h-7 px-2">
             OK
           </Button>
           <Button
@@ -1136,113 +1519,95 @@ function SalleItem({
               reset();
               setRenommageOuvert(false);
             }}
+            className="text-xs h-7 px-2"
           >
             Annuler
           </Button>
         </form>
-        {(errors.nom || errors.root) && (
-          <p className="mt-1 text-xs font-bold text-red-600">
-            {errors.nom?.message ?? errors.root?.message}
-          </p>
-        )}
       </li>
     );
   }
 
   return (
-    <li className="py-2">
-      <div className="flex items-center gap-2 text-sm">
-        <DoorOpen size={14} className="text-brand-gray shrink-0" />
-        <span className="text-brand-anthracite flex-1 font-bold">
-          {salle.nom}
-        </span>
-        {peutGerer && (
-          <span className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => {
-                reset({ nom: salle.nom });
-                setRenommageOuvert(true);
-              }}
-              className={iconButtonClass()}
-              title="Renommer la salle"
-            >
-              <Pencil size={14} />
-            </button>
-            {autresFormationsDuCentre.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setReaffectationOuverte((o) => !o)}
-                className={iconButtonClass()}
-                title="Déplacer vers une autre formation"
-              >
-                <ArrowRightLeft size={14} />
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setConfirmationSuppression(true)}
-              className={iconButtonClass("danger")}
-              title="Supprimer la salle"
-            >
-              <Trash2 size={14} />
-            </button>
-          </span>
-        )}
+    <li className="p-2.5 flex items-center justify-between gap-2 hover:bg-slate-50/70 transition-colors">
+      <div className="flex items-center gap-2">
+        <DoorOpen size={14} className="text-slate-400 shrink-0" />
+        <span className="text-xs font-bold text-slate-800">{salle.nom}</span>
       </div>
 
+      {peutGerer && (
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              reset({ nom: salle.nom });
+              setRenommageOuvert(true);
+            }}
+            className="p-1 text-slate-400 hover:text-slate-700 rounded transition-colors"
+            title="Renommer la salle"
+          >
+            <Pencil size={12} />
+          </button>
+          {autresFormationsDuCentre.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setReaffectationOuverte((o) => !o)}
+              className="p-1 text-slate-400 hover:text-brand-orange rounded transition-colors"
+              title="Déplacer vers une autre formation"
+            >
+              <ArrowRightLeft size={12} />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setConfirmationSuppression(true)}
+            className="p-1 text-slate-400 hover:text-red-600 rounded transition-colors"
+            title="Supprimer la salle"
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
+      )}
+
       {reaffectationOuverte && (
-        <div className="border-brand-gray/20 mt-2 flex flex-wrap gap-2 rounded-md border p-2.5">
+        <div className="w-full mt-2 p-2 rounded-lg bg-orange-50/50 border border-orange-100 flex flex-wrap gap-1.5">
+          <span className="text-[10px] font-bold text-slate-500 w-full">
+            Déplacer vers :
+          </span>
           {autresFormationsDuCentre.map((f) => (
             <button
               key={f.id}
               type="button"
               onClick={() => reaffecter(f.id)}
               disabled={reaffecterFormation.isPending}
-              className="border-brand-gray/30 text-brand-anthracite hover:border-brand-orange rounded-full border px-2.5 py-1 text-xs font-bold disabled:opacity-50"
+              className="px-2 py-0.5 rounded-full text-xs font-bold bg-white border border-slate-200 text-slate-700 hover:border-brand-orange hover:text-brand-orange"
             >
               {f.nom}
             </button>
           ))}
         </div>
       )}
-      {reaffecterFormation.isError && (
-        <p className="mt-1 text-xs font-bold text-red-600">
-          Échec du déplacement. Réessayez.
-        </p>
-      )}
 
       {confirmationSuppression && (
-        <div className="mt-2 rounded-md border border-red-200 p-2.5">
-          <p className="text-brand-anthracite text-xs font-bold">
-            Supprimer définitivement la salle {salle.nom} ?
-          </p>
-          <p className="text-brand-gray mt-1 text-xs">
-            Impossible si des créneaux y font encore référence.
-          </p>
-          <div className="mt-2 flex gap-2">
+        <div className="w-full mt-2 p-2 rounded-lg bg-red-50 border border-red-100 text-xs text-red-800 flex items-center justify-between">
+          <span>Supprimer « {salle.nom} » ?</span>
+          <div className="flex gap-1.5">
             <button
               type="button"
               onClick={confirmerSuppression}
               disabled={supprimerSalle.isPending}
-              className="rounded bg-red-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50"
+              className="px-2 py-0.5 rounded bg-red-600 text-white font-bold text-[11px]"
             >
-              {supprimerSalle.isPending ? "Suppression..." : "Confirmer"}
+              Oui
             </button>
             <button
               type="button"
               onClick={() => setConfirmationSuppression(false)}
-              className="border-brand-gray/30 text-brand-anthracite rounded border px-2.5 py-1 text-xs font-bold"
+              className="px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-700 text-[11px]"
             >
-              Annuler
+              Non
             </button>
           </div>
-          {supprimerSalle.isError && (
-            <p className="mt-2 text-xs font-bold text-red-600">
-              Échec de la suppression — vérifiez qu&rsquo;aucun créneau
-              n&rsquo;y fait encore référence.
-            </p>
-          )}
         </div>
       )}
     </li>

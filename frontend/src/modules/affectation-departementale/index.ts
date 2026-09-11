@@ -4,4 +4,6 @@ export {
   useRostersDepartements,
   useAjouterEnseignantRoster,
   useRetirerEnseignantRoster,
+  useCopierRosterDepuisSession,
 } from "./data/queries";
+

@@ -12,7 +12,7 @@ import { getNavItems } from "./nav-items";
 // Navigation latérale desktop. Fond anthracite conforme à la charte
 // ("navigation, en-têtes"). Client Component : usePathname() (savoir quel onglet est
 // actif) n'existe que côté navigateur. `role` est transmis par (dashboard)/layout.tsx,
-// qui l'a déjà via auth() côté serveur — pas de deuxième appel réseau ici.
+// qui l'a déjà via auth() côté serveur - pas de deuxième appel réseau ici.
 export function Sidebar({ role }: { role: Role }) {
   const pathname = usePathname();
   const navBarItems = getNavItems(role);

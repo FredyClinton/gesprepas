@@ -1,9 +1,9 @@
 import type { StatutMouvement } from "@/modules/financier";
 
 // Données de démonstration pour les champs pas encore exposés par l'API backend.
-// Chaque export ici correspond à un point d'intégration futur — supprimer la
+// Chaque export ici correspond à un point d'intégration futur - supprimer la
 // fonction/constante et la remplacer par le vrai hook/champ dès que le backend
-// l'expose (voir les commentaires "MOCK —" à chaque site d'utilisation).
+// l'expose (voir les commentaires "MOCK -" à chaque site d'utilisation).
 
 export const MOCK_COORDONNEES = {
   email: "jpkamgang@email.com",
@@ -40,7 +40,7 @@ export type VersementMock = {
 };
 
 // Utilisé quand l'apprenant affiché n'a pas encore de versement réel en base
-// (environnement de dev vide) — permet de voir le tableau "Historique des
+// (environnement de dev vide) - permet de voir le tableau "Historique des
 // versements" dans son état final attendu. Voir ContratEtPaiementsTab.
 export const MOCK_VERSEMENTS: VersementMock[] = [
   {
@@ -76,7 +76,7 @@ export type LigneSeanceMock = {
   date: string;
   seance: string;
   type: TypeSeance;
-  // Sans objet pour une séance PRESENT — pas de justification à donner.
+  // Sans objet pour une séance PRESENT - pas de justification à donner.
   justification: StatutJustification | null;
 };
 
@@ -152,7 +152,7 @@ export type ConcoursRattacheMock = {
 };
 
 // Utilisé quand l'apprenant affiché n'a pas encore de dossier réel en base
-// (environnement de dev vide) — permet de voir l'onglet dans son état final
+// (environnement de dev vide) - permet de voir l'onglet dans son état final
 // attendu. Voir DossierAdministratifTab.
 export const MOCK_DOSSIER = {
   statut: "OUVERT" as const,

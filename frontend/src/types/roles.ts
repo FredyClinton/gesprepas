@@ -15,7 +15,7 @@ export type Role =
   | "COMPTABLE";
 
 // Libellés d'affichage FR. Note : le rôle backend `COMPTABLE` correspond au
-// "Contrôleur financier principal" du modèle métier (10 rôles) — nom de code hérité de
+// "Contrôleur financier principal" du modèle métier (10 rôles) - nom de code hérité de
 // l'implémentation initiale du module Personnel. À renommer côté backend si besoin un jour ;
 // en attendant, l'écart de nom entre code et vocabulaire métier est assumé ici.
 export const ROLE_LABELS: Record<Role, string> = {
@@ -30,7 +30,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 // Rôles dont le périmètre est limité à un centre (RoleUtilisateur.estCentreScope() côté
-// backend) — utile pour savoir si on doit afficher/résoudre un nom de centre dans l'UI.
+// backend) - utile pour savoir si on doit afficher/résoudre un nom de centre dans l'UI.
 export const CENTRE_SCOPE_ROLES: ReadonlySet<Role> = new Set([
   "CHEF_CENTRE",
   "CHARGE_DOSSIER",

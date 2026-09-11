@@ -61,10 +61,10 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
         <div className="mx-auto max-w-6xl space-y-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                    <h1 className="text-brand-anthracite text-3xl font-bold">
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">
                         Apprenants
                     </h1>
-                    <p className="text-brand-gray mt-1 text-sm">
+                    <p className="mt-1 text-sm text-slate-500">
                         Gérez la liste des étudiants inscrits dans votre centre.
                     </p>
                 </div>
@@ -79,24 +79,24 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="border-brand-gray/20 flex flex-1 items-center gap-2 rounded-md border bg-white px-3 py-2">
-                    <Search size={14} className="text-brand-gray" />
+                <div className="flex flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 shadow-2xs">
+                    <Search size={14} className="text-slate-400" />
                     <input
                         type="text"
                         value={recherche}
                         onChange={(e) => changerRecherche(e.target.value)}
                         placeholder="Rechercher un apprenant..."
-                        className="w-full text-sm outline-none"
+                        className="w-full text-sm text-slate-800 outline-none placeholder:text-slate-400"
                     />
                 </div>
                 <select
                     value={filtreFormation}
                     onChange={(e) => changerFiltreFormation(e.target.value)}
-                    className="border-brand-gray/30 rounded-md border bg-white px-3 py-2 text-sm"
+                    className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 outline-none shadow-2xs focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
                 >
-                    <option value="">Toutes les formations</option>
+                    <option value="" className="bg-white text-slate-800">Toutes les formations</option>
                     {formationsDuCentre?.map((f) => (
-                        <option key={f.id} value={f.id}>
+                        <option key={f.id} value={f.id} className="bg-white text-slate-800">
                             {f.nom}
                         </option>
                     ))}
@@ -106,7 +106,7 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
             <Card className="overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
-                        <thead className="bg-brand-anthracite text-brand-white">
+                        <thead className="border-b border-slate-200 bg-slate-100/90 text-slate-700">
                             <tr>
                                 {[
                                     "Nom & Prénom",
@@ -117,14 +117,14 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
                                 ].map((titre) => (
                                     <th
                                         key={titre}
-                                        className="p-3 text-xs font-bold tracking-wide uppercase"
+                                        className="p-3.5 text-xs font-bold tracking-wider uppercase"
                                     >
                                         {titre}
                                     </th>
                                 ))}
                             </tr>
                         </thead>
-                        <tbody className="divide-brand-gray/10 divide-y">
+                        <tbody className="divide-y divide-slate-100">
                             {chargement && (
                                 <tr>
                                     <td colSpan={5} className="text-brand-gray p-4 text-center">
@@ -168,7 +168,7 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
 }
 
 // Colocalisé : une ligne du tableau. Le statut de paiement et le statut du dossier
-// viennent chacun d'un module différent (financier, dossier) — résolus par ligne,
+// viennent chacun d'un module différent (financier, dossier) - résolus par ligne,
 // donc seulement pour les apprenants réellement affichés sur la page courante (pas
 // les 142, juste les ~10 visibles).
 function LigneApprenant({
@@ -192,13 +192,13 @@ function LigneApprenant({
     const soldeRestant = apprenant.montantContrat - montantPaye;
 
     return (
-        <tr>
+        <tr className="hover:bg-amber-50/70 transition-colors duration-150 border-b border-slate-100 last:border-0">
             <td className="p-3">
                 <span className="text-brand-anthracite font-bold">
                     {apprenant.prenom} {apprenant.nom}
                 </span>
             </td>
-            <td className="text-brand-gray p-3">{nomFormation ?? "—"}</td>
+            <td className="text-brand-gray p-3">{nomFormation ?? "-"}</td>
             <td className="p-3">
                 {chargementVersements ? (
                     <span className="text-brand-gray text-xs">...</span>

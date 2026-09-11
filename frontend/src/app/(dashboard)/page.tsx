@@ -5,7 +5,7 @@ import { DirecteurAcademiqueDashboard } from "./_dashboards/directeur-academique
 import { ChefDepartementDashboard } from "./_dashboards/chef-departement";
 
 // Dispatcher : ne construit rien lui-même, choisit le tableau de bord selon le rôle.
-// `session!` est sûr ici — (dashboard)/layout.tsx a déjà redirigé vers /login si
+// `session!` est sûr ici - (dashboard)/layout.tsx a déjà redirigé vers /login si
 // `session` était `null`, cette page ne s'exécute jamais sans session valide.
 export default async function DashboardPage() {
   const session = await auth();
@@ -20,10 +20,13 @@ export default async function DashboardPage() {
       return <DirecteurAcademiqueDashboard />;
     case "CHEF_DEPARTEMENT":
       return (
-        <ChefDepartementDashboard departementId={utilisateur.departementId!} />
+        <ChefDepartementDashboard
+          departementId={utilisateur.departementId}
+          chefId={utilisateur.id}
+        />
       );
     default:
-      // Rôles sans maquette confirmée — même logique que la nav par défaut
+      // Rôles sans maquette confirmée - même logique que la nav par défaut
       // (shared/layout/nav-items.ts) : pas de contenu inventé.
       return (
         <main className="text-brand-gray p-8 text-sm">

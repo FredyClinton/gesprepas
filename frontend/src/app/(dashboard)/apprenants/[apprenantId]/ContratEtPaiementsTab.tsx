@@ -45,7 +45,7 @@ export function ContratEtPaiementsTab({
 }) {
   const { data: motifs } = useMotifs("ENTREE");
 
-  // MOCK — pas encore de versement réel pour cet apprenant (base de dev vide).
+  // MOCK - pas encore de versement réel pour cet apprenant (base de dev vide).
   // On affiche l'état final attendu du tableau avec des données fictives, voir
   // MOCK_VERSEMENTS dans mocks.ts, plutôt qu'un tableau vide.
   const estMock = versements !== undefined && versements.length === 0;
@@ -55,7 +55,7 @@ export function ContratEtPaiementsTab({
     : (versements ?? []).map((v) => ({
         id: v.id,
         date: v.date,
-        libelle: motifs?.find((m) => m.id === v.motifId)?.nom ?? "—",
+        libelle: motifs?.find((m) => m.id === v.motifId)?.nom ?? "-",
         montant: v.montant,
         mode: modeVersementMock(v.id),
         statut: v.statut,
@@ -84,7 +84,7 @@ export function ContratEtPaiementsTab({
           </span>
           <span className="text-brand-gray">
             {" "}
-            — cet apprenant n&rsquo;a pas encore de versement réel. Les données
+            - cet apprenant n&rsquo;a pas encore de versement réel. Les données
             ci-dessous sont fictives, à titre d&rsquo;illustration.
           </span>
         </div>
@@ -137,13 +137,13 @@ export function ContratEtPaiementsTab({
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-brand-anthracite text-brand-white">
+            <thead className="border-b border-slate-200 bg-slate-100/90 text-slate-700">
               <tr>
                 {["Date", "Libellé", "Montant", "Mode", "Statut"].map(
                   (titre) => (
                     <th
                       key={titre}
-                      className="p-4 text-xs font-bold tracking-wide uppercase"
+                      className="p-3.5 text-xs font-bold tracking-wider uppercase"
                     >
                       {titre}
                     </th>
@@ -151,7 +151,7 @@ export function ContratEtPaiementsTab({
                 )}
               </tr>
             </thead>
-            <tbody className="divide-brand-gray/10 divide-y">
+            <tbody className="divide-y divide-slate-100">
               {versements === undefined && (
                 <tr>
                   <td colSpan={5} className="text-brand-gray p-5 text-center">
@@ -160,7 +160,10 @@ export function ContratEtPaiementsTab({
                 </tr>
               )}
               {lignesTriees.map((v) => (
-                <tr key={v.id}>
+                <tr
+                  key={v.id}
+                  className="hover:bg-amber-50/70 transition-colors duration-150 border-b border-slate-100 last:border-0"
+                >
                   <td className="text-brand-gray p-4">
                     {new Date(v.date).toLocaleDateString("fr-FR")}
                   </td>
@@ -171,7 +174,7 @@ export function ContratEtPaiementsTab({
                     {FCFA.format(v.montant)} FCFA
                   </td>
                   <td className="text-brand-gray p-4">
-                    {/* MOCK — Entree n'a pas de champ "mode" côté backend. */}
+                    {/* MOCK - Entree n'a pas de champ "mode" côté backend. */}
                     {v.mode}
                     <BadgeDemo />
                   </td>

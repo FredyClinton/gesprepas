@@ -10,6 +10,7 @@ import { useSession } from "next-auth/react";
 
 import {
   ajouterEnseignant,
+  copierRosterDepuisSession,
   listRosterDepartement,
   retirerEnseignant,
 } from "./client";
@@ -48,7 +49,7 @@ export function useRostersDepartements(
 }
 
 // Invalide toutes les variantes de queryKey ["roster-departement", *, sessionId]
-// d'un coup (préfixe partiel — TanStack Query matche sur les segments fournis).
+// d'un coup (préfixe partiel - TanStack Query matche sur les segments fournis).
 function useInvalidationRosters() {
   const queryClient = useQueryClient();
   return () =>
@@ -100,3 +101,18 @@ export function useRetirerEnseignantRoster() {
     onSuccess: invalider,
   });
 }
+
+export function useCopierRosterDepuisSession() {
+  const invalider = useInvalidationRosters();
+  const { data: session } = useSession();
+  return useMutation({
+    mutationFn: (payload: {
+      departementId: string;
+      sessionSourceId: string;
+      sessionCibleId: string;
+      enseignantIdsSelectionnes: string[];
+    }) => copierRosterDepuisSession(payload, session?.user.role),
+    onSuccess: invalider,
+  });
+}
+

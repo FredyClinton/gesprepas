@@ -19,7 +19,7 @@ export function useCentres() {
   });
 }
 
-// Pas d'endpoint dédié "session active" côté backend — une seule session EN_COURS à
+// Pas d'endpoint dédié "session active" côté backend - une seule session EN_COURS à
 // la fois dans le système (confirmé), donc on récupère la liste complète et on filtre
 // côté client plutôt que de deviner un endpoint qui n'existe pas.
 export function useSessionActive() {
@@ -30,7 +30,7 @@ export function useSessionActive() {
   });
 }
 
-// Liste complète des sessions (pas seulement celle en cours) — utile pour résoudre
+// Liste complète des sessions (pas seulement celle en cours) - utile pour résoudre
 // les noms/dates des sessions qu'un centre a rejointes (Centre.sessionIds).
 export function useSessions() {
   return useQuery({

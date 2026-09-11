@@ -79,7 +79,7 @@ export function annulerEffectuee(id: string): Promise<Affectation> {
   });
 }
 
-// Suppression définitive (DELETE) — distincte de `annulerCreneau` (PATCH /annuler,
+// Suppression définitive (DELETE) - distincte de `annulerCreneau` (PATCH /annuler,
 // change juste le statut à ANNULEE, garde la ligne en base). Le bouton "Supprimer le
 // créneau" de la grille appelle celle-ci : un créneau créé par erreur doit vraiment
 // disparaître, pas juste changer de statut (décision du 30/08/2026).

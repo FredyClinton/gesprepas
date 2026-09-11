@@ -1,0 +1,397 @@
+"use client";
+
+import { useState } from "react";
+import { AlertCircle } from "lucide-react";
+
+import { Modal, Button } from "@/shared/ui";
+import { messageErreurApi } from "@/shared/lib/api-client";
+import type { Formation } from "@/modules/academique";
+import type { Matiere } from "@/modules/matieres";
+import type { Salle } from "@/modules/salle";
+
+import {
+  useCreerProgression,
+  useMettreAJourContenuProgression,
+} from "../data/queries";
+import type { Progression } from "../domain/types";
+
+// Pré-remplissage venant d'une séance concrète (ex: "séance effectuée sans contenu
+// saisi" cliquée dans le tableau de bord) - formation/matière/semaine/n° de cours
+// connus d'avance, il ne reste que le contenu pédagogique à décrire.
+export type PrefillProgression = {
+  formationId: string;
+  matiereId?: string;
+  semaine: number;
+  numeroCours: number;
+};
+
+interface ProgressionFormModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  sessionId: string;
+  formations: Formation[];
+  salles: Salle[];
+  // Fixe (Chef de Département : sa propre matière) ou sélectionnable (Directeur
+  // Académique : doit choisir un département/matière).
+  matiereIdFixe?: string;
+  matieres?: Matiere[];
+  prefill?: PrefillProgression;
+  // Présent = mode édition (thème/contenu/exercices uniquement, le reste est figé
+  // côté backend une fois la progression créée).
+  progressionExistante?: Progression;
+  // Liste des progressions existantes pour déduction intelligente du n° de cours et phase
+  progressionsExistantes?: Progression[];
+}
+
+export function ProgressionFormModal({
+  isOpen,
+  onClose,
+  progressionExistante,
+  ...formProps
+}: ProgressionFormModalProps) {
+  if (!isOpen) return null;
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={
+        progressionExistante
+          ? "Modifier le contenu dispensé"
+          : "Ajouter une entrée de progression"
+      }
+      description="Thème, contenu et exercices couverts pour cette séance."
+    >
+      {/* Remonté à chaque ouverture / changement de cible (clé) plutôt que
+          réinitialisé via un effet : évite un rendu en cascade au montage. */}
+      <ProgressionForm
+        key={progressionExistante?.id ?? "creation"}
+        onClose={onClose}
+        progressionExistante={progressionExistante}
+        {...formProps}
+      />
+    </Modal>
+  );
+}
+
+function ProgressionForm({
+  onClose,
+  sessionId,
+  formations,
+  salles,
+  matiereIdFixe,
+  matieres,
+  prefill,
+  progressionExistante,
+  progressionsExistantes,
+}: Omit<ProgressionFormModalProps, "isOpen">) {
+  const modeEdition = Boolean(progressionExistante);
+
+  const [matiereId, setMatiereId] = useState(
+    () =>
+      progressionExistante?.matiereId ??
+      matiereIdFixe ??
+      prefill?.matiereId ??
+      "",
+  );
+  const [formationId, setFormationId] = useState(
+    () => progressionExistante?.formationId ?? prefill?.formationId ?? "",
+  );
+  const [semaine, setSemaine] = useState(
+    () => progressionExistante?.semaine ?? prefill?.semaine ?? 1,
+  );
+  const [numeroCours, setNumeroCours] = useState(
+    () => progressionExistante?.numeroCours ?? prefill?.numeroCours ?? 1,
+  );
+  const [theme, setTheme] = useState(progressionExistante?.theme ?? "");
+  const [contenu, setContenu] = useState(progressionExistante?.contenu ?? "");
+  const [exercices, setExercices] = useState(
+    progressionExistante?.exercices ?? "",
+  );
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [succesInfo, setSuccesInfo] = useState<string | null>(null);
+
+  const formationsDisponibles = matiereId
+    ? formations.filter((f) => f.matiereIds?.includes(matiereId))
+    : formations;
+
+  const creer = useCreerProgression();
+  const modifier = useMettreAJourContenuProgression();
+  const enCours = creer.isPending || modifier.isPending;
+
+  async function enregistrer(enchainer: boolean) {
+    setErreur(null);
+    setSuccesInfo(null);
+
+    if (!theme.trim() || !contenu.trim()) {
+      setErreur("Le thème et le contenu sont obligatoires.");
+      return;
+    }
+
+    try {
+      if (modeEdition && progressionExistante) {
+        await modifier.mutateAsync({
+          id: progressionExistante.id,
+          payload: {
+            theme: theme.trim(),
+            contenu: contenu.trim(),
+            exercices: exercices.trim() || null,
+          },
+        });
+        onClose();
+      } else {
+        if (!matiereId || !formationId) {
+          setErreur("La matière et la formation sont obligatoires.");
+          return;
+        }
+        const salle = salles.find((s) => s.formationId === formationId);
+        const phaseEffective =
+          salle?.phaseId ||
+          progressionsExistantes?.find((p) => p.formationId === formationId)?.phaseId ||
+          salles[0]?.phaseId;
+
+        if (!phaseEffective) {
+          setErreur(
+            "Aucune salle configurée pour cette formation cette session - impossible de déterminer la phase du cursus.",
+          );
+          return;
+        }
+
+        await creer.mutateAsync({
+          formationId,
+          sessionId,
+          phaseId: phaseEffective,
+          matiereId,
+          semaine,
+          numeroCours,
+          theme: theme.trim(),
+          contenu: contenu.trim(),
+          exercices: exercices.trim() || null,
+        });
+
+        if (enchainer) {
+          setSuccesInfo(
+            `Cours ${numeroCours} (Semaine ${semaine}) enregistré ! Prêt pour le suivant.`,
+          );
+          // Avancement automatique du cours
+          if (numeroCours < 2) {
+            setNumeroCours(numeroCours + 1);
+          } else {
+            setSemaine(semaine + 1);
+            setNumeroCours(1);
+          }
+          setTheme("");
+          setContenu("");
+          setExercices("");
+        } else {
+          onClose();
+        }
+      }
+    } catch (err) {
+      setErreur(messageErreurApi(err, "Échec de l'enregistrement. Réessayez."));
+    }
+  }
+
+  function soumettre(e: React.FormEvent) {
+    e.preventDefault();
+    enregistrer(false);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      enregistrer(!modeEdition);
+    }
+  }
+
+  return (
+    <form onSubmit={soumettre} onKeyDown={handleKeyDown} className="flex flex-col gap-4">
+      {succesInfo && (
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold text-emerald-800 animate-fadeIn">
+          <span>✓ {succesInfo}</span>
+        </div>
+      )}
+
+      {erreur && (
+        <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+          <AlertCircle size={15} className="shrink-0 text-rose-500" />
+          <span>{erreur}</span>
+        </div>
+      )}
+
+      {!modeEdition && matieres && (
+        <div>
+          <label className="mb-1.5 block text-xs font-bold tracking-wider text-slate-600 uppercase">
+            Département / Matière *
+          </label>
+          <select
+            value={matiereId}
+            onChange={(e) => {
+              setMatiereId(e.target.value);
+              setFormationId("");
+            }}
+            className="focus:border-brand-orange focus:ring-brand-orange/20 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-800 focus:ring-2 focus:outline-none"
+          >
+            <option value="" className="bg-white text-slate-800">-- Choisir --</option>
+            {matieres.map((m) => (
+              <option key={m.id} value={m.id} className="bg-white text-slate-800">
+                {m.nom}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div>
+        <label className="mb-1.5 block text-xs font-bold tracking-wider text-slate-600 uppercase">
+          Formation *
+        </label>
+        {modeEdition ? (
+          <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700">
+            {formations.find((f) => f.id === formationId)?.nom ?? "Formation"}
+          </p>
+        ) : (
+          <select
+            value={formationId}
+            onChange={(e) => setFormationId(e.target.value)}
+            disabled={!matiereId}
+            className="focus:border-brand-orange focus:ring-brand-orange/20 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-800 focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <option value="" className="bg-white text-slate-800">-- Choisir --</option>
+            {formationsDisponibles.map((f) => (
+              <option key={f.id} value={f.id} className="bg-white text-slate-800">
+                {f.nom}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="mb-1.5 block text-xs font-bold tracking-wider text-slate-600 uppercase">
+            Semaine *
+          </label>
+          {modeEdition ? (
+            <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700">
+              {semaine}
+            </p>
+          ) : (
+            <input
+              type="number"
+              min={1}
+              value={semaine}
+              onChange={(e) => setSemaine(Number(e.target.value) || 1)}
+              className="focus:border-brand-orange focus:ring-brand-orange/10 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:outline-none"
+            />
+          )}
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-bold tracking-wider text-slate-600 uppercase">
+            N° de cours *
+          </label>
+          {modeEdition ? (
+            <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700">
+              {numeroCours}
+            </p>
+          ) : (
+            <input
+              type="number"
+              min={1}
+              max={6}
+              value={numeroCours}
+              onChange={(e) => setNumeroCours(Number(e.target.value) || 1)}
+              className="focus:border-brand-orange focus:ring-brand-orange/10 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:outline-none"
+            />
+          )}
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="block text-xs font-bold tracking-wider text-slate-600 uppercase">
+            Thème *
+          </label>
+          <span className="text-[11px] text-slate-400">Titre ou chapitre abordé</span>
+        </div>
+        <input
+          type="text"
+          value={theme}
+          onChange={(e) => setTheme(e.target.value)}
+          placeholder="Ex : Suites numériques - critères de convergence"
+          autoFocus
+          className="focus:border-brand-orange focus:ring-brand-orange/10 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 font-medium focus:ring-2 focus:outline-none"
+        />
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="block text-xs font-bold tracking-wider text-slate-600 uppercase">
+            Contenu *
+          </label>
+          <span className="text-[11px] text-slate-400">Notions, définitions et théorèmes clés</span>
+        </div>
+        <textarea
+          value={contenu}
+          onChange={(e) => setContenu(e.target.value)}
+          rows={3}
+          placeholder="Ex : Définition des limites, théorème de Bolzano-Weierstrass, suites adjacentes..."
+          className="focus:border-brand-orange focus:ring-brand-orange/10 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:outline-none"
+        />
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="block text-xs font-bold tracking-wider text-slate-600 uppercase">
+            Exercices (facultatif)
+          </label>
+          <span className="text-[11px] text-slate-400">TD ou devoirs</span>
+        </div>
+        <textarea
+          value={exercices}
+          onChange={(e) => setExercices(e.target.value)}
+          rows={2}
+          placeholder="Ex : Exercices 3 et 5 de la fiche 2, DM N°1 rendu"
+          className="focus:border-brand-orange focus:ring-brand-orange/10 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:outline-none"
+        />
+      </div>
+
+      <div className="mt-2 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 border-t border-slate-100 pt-3">
+        <span className="text-[11px] text-slate-400 hidden sm:inline">
+          Astuce : <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">Ctrl + Entrée</kbd> pour valider
+        </span>
+
+        <div className="flex items-center justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            {succesInfo ? "Terminer" : "Annuler"}
+          </Button>
+
+          {!modeEdition && (
+            <button
+              type="button"
+              disabled={enCours}
+              onClick={() => enregistrer(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-brand-orange/30 bg-orange-50 px-3.5 py-2 text-xs font-bold text-brand-orange hover:bg-orange-100 transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              <span>{enCours ? "En cours..." : "Enregistrer et cours suivant"}</span>
+              <span className="text-[10px] opacity-75">→</span>
+            </button>
+          )}
+
+          <Button
+            type="submit"
+            disabled={enCours}
+            className="bg-brand-orange hover:bg-brand-orange/90 text-white"
+          >
+            {enCours
+              ? "Enregistrement..."
+              : modeEdition
+                ? "Enregistrer les modifications"
+                : "Ajouter et fermer"}
+          </Button>
+        </div>
+      </div>
+    </form>
+  );
+}
+

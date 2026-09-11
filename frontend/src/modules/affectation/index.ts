@@ -1,7 +1,13 @@
-export type { Affectation, StatutAffectation, Jour } from "./domain/types";
-export { JOURS, LABELS_JOUR } from "./domain/types";
+export type {
+  Affectation,
+  StatutAffectation,
+  StatutPaiementAffectation,
+  Jour,
+} from "./domain/types";
+export { JOURS, LABELS_JOUR, LABELS_STATUT_PAIEMENT } from "./domain/types";
 export {
   useAffectations,
+  useAffectationsMultiMatiere,
   useAssignerEnseignant,
   useCreerCreneau,
   useModifierMatiere,

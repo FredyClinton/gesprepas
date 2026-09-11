@@ -16,7 +16,7 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 // Bouton d'action générique de l'appli. `primary` = orange, réservé aux actions
-// principales (charte : "orange #F7931E — actions").
+// principales (charte : "orange #F7931E - actions").
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ variant = "primary", className = "", ...props }, ref) => (
     <button

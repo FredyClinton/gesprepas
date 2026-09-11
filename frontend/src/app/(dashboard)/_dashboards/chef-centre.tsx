@@ -54,10 +54,10 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
     <div className="mx-auto max-w-7xl space-y-8">
       {/* En-tête de page : spécifique à cet écran */}
       <div>
-        <h1 className="text-brand-anthracite text-4xl font-bold uppercase">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
           Vue d&rsquo;ensemble{centre ? ` du centre ${centre.nom}` : ""}
         </h1>
-        <p className="text-brand-gray mt-1.5 text-base">
+        <p className="mt-1 text-sm text-slate-500">
           Synthèse opérationnelle du centre
         </p>
       </div>
@@ -65,7 +65,7 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-5 lg:grid-cols-3 xl:grid-cols-4">
         {/* Présence du jour : sous-valeurs multiples. Présents/Absents nécessitent
-            FichePresenceJournaliere (module non construit) — seul "Nouveaux" est réel
+            FichePresenceJournaliere (module non construit) - seul "Nouveaux" est réel
             (bilan du jour). */}
         <Card className="flex flex-col gap-2.5 p-5">
           <div className="flex items-start justify-between">
@@ -161,7 +161,7 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
           </div>
         </Card>
 
-        {/* Livrets : placeholders assumés (voir conversation projet — "on travaillera
+        {/* Livrets : placeholders assumés (voir conversation projet - "on travaillera
             sur les documents plus tard") */}
         <Card className="flex flex-col gap-2.5 p-5">
           <div className="flex items-start justify-between">
@@ -204,7 +204,7 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-brand-anthracite text-brand-white">
+            <thead className="border-b border-slate-200 bg-slate-100/90 text-slate-700">
               <tr>
                 {[
                   "Formation/Classe",
@@ -216,14 +216,14 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
                 ].map((titre) => (
                   <th
                     key={titre}
-                    className="p-4 text-xs font-bold tracking-wide uppercase"
+                    className="p-3.5 text-xs font-bold tracking-wider uppercase"
                   >
                     {titre}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-brand-gray/10 divide-y">
+            <tbody className="divide-y divide-slate-100">
               {chargementFormations && (
                 <tr>
                   <td colSpan={6} className="text-brand-gray p-5 text-center">
@@ -239,7 +239,10 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
                 </tr>
               )}
               {formationsDuCentre?.map((formation) => (
-                <tr key={formation.id}>
+                <tr
+                  key={formation.id}
+                  className="hover:bg-amber-50/70 transition-colors duration-150 border-b border-slate-100 last:border-0"
+                >
                   <td className="text-brand-anthracite p-4 font-bold">
                     {formation.nom}
                   </td>

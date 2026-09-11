@@ -23,7 +23,7 @@ function Champ({
 }: {
   label: string;
   valeur: string;
-  // Valeur venant de mocks.ts, pas de l'API — voir BadgeDemo.
+  // Valeur venant de mocks.ts, pas de l'API - voir BadgeDemo.
   mock?: boolean;
 }) {
   return (
@@ -65,9 +65,9 @@ export function InformationsTab({
               "fr-FR",
             )}
           />
-          <Champ label="Centre" valeur={nomCentre ?? "—"} />
-          <Champ label="Filière / Formation" valeur={nomFormation ?? "—"} />
-          {/* MOCK — pas de colonne correspondante sur Apprenant côté backend.
+          <Champ label="Centre" valeur={nomCentre ?? "-"} />
+          <Champ label="Filière / Formation" valeur={nomFormation ?? "-"} />
+          {/* MOCK - pas de colonne correspondante sur Apprenant côté backend.
               Remplacer par les vrais champs dès qu'ils existeront dans
               ApprenantResponse (voir mocks.ts). */}
           <Champ label="Email" valeur={MOCK_COORDONNEES.email} mock />
@@ -90,7 +90,7 @@ export function InformationsTab({
           Tuteur / Urgence
         </h2>
         <div className="mt-4 space-y-5">
-          {/* MOCK — aucun concept de tuteur/contact d'urgence côté backend
+          {/* MOCK - aucun concept de tuteur/contact d'urgence côté backend
               aujourd'hui. Voir mocks.ts. */}
           <Champ label="Nom du tuteur" valeur={MOCK_TUTEUR.nom} mock />
           <Champ label="Contact du tuteur" valeur={MOCK_TUTEUR.contact} mock />
