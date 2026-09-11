@@ -13,7 +13,12 @@ import {
 
 import { Modal, Button } from "@/shared/ui";
 import { messageErreurApi } from "@/shared/lib/api-client";
-import type { Progression, CreerProgressionPayload } from "../domain/types";
+import {
+  type Progression,
+  type CreerProgressionPayload,
+  decomposerTheme,
+  recomposerTheme,
+} from "../domain/types";
 import { useCreerProgressionsLot } from "../data/queries";
 
 interface SaisieLotModalProps {
@@ -372,15 +377,52 @@ function SaisieLotForm({
                         />
                       </td>
                       <td className="p-1.5">
-                        <input
-                          type="text"
-                          value={l.theme}
-                          onChange={(e) =>
-                            modifierLigne(l.id, "theme", e.target.value)
-                          }
-                          placeholder="Thème du cours"
-                          className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium"
-                        />
+                        <div className="flex items-center gap-1.5">
+                          {(() => {
+                            const dec = decomposerTheme(l.theme);
+                            return (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const nextType =
+                                      dec.type === "THEME" ? "TD" : "THEME";
+                                    modifierLigne(
+                                      l.id,
+                                      "theme",
+                                      recomposerTheme(nextType, dec.titre),
+                                    );
+                                  }}
+                                  className={`px-1.5 py-1 text-[10px] font-black rounded border cursor-pointer select-none shrink-0 transition-colors ${
+                                    dec.type === "TD"
+                                      ? "bg-brand-orange text-white border-brand-orange shadow-2xs"
+                                      : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                                  }`}
+                                  title="Cliquer pour basculer entre THÈME et TD"
+                                >
+                                  {dec.type === "TD" ? "TD" : "THÈME"}
+                                </button>
+                                <input
+                                  type="text"
+                                  value={dec.titre}
+                                  onChange={(e) =>
+                                    modifierLigne(
+                                      l.id,
+                                      "theme",
+                                      recomposerTheme(dec.type, e.target.value),
+                                    )
+                                  }
+                                  placeholder={
+                                    dec.type === "TD"
+                                      ? "Titre du TD..."
+                                      : "Titre du thème..."
+                                  }
+                                  className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium"
+                                />
+                              </>
+                            );
+                          })()}
+                        </div>
                       </td>
                       <td className="p-1.5">
                         <input

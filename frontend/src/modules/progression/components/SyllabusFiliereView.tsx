@@ -13,7 +13,12 @@ import {
   BookOpen,
 } from "lucide-react";
 
-import type { Progression } from "../domain/types";
+import {
+  decomposerTheme,
+  recomposerTheme,
+  type Progression,
+  type TypeProgression,
+} from "../domain/types";
 import {
   useCreerProgression,
   useMettreAJourContenuProgression,
@@ -74,7 +79,11 @@ function LigneCoursExcelis({
   const creerMutation = useCreerProgression();
   const modifierMutation = useMettreAJourContenuProgression();
 
-  const [theme, setTheme] = useState(progression?.theme ?? "");
+  const initThemeData = decomposerTheme(progression?.theme);
+  const [typeProgression, setTypeProgression] = useState<TypeProgression>(
+    initThemeData.type,
+  );
+  const [titreTheme, setTitreTheme] = useState(initThemeData.titre);
   const [lines, setLines] = useState<string[]>(() =>
     parseContenuLines(progression?.contenu),
   );
@@ -90,7 +99,9 @@ function LigneCoursExcelis({
   // Synchronisation si la progression change à distance
   useEffect(() => {
     if (progression) {
-      setTheme(progression.theme);
+      const dec = decomposerTheme(progression.theme);
+      setTypeProgression(dec.type);
+      setTitreTheme(dec.titre);
       setLines(parseContenuLines(progression.contenu));
       setExercices(progression.exercices ?? "");
       setStatutSauvegarde("saved");
@@ -190,8 +201,11 @@ function LigneCoursExcelis({
 
   // Sauvegarde sur place
   async function sauvegarder() {
-    if (!theme.trim()) {
-      setErreur("Le thème est obligatoire.");
+    const themeFinal = recomposerTheme(typeProgression, titreTheme);
+    if (!themeFinal.trim() || !titreTheme.trim()) {
+      setErreur(
+        `Le titre du ${typeProgression === "TD" ? "TD" : "thème"} est obligatoire.`,
+      );
       themeInputRef.current?.focus();
       return;
     }
@@ -210,7 +224,7 @@ function LigneCoursExcelis({
         await modifierMutation.mutateAsync({
           id: progression.id,
           payload: {
-            theme: theme.trim(),
+            theme: themeFinal,
             contenu: serialized,
             exercices: exercices.trim() || null,
           },
@@ -223,7 +237,7 @@ function LigneCoursExcelis({
           matiereId,
           semaine,
           numeroCours,
-          theme: theme.trim(),
+          theme: themeFinal,
           contenu: serialized,
           exercices: exercices.trim() || null,
         });
@@ -271,18 +285,61 @@ function LigneCoursExcelis({
             </div>
           )}
 
-          {/* 1. THÈME CENTRÉ */}
-          <div className="border-b border-slate-200 pb-2">
+          {/* 1. SÉLECTEUR THEME / TD & TITRE DU THÈME */}
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 border-b border-slate-200 pb-2">
+            {/* Sélecteur THEME ou TD */}
+            <div className="inline-flex rounded-xl bg-slate-100 p-0.5 border border-slate-200/80 shrink-0 select-none shadow-2xs">
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeProgression !== "THEME") {
+                    setTypeProgression("THEME");
+                    setStatutSauvegarde("dirty");
+                  }
+                }}
+                className={`px-3 py-1.5 text-xs font-black tracking-wider rounded-lg transition-all cursor-pointer ${
+                  typeProgression === "THEME"
+                    ? "bg-white text-brand-orange shadow-xs ring-1 ring-slate-200/70"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+                title="Cours magistral / Thème théorique"
+              >
+                THÈME
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeProgression !== "TD") {
+                    setTypeProgression("TD");
+                    setStatutSauvegarde("dirty");
+                  }
+                }}
+                className={`px-3 py-1.5 text-xs font-black tracking-wider rounded-lg transition-all cursor-pointer ${
+                  typeProgression === "TD"
+                    ? "bg-brand-orange text-white shadow-xs"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+                title="Travaux Dirigés / Séance d'exercices"
+              >
+                TD
+              </button>
+            </div>
+
+            {/* Champ de saisie du titre */}
             <input
               ref={themeInputRef}
               type="text"
-              value={theme}
-              placeholder="THÈME : EX. LOGIQUE ET RAISONNEMENT"
+              value={titreTheme}
+              placeholder={
+                typeProgression === "TD"
+                  ? "TITRE DU TD (EX. PLANCHE N° 1 - MATRICES)"
+                  : "TITRE DU THÈME (EX. LOGIQUE ET RAISONNEMENT)"
+              }
               onChange={(e) => {
-                setTheme(e.target.value);
+                setTitreTheme(e.target.value);
                 setStatutSauvegarde("dirty");
               }}
-              className="w-full text-center font-black text-slate-900 uppercase tracking-wide text-xs sm:text-sm py-2 px-3 bg-slate-50/50 hover:bg-slate-100/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-orange/30 rounded-xl transition-all"
+              className="flex-1 min-w-[200px] text-center font-black text-slate-900 uppercase tracking-wide text-xs sm:text-sm py-2 px-3 bg-slate-50/50 hover:bg-slate-100/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-orange/30 rounded-xl transition-all placeholder:text-slate-400 placeholder:font-normal placeholder:normal-case"
             />
           </div>
 

@@ -2,7 +2,9 @@ export type {
   Progression,
   CreerProgressionPayload,
   MettreAJourContenuPayload,
+  TypeProgression,
 } from "./domain/types";
+export { decomposerTheme, recomposerTheme } from "./domain/types";
 export {
   useProgressions,
   useCreerProgression,

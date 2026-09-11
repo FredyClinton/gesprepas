@@ -13,7 +13,12 @@ import {
   useCreerProgression,
   useMettreAJourContenuProgression,
 } from "../data/queries";
-import type { Progression } from "../domain/types";
+import {
+  decomposerTheme,
+  recomposerTheme,
+  type Progression,
+  type TypeProgression,
+} from "../domain/types";
 
 // Pré-remplissage venant d'une séance concrète (ex: "séance effectuée sans contenu
 // saisi" cliquée dans le tableau de bord) - formation/matière/semaine/n° de cours
@@ -103,7 +108,11 @@ function ProgressionForm({
   const [numeroCours, setNumeroCours] = useState(
     () => progressionExistante?.numeroCours ?? prefill?.numeroCours ?? 1,
   );
-  const [theme, setTheme] = useState(progressionExistante?.theme ?? "");
+  const initThemeData = decomposerTheme(progressionExistante?.theme);
+  const [typeProgression, setTypeProgression] = useState<TypeProgression>(
+    initThemeData.type,
+  );
+  const [titreTheme, setTitreTheme] = useState(initThemeData.titre);
   const [contenu, setContenu] = useState(progressionExistante?.contenu ?? "");
   const [exercices, setExercices] = useState(
     progressionExistante?.exercices ?? "",
@@ -123,8 +132,12 @@ function ProgressionForm({
     setErreur(null);
     setSuccesInfo(null);
 
-    if (!theme.trim() || !contenu.trim()) {
-      setErreur("Le thème et le contenu sont obligatoires.");
+    const themeFinal = recomposerTheme(typeProgression, titreTheme);
+
+    if (!themeFinal.trim() || !titreTheme.trim() || !contenu.trim()) {
+      setErreur(
+        `Le titre du ${typeProgression === "TD" ? "TD" : "thème"} et le contenu sont obligatoires.`,
+      );
       return;
     }
 
@@ -133,7 +146,7 @@ function ProgressionForm({
         await modifier.mutateAsync({
           id: progressionExistante.id,
           payload: {
-            theme: theme.trim(),
+            theme: themeFinal,
             contenu: contenu.trim(),
             exercices: exercices.trim() || null,
           },
@@ -145,12 +158,12 @@ function ProgressionForm({
           return;
         }
         const salle = salles.find((s) => s.formationId === formationId);
-        const phaseEffective =
+        const phaseIdSelectionnee =
           salle?.phaseId ||
           progressionsExistantes?.find((p) => p.formationId === formationId)?.phaseId ||
           salles[0]?.phaseId;
 
-        if (!phaseEffective) {
+        if (!phaseIdSelectionnee) {
           setErreur(
             "Aucune salle configurée pour cette formation cette session - impossible de déterminer la phase du cursus.",
           );
@@ -160,18 +173,18 @@ function ProgressionForm({
         await creer.mutateAsync({
           formationId,
           sessionId,
-          phaseId: phaseEffective,
+          phaseId: phaseIdSelectionnee,
           matiereId,
           semaine,
           numeroCours,
-          theme: theme.trim(),
+          theme: themeFinal,
           contenu: contenu.trim(),
           exercices: exercices.trim() || null,
         });
 
         if (enchainer) {
           setSuccesInfo(
-            `Cours ${numeroCours} (Semaine ${semaine}) enregistré ! Prêt pour le suivant.`,
+            `Cours N°${numeroCours} (semaine ${semaine}) enregistré avec succès ! Saisissez le suivant.`,
           );
           // Avancement automatique du cours
           if (numeroCours < 2) {
@@ -180,7 +193,8 @@ function ProgressionForm({
             setSemaine(semaine + 1);
             setNumeroCours(1);
           }
-          setTheme("");
+          setTypeProgression("THEME");
+          setTitreTheme("");
           setContenu("");
           setExercices("");
         } else {
@@ -310,18 +324,53 @@ function ProgressionForm({
       <div>
         <div className="flex items-center justify-between mb-1.5">
           <label className="block text-xs font-bold tracking-wider text-slate-600 uppercase">
-            Thème *
+            Type &amp; Thème *
           </label>
-          <span className="text-[11px] text-slate-400">Titre ou chapitre abordé</span>
+          <span className="text-[11px] text-slate-400">Thème de cours ou séance de TD</span>
         </div>
-        <input
-          type="text"
-          value={theme}
-          onChange={(e) => setTheme(e.target.value)}
-          placeholder="Ex : Suites numériques - critères de convergence"
-          autoFocus
-          className="focus:border-brand-orange focus:ring-brand-orange/10 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 font-medium focus:ring-2 focus:outline-none"
-        />
+        <div className="flex items-center gap-2">
+          {/* Sélecteur THEME ou TD */}
+          <div className="inline-flex rounded-xl bg-slate-100 p-0.5 border border-slate-200/80 shrink-0 select-none shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setTypeProgression("THEME")}
+              className={`px-3 py-2 text-xs font-black tracking-wider rounded-lg transition-all cursor-pointer ${
+                typeProgression === "THEME"
+                  ? "bg-white text-brand-orange shadow-xs ring-1 ring-slate-200/70"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+              title="Cours magistral / Thème théorique"
+            >
+              THÈME
+            </button>
+            <button
+              type="button"
+              onClick={() => setTypeProgression("TD")}
+              className={`px-3 py-2 text-xs font-black tracking-wider rounded-lg transition-all cursor-pointer ${
+                typeProgression === "TD"
+                  ? "bg-brand-orange text-white shadow-xs"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+              title="Travaux Dirigés / Séance d'exercices"
+            >
+              TD
+            </button>
+          </div>
+
+          {/* Champ de saisie du titre */}
+          <input
+            type="text"
+            value={titreTheme}
+            onChange={(e) => setTitreTheme(e.target.value)}
+            placeholder={
+              typeProgression === "TD"
+                ? "Ex : Planche N° 1 - Matrices et déterminants"
+                : "Ex : Suites numériques - critères de convergence"
+            }
+            autoFocus
+            className="focus:border-brand-orange focus:ring-brand-orange/10 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 font-medium focus:ring-2 focus:outline-none"
+          />
+        </div>
       </div>
 
       <div>

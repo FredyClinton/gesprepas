@@ -13,7 +13,12 @@ import {
   Sparkles,
 } from "lucide-react";
 
-import type { Progression } from "../domain/types";
+import {
+  decomposerTheme,
+  recomposerTheme,
+  type Progression,
+  type TypeProgression,
+} from "../domain/types";
 import {
   useCreerProgression,
   useMettreAJourContenuProgression,
@@ -77,7 +82,11 @@ function CelluleMultiMatiereInSitu({
   // Mode actif (si pas de progression existante)
   const [estActif, setEstActif] = useState(Boolean(progression));
 
-  const [theme, setTheme] = useState(progression?.theme ?? "");
+  const initThemeData = decomposerTheme(progression?.theme);
+  const [typeProgression, setTypeProgression] = useState<TypeProgression>(
+    initThemeData.type,
+  );
+  const [titreTheme, setTitreTheme] = useState(initThemeData.titre);
   const [lines, setLines] = useState<string[]>(() =>
     parseContenuLines(progression?.contenu),
   );
@@ -93,7 +102,9 @@ function CelluleMultiMatiereInSitu({
   // Synchronisation si la progression change à distance
   useEffect(() => {
     if (progression) {
-      setTheme(progression.theme);
+      const dec = decomposerTheme(progression.theme);
+      setTypeProgression(dec.type);
+      setTitreTheme(dec.titre);
       setLines(parseContenuLines(progression.contenu));
       setExercices(progression.exercices ?? "");
       setStatutSauvegarde("saved");
@@ -127,9 +138,9 @@ function CelluleMultiMatiereInSitu({
       const newLines = lines.filter((_, i) => i !== index);
       setLines(newLines);
       setStatutSauvegarde("dirty");
+      const targetIdx = Math.max(0, index - 1);
       setTimeout(() => {
-        const prevIdx = Math.max(0, index - 1);
-        lineInputRefs.current[prevIdx]?.focus();
+        lineInputRefs.current[targetIdx]?.focus();
       }, 10);
     }
   }
@@ -183,8 +194,11 @@ function CelluleMultiMatiereInSitu({
   }
 
   async function sauvegarder() {
-    if (!theme.trim()) {
-      setErreur("Le thème est obligatoire.");
+    const themeFinal = recomposerTheme(typeProgression, titreTheme);
+    if (!themeFinal.trim() || !titreTheme.trim()) {
+      setErreur(
+        `Le titre du ${typeProgression === "TD" ? "TD" : "thème"} est obligatoire.`,
+      );
       themeInputRef.current?.focus();
       return;
     }
@@ -203,7 +217,7 @@ function CelluleMultiMatiereInSitu({
         await modifierMutation.mutateAsync({
           id: progression.id,
           payload: {
-            theme: theme.trim(),
+            theme: themeFinal,
             contenu: serialized,
             exercices: exercices.trim() || null,
           },
@@ -216,7 +230,7 @@ function CelluleMultiMatiereInSitu({
           matiereId,
           semaine,
           numeroCours,
-          theme: theme.trim(),
+          theme: themeFinal,
           contenu: serialized,
           exercices: exercices.trim() || null,
         });
@@ -241,7 +255,8 @@ function CelluleMultiMatiereInSitu({
   function annulerNouveau() {
     if (progression) return;
     setEstActif(false);
-    setTheme("");
+    setTypeProgression("THEME");
+    setTitreTheme("");
     setLines([""]);
     setExercices("");
     setErreur(null);
@@ -342,18 +357,61 @@ function CelluleMultiMatiereInSitu({
           </div>
         )}
 
-        {/* 1. THÈME CENTRÉ */}
-        <div className="border-b border-slate-100 pb-1.5">
+        {/* 1. SÉLECTEUR THEME / TD & TITRE */}
+        <div className="flex items-center gap-1.5 border-b border-slate-100 pb-1.5">
+          {/* Sélecteur THEME ou TD */}
+          <div className="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200/80 shrink-0 select-none shadow-2xs">
+            <button
+              type="button"
+              onClick={() => {
+                if (typeProgression !== "THEME") {
+                  setTypeProgression("THEME");
+                  setStatutSauvegarde("dirty");
+                }
+              }}
+              className={`px-1.5 py-1 text-[10px] font-black tracking-wider rounded-md transition-all cursor-pointer ${
+                typeProgression === "THEME"
+                  ? "bg-white text-brand-orange shadow-xs ring-1 ring-slate-200/70"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+              title="Cours magistral / Thème théorique"
+            >
+              THÈME
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (typeProgression !== "TD") {
+                  setTypeProgression("TD");
+                  setStatutSauvegarde("dirty");
+                }
+              }}
+              className={`px-1.5 py-1 text-[10px] font-black tracking-wider rounded-md transition-all cursor-pointer ${
+                typeProgression === "TD"
+                  ? "bg-brand-orange text-white shadow-xs"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+              title="Travaux Dirigés / Séance d'exercices"
+            >
+              TD
+            </button>
+          </div>
+
+          {/* Titre du thème ou TD */}
           <input
             ref={themeInputRef}
             type="text"
-            value={theme}
-            placeholder="THÈME : EX. LOGIQUE ET RAISONNEMENT"
+            value={titreTheme}
+            placeholder={
+              typeProgression === "TD"
+                ? "Titre du TD..."
+                : "Titre du thème..."
+            }
             onChange={(e) => {
-              setTheme(e.target.value);
+              setTitreTheme(e.target.value);
               setStatutSauvegarde("dirty");
             }}
-            className="w-full text-center font-black text-slate-900 uppercase tracking-wide text-xs py-1.5 px-2 bg-slate-50/60 hover:bg-slate-100/60 focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-orange/40 rounded-lg transition-all placeholder:text-slate-400 placeholder:normal-case placeholder:font-normal"
+            className="flex-1 min-w-[120px] text-center font-black text-slate-900 uppercase tracking-wide text-xs py-1.5 px-2 bg-slate-50/60 hover:bg-slate-100/60 focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-orange/40 rounded-lg transition-all placeholder:text-slate-400 placeholder:normal-case placeholder:font-normal"
           />
         </div>
 
