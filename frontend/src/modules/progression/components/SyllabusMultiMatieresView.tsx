@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState, useRef, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import {
   Plus,
+  Minus,
   Trash2,
   Save,
   Check,
@@ -11,6 +13,8 @@ import {
   Copy,
   Calendar,
   Sparkles,
+  Printer,
+  Lock,
 } from "lucide-react";
 
 import {
@@ -24,6 +28,7 @@ import {
   useMettreAJourContenuProgression,
   useSupprimerProgression,
 } from "../data/queries";
+import { useProgressionQuotas } from "../hooks/useProgressionQuotas";
 import type { Matiere } from "@/modules/matieres";
 import type { Affectation } from "@/modules/affectation";
 
@@ -63,6 +68,8 @@ interface CelluleMultiMatiereProps {
   sessionId: string;
   phaseId: string;
   onSupprimer?: (p: Progression) => void;
+  estVerrouille?: boolean;
+  quota?: number;
 }
 
 function CelluleMultiMatiereInSitu({
@@ -75,6 +82,8 @@ function CelluleMultiMatiereInSitu({
   sessionId,
   phaseId,
   onSupprimer,
+  estVerrouille,
+  quota,
 }: CelluleMultiMatiereProps) {
   const creerMutation = useCreerProgression();
   const modifierMutation = useMettreAJourContenuProgression();
@@ -263,6 +272,25 @@ function CelluleMultiMatiereInSitu({
     setStatutSauvegarde("idle");
   }
 
+  // Si verrouillé par le quota fixé et aucun cours n'y est déjà enregistré : case inactive
+  if (estVerrouille && !progression) {
+    return (
+      <td className="p-3 align-middle text-center border-r border-b border-slate-200 bg-slate-50/50 min-w-[280px] max-w-[340px]">
+        <div className="flex flex-col items-center justify-center gap-1.5 py-4 text-slate-400 select-none">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-200/70 text-slate-400">
+            <Lock size={13} />
+          </div>
+          <span className="text-[11px] font-bold text-slate-500">
+            Case inactive ({labelNumeroCours(numeroCours)})
+          </span>
+          <span className="text-[10px] text-slate-400">
+            Quota fixé à {quota ?? 3} cours par la Direction
+          </span>
+        </div>
+      </td>
+    );
+  }
+
   // Si pas de progression et pas activé : case incitative sobre
   if (!estActif) {
     return (
@@ -302,6 +330,12 @@ function CelluleMultiMatiereInSitu({
         {/* Barre d'état & Actions de la cellule */}
         <div className="flex items-center justify-between gap-1 border-b border-slate-100 pb-1.5">
           <div className="flex items-center gap-1.5">
+            {estVerrouille && progression && (
+              <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+                <Lock size={10} />
+                <span>Hors quota ({numeroCours}/{quota})</span>
+              </span>
+            )}
             {statutSauvegarde === "saving" && (
               <span className="inline-flex items-center gap-1 text-[10px] font-bold text-brand-orange">
                 <Loader2 size={11} className="animate-spin" />
@@ -522,15 +556,32 @@ export function SyllabusMultiMatieresView({
   onChangerSemaine,
 }: SyllabusMultiMatieresViewProps) {
   const supprimerMutation = useSupprimerProgression();
+  const { data: authSession } = useSession();
+  const estDirecteur =
+    authSession?.user?.role === "DIRECTEUR_ACADEMIQUE" ||
+    authSession?.user?.role === "DIRECTEUR";
 
-  // Liste ordonnée continue de toutes les semaines (de 1 à maxSemaine)
+  const { getQuota, setQuota } = useProgressionQuotas(formationId);
+
+  // Semaines explicitement supprimées / masquées par l'utilisateur
+  const [semainesSupprimees, setSemainesSupprimees] = useState<Set<number>>(
+    new Set(),
+  );
+
+  // Liste ordonnée continue de toutes les semaines (de 1 à maxSemaine) sans les semaines supprimées
   const semainesDisponibles = useMemo(() => {
     const set = new Set<number>();
-    progressions.forEach((p) => set.add(p.semaine));
-    affectations.forEach((a) => set.add(a.semaine));
+    progressions.forEach((p) => {
+      if (!semainesSupprimees.has(p.semaine)) set.add(p.semaine);
+    });
+    affectations.forEach((a) => {
+      if (!semainesSupprimees.has(a.semaine)) set.add(a.semaine);
+    });
     const maxS = Math.max(1, ...Array.from(set));
-    return Array.from({ length: maxS }, (_, i) => i + 1);
-  }, [progressions, affectations]);
+    return Array.from({ length: maxS }, (_, i) => i + 1).filter(
+      (s) => !semainesSupprimees.has(s),
+    );
+  }, [progressions, affectations, semainesSupprimees]);
 
   // Semaine active (soit contrôlée par le parent, soit état local)
   const [internalSemaine, setInternalSemaine] = useState<
@@ -562,6 +613,18 @@ export function SyllabusMultiMatieresView({
     }));
   }
 
+  function retirerLigneCours(semaine: number) {
+    setCoursSupplementairesParSemaine((prev) => {
+      const current = prev[semaine] ?? 0;
+      if (current <= 1) {
+        const next = { ...prev };
+        delete next[semaine];
+        return next;
+      }
+      return { ...prev, [semaine]: current - 1 };
+    });
+  }
+
   function handleAjouterNouvelleSemaine() {
     const maxSemaine =
       semainesDisponibles.length > 0
@@ -581,8 +644,59 @@ export function SyllabusMultiMatieresView({
     }
   }
 
+  async function handleSupprimerSemaine(semaine: number) {
+    const progs = progressions.filter((p) => p.semaine === semaine);
+    if (progs.length > 0) {
+      const ok = window.confirm(
+        `Attention : ${progs.length} cours sont actuellement documentés en Semaine ${semaine}.\n\nÊtes-vous sûr de vouloir supprimer définitivement le tableau de la Semaine ${semaine} et effacer ses ${progs.length} cours ?`,
+      );
+      if (!ok) return;
+
+      for (const p of progs) {
+        if (onSupprimer) {
+          await onSupprimer(p);
+        } else {
+          await supprimerMutation.mutateAsync(p.id);
+        }
+      }
+    }
+
+    setCoursSupplementairesParSemaine((prev) => {
+      const next = { ...prev };
+      delete next[semaine];
+      return next;
+    });
+
+    setSemainesSupprimees((prev) => new Set([...prev, semaine]));
+    if (semaineSelectionnee === semaine) {
+      setSemaineSelectionnee("TOUTES");
+    }
+  }
+
   return (
     <div className="space-y-5">
+      {/* ── Cartouche Officiel EXCELIS pour impression / Export PDF (masqué à l'écran, visible au print) ── */}
+      <div className="hidden print:block mb-4 p-4 border-2 border-brand-orange rounded-xl bg-orange-50/20">
+        <div className="flex items-center justify-between border-b border-orange-200 pb-2 mb-2">
+          <div>
+            <h1 className="text-xl font-black tracking-tight text-slate-900 uppercase">
+              EXCELIS PRÉPAS — FICHE PÉDAGOGIQUE OFFICIELLE
+            </h1>
+            <p className="text-xs font-bold text-brand-orange uppercase">
+              Syllabus de progression multi-disciplinaire
+            </p>
+          </div>
+          <div className="text-right text-xs">
+            <p className="font-bold text-slate-800">SESSION {sessionAnnee}</p>
+            <p className="text-slate-500">Date d&rsquo;impression : {new Date().toLocaleDateString("fr-FR")}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center justify-between text-xs font-semibold text-slate-700">
+          <span>FORMATION : <strong className="text-slate-900">{formationNom}</strong></span>
+          <span>DISCIPLINES : <strong className="text-slate-900">{matieres.map((m) => m.nom).join(" · ")}</strong></span>
+        </div>
+      </div>
+
       {/* ── En-tête de la Fiche Style Papier Excelis Prépas ── */}
       <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-slate-100 pb-5">
@@ -604,7 +718,18 @@ export function SyllabusMultiMatieresView({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="no-print flex flex-wrap items-center gap-2">
+            {/* Bouton Export PDF */}
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 hover:border-brand-orange hover:text-brand-orange transition-all cursor-pointer"
+              title="Exporter ou imprimer le syllabus en PDF A4 Paysage"
+            >
+              <Printer size={14} className="text-brand-orange" />
+              <span>Exporter en PDF</span>
+            </button>
+
             {onOuvrirSaisieLot && (
               <button
                 type="button"
@@ -702,13 +827,23 @@ export function SyllabusMultiMatieresView({
           (a) => a.semaine === semaine,
         );
 
+        // Quota max sur l'ensemble des matières de la semaine
+        const maxQuotaSemaine = matieres.reduce(
+          (max, m) => Math.max(max, getQuota(semaine, m.id, 3)),
+          0,
+        );
         // Détermination du nombre maximal de cours pour cette semaine
         const maxProgressionNum = progressionsSemaine.reduce(
           (max, p) => Math.max(max, p.numeroCours),
           0,
         );
         const extraCours = coursSupplementairesParSemaine[semaine] ?? 0;
-        const nombreLignes = Math.max(1, maxProgressionNum, extraCours);
+        const nombreLignes = Math.max(
+          1,
+          maxQuotaSemaine,
+          maxProgressionNum,
+          extraCours,
+        );
 
         const numerosCours = Array.from(
           { length: nombreLignes },
@@ -718,7 +853,7 @@ export function SyllabusMultiMatieresView({
         return (
           <div
             key={semaine}
-            className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs space-y-0"
+            className="semaine-card overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs space-y-0"
           >
             {/* Sous-titre de la semaine (Semaine X) - Fond doux et lumineux */}
             <div className="flex items-center justify-between bg-slate-100/90 border-b border-slate-200/90 px-5 py-2.5 text-slate-800">
@@ -730,9 +865,22 @@ export function SyllabusMultiMatieresView({
                   SEMAINE {semaine} · {formationNom}
                 </span>
               </div>
-              <span className="text-[11px] font-bold text-slate-500">
-                {progressionsSemaine.length} cours documenté{progressionsSemaine.length > 1 ? "s" : ""}
-              </span>
+
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] font-bold text-slate-500">
+                  {progressionsSemaine.length} cours documenté{progressionsSemaine.length > 1 ? "s" : ""}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => handleSupprimerSemaine(semaine)}
+                  className="no-print inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700 transition-all cursor-pointer shadow-2xs"
+                  title={`Supprimer le tableau de la Semaine ${semaine}`}
+                >
+                  <Trash2 size={12} className="text-slate-400 group-hover:text-red-600" />
+                  <span>Supprimer Semaine {semaine}</span>
+                </button>
+              </div>
             </div>
 
             {/* Grille Scrollable Multi-Matières */}
@@ -751,17 +899,69 @@ export function SyllabusMultiMatieresView({
                       const nbSeances = affectationsSemaine.filter(
                         (a) => a.matiereId === m.id,
                       ).length;
+                      const quota = getQuota(
+                        semaine,
+                        m.id,
+                        nbSeances > 0 ? nbSeances : 3,
+                      );
+                      const nbProgsMatiere = progressionsSemaine.filter(
+                        (p) => p.matiereId === m.id,
+                      ).length;
 
                       return (
                         <th
                           key={m.id}
-                          className="min-w-[280px] max-w-[340px] p-3.5 text-center font-black uppercase tracking-wider text-xs border-r border-orange-600/40 last:border-r-0"
+                          className="min-w-[280px] max-w-[340px] p-3 text-center font-black uppercase tracking-wider text-xs border-r border-orange-600/40 last:border-r-0"
                         >
-                          <div className="flex flex-col items-center justify-center gap-0.5">
-                            <span>{m.nom}</span>
-                            {nbSeances > 0 && (
-                              <span className="text-[11px] font-semibold opacity-90">
-                                ({String(nbSeances).padStart(2, "0")})
+                          <div className="flex flex-col items-center justify-center gap-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <span>{m.nom}</span>
+                              {nbSeances > 0 && (
+                                <span className="text-[11px] font-semibold opacity-90">
+                                  ({String(nbSeances).padStart(2, "0")})
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Option Quota : Édition pour le Directeur Académique / Lecture seule pour les autres */}
+                            {estDirecteur ? (
+                              <div className="no-print inline-flex items-center gap-1 rounded-lg bg-black/20 px-2 py-0.5 text-[11px] font-normal normal-case text-white/95">
+                                <span className="font-bold text-white">Quota :</span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setQuota(semaine, m.id, Math.max(1, quota - 1))
+                                  }
+                                  disabled={quota <= 1}
+                                  className="px-1.5 py-0.2 rounded hover:bg-white/20 font-bold disabled:opacity-30 cursor-pointer"
+                                  title="Diminuer le quota de cours autorisés"
+                                >
+                                  -
+                                </button>
+                                <span className="font-mono font-bold bg-white/20 px-1.5 py-0.2 rounded">
+                                  {quota} cours
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setQuota(semaine, m.id, Math.min(10, quota + 1))
+                                  }
+                                  disabled={quota >= 10}
+                                  className="px-1.5 py-0.2 rounded hover:bg-white/20 font-bold disabled:opacity-30 cursor-pointer"
+                                  title="Augmenter le quota de cours autorisés"
+                                >
+                                  +
+                                </button>
+                                <span className="text-[10px] opacity-75">
+                                  ({nbProgsMatiere}/{quota})
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-lg bg-black/20 px-2 py-0.5 text-[11px] font-semibold normal-case text-white/90">
+                                <Lock size={10} />
+                                <span>
+                                  Quota : {nbProgsMatiere}/{quota} cours
+                                </span>
                               </span>
                             )}
                           </div>
@@ -790,12 +990,21 @@ export function SyllabusMultiMatieresView({
                         </div>
                       </td>
 
-                      {/* Cellule pour chaque matière */}
+                      {/* Cellule pour chaque matière avec application du quota */}
                       {matieres.map((m) => {
                         const progMatiere = progressionsSemaine.find(
                           (p) =>
                             p.matiereId === m.id && p.numeroCours === numCours,
                         );
+                        const nbSeances = affectationsSemaine.filter(
+                          (a) => a.matiereId === m.id,
+                        ).length;
+                        const quota = getQuota(
+                          semaine,
+                          m.id,
+                          nbSeances > 0 ? nbSeances : 3,
+                        );
+                        const estVerrouille = numCours > quota;
 
                         return (
                           <CelluleMultiMatiereInSitu
@@ -809,6 +1018,8 @@ export function SyllabusMultiMatieresView({
                             sessionId={sessionId}
                             phaseId={phaseId}
                             onSupprimer={handleSupprimerProgression}
+                            estVerrouille={estVerrouille}
+                            quota={quota}
                           />
                         );
                       })}
@@ -818,20 +1029,35 @@ export function SyllabusMultiMatieresView({
               </table>
             </div>
 
-            {/* Pied du tableau : Bouton d'ajout d'une ligne de cours pour la semaine */}
-            <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50/70 px-5 py-3">
-              <button
-                type="button"
-                onClick={() =>
-                  ajouterLigneCours(semaine, nombreLignes + 1)
-                }
-                className="inline-flex items-center gap-2 rounded-xl border border-dashed border-slate-300 hover:border-brand-orange bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:text-brand-orange shadow-2xs transition-all cursor-pointer"
-              >
-                <Plus size={13} />
-                <span>
-                  + Ajouter un cours ({labelNumeroCours(nombreLignes + 1)}) à la Semaine {semaine}
-                </span>
-              </button>
+            {/* Pied du tableau : Boutons d'ajout et de suppression d'une ligne de cours pour la semaine */}
+            <div className="no-print flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-slate-50/70 px-5 py-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    ajouterLigneCours(semaine, nombreLignes + 1)
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 hover:border-brand-orange bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:text-brand-orange shadow-2xs transition-all cursor-pointer"
+                >
+                  <Plus size={13} />
+                  <span>
+                    + Ajouter un cours ({labelNumeroCours(nombreLignes + 1)}) à la Semaine {semaine}
+                  </span>
+                </button>
+
+                {/* Possibilité de retirer la ligne ajoutée si elle dépasse le quota ou les progressions enregistrées */}
+                {nombreLignes > Math.max(maxQuotaSemaine, maxProgressionNum) && (
+                  <button
+                    type="button"
+                    onClick={() => retirerLigneCours(semaine)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 px-3 py-2 text-xs font-bold text-red-700 transition-all cursor-pointer shadow-2xs"
+                    title="Supprimer la dernière ligne ajoutée"
+                  >
+                    <Minus size={13} />
+                    <span>Retirer la ligne ({labelNumeroCours(nombreLignes)})</span>
+                  </button>
+                )}
+              </div>
 
               <span className="text-[11px] font-medium text-slate-400">
                 Raccourci clavier : <kbd className="font-mono font-bold text-slate-600 bg-slate-200/80 px-1 py-0.5 rounded">Ctrl + Entrée</kbd> pour enregistrer

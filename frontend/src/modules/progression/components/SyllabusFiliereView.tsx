@@ -11,6 +11,8 @@ import {
   Sparkles,
   Copy,
   BookOpen,
+  Printer,
+  Lock,
 } from "lucide-react";
 
 import {
@@ -24,6 +26,7 @@ import {
   useMettreAJourContenuProgression,
   useSupprimerProgression,
 } from "../data/queries";
+import { useProgressionQuotas } from "../hooks/useProgressionQuotas";
 import type { Affectation } from "@/modules/affectation";
 
 // ── Utilitaires de conversion Lignes <-> Contenu texte ──
@@ -507,15 +510,27 @@ export function SyllabusFiliereView({
   onChangerSemaine,
 }: SyllabusFiliereViewProps) {
   const supprimerMutation = useSupprimerProgression();
+  const { getQuota } = useProgressionQuotas(formationId);
 
-  // Liste ordonnée continue de toutes les semaines (de 1 à maxSemaine)
+  // Semaines explicitement supprimées / masquées par l'utilisateur
+  const [semainesSupprimees, setSemainesSupprimees] = useState<Set<number>>(
+    new Set(),
+  );
+
+  // Liste ordonnée continue de toutes les semaines (de 1 à maxSemaine) sans les semaines supprimées
   const semainesDisponibles = useMemo(() => {
     const sSet = new Set<number>();
-    progressions.forEach((p) => sSet.add(p.semaine));
-    affectations.forEach((a) => sSet.add(a.semaine));
+    progressions.forEach((p) => {
+      if (!semainesSupprimees.has(p.semaine)) sSet.add(p.semaine);
+    });
+    affectations.forEach((a) => {
+      if (!semainesSupprimees.has(a.semaine)) sSet.add(a.semaine);
+    });
     const maxS = Math.max(1, ...Array.from(sSet));
-    return Array.from({ length: maxS }, (_, i) => i + 1);
-  }, [progressions, affectations]);
+    return Array.from({ length: maxS }, (_, i) => i + 1).filter(
+      (s) => !semainesSupprimees.has(s),
+    );
+  }, [progressions, affectations, semainesSupprimees]);
 
   // Semaine sélectionnée (soit contrôlée par le parent, soit état local)
   const [internalSemaine, setInternalSemaine] = useState<number | "TOUTES">(
@@ -591,8 +606,59 @@ export function SyllabusFiliereView({
     setDraftsParSemaine((prev) => ({ ...prev, [nouvelleSemaine]: true }));
   }
 
+  async function handleSupprimerSemaine(semaine: number) {
+    const progs = progressions.filter((p) => p.semaine === semaine);
+    if (progs.length > 0) {
+      const ok = window.confirm(
+        `Attention : ${progs.length} cours sont actuellement documentés dans la Semaine ${semaine}.\n\nÊtes-vous sûr de vouloir supprimer définitivement le tableau de la Semaine ${semaine} et effacer ses ${progs.length} cours ?`,
+      );
+      if (!ok) return;
+
+      for (const p of progs) {
+        if (onSupprimer) {
+          await onSupprimer(p);
+        } else {
+          await supprimerMutation.mutateAsync(p.id);
+        }
+      }
+    }
+
+    setDraftsParSemaine((prev) => {
+      const next = { ...prev };
+      delete next[semaine];
+      return next;
+    });
+
+    setSemainesSupprimees((prev) => new Set([...prev, semaine]));
+    if (semaineSelectionnee === semaine) {
+      setSemaineSelectionnee("TOUTES");
+    }
+  }
+
   return (
     <div className="space-y-5">
+      {/* ── Cartouche Officiel EXCELIS pour impression / Export PDF (masqué à l'écran, visible au print) ── */}
+      <div className="hidden print:block mb-4 p-4 border-2 border-brand-orange rounded-xl bg-orange-50/20">
+        <div className="flex items-center justify-between border-b border-orange-200 pb-2 mb-2">
+          <div>
+            <h1 className="text-xl font-black tracking-tight text-slate-900 uppercase">
+              EXCELIS PRÉPAS — FICHE PÉDAGOGIQUE OFFICIELLE
+            </h1>
+            <p className="text-xs font-bold text-brand-orange uppercase">
+              Syllabus de progression par filière & discipline
+            </p>
+          </div>
+          <div className="text-right text-xs">
+            <p className="font-bold text-slate-800">SESSION {sessionAnnee}</p>
+            <p className="text-slate-500">Date d&rsquo;impression : {new Date().toLocaleDateString("fr-FR")}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center justify-between text-xs font-semibold text-slate-700">
+          <span>FORMATION : <strong className="text-slate-900">{formationNom}</strong></span>
+          <span>DISCIPLINE : <strong className="text-slate-900">{matiereNom}</strong></span>
+        </div>
+      </div>
+
       {/* ── BANDEAU EN-TÊTE DE LA FICHE PAPIER EXCELIS PRÉPAS ── */}
       <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs">
         <div className="flex flex-col gap-3 text-center sm:text-left sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-3.5">
@@ -611,7 +677,18 @@ export function SyllabusFiliereView({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2">
+          <div className="no-print flex flex-wrap items-center justify-center sm:justify-end gap-2">
+            {/* Bouton Export PDF */}
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 hover:border-brand-orange hover:text-brand-orange transition-colors cursor-pointer"
+              title="Exporter ou imprimer le syllabus en PDF A4 Paysage"
+            >
+              <Printer size={13} className="text-brand-orange" />
+              <span>Exporter en PDF</span>
+            </button>
+
             {onOuvrirDuplication && (
               <button
                 type="button"
@@ -704,26 +781,42 @@ export function SyllabusFiliereView({
           const coursList = progressionsParSemaine.get(semaine) ?? [];
           const aBrouillon = draftsParSemaine[semaine];
           const prochainNumero = coursList.length + 1;
+          const quota = getQuota(semaine, matiereId, 4);
+          const quotaAtteint = coursList.length >= quota;
 
           return (
             <div
               key={semaine}
-              className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs"
+              className="semaine-card overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs"
             >
-              {/* Titre de la semaine au-dessus du tableau si vue multi-semaines */}
-              {semaineSelectionnee === "TOUTES" && (
-                <div className="bg-slate-100/90 px-4 py-2.5 text-xs font-black uppercase text-slate-800 flex items-center justify-between border-b border-slate-200/90">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-md bg-brand-orange text-[10px] font-black text-white">
-                      S{semaine}
-                    </span>
-                    <span>Semaine {semaine}</span>
-                  </div>
+              {/* Titre de la semaine au-dessus du tableau */}
+              <div className="bg-slate-100/90 px-4 py-2.5 text-xs font-black uppercase text-slate-800 flex items-center justify-between border-b border-slate-200/90">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-md bg-brand-orange text-[10px] font-black text-white shadow-2xs">
+                    S{semaine}
+                  </span>
+                  <span>Semaine {semaine}</span>
+                  <span className="ml-2 rounded-md bg-white/90 border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600 normal-case">
+                    Quota fixé par la Dir. Académique : {coursList.length} / {quota} cours
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
                   <span className="text-[11px] font-semibold text-slate-500">
                     {coursList.length} cours rédigé{coursList.length > 1 ? "s" : ""}
                   </span>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSupprimerSemaine(semaine)}
+                    className="no-print inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700 transition-all cursor-pointer shadow-2xs"
+                    title={`Supprimer le tableau de la Semaine ${semaine}`}
+                  >
+                    <Trash2 size={11} className="text-slate-400 group-hover:text-red-600" />
+                    <span>Supprimer Semaine {semaine}</span>
+                  </button>
                 </div>
-              )}
+              </div>
 
               <table className="w-full border-collapse text-left">
                 {/* ── EN-TÊTE ORANGE FIDÈLE AU PAPIER EXCELIS ── */}
@@ -754,14 +847,21 @@ export function SyllabusFiliereView({
                         <p className="text-[11px] text-slate-400 mt-0.5 mb-3">
                           Commencez à remplir directement la progression dans le tableau ci-dessous.
                         </p>
-                        <button
-                          type="button"
-                          onClick={() => handleCreerBrouillon(semaine)}
-                          className="inline-flex items-center gap-1.5 rounded-xl bg-brand-orange px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-brand-orange/90 transition-all cursor-pointer"
-                        >
-                          <Plus size={14} />
-                          <span>Remplir le 1er Cours de la Semaine {semaine}</span>
-                        </button>
+                        {quotaAtteint ? (
+                          <div className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-bold text-slate-500 shadow-2xs">
+                            <Lock size={13} className="text-slate-400" />
+                            <span>Quota hebdomadaire atteint ({quota}/{quota} cours max)</span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleCreerBrouillon(semaine)}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-orange px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-brand-orange/90 transition-all cursor-pointer"
+                          >
+                            <Plus size={14} />
+                            <span>Remplir le 1er Cours de la Semaine {semaine}</span>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ) : (
@@ -797,18 +897,25 @@ export function SyllabusFiliereView({
 
                   {/* Bouton pour ajouter un cours suivant directement dans la table */}
                   {!aBrouillon && coursList.length > 0 && (
-                    <tr className="bg-slate-50/50 hover:bg-orange-50/30 transition-colors">
+                    <tr className="bg-slate-50/50 hover:bg-orange-50/30 transition-colors no-print">
                       <td colSpan={3} className="p-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleCreerBrouillon(semaine)}
-                          className="inline-flex items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:border-brand-orange hover:text-brand-orange transition-all cursor-pointer"
-                        >
-                          <Plus size={14} className="text-brand-orange" />
-                          <span>
-                            + Ajouter un cours ({labelNumeroCours(prochainNumero)}) à la Semaine {semaine}
-                          </span>
-                        </button>
+                        {quotaAtteint ? (
+                          <div className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-bold text-slate-500 shadow-2xs select-none">
+                            <Lock size={13} className="text-slate-400" />
+                            <span>Quota hebdomadaire atteint ({quota}/{quota} cours max autorisés par la Direction)</span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleCreerBrouillon(semaine)}
+                            className="inline-flex items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:border-brand-orange hover:text-brand-orange transition-all cursor-pointer"
+                          >
+                            <Plus size={14} className="text-brand-orange" />
+                            <span>
+                              + Ajouter un cours ({labelNumeroCours(prochainNumero)}) à la Semaine {semaine}
+                            </span>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   )}

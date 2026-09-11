@@ -1,14 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import {
   UserRound,
   AlertTriangle,
   ClipboardList,
   Building2,
-  TrendingUp,
-  Layers,
   ArrowUpRight,
 } from "lucide-react";
 
@@ -20,10 +18,7 @@ import { useDepartements } from "@/modules/departement";
 import { useFormations } from "@/modules/academique";
 import { useMatieres } from "@/modules/matieres";
 import { useSalles } from "@/modules/salle";
-import {
-  useProgressions,
-  JournalProgression,
-} from "@/modules/progression";
+import { useProgressions } from "@/modules/progression";
 import { semaineCouranteDepuis } from "@/shared/lib/semaine";
 
 const PLACEHOLDER = "-";
@@ -67,18 +62,6 @@ export function DirecteurAcademiqueDashboard() {
   const { data: salles = [] } = useSalles(sessionActive?.id);
   const { data: toutesProgressions = [] } = useProgressions();
 
-  const formationsParId = useMemo(() => {
-    const map = new Map<string, string>();
-    formations.forEach((f) => map.set(f.id, f.nom));
-    return map;
-  }, [formations]);
-
-  const departementsParMatiereId = useMemo(() => {
-    const map = new Map<string, string>();
-    departements.forEach((d) => map.set(d.matiereId, d.nom));
-    return map;
-  }, [departements]);
-
   // Progressions de la session active, toutes matières confondues.
   const progressionsSession = useMemo(() => {
     if (!sessionActive) return [];
@@ -89,46 +72,30 @@ export function DirecteurAcademiqueDashboard() {
   // limité lui à son seul département. Même formule "honnête" que le dashboard
   // Chef de Département : le dénominateur est le nombre de créneaux réellement
   // créés cette semaine (pas de total de séances prévues déclaré ailleurs).
-  const statsProgressionParDepartement = useMemo(() => {
+  // Suivi de conformité pédagogique pour la semaine active (par département et formation)
+  const conformiteSemaineCourante = useMemo(() => {
     return departements.map((d) => {
-      const seancesDuDepartement = (affectations ?? []).filter(
+      const progressionsSemaine = progressionsSession.filter(
+        (p) => p.matiereId === d.matiereId && Number(p.semaine) === Number(semaineCourante),
+      );
+      const seancesSemaine = (affectations ?? []).filter(
         (a) => a.matiereId === d.matiereId,
       );
-      const progressionsDuDepartement = progressionsSession.filter(
-        (p) => p.matiereId === d.matiereId,
-      );
-      const totalPrevu = seancesDuDepartement.length;
-      const effectuees = seancesDuDepartement.filter(
-        (a) => a.statut === "EFFECTUEE",
-      ).length;
-      const dispensees = progressionsDuDepartement.length;
-      const baseCalcul = totalPrevu > 0 ? totalPrevu : Math.max(dispensees, 1);
-      const pourcentage = Math.min(
-        100,
-        Math.round((Math.max(effectuees, dispensees) / baseCalcul) * 100),
-      );
+
       return {
         departementId: d.id,
         departementNom: d.nom,
         matiereId: d.matiereId,
         sansChef: !d.chefId,
-        totalPrevu,
-        effectuees,
-        dispensees,
-        pourcentage,
+        nbCoursSaisis: progressionsSemaine.length,
+        nbSeancesPlanifiees: seancesSemaine.length,
+        aJour: progressionsSemaine.length > 0,
       };
     });
-  }, [departements, affectations, progressionsSession]);
+  }, [departements, progressionsSession, affectations, semaineCourante]);
 
-  // Filtres du journal chronologique global
-  const [filtreDepartementJournal, setFiltreDepartementJournal] =
-    useState("TOUS");
-  const progressionsFiltreesJournal = useMemo(() => {
-    if (filtreDepartementJournal === "TOUS") return progressionsSession;
-    return progressionsSession.filter(
-      (p) => p.matiereId === filtreDepartementJournal,
-    );
-  }, [progressionsSession, filtreDepartementJournal]);
+  const nbDepartementsAJour = conformiteSemaineCourante.filter((c) => c.aJour).length;
+  const nbDepartementsEnAttente = conformiteSemaineCourante.length - nbDepartementsAJour;
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
@@ -138,11 +105,11 @@ export function DirecteurAcademiqueDashboard() {
           Vue d&rsquo;ensemble Pédagogique
         </h1>
         <p className="text-sm text-slate-500">
-          Aperçu de l&rsquo;activité pédagogique du réseau
+          Supervision et conformité de l&rsquo;activité pédagogique du réseau
         </p>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs Opérationnels */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {/* KPI 1 : Enseignants Actifs */}
         <Card className="group hover:shadow-brand-orange/10 relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
@@ -158,10 +125,7 @@ export function DirecteurAcademiqueDashboard() {
             {chargementEnseignants ? "…" : (enseignantsActifs ?? PLACEHOLDER)}
           </div>
           <div className="mt-2 flex items-center text-xs font-medium">
-            <span className="mr-2 rounded bg-emerald-50 px-1.5 py-0.5 font-semibold text-emerald-700">
-              +3%
-            </span>
-            <span className="text-brand-gray font-medium">vs mois dernier</span>
+            <span className="text-brand-gray font-medium">Corps enseignant du réseau</span>
           </div>
         </Card>
 
@@ -179,13 +143,12 @@ export function DirecteurAcademiqueDashboard() {
             {chargementCentres ? "…" : (centresActifs ?? PLACEHOLDER)}
           </div>
           <div className="text-brand-gray mt-2 flex items-center text-xs font-medium">
-            <span>Réseau global</span>
+            <span>Centres ouverts dans la session</span>
           </div>
         </Card>
 
-        {/* KPI 3 : Créneaux non assignés */}
+        {/* KPI 3 : Créneaux sans prof */}
         <Card className="group relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-red-500/10">
-          {/* Effet de fond subtil rouge en cas d'alerte */}
           {creneauxNonAssignes && creneauxNonAssignes > 0 ? (
             <div className="absolute -top-4 -right-4 h-24 w-24 rounded-full bg-red-50 blur-2xl transition-all duration-300 group-hover:bg-red-100"></div>
           ) : null}
@@ -201,48 +164,68 @@ export function DirecteurAcademiqueDashboard() {
             {chargementAffectations ? "…" : (creneauxNonAssignes ?? 0)}
           </div>
           <p className="text-brand-gray relative mt-2 text-xs font-medium">
-            Semaine en cours ({semaineCourante})
+            Semaine en cours (S{semaineCourante})
           </p>
         </Card>
 
-        {/* KPI 4 : Nombre de cours */}
+        {/* KPI 4 : Nombre de cours documentés */}
         <Card className="group relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-blue-500/10">
           <div className="flex items-start justify-between">
             <span className="text-brand-gray text-xs font-bold tracking-wide uppercase">
-              Cours planifiés
+              Cours documentés
             </span>
-            <div className="rounded-xl bg-gradient-to-br from-blue-100 to-blue-50 p-2.5 text-blue-600 transition-transform duration-300 group-hover:scale-110">
+            <div className="rounded-xl bg-gradient-to-br from-orange-100 to-orange-50 p-2.5 text-brand-orange transition-transform duration-300 group-hover:scale-110">
               <ClipboardList size={20} strokeWidth={2.5} />
             </div>
           </div>
           <div className="text-brand-anthracite mt-3 text-4xl font-extrabold tracking-tight">
-            {chargementAffectations ? "…" : (affectations?.length ?? 0)}
+            {progressionsSession.length}
           </div>
           <p className="text-brand-gray mt-2 text-xs font-medium">
-            Toutes matières confondues (S{semaineCourante})
+            Toutes matières & filières confondues
           </p>
         </Card>
       </div>
 
-      {/* Progression pédagogique - comparatif par département */}
+      {/* Suivi Hebdomadaire des Progressions (Semaine Active) */}
       <Card className="p-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-brand-anthracite flex items-center gap-2 text-lg font-bold">
-            <TrendingUp size={18} className="text-brand-orange" />
-            <span>Progression Pédagogique par Département</span>
-          </h2>
-          <Link
-            href="/progression"
-            className="bg-brand-orange hover:bg-brand-orange/90 flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-white shadow-xs transition-colors"
-          >
-            <span>Ouvrir Progression</span>
-            <ArrowUpRight size={13} />
-          </Link>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-orange text-xs font-black text-white">
+                S{semaineCourante}
+              </span>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                Conformité Hebdomadaire des Progressions
+              </h2>
+            </div>
+            <p className="text-xs text-slate-500">
+              État de remplissage du syllabus par département pour la semaine en cours (Semaine {semaineCourante})
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
+              {nbDepartementsAJour} à jour
+            </span>
+            {nbDepartementsEnAttente > 0 && (
+              <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">
+                {nbDepartementsEnAttente} en attente
+              </span>
+            )}
+            <Link
+              href="/progression"
+              className="bg-brand-orange hover:bg-brand-orange/90 flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white shadow-xs transition-colors cursor-pointer"
+            >
+              <span>Ouvrir la Progression</span>
+              <ArrowUpRight size={14} />
+            </Link>
+          </div>
         </div>
 
         {departements.length === 0 ? (
-          <div className="border-brand-gray/20 bg-brand-gray/5 rounded-md border border-dashed p-6 text-center">
-            <p className="text-brand-gray text-sm">
+          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-6 text-center">
+            <p className="text-xs text-slate-500">
               Aucun département créé pour l&rsquo;instant.
             </p>
           </div>
@@ -251,49 +234,65 @@ export function DirecteurAcademiqueDashboard() {
             <table className="w-full text-left text-xs">
               <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
                 <tr>
-                  <th className="p-3">Département</th>
-                  <th className="p-3 text-center">Séances effectuées</th>
-                  <th className="p-3 text-center">Séances documentées</th>
-                  <th className="w-48 p-3">Couverture</th>
+                  <th className="p-3">Département / Discipline</th>
+                  <th className="p-3 text-center">Séances planifiées</th>
+                  <th className="p-3 text-center">Cours documentés (S{semaineCourante})</th>
+                  <th className="p-3 text-center">Statut Semaine {semaineCourante}</th>
+                  <th className="p-3 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {statsProgressionParDepartement.map((item) => (
-                  <tr key={item.departementId} className="hover:bg-slate-50/60">
+                {conformiteSemaineCourante.map((item) => (
+                  <tr key={item.departementId} className="hover:bg-slate-50/70 transition-colors">
                     <td className="p-3">
-                      <span className="font-bold text-slate-900">
-                        {item.departementNom}
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900">
+                          {item.departementNom}
+                        </span>
+                        {item.sansChef && (
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                            Sans chef
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-3 text-center font-mono font-semibold text-slate-700">
+                      {item.nbSeancesPlanifiees > 0 ? (
+                        <span>{item.nbSeancesPlanifiees} créneau{item.nbSeancesPlanifiees > 1 ? "x" : ""}</span>
+                      ) : (
+                        <span className="text-slate-400">-</span>
+                      )}
+                    </td>
+                    <td className="p-3 text-center">
+                      <span className={`font-mono font-bold px-2.5 py-1 rounded-lg ${
+                        item.nbCoursSaisis > 0
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-slate-100 text-slate-500"
+                      }`}>
+                        {item.nbCoursSaisis} cours saisi{item.nbCoursSaisis > 1 ? "s" : ""}
                       </span>
-                      {item.sansChef && (
-                        <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-                          Sans chef
+                    </td>
+                    <td className="p-3 text-center">
+                      {item.aJour ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 border border-emerald-200">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          À jour
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700 border border-amber-200">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                          En attente de saisie
                         </span>
                       )}
                     </td>
-                    <td className="p-3 text-center font-mono font-semibold text-slate-800">
-                      {item.effectuees}
-                    </td>
-                    <td className="p-3 text-center font-mono font-semibold text-slate-800">
-                      {item.dispensees}
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                          <div
-                            className={`h-full rounded-full transition-all duration-500 ${
-                              item.pourcentage >= 80
-                                ? "bg-emerald-500"
-                                : item.pourcentage >= 40
-                                  ? "bg-brand-orange"
-                                  : "bg-amber-500"
-                            }`}
-                            style={{ width: `${item.pourcentage}%` }}
-                          />
-                        </div>
-                        <span className="w-10 shrink-0 text-right font-mono font-bold text-slate-700">
-                          {item.pourcentage}%
-                        </span>
-                      </div>
+                    <td className="p-3 text-right">
+                      <Link
+                        href="/progression"
+                        className="text-xs font-bold text-brand-orange hover:underline inline-flex items-center gap-1"
+                      >
+                        Consulter
+                        <ArrowUpRight size={12} />
+                      </Link>
                     </td>
                   </tr>
                 ))}
@@ -301,36 +300,6 @@ export function DirecteurAcademiqueDashboard() {
             </table>
           </div>
         )}
-      </Card>
-
-      {/* Journal chronologique global, tous départements confondus */}
-      <Card className="overflow-hidden p-0">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/60 p-4">
-          <h4 className="flex items-center gap-2 text-xs font-bold tracking-wider text-slate-800 uppercase">
-            <Layers size={14} className="text-slate-400" />
-            Journal des Thèmes &amp; Contenus Enregistrés (
-            {progressionsFiltreesJournal.length})
-          </h4>
-          <select
-            value={filtreDepartementJournal}
-            onChange={(e) => setFiltreDepartementJournal(e.target.value)}
-            className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
-          >
-            <option value="TOUS" className="bg-white text-slate-800">Tous les départements</option>
-            {departements.map((d) => (
-              <option key={d.id} value={d.matiereId} className="bg-white text-slate-800">
-                {d.nom}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <JournalProgression
-          progressions={progressionsFiltreesJournal}
-          formationsParId={formationsParId}
-          departementsParMatiereId={departementsParMatiereId}
-          pageSize={10}
-        />
       </Card>
     </div>
   );

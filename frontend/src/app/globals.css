@@ -26,3 +26,48 @@ select option {
   padding: 8px 12px;
 }
 
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 6mm 8mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Cacher les menus, barres de navigation et éléments interactifs */
+  aside,
+  nav,
+  header,
+  [role="navigation"],
+  .no-print {
+    display: none !important;
+  }
+
+  /* Afficher en plein écran la zone principale sans marges inutiles */
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* S'assurer que les fonds orange et bordures du syllabus s'impriment fidèlement */
+  table, th, td, tr, div, span {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Éviter les coupures de page intempestives */
+  .semaine-card {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    margin-bottom: 16px !important;
+  }
+}
+
+

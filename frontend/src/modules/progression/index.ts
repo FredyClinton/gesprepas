@@ -23,3 +23,4 @@ export {
   construireMappingAffectationsProgressions,
   type InfoProgressionAffectation,
 } from "./domain/mapping";
+export { useProgressionQuotas } from "./hooks/useProgressionQuotas";
