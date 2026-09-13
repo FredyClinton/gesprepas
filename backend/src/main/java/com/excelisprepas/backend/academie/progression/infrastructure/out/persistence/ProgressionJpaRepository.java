@@ -17,6 +17,8 @@ public interface ProgressionJpaRepository extends JpaRepository<ProgressionEntit
     java.util.Optional<ProgressionEntity> findFirstByFormationIdAndMatiereIdAndSemaineAndNumeroCours(
             UUID formationId, UUID matiereId, int semaine, int numeroCours);
 
+    java.util.List<ProgressionEntity> findByFormationId(UUID formationId);
+
     java.util.Optional<ProgressionEntity> findFirstByFormationIdAndMatiereIdAndSemaine(
             UUID formationId, UUID matiereId, int semaine);
 }

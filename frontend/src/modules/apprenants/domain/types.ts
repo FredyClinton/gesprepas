@@ -5,8 +5,15 @@ export type Apprenant = {
   dateNaissance: string;
   dateInscription: string;
   montantContrat: number;
-  dateDefinitionContrat: string;
+  dateDefinitionContrat?: string;
   centreId: string;
   sessionId: string;
   formationId: string;
+  etablissementOrigine?: string;
+  contactApprenant?: string;
+  nomParent?: string;
+  contactParent?: string;
+  preInscrit?: boolean;
+  referenceRecu?: string;
 };
+

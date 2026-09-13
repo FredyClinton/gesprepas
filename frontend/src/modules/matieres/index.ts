@@ -9,6 +9,10 @@ export {
 export {
   construireCouleursMatieres,
   trouverCouleurParHex,
+  isCouleurClaire,
+  getContrastingTextColor,
+  getCouleurBadgeStyle,
+  getCouleurCardStyle,
   PALETTE_COULEURS_SELECTION,
   type CouleurMatiere,
 } from "./couleurs";

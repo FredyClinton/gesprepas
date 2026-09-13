@@ -31,6 +31,8 @@ import {
 import {
   useMatieres,
   construireCouleursMatieres,
+  getCouleurCardStyle,
+  isCouleurClaire,
   CouleurMatiere,
   Matiere,
 } from "@/modules/matieres";
@@ -41,6 +43,12 @@ import {
   semaineCouranteDepuis,
   semaineTotaleSession,
 } from "@/shared/lib/semaine";
+import {
+  useConcoursBlancs,
+  ContenuEpreuveModal,
+  type ConcoursBlanc,
+  type EpreuveConcoursBlanc,
+} from "@/modules/concours-blancs";
 import { Card, Modal, Button } from "@/shared/ui";
 import { messageErreurApi } from "@/shared/lib/api-client";
 import { Role } from "@/types/roles";
@@ -164,6 +172,15 @@ export function PlanificationView({
 
   const [semaineChoisie, setSemaineChoisie] = useState<number | null>(null);
   const semaine = semaineChoisie ?? semaineCourante;
+
+  const { data: concoursBlancsSession = [] } = useConcoursBlancs(sessionId);
+  const [epreuveActiveModal, setEpreuveActiveModal] = useState<EpreuveConcoursBlanc | null>(null);
+  const [epreuvesConcoursModal, setEpreuvesConcoursModal] = useState<EpreuveConcoursBlanc[]>([]);
+  const [cbActifModal, setCbActifModal] = useState<ConcoursBlanc | null>(null);
+
+  const concoursBlancsSemaine = useMemo(() => {
+    return concoursBlancsSession.filter((cb) => cb.semaine === semaine);
+  }, [concoursBlancsSession, semaine]);
 
   const matiereIdFiltre = estChefDepartement
     ? departement?.matiereId
@@ -613,13 +630,13 @@ export function PlanificationView({
                   <tr>
                     <th
                       rowSpan={3}
-                      className="sticky left-0 z-30 w-[90px] min-w-[90px] border-r border-b border-slate-200 bg-slate-100 p-2.5 text-center align-middle text-xs font-bold tracking-wider text-slate-700 uppercase shadow-[1px_0_0_0_#e2e8f0]"
+                      className="sticky left-0 z-30 w-[90px] min-w-[90px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-100 p-2.5 text-center align-middle text-xs font-bold tracking-wider text-slate-700 uppercase shadow-[1px_0_0_0_#e2e8f0]"
                     >
                       Jour
                     </th>
                     <th
                       rowSpan={3}
-                      className="sticky left-[90px] z-30 w-[50px] min-w-[50px] border-r border-b border-slate-200 bg-slate-100 p-2.5 text-center align-middle text-xs font-bold tracking-wider text-slate-700 uppercase shadow-[1px_0_0_0_#e2e8f0]"
+                      className="sticky left-[90px] z-30 w-[50px] min-w-[50px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-100 p-2.5 text-center align-middle text-xs font-bold tracking-wider text-slate-700 uppercase shadow-[1px_0_0_0_#e2e8f0]"
                     >
                       Séance
                     </th>
@@ -650,7 +667,7 @@ export function PlanificationView({
                         <th
                           key={gf.formation.id}
                           colSpan={gf.salles.length}
-                          className={`bg-brand-orange/90 border-r border-b p-2 text-center text-xs font-bold text-white uppercase ${
+                          className={`bg-orange-100/60 text-orange-950 border-r border-b border-orange-200/80 p-2 text-center text-xs font-black uppercase tracking-wide ${
                             groupeIndex > 0 && formationIndex === 0
                               ? "border-l-2 border-l-slate-400"
                               : ""
@@ -668,7 +685,7 @@ export function PlanificationView({
                         gf.salles.map((salle, salleIndex) => (
                           <th
                             key={salle.id}
-                            className={`min-w-[120px] border-r border-b bg-slate-50 p-2.5 text-center text-xs font-semibold text-slate-600 ${
+                            className={`min-w-[120px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-50 p-2.5 text-center text-xs font-semibold text-slate-700 ${
                               groupeIndex > 0 &&
                               formationIndex === 0 &&
                               salleIndex === 0
@@ -706,7 +723,7 @@ export function PlanificationView({
                         {ligne === 0 && (
                           <td
                             rowSpan={hauteur}
-                            className={`sticky left-0 z-20 w-[90px] min-w-[90px] border-r border-slate-200 bg-slate-50/95 p-2 text-center align-middle shadow-[1px_0_0_0_#e2e8f0] backdrop-blur-xs ${
+                            className={`sticky left-0 z-20 w-[90px] min-w-[90px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-50/95 p-2 text-center align-middle shadow-[1px_0_0_0_#e2e8f0] backdrop-blur-xs ${
                               jourIndex > 0 ? BORDURE_JOUR : ""
                             }`}
                           >
@@ -716,7 +733,7 @@ export function PlanificationView({
                           </td>
                         )}
                         <td
-                          className={`sticky left-[90px] z-20 w-[50px] min-w-[50px] border-r border-b border-slate-200 bg-slate-50/95 p-2 text-center align-middle shadow-[1px_0_0_0_#e2e8f0] backdrop-blur-xs ${
+                          className={`sticky left-[90px] z-20 w-[50px] min-w-[50px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-50/95 p-2 text-center align-middle shadow-[1px_0_0_0_#e2e8f0] backdrop-blur-xs ${
                             ligne === 0 && jourIndex > 0 ? BORDURE_JOUR : ""
                           }`}
                         >
@@ -731,8 +748,23 @@ export function PlanificationView({
                             return gf.salles.map((salle, salleIndex) => {
                               const contenu = creneauxPour(salle.id, jour);
                               const creneau = contenu[ligne];
+                              const seanceNum = ligne + 1;
+                              const concoursSurCreneau = concoursBlancsSemaine.find(
+                                (cb) =>
+                                  cb.jour === jour &&
+                                  seanceNum >= cb.seanceDebut &&
+                                  seanceNum <= cb.seanceFin &&
+                                  (cb.tousLesCentres || (cb.centreIds && cb.centreIds.includes(groupe.centre.id))) &&
+                                  cb.epreuves.some((e) => e.formationId === gf.formation.id),
+                              );
+                              const epreuvesConcours = concoursSurCreneau
+                                ? concoursSurCreneau.epreuves.filter(
+                                    (e) => e.formationId === gf.formation.id,
+                                  )
+                                : [];
                               const emplacementLibre =
                                 !creneau &&
+                                !concoursSurCreneau &&
                                 ligne < MAX_SEANCES_PAR_JOUR &&
                                 peutCreerCreneaux &&
                                 groupe.centre.statut !== "FERME";
@@ -753,9 +785,49 @@ export function PlanificationView({
                               return (
                                 <td
                                   key={`${salle.id}-${jour}-${ligne}`}
-                                  className={`border-r border-b border-slate-100 p-1.5 align-middle ${bordureCentre} ${bordureJour}`}
+                                  className={`border-r border-r-slate-300 border-b border-b-slate-300 p-1.5 align-middle ${bordureCentre} ${bordureJour}`}
                                 >
-                                  {creneau && (
+                                  {concoursSurCreneau && (
+                                    <div
+                                      onClick={() => {
+                                        setCbActifModal(concoursSurCreneau);
+                                        setEpreuvesConcoursModal(epreuvesConcours);
+                                        const epDuChef = epreuvesConcours.find((e) =>
+                                          mesDepartements.some((d) => d.matiereId === e.matiereId),
+                                        );
+                                        setEpreuveActiveModal(epDuChef || epreuvesConcours[0] || null);
+                                      }}
+                                      className="w-full cursor-pointer rounded-xl border border-orange-300/80 bg-gradient-to-r from-orange-500 to-amber-500 p-2 text-white shadow-xs hover:shadow-md hover:scale-[1.01] transition-all flex flex-col justify-between min-h-[64px]"
+                                      title="Créneau Concours Blanc - Cliquez pour voir les épreuves et les contenus"
+                                    >
+                                      <div className="flex items-center justify-between gap-1">
+                                        <span className="rounded-md bg-white/20 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white">
+                                          Concours Blanc
+                                        </span>
+                                        <span className="text-[10px] font-bold text-orange-100">
+                                          S{concoursSurCreneau.seanceDebut}-S{concoursSurCreneau.seanceFin}
+                                        </span>
+                                      </div>
+                                      <div className="font-bold text-xs truncate mt-0.5">
+                                        {concoursSurCreneau.titre}
+                                      </div>
+                                      {/* Affichage de TOUTES LES MATIÈRES du concours blanc */}
+                                      <div className="mt-1 flex flex-wrap gap-1">
+                                        {epreuvesConcours.map((e) => (
+                                          <span
+                                            key={e.id}
+                                            className="inline-flex items-center gap-1 rounded bg-black/25 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-2xs leading-tight"
+                                          >
+                                            <span>{e.intitule}</span>
+                                            <span className="text-orange-200 text-[8px] font-normal">
+                                              {e.dureeMinutes ? `${Math.round(e.dureeMinutes / 60)}h` : ""}{e.coefficient ? ` · c${e.coefficient}` : ""}
+                                            </span>
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {creneau && !concoursSurCreneau && (
                                     <CelluleCreneau
                                       creneau={creneau}
                                       couleur={couleursMatieres.get(
@@ -813,7 +885,7 @@ export function PlanificationView({
         </div>
 
         {/* Légende des matières */}
-        <Card className="border-brand-orange/20 bg-brand-orange/5 w-full shrink-0 overflow-y-auto p-4 xl:w-52">
+        <Card className="border-brand-orange/20 bg-brand-orange/5 w-full shrink-0 max-h-48 xl:max-h-none overflow-y-auto p-4 xl:w-52">
           <div className="mb-3 flex items-center gap-2">
             <Palette size={15} className="text-brand-orange" />
             <h2 className="text-brand-anthracite text-xs font-bold tracking-wider uppercase">
@@ -828,14 +900,12 @@ export function PlanificationView({
             <div className="flex flex-col gap-2">
               {matieresVisibles.map((matiere) => {
                 const couleur = couleursMatieres.get(matiere.id);
+                const hex = couleur?.hex || matiere.couleur;
                 return (
                   <span
                     key={matiere.id}
-                    className={`rounded-lg px-3 py-1.5 text-center text-xs font-bold shadow-xs ${
-                      couleur
-                        ? `${couleur.bg} ${couleur.texte}`
-                        : "bg-brand-gray/10 text-brand-gray"
-                    }`}
+                    className="rounded-lg px-3 py-1.5 text-center text-xs font-bold shadow-xs border"
+                    style={getCouleurCardStyle(hex, true)}
                   >
                     {matiere.nom}
                   </span>
@@ -917,6 +987,34 @@ export function PlanificationView({
           </div>
         </div>
       </Modal>
+
+      {/* ── Modale de Contenu de l'Épreuve du Concours Blanc ── */}
+      {cbActifModal && epreuveActiveModal && (
+        <ContenuEpreuveModal
+          isOpen={Boolean(cbActifModal && epreuveActiveModal)}
+          onClose={() => {
+            setCbActifModal(null);
+            setEpreuveActiveModal(null);
+            setEpreuvesConcoursModal([]);
+          }}
+          concoursBlancId={cbActifModal.id}
+          concoursBlancTitre={cbActifModal.titre}
+          epreuve={epreuveActiveModal}
+          toutesLesEpreuves={epreuvesConcoursModal}
+          mesMatiereIds={new Set(mesDepartements.map((d) => d.matiereId))}
+          peutEditer={
+            role === "DIRECTEUR_ACADEMIQUE" ||
+            (estChefDepartement &&
+              mesDepartements.some((d) => d.matiereId === epreuveActiveModal.matiereId))
+          }
+          departementNom={
+            departements.find((d) => d.matiereId === epreuveActiveModal.matiereId)?.nom
+          }
+          estChefDept={estChefDepartement}
+          role={role}
+          departementId={departementId || mesDepartements[0]?.id}
+        />
+      )}
     </div>
   );
 }
@@ -1085,6 +1183,9 @@ function CelluleCreneau({
     }
   }
 
+  const hex = couleur?.hex || matiere?.couleur || "#94a3b8";
+  const isLight = isCouleurClaire(hex);
+
   return (
     <div className={attenue ? "opacity-30" : ""}>
       <div className="relative">
@@ -1092,74 +1193,84 @@ function CelluleCreneau({
           type="button"
           onClick={() => peutOuvrir && (ouvert ? fermer() : ouvrir())}
           disabled={!peutOuvrir}
-          className={`w-full rounded-xl border border-slate-200/80 p-2.5 text-left shadow-2xs transition-all ${
-            couleur ? couleur.bg : "bg-white"
-          } ${
+          style={{
+            borderColor: hex,
+          }}
+          className={`group/slot relative w-full rounded-xl bg-white border-2 p-2.5 text-left shadow-2xs transition-all hover:bg-slate-50/60 hover:shadow-xs ${
             peutOuvrir
-              ? "cursor-pointer hover:border-slate-300 hover:shadow-xs"
+              ? "cursor-pointer"
               : "cursor-default"
           }`}
         >
-          {/* Si enseignant assigné : Enseignant en premier plan */}
+          {/* Si enseignant assigné : Enseignant avec tranche matière */}
           {enseignant ? (
             <div className="flex flex-col gap-1.5">
-              {/* Ligne principale : Avatar + (Nom & Matricule) + Badge Effectuée */}
-              <div className="flex items-start justify-between gap-1.5">
-                <div className="flex min-w-0 items-start gap-2">
+              {/* En-tête de carte : Badge Matière + Statut Fait */}
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-50 border border-slate-200/80 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-slate-700 max-w-[130px] truncate">
                   <span
-                    className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px] font-black shadow-2xs ${
-                      couleur
-                        ? `${couleur.texte} border-slate-200/80 bg-white`
-                        : "border-slate-300 bg-slate-100 text-slate-700"
-                    }`}
-                  >
-                    {enseignant.prenom[0]}
-                    {enseignant.nom[0]}
-                  </span>
-                  <div className="min-w-0 flex-1 leading-tight">
-                    <p className="truncate text-xs font-bold text-slate-900">
-                      {enseignant.nom} {enseignant.prenom}
-                    </p>
-                    <div className="mt-1 flex items-center gap-1.5 rounded-md border border-slate-300 bg-white/90 px-2 py-0.5 font-mono text-xs font-bold text-slate-900 shadow-2xs">
-                      <Phone size={11} className="text-brand-orange shrink-0" />
-                      <span className="truncate tracking-wide">
-                        {enseignant.telephone || "-"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                    className="h-2 w-2 rounded-full shrink-0 border border-black/10"
+                    style={{ backgroundColor: hex }}
+                  />
+                  <span className="truncate">{matiere?.nom ?? "Matière"}</span>
+                </span>
+
                 {creneau.statut === "EFFECTUEE" && (
-                  <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-800">
+                  <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">
                     <CheckCircle2 size={10} className="text-emerald-600" />
                     <span>Fait</span>
                   </span>
                 )}
               </div>
+
+              {/* Corps Enseignant : Avatar avec anneau couleur + Nom + Téléphone */}
+              <div className="flex items-start gap-2 min-w-0 pt-0.5">
+                <span
+                  className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 bg-white text-[10px] font-black shadow-2xs"
+                  style={{
+                    borderColor: hex,
+                    color: isLight ? "#0f172a" : hex,
+                  }}
+                >
+                  {enseignant.prenom[0]}
+                  {enseignant.nom[0]}
+                </span>
+                <div className="min-w-0 flex-1 leading-tight">
+                  <p className="truncate text-xs font-bold text-slate-900">
+                    {enseignant.nom} {enseignant.prenom}
+                  </p>
+                  <div className="mt-1 flex items-center gap-1.5 rounded-md border border-slate-200/90 bg-slate-50 px-2 py-0.5 font-mono text-xs font-bold text-slate-800 shadow-2xs">
+                    <Phone size={11} className="text-brand-orange shrink-0" />
+                    <span className="truncate tracking-wide">
+                      {enseignant.telephone || "-"}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           ) : (
             /* Si aucun enseignant assigné */
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-1">
-                <span
-                  className={`inline-block max-w-[125px] truncate rounded-md px-1.5 py-0.5 text-[10px] font-extrabold tracking-wide uppercase ${
-                    couleur
-                      ? `${couleur.bg} ${couleur.texte}`
-                      : "bg-slate-100 text-slate-700"
-                  }`}
-                >
-                  {matiere?.nom ?? "Matière"}
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-50 border border-slate-200/80 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-slate-700 max-w-[130px] truncate">
+                  <span
+                    className="h-2 w-2 rounded-full shrink-0 border border-black/10"
+                    style={{ backgroundColor: hex }}
+                  />
+                  <span className="truncate">{matiere?.nom ?? "Matière"}</span>
                 </span>
-                <span className="text-[10px] font-semibold text-amber-600">
+                <span className="text-[10px] font-semibold text-slate-400">
                   -
                 </span>
               </div>
+
               {peutAssigner || peutGererCreneau ? (
-                <div className="flex items-center justify-center gap-1.5 rounded-lg border border-amber-200/80 bg-amber-50/90 px-2 py-1 text-[11px] font-bold text-amber-700 transition-colors hover:bg-amber-100/90">
-                  <UserRound size={12} className="shrink-0" />
-                  <span>+</span>
+                <div className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-amber-300 bg-amber-50/70 px-2 py-1 text-[11px] font-bold text-amber-800 shadow-2xs transition-colors hover:bg-amber-100">
+                  <UserRound size={12} className="shrink-0 text-amber-700" />
+                  <span>+ Assigner</span>
                 </div>
               ) : (
-                <span className="text-[10px] text-slate-400 italic">
+                <span className="text-[10px] italic text-slate-400">
                   Aucun enseignant
                 </span>
               )}
@@ -1360,7 +1471,8 @@ function CelluleCreneau({
                           className="hover:bg-brand-gray/10 text-brand-anthracite flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs disabled:opacity-50"
                         >
                           <span
-                            className={`h-2.5 w-2.5 rounded-sm ${couleurM?.legende ?? "bg-brand-gray"}`}
+                            className={`h-2.5 w-2.5 rounded-sm shrink-0 ${couleurM?.legende ?? "bg-brand-gray"}`}
+                            style={{ backgroundColor: couleurM?.hex || m.couleur }}
                           />
                           {m.nom}
                         </button>
@@ -1544,7 +1656,8 @@ function CreerCreneauPopover({
                     className="hover:bg-brand-gray/10 text-brand-anthracite flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs disabled:opacity-50"
                   >
                     <span
-                      className={`h-2.5 w-2.5 rounded-sm ${couleur?.legende ?? "bg-brand-gray"}`}
+                      className={`h-2.5 w-2.5 rounded-sm shrink-0 ${couleur?.legende ?? "bg-brand-gray"}`}
+                      style={{ backgroundColor: couleur?.hex || m.couleur }}
                     />
                     {m.nom}
                   </button>

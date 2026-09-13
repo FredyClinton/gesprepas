@@ -42,7 +42,11 @@ import {
   type Enseignant,
 } from "@/modules/personnel";
 import { useDepartements, type Departement } from "@/modules/departement";
-import { useMatieres, construireCouleursMatieres } from "@/modules/matieres";
+import {
+  useMatieres,
+  construireCouleursMatieres,
+  getCouleurBadgeStyle,
+} from "@/modules/matieres";
 import { useSessionActive } from "@/modules/centres-sessions";
 import {
   useRostersDepartements,
@@ -1196,6 +1200,11 @@ export function EnseignantsListView({ role, departementIdCDD }: Props) {
                             return (
                               <span
                                 key={d.id}
+                                style={
+                                  couleur?.hex
+                                    ? getCouleurBadgeStyle(couleur.hex)
+                                    : undefined
+                                }
                                 className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border transition-all ${
                                   couleur
                                     ? couleur.badge

@@ -58,10 +58,13 @@ public class BilanJournalierService implements ValiderBilanChefCentreUseCase, Va
     }
 
     private TotauxCentreJour calculerTotaux(UUID centreId, UUID sessionId, LocalDate date) {
-        List<Entree> entrees = entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(
-                centreId, sessionId, date, StatutMouvement.VALIDE);
-        List<Sortie> sorties = sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(
-                centreId, sessionId, date, StatutMouvement.VALIDE);
+        List<Entree> entrees = new ArrayList<>();
+        entrees.addAll(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centreId, sessionId, date, StatutMouvement.VALIDE));
+        entrees.addAll(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centreId, sessionId, date, StatutMouvement.EN_ATTENTE));
+
+        List<Sortie> sorties = new ArrayList<>();
+        sorties.addAll(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centreId, sessionId, date, StatutMouvement.VALIDE));
+        sorties.addAll(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centreId, sessionId, date, StatutMouvement.EN_ATTENTE));
 
         BigDecimal totalEntrees = entrees.stream().map(Entree::getMontant).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalSorties = sorties.stream().map(Sortie::getMontant).reduce(BigDecimal.ZERO, BigDecimal::add);

@@ -17,6 +17,8 @@ import {
   FileText,
   CheckCircle2,
   Palette,
+  Printer,
+  Columns,
 } from "lucide-react";
 
 import { Card } from "@/shared/ui";
@@ -27,7 +29,7 @@ import {
   useAffectationsMultiMatiere,
 } from "@/modules/affectation";
 import { useFormations, type Formation } from "@/modules/academique";
-import { useMatieres, CatalogueMatieresModal } from "@/modules/matieres";
+import { useMatieres, CatalogueMatieresModal, type Matiere } from "@/modules/matieres";
 import { useSalles } from "@/modules/salle";
 import {
   useProgressions,
@@ -37,6 +39,9 @@ import {
   SyllabusMultiMatieresView,
   SaisieLotModal,
   DupliquerSyllabusModal,
+  ExporterProgressionModal,
+  OrganiserColonnesModal,
+  useOrdreColonnes,
   construireMappingAffectationsProgressions,
   type Progression,
   type PrefillProgression,
@@ -131,15 +136,22 @@ function ProgressionChefDepartement({
     ? semaineCouranteDepuis(sessionActive.dateDebut, sessionActive.dateFin)
     : 1;
 
+  const [semaineSelectionnee, setSemaineSelectionnee] = useState<number | "TOUTES">(1);
+
+  const semaineEffective =
+    typeof semaineSelectionnee === "number"
+      ? semaineSelectionnee
+      : semaineCourante;
+
   const { data: affectationsUnDept = [] } = useAffectations({
     sessionId:
       !vueTousDepartements && departementUnique ? sessionId : undefined,
-    semaine: semaineCourante,
+    semaine: semaineEffective,
     matiereId: departementUnique?.matiereId,
   });
   const { data: affectationsTousDept } = useAffectationsMultiMatiere({
     sessionId: vueTousDepartements ? sessionId : undefined,
-    semaine: semaineCourante,
+    semaine: semaineEffective,
     matiereIds,
   });
   const affectations = useMemo(
@@ -212,8 +224,6 @@ function ProgressionChefDepartement({
     });
   }, [formationsPerimetre, affectations, progressionsPerimetre]);
 
-
-  const [semaineSelectionnee, setSemaineSelectionnee] = useState<number | "TOUTES">(1);
   const [modalOuvert, setModalOuvert] = useState(false);
   const [progressionEnEdition, setProgressionEnEdition] =
     useState<Progression | null>(null);
@@ -223,7 +233,15 @@ function ProgressionChefDepartement({
   const [filiereActiveId, setFiliereActiveId] = useState<string>("");
   const [saisieLotOuverte, setSaisieLotOuverte] = useState(false);
   const [duplicationOuverte, setDuplicationOuverte] = useState(false);
-  const [catalogueMatieresOuvert, setCatalogueMatieresOuvert] = useState(false);
+  const [exportModalOuvert, setExportModalOuvert] = useState(false);
+
+  const matieresChef = useMemo(() => {
+    if (matiereIdsActifs.length > 0) {
+      return matieres.filter((m) => matiereIdsActifs.includes(m.id));
+    }
+    const mId = departementUnique?.matiereId ?? mesDepartements[0]?.matiereId;
+    return matieres.filter((m) => m.id === mId);
+  }, [matieres, matiereIdsActifs, departementUnique, mesDepartements]);
 
   const supprimerMutation = useSupprimerProgression();
 
@@ -383,17 +401,18 @@ function ProgressionChefDepartement({
             </div>
           )}
 
-          {/* Boutons d'action rapides */}
+          {/* Bouton Exporter en PDF */}
           <button
             type="button"
-            onClick={() => setCatalogueMatieresOuvert(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs sm:text-sm font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors cursor-pointer"
-            title="Gérer les matières et leurs couleurs associées"
+            onClick={() => setExportModalOuvert(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs sm:text-sm font-bold text-slate-700 shadow-2xs hover:bg-slate-50 hover:border-brand-orange hover:text-brand-orange transition-colors cursor-pointer"
+            title="Exporter ou imprimer le syllabus en PDF A4 Paysage"
           >
-            <Palette size={15} className="text-brand-orange" />
-            <span>Catalogue matières</span>
+            <Printer size={15} className="text-brand-orange" />
+            <span>Exporter en PDF</span>
           </button>
 
+          {/* Boutons d'action rapides */}
           <button
             type="button"
             onClick={() => setDuplicationOuverte(true)}
@@ -525,6 +544,8 @@ function ProgressionChefDepartement({
           <SyllabusFiliereView
             formationId={formationSelectionnee.id}
             formationNom={formationSelectionnee.nom}
+            allFormations={formationsPerimetre}
+            toutesMatieres={matieres}
             matiereId={
               departementUnique?.matiereId ??
               (mesDepartements[0]?.matiereId || "")
@@ -535,6 +556,8 @@ function ProgressionChefDepartement({
             sessionAnnee={sessionActive?.annee?.toString() ?? "2026"}
             progressions={progressionsFiliereActive}
             affectations={affectationsFiliereActive}
+            toutesProgressions={progressionsPerimetre}
+            toutesAffectations={affectations}
             semaineSelectionnee={semaineSelectionnee}
             onChangerSemaine={setSemaineSelectionnee}
             onSupprimer={supprimer}
@@ -589,15 +612,25 @@ function ProgressionChefDepartement({
               }
               sessionId={sessionId}
               toutesProgressions={toutesProgressions}
+              role="CHEF_DEPARTEMENT"
+              matieres={matieresChef}
             />
           )}
+
+          <ExporterProgressionModal
+            isOpen={exportModalOuvert}
+            onClose={() => setExportModalOuvert(false)}
+            formations={formationsPerimetre}
+            formationIdActive={formationSelectionnee?.id}
+            semaineActive={semaineSelectionnee}
+            matieres={matieresChef}
+            sessionAnnee={sessionActive?.annee?.toString() ?? "2026"}
+            sessionId={sessionId}
+            progressions={progressionsPerimetre}
+            affectations={affectations}
+          />
         </>
       )}
-
-      <CatalogueMatieresModal
-        isOpen={catalogueMatieresOuvert}
-        onClose={() => setCatalogueMatieresOuvert(false)}
-      />
     </div>
   );
 }
@@ -619,10 +652,17 @@ function ProgressionDirecteurAcademique() {
     ? semaineCouranteDepuis(sessionActive.dateDebut, sessionActive.dateFin)
     : 1;
 
+  const [semaineSelectionnee, setSemaineSelectionnee] = useState<number | "TOUTES">(1);
+
+  const semaineEffective =
+    typeof semaineSelectionnee === "number"
+      ? semaineSelectionnee
+      : semaineCourante;
+
   // Le DA consulte l'ensemble des affectations de la session
   const { data: affectations = [] } = useAffectations({
     sessionId,
-    semaine: semaineCourante,
+    semaine: semaineEffective,
     matiereId: undefined,
   });
 
@@ -728,9 +768,11 @@ function ProgressionDirecteurAcademique() {
       formationSelectionnee.matiereIds &&
       formationSelectionnee.matiereIds.length > 0
     ) {
-      return matieres.filter((m) =>
-        formationSelectionnee.matiereIds!.includes(m.id),
-      );
+      const parId = new Map(matieres.map((m) => [m.id, m]));
+      const ordonnees = formationSelectionnee.matiereIds
+        .map((id) => parId.get(id))
+        .filter((m): m is Matiere => Boolean(m));
+      if (ordonnees.length > 0) return ordonnees;
     }
     // Déduction automatique à partir des affectations et progressions de la filière
     const mIds = new Set<string>();
@@ -743,6 +785,11 @@ function ProgressionDirecteurAcademique() {
     const match = matieres.filter((m) => mIds.has(m.id));
     return match.length > 0 ? match : matieres;
   }, [formationSelectionnee, matieres, affectations, progressionsSession]);
+
+  const {
+    matieresOrdonnees: matieresFiliereOrdonnees,
+    changerOrdre: changerOrdreMatieres,
+  } = useOrdreColonnes(formationSelectionnee?.id, matieresFiliereActive);
 
   const progressionsFiliereActive = useMemo(() => {
     if (!formationSelectionnee) return [];
@@ -773,7 +820,6 @@ function ProgressionDirecteurAcademique() {
   const [modeVue, setModeVue] = useState<"syllabus" | "departements">(
     "syllabus",
   );
-  const [semaineSelectionnee, setSemaineSelectionnee] = useState<number | "TOUTES">(1);
 
   const maxSemaine = useMemo(() => {
     let max = Math.max(1, semaineCourante);
@@ -814,6 +860,8 @@ function ProgressionDirecteurAcademique() {
   const [matierePourLot, setMatierePourLot] = useState<string>("");
   const [duplicationOuverte, setDuplicationOuverte] = useState(false);
   const [catalogueMatieresOuvert, setCatalogueMatieresOuvert] = useState(false);
+  const [exportModalOuvert, setExportModalOuvert] = useState(false);
+  const [organiserColonnesOuvert, setOrganiserColonnesOuvert] = useState(false);
 
   const supprimerMutation = useSupprimerProgression();
 
@@ -834,146 +882,169 @@ function ProgressionDirecteurAcademique() {
     await supprimerMutation.mutateAsync(p.id);
   }
 
-  return (
-    <div className="mx-auto max-w-7xl space-y-5">
-      {/* ── Navigation Filières & Commutateur de Mode / Sélecteur de Semaine (Masqué à l'export/impression) ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3 no-print print:hidden">
-        {/* Onglets des filières (en mode syllabus) */}
-        {modeVue === "syllabus" ? (
-          <div className="flex items-center gap-1.5 overflow-x-auto p-1 bg-slate-100/80 rounded-xl scrollbar-none">
-            {formations.map((f) => {
-              const stats = statsParFormationId.get(f.id);
-              const totalDocs = stats?.dispensees ?? 0;
-              const pct = stats?.pourcentage ?? 0;
-              const actif = (formationSelectionnee?.id ?? "") === f.id;
+  const barreNavigation = (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3 no-print print:hidden">
+      {/* Onglets des filières (en mode syllabus) */}
+      {modeVue === "syllabus" ? (
+        <div className="flex items-center gap-1.5 overflow-x-auto p-1 bg-slate-100/80 rounded-xl scrollbar-none">
+          {formations.map((f) => {
+            const stats = statsParFormationId.get(f.id);
+            const totalDocs = stats?.dispensees ?? 0;
+            const pct = stats?.pourcentage ?? 0;
+            const actif = (formationSelectionnee?.id ?? "") === f.id;
 
-              return (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => setFiliereActiveId(f.id)}
-                  className={`flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+            return (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setFiliereActiveId(f.id)}
+                className={`flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                  actif
+                    ? "bg-white text-slate-900 shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <span>{f.nom}</span>
+                <span
+                  className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
                     actif
-                      ? "bg-white text-slate-900 shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900"
+                      ? "bg-orange-100 text-brand-orange"
+                      : "bg-slate-200/70 text-slate-600"
                   }`}
                 >
-                  <span>{f.nom}</span>
-                  <span
-                    className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
-                      actif
-                        ? "bg-orange-100 text-brand-orange"
-                        : "bg-slate-200/70 text-slate-600"
-                    }`}
-                  >
-                    {totalDocs} cours · {pct}%
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-            <Building2 size={16} className="text-brand-orange" />
-            <span>Synthèse de la couverture par département</span>
+                  {totalDocs} cours · {pct}%
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+          <Building2 size={16} className="text-brand-orange" />
+          <span>Synthèse de la couverture par département</span>
+        </div>
+      )}
+
+      {/* Sélecteur de Semaine & Commutateur Départements */}
+      <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto">
+        {modeVue === "syllabus" && (
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs">
+              <Calendar size={15} className="text-brand-orange shrink-0" />
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider hidden sm:inline">
+                Semaine :
+              </span>
+              <select
+                value={semaineSelectionnee === "TOUTES" ? "TOUTES" : String(semaineSelectionnee)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "TOUTES") {
+                    setSemaineSelectionnee("TOUTES");
+                  } else {
+                    setSemaineSelectionnee(Number(val));
+                  }
+                }}
+                className="cursor-pointer bg-transparent text-xs sm:text-sm font-bold text-slate-800 outline-none pr-1"
+              >
+                <option value="TOUTES" className="bg-white text-slate-800">
+                  Toutes les semaines (S1 à S{maxSemaine})
+                </option>
+                <optgroup label="Semaines du cursus (Début → Présent)">
+                  {semainesDisponibles.map((s) => (
+                    <option key={s} value={String(s)} className="bg-white text-slate-800 font-bold">
+                      Semaine {s} {s === semaineCourante ? "• (en cours)" : s > semaineCourante ? "(À venir)" : ""}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAjouterNouvelleSemaine}
+              title="Ajouter une nouvelle semaine au syllabus"
+              className="inline-flex items-center gap-1 rounded-xl border border-dashed border-slate-300 bg-white px-2.5 py-1.5 text-xs sm:text-sm font-bold text-slate-700 shadow-2xs hover:border-brand-orange hover:bg-orange-50 hover:text-brand-orange transition-colors cursor-pointer shrink-0"
+            >
+              <Plus size={13} className="text-brand-orange" />
+              <span>+ Semaine</span>
+            </button>
           </div>
         )}
 
-        {/* Sélecteur de Semaine & Commutateur Départements */}
-        <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto">
-          {modeVue === "syllabus" && (
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs">
-                <Calendar size={15} className="text-brand-orange shrink-0" />
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider hidden sm:inline">
-                  Semaine :
-                </span>
-                <select
-                  value={semaineSelectionnee === "TOUTES" ? "TOUTES" : String(semaineSelectionnee)}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === "TOUTES") {
-                      setSemaineSelectionnee("TOUTES");
-                    } else {
-                      setSemaineSelectionnee(Number(val));
-                    }
-                  }}
-                  className="cursor-pointer bg-transparent text-xs sm:text-sm font-bold text-slate-800 outline-none pr-1"
-                >
-                  <option value="TOUTES" className="bg-white text-slate-800">
-                    Toutes les semaines (S1 à S{maxSemaine})
-                  </option>
-                  <optgroup label="Semaines du cursus (Début → Présent)">
-                    {semainesDisponibles.map((s) => (
-                      <option key={s} value={String(s)} className="bg-white text-slate-800 font-bold">
-                        Semaine {s} {s === semaineCourante ? "• (en cours)" : s > semaineCourante ? "(À venir)" : ""}
-                      </option>
-                    ))}
-                  </optgroup>
-                </select>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleAjouterNouvelleSemaine}
-                title="Ajouter une nouvelle semaine au syllabus"
-                className="inline-flex items-center gap-1 rounded-xl border border-dashed border-slate-300 bg-white px-2.5 py-1.5 text-xs sm:text-sm font-bold text-slate-700 shadow-2xs hover:border-brand-orange hover:bg-orange-50 hover:text-brand-orange transition-colors cursor-pointer shrink-0"
-              >
-                <Plus size={13} className="text-brand-orange" />
-                <span>+ Semaine</span>
-              </button>
-            </div>
-          )}
-
+        {modeVue === "departements" && (
           <button
             type="button"
-            onClick={() => setCatalogueMatieresOuvert(true)}
+            onClick={() => setExportModalOuvert(true)}
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-2xs"
-            title="Gérer les matières et leurs couleurs associées"
+            title="Exporter ou imprimer la synthèse en PDF"
           >
-            <Palette size={14} className="text-brand-orange" />
-            <span>Catalogue matières</span>
+            <Printer size={14} className="text-brand-orange" />
+            <span>Exporter en PDF</span>
           </button>
+        )}
 
+        {modeVue === "syllabus" && formationSelectionnee && (
           <button
             type="button"
-            onClick={() =>
-              setModeVue(modeVue === "syllabus" ? "departements" : "syllabus")
-            }
-            className={`inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-bold transition-all cursor-pointer shadow-2xs ${
-              modeVue === "departements"
-                ? "border-brand-orange bg-orange-50/80 text-brand-orange"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-            }`}
+            onClick={() => setOrganiserColonnesOuvert(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-2xs"
+            title="Modifier l'ordre d'affichage des colonnes de matières"
           >
-            <Building2
-              size={14}
-              className={
-                modeVue === "departements" ? "text-brand-orange" : "text-slate-500"
-              }
-            />
-            <span>
-              {modeVue === "departements"
-                ? "Retour au Syllabus"
-                : "Vue Départements"}
-            </span>
+            <Columns size={14} className="text-brand-orange" />
+            <span>Ordre des colonnes</span>
           </button>
-        </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() =>
+            setModeVue(modeVue === "syllabus" ? "departements" : "syllabus")
+          }
+          className={`inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-bold transition-all cursor-pointer shadow-2xs ${
+            modeVue === "departements"
+              ? "border-brand-orange bg-orange-50/80 text-brand-orange"
+              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+          }`}
+        >
+          <Building2
+            size={14}
+            className={
+              modeVue === "departements" ? "text-brand-orange" : "text-slate-500"
+            }
+          />
+          <span>
+            {modeVue === "departements"
+              ? "Retour au Syllabus"
+              : "Vue Départements"}
+          </span>
+        </button>
       </div>
+    </div>
+  );
+
+  return (
+    <div className="mx-auto max-w-7xl space-y-5">
+      {/* En mode départements, afficher la barre de navigation en haut */}
+      {modeVue === "departements" && barreNavigation}
 
       {/* ── VUE 1 : SYLLABUS MULTI-MATIÈRES FIDÈLE AU PAPIER EXCELIS PRÉPAS ── */}
       {modeVue === "syllabus" && formationSelectionnee && (
         <SyllabusMultiMatieresView
           formationId={formationSelectionnee.id}
           formationNom={formationSelectionnee.nom}
-          matieres={matieresFiliereActive}
+          allFormations={formations}
+          toutesMatieres={matieres}
+          matieres={matieresFiliereOrdonnees}
           progressions={progressionsFiliereActive}
           affectations={affectationsFiliereActive}
+          toutesProgressions={progressionsSession}
+          toutesAffectations={affectations}
           sessionId={sessionId!}
           phaseId={phaseIdFiliereActive}
           sessionAnnee={sessionActive?.annee?.toString() ?? "2026"}
           semaineSelectionnee={semaineSelectionnee}
           onChangerSemaine={setSemaineSelectionnee}
+          barreNavigation={barreNavigation}
           onSupprimer={supprimer}
           onOuvrirSaisieLot={(mId) => {
             setMatierePourLot(mId || matieresFiliereActive[0]?.id || "");
@@ -999,7 +1070,7 @@ function ProgressionDirecteurAcademique() {
               Aucun département créé pour l&rsquo;instant.
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-slate-200">
+            <div className="overflow-hidden overflow-x-auto rounded-xl border border-slate-200">
               <table className="w-full text-left text-xs">
                 <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
                   <tr>
@@ -1081,6 +1152,8 @@ function ProgressionDirecteurAcademique() {
           matiereId={matierePourLot || matieresFiliereActive[0]?.id || ""}
           sessionId={sessionId}
           toutesProgressions={toutesProgressions}
+          role="DIRECTEUR_ACADEMIQUE"
+          matieres={matieres}
         />
       )}
 
@@ -1106,6 +1179,32 @@ function ProgressionDirecteurAcademique() {
         isOpen={catalogueMatieresOuvert}
         onClose={() => setCatalogueMatieresOuvert(false)}
       />
+
+      {sessionId && (
+        <ExporterProgressionModal
+          isOpen={exportModalOuvert}
+          onClose={() => setExportModalOuvert(false)}
+          formations={formations}
+          formationIdActive={formationSelectionnee?.id}
+          semaineActive={semaineSelectionnee}
+          matieres={matieres}
+          sessionAnnee={sessionActive?.annee?.toString() ?? "2026"}
+          sessionId={sessionId}
+          progressions={progressionsSession}
+          affectations={affectations}
+        />
+      )}
+
+      {formationSelectionnee && (
+        <OrganiserColonnesModal
+          isOpen={organiserColonnesOuvert}
+          onClose={() => setOrganiserColonnesOuvert(false)}
+          formationId={formationSelectionnee.id}
+          formationNom={formationSelectionnee.nom}
+          matieres={matieresFiliereOrdonnees}
+          onOrdreChange={changerOrdreMatieres}
+        />
+      )}
     </div>
   );
 }

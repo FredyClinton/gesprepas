@@ -40,6 +40,12 @@ export function getConcours(id: string): Promise<Concours> {
   return apiFetch<Concours>(`/api/concours/${id}`);
 }
 
+export function listConcoursSession(sessionId: string): Promise<Concours[]> {
+  const params = new URLSearchParams({ sessionId });
+  return apiFetch<Concours[]>(`/api/concours?${params}`);
+}
+
 export function listPiecesRequises(): Promise<PieceRequise[]> {
   return apiFetch<PieceRequise[]>("/api/pieces-requises");
 }
+

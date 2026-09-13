@@ -29,12 +29,18 @@ select option {
 @media print {
   @page {
     size: A4 landscape;
-    margin: 8mm 10mm;
+    margin: 6mm 8mm;
   }
 
+  html,
   body {
     background: #ffffff !important;
     color: #000000 !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
@@ -46,21 +52,56 @@ select option {
   footer,
   button,
   [role="navigation"],
-  [role="dialog"],
   .no-print {
     display: none !important;
   }
 
-  /* Afficher en plein écran la zone principale sans marges inutiles */
-  main {
-    margin: 0 !important;
-    padding: 0 !important;
-    max-width: 100% !important;
-    width: 100% !important;
+  /* Lorsque la modale d'exportation de progression est ouverte, masquer TOUT le reste du document */
+  body.progression-export-open > *:not(#printable-progression-modal),
+  body:has(#printable-progression-modal) > *:not(#printable-progression-modal) {
+    display: none !important;
   }
 
-  /* S'assurer que les fonds orange et bordures du syllabus s'impriment fidèlement */
-  table, th, td, tr, div, span {
+  /* Lorsque la modale d'exportation de bordereau du concours blanc est ouverte pour impression, masquer le reste */
+  body.bordereau-export-open > *:not(#printable-bordereau-modal),
+  body:has(#printable-bordereau-modal) > *:not(#printable-bordereau-modal) {
+    display: none !important;
+  }
+
+  /* Affichage propre du conteneur imprimable sans décalages ni scrolls */
+  #printable-progression-modal,
+  #printable-bordereau-modal {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    inset: auto !important;
+    z-index: auto !important;
+  }
+
+  .progression-sheet-page,
+  .bordereau-sheet-page {
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 0 !important;
+  }
+
+  /* Forcer les couleurs d'arrière-plan exactes pour l'impression haute fidélité */
+  #printable-progression-modal *,
+  .printable-modal * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
@@ -70,15 +111,9 @@ select option {
     width: 100% !important;
   }
 
-  th, td {
+  th,
+  td {
     border-color: #cbd5e1 !important;
-  }
-
-  /* Éviter les coupures de page intempestives */
-  .semaine-card {
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
-    margin-bottom: 20px !important;
   }
 }
 

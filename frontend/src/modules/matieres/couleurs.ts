@@ -153,21 +153,108 @@ export type CouleurMatiere = {
   hex?: string;
 };
 
+export function parseHexRgb(hex: string): [number, number, number] {
+  let clean = hex.replace("#", "").trim();
+  if (clean.length === 3) {
+    clean = clean
+      .split("")
+      .map((c) => c + c)
+      .join("");
+  }
+  if (clean.length !== 6) return [71, 85, 105]; // fallback slate-600
+  const r = parseInt(clean.substring(0, 2), 16) || 0;
+  const g = parseInt(clean.substring(2, 4), 16) || 0;
+  const b = parseInt(clean.substring(4, 6), 16) || 0;
+  return [r, g, b];
+}
+
+export function isCouleurClaire(hex?: string): boolean {
+  if (!hex) return false;
+  const [r, g, b] = parseHexRgb(hex);
+  // Formule de luminance relative (sRGB)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.62;
+}
+
+export function getContrastingTextColor(hex?: string): string {
+  return isCouleurClaire(hex) ? "#0f172a" : "#ffffff";
+}
+
+export function getCouleurBadgeStyle(hex?: string): React.CSSProperties {
+  if (!hex) return {};
+  const isLight = isCouleurClaire(hex);
+  return {
+    backgroundColor: `${hex}22`,
+    color: isLight ? "#0f172a" : hex,
+    borderColor: `${hex}55`,
+  };
+}
+
+export function getCouleurCardStyle(
+  hex?: string,
+  isFilled = true,
+): React.CSSProperties {
+  if (!hex) return {};
+  const isLight = isCouleurClaire(hex);
+  if (isFilled) {
+    return {
+      backgroundColor: hex,
+      color: isLight ? "#0f172a" : "#ffffff",
+      borderColor: isLight ? "rgba(0, 0, 0, 0.12)" : "rgba(255, 255, 255, 0.25)",
+    };
+  }
+  return {
+    backgroundColor: "#ffffff",
+    borderColor: hex,
+    borderLeftWidth: "4px",
+    borderLeftColor: hex,
+  };
+}
+
+function trouverPaletteProche(hex: string) {
+  const [r, g, b] = parseHexRgb(hex);
+  let minDist = Infinity;
+  let best: (typeof PALETTE_COULEURS_SELECTION)[number] =
+    PALETTE_COULEURS_SELECTION[0];
+
+  for (const p of PALETTE_COULEURS_SELECTION) {
+    const [pr, pg, pb] = parseHexRgb(p.hex);
+    // Distance euclidienne pondérée selon la perception de l'œil humain
+    const dist = 0.3 * (r - pr) ** 2 + 0.59 * (g - pg) ** 2 + 0.11 * (b - pb) ** 2;
+    if (dist < minDist) {
+      minDist = dist;
+      best = p;
+    }
+  }
+  return best;
+}
+
 export function trouverCouleurParHex(hex?: string): CouleurMatiere | undefined {
   if (!hex) return undefined;
   const standard = PALETTE_COULEURS_SELECTION.find(
     (c) => c.hex.toLowerCase() === hex.toLowerCase(),
   );
-  if (standard) return standard;
+  if (standard) {
+    return {
+      ...standard,
+      hex: standard.hex,
+    };
+  }
 
-  // Fallback avec style générique si hex inconnu
+  // Pour tout code hex personnalisé ou issu de Google Sheets :
+  // Déterminer automatiquement la nuance chromatique la plus proche et le contraste
+  const isLight = isCouleurClaire(hex);
+  const proche = trouverPaletteProche(hex);
+
   return {
-    bg: "bg-slate-700",
-    texte: "text-white",
-    legende: "bg-slate-700",
-    border: "border-slate-800",
-    badge: "bg-slate-100 text-slate-800 border-slate-300",
-    point: "bg-slate-600",
+    bg: proche.bg,
+    texte: isLight ? "text-slate-900" : "text-white",
+    legende: proche.legende,
+    border: proche.border,
+    badge: isLight
+      ? "bg-slate-100 text-slate-900 border-slate-300"
+      : proche.badge,
+    point: isLight ? "bg-slate-400" : proche.point,
     hex,
   };
 }
@@ -186,7 +273,10 @@ export function construireCouleursMatieres(
         return;
       }
     }
-    map.set(matiere.id, PALETTE_COULEURS_SELECTION[index % PALETTE_COULEURS_SELECTION.length]);
+    map.set(
+      matiere.id,
+      PALETTE_COULEURS_SELECTION[index % PALETTE_COULEURS_SELECTION.length],
+    );
   });
 
   return map;

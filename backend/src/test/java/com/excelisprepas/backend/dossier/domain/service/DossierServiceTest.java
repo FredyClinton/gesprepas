@@ -57,7 +57,7 @@ class DossierServiceTest {
 
     private Apprenant unApprenant() {
         return new Apprenant(apprenantId, "Essomba", "Paul", LocalDate.of(2005, 1, 1), LocalDate.of(2026, 9, 1),
-                centreId, null, null, null);
+                centreId, sessionId, null, null, null);
     }
 
     private Dossier unDossierOuvert() {

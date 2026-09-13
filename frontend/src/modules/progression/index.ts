@@ -26,3 +26,5 @@ export {
 export { useProgressionQuotas } from "./hooks/useProgressionQuotas";
 export { TransfererCoursModal } from "./components/TransfererCoursModal";
 export { ExporterProgressionModal } from "./components/ExporterProgressionModal";
+export { OrganiserColonnesModal } from "./components/OrganiserColonnesModal";
+export { useOrdreColonnes, reordonnerMatieres } from "./hooks/useOrdreColonnes";

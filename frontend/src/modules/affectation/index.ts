@@ -8,6 +8,7 @@ export { JOURS, LABELS_JOUR, LABELS_STATUT_PAIEMENT } from "./domain/types";
 export {
   useAffectations,
   useAffectationsMultiMatiere,
+  useAffectationsMultiSemaines,
   useAssignerEnseignant,
   useCreerCreneau,
   useModifierMatiere,

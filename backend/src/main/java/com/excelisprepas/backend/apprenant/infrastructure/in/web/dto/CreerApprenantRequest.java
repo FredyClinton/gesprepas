@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -17,6 +18,11 @@ public record CreerApprenantRequest(
         @NotNull(message = "Le centre est obligatoire") UUID centreId,
         String contactApprenant,
         String nomParent,
-        String contactParent
+        String contactParent,
+        String etablissementOrigine,
+        UUID formationId,
+        BigDecimal montantContrat,
+        Boolean preInscrit,
+        String referenceRecu
 ) {
 }

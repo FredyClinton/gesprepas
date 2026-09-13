@@ -17,12 +17,16 @@ import {
   Calendar,
   Loader2,
   Check,
+  ShieldCheck,
+  Lock,
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 import { Modal, Button } from "@/shared/ui";
 import { messageErreurApi } from "@/shared/lib/api-client";
 import type { Formation } from "@/modules/academique";
 import type { Salle } from "@/modules/salle";
+import { useSessions, type SessionAcademique } from "@/modules/centres-sessions";
 import { useMatieres, type Matiere } from "@/modules/matieres";
 import { trouverCouleurParHex } from "@/modules/matieres/couleurs";
 import {
@@ -47,6 +51,7 @@ export interface DupliquerSyllabusModalProps {
   phaseId?: string;
   toutesProgressions: Progression[];
   matieres?: Matiere[];
+  role?: string;
 }
 
 interface ConfigurationCoursCible {
@@ -69,6 +74,7 @@ export function DupliquerSyllabusModal({
   phaseId,
   toutesProgressions,
   matieres: propMatieres,
+  role,
 }: DupliquerSyllabusModalProps) {
   if (!isOpen) return null;
 
@@ -91,6 +97,7 @@ export function DupliquerSyllabusModal({
         phaseId={phaseId}
         toutesProgressions={toutesProgressions}
         matieres={propMatieres}
+        role={role}
       />
     </Modal>
   );
@@ -107,11 +114,47 @@ function DupliquerSyllabusForm({
   phaseId: propPhaseId,
   toutesProgressions,
   matieres: propMatieres,
+  role: propRole,
 }: Omit<DupliquerSyllabusModalProps, "isOpen">) {
+  const { data: authSession } = useSession();
+  const { data: allSessions = [] } = useSessions();
+  const [sourceSessionId, setSourceSessionId] = useState<string>(sessionId);
+
+  const sessionActiveObj = useMemo(() => {
+    return allSessions.find((s) => s.id === sessionId);
+  }, [allSessions, sessionId]);
+
+  const roleEffectif = propRole || authSession?.user?.role;
+  const estDirecteur =
+    roleEffectif === "DIRECTEUR_ACADEMIQUE" || roleEffectif === "DIRECTEUR";
+  const estChefDepartement = !estDirecteur;
+
   const { data: allMatieres = [] } = useMatieres();
-  const matieresList = propMatieres || allMatieres;
+
+  // Garde-fou de sécurité : le Chef de département ne peut dupliquer que ses matières d'attribution
+  const matieresAutorisees = useMemo(() => {
+    if (estChefDepartement) {
+      if (propMatieres && propMatieres.length > 0) {
+        return propMatieres;
+      }
+      const mInit = allMatieres.find((m) => m.id === matiereInitialeId);
+      return mInit ? [mInit] : [];
+    }
+    return propMatieres && propMatieres.length > 0 ? propMatieres : allMatieres;
+  }, [estChefDepartement, propMatieres, allMatieres, matiereInitialeId]);
 
   const [activeMatiereId, setActiveMatiereId] = useState<string>(matiereInitialeId);
+
+  // Synchronisation de la matière active dans le périmètre autorisé
+  useEffect(() => {
+    if (matieresAutorisees.length > 0) {
+      const existe = matieresAutorisees.some((m) => m.id === activeMatiereId);
+      if (!existe) {
+        setActiveMatiereId(matieresAutorisees[0].id);
+      }
+    }
+  }, [matieresAutorisees, activeMatiereId]);
+
   const [sourceFormationId, setSourceFormationId] = useState<string>("");
   const [cibleFormationId, setCibleFormationId] = useState<string>(formationActuelleId);
   const [recherche, setRecherche] = useState<string>("");
@@ -136,26 +179,30 @@ function DupliquerSyllabusForm({
   // Initialisation de la source dès qu'on a des formations disponibles
   useEffect(() => {
     if (!sourceFormationId) {
-      const autre = formationsPourMatiere.find((f) => f.id !== cibleFormationId);
-      if (autre) setSourceFormationId(autre.id);
+      if (sourceSessionId !== sessionId) {
+        setSourceFormationId(cibleFormationId);
+      } else {
+        const autre = formationsPourMatiere.find((f) => f.id !== cibleFormationId);
+        if (autre) setSourceFormationId(autre.id);
+      }
     }
-  }, [formationsPourMatiere, cibleFormationId, sourceFormationId]);
+  }, [formationsPourMatiere, cibleFormationId, sourceFormationId, sourceSessionId, sessionId]);
 
-  // Cours disponibles dans la formation source pour la matière active
+  // Cours disponibles dans la formation source pour la matière active et la session d'origine
   const coursSource = useMemo(() => {
-    if (!sourceFormationId) return [];
+    if (!sourceFormationId || !sourceSessionId) return [];
     return toutesProgressions
       .filter(
         (p) =>
           p.formationId === sourceFormationId &&
           p.matiereId === activeMatiereId &&
-          p.sessionId === sessionId,
+          p.sessionId === sourceSessionId,
       )
       .sort((a, b) => {
         if (a.semaine !== b.semaine) return a.semaine - b.semaine;
         return a.numeroCours - b.numeroCours;
       });
-  }, [toutesProgressions, sourceFormationId, activeMatiereId, sessionId]);
+  }, [toutesProgressions, sourceFormationId, activeMatiereId, sourceSessionId]);
 
   // Cours déjà présents dans la filière cible pour la matière active
   const coursCibleExistants = useMemo(() => {
@@ -368,8 +415,10 @@ function DupliquerSyllabusForm({
       setErreur("Veuillez sélectionner la filière source et la filière cible.");
       return;
     }
-    if (sourceFormationId === cibleFormationId) {
-      setErreur("La filière source et la filière cible doivent être différentes.");
+    if (sourceSessionId === sessionId && sourceFormationId === cibleFormationId) {
+      setErreur(
+        "La filière source et la filière cible doivent être différentes au sein de la même session. Choisissez une filière différente ou une session d'origine antérieure.",
+      );
       return;
     }
     if (itemsSelectionnes.length === 0) {
@@ -474,7 +523,9 @@ function DupliquerSyllabusForm({
     }
   }
 
-  const matiereActiveObj = matieresList.find((m) => m.id === activeMatiereId);
+  const matiereActiveObj =
+    allMatieres.find((m) => m.id === activeMatiereId) ||
+    matieresAutorisees.find((m) => m.id === activeMatiereId);
   const couleurActive = trouverCouleurParHex(matiereActiveObj?.couleur);
 
   return (
@@ -493,25 +544,91 @@ function DupliquerSyllabusForm({
         </div>
       )}
 
-      {/* ── 1. Paramétrage de la Matière, Source et Cible ── */}
-      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 shrink-0">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-          {/* Matière */}
+      {/* Badge de rôle & sécurité */}
+      {estChefDepartement ? (
+        <div className="flex items-center gap-2 rounded-xl bg-amber-50/90 border border-amber-200/80 px-3.5 py-2 text-xs text-amber-900 shrink-0 shadow-2xs">
+          <ShieldCheck size={16} className="text-amber-600 shrink-0" />
+          <span>
+            <strong>Périmètre Chef de département :</strong> Duplication sécurisée et restreinte à vos matières d'attribution. La matière de destination est obligatoirement identique à la source.
+          </span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 rounded-xl bg-indigo-50/90 border border-indigo-200/80 px-3.5 py-2 text-xs text-indigo-900 shrink-0 shadow-2xs">
+          <Sparkles size={16} className="text-indigo-600 shrink-0" />
+          <span>
+            <strong>Mode Direction Académique :</strong> Accès multi-matières complet et duplication transversale inter-filières.
+          </span>
+        </div>
+      )}
+
+      {/* ── 1. Paramétrage des Sessions, Matière, Source et Cible ── */}
+      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 shrink-0 space-y-3">
+        {/* Ligne 1 : Choix de Session Source & Session Cible */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-3 border-b border-slate-200/60">
+          {/* Session d'origine */}
           <div>
             <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
-              Discipline / Matière
+              Session d'origine (Source)
             </label>
             <select
-              value={activeMatiereId}
-              onChange={(e) => setActiveMatiereId(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 focus:border-brand-orange focus:outline-none"
+              value={sourceSessionId}
+              onChange={(e) => setSourceSessionId(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 focus:border-brand-orange focus:outline-none cursor-pointer"
             >
-              {matieresList.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.nom}
+              {allSessions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  Session {s.annee} {s.id === sessionId ? "(Session en cours)" : `(${s.statut})`}
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Session cible (Verrouillée sur la courante) */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
+              Session de destination (Cible)
+            </label>
+            <div className="w-full rounded-xl border border-slate-200 bg-slate-100/90 px-3 py-2 text-xs font-bold text-slate-700 flex items-center justify-between">
+              <span>Session courante ({sessionActiveObj?.annee ?? "Active"})</span>
+              <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-slate-500 bg-slate-200/80 px-2 py-0.5 rounded">
+                <Lock size={10} /> Cible verrouillée
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Ligne 2 : Matière, Filière Source & Filière Cible */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+          {/* Matière */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-[11px] font-bold text-slate-600 uppercase">
+                Discipline / Matière
+              </label>
+              {estChefDepartement && matieresAutorisees.length <= 1 && (
+                <span className="text-[10px] font-bold text-amber-700 bg-amber-100/80 px-1.5 py-0.2 rounded">
+                  Verrouillée
+                </span>
+              )}
+            </div>
+            {estChefDepartement && matieresAutorisees.length <= 1 ? (
+              <div className="w-full rounded-xl border border-slate-200 bg-slate-100/80 px-3 py-2 text-xs font-bold text-slate-700 flex items-center justify-between">
+                <span>{matieresAutorisees[0]?.nom || "Matière d'attribution"}</span>
+                <Lock size={12} className="text-slate-400" />
+              </div>
+            ) : (
+              <select
+                value={activeMatiereId}
+                onChange={(e) => setActiveMatiereId(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 focus:border-brand-orange focus:outline-none cursor-pointer"
+              >
+                {matieresAutorisees.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.nom}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Filière source */}
@@ -522,7 +639,7 @@ function DupliquerSyllabusForm({
             <select
               value={sourceFormationId}
               onChange={(e) => setSourceFormationId(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 focus:border-brand-orange focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 focus:border-brand-orange focus:outline-none cursor-pointer"
             >
               <option value="">-- Choisir la source --</option>
               {formationsPourMatiere.map((f) => (
@@ -541,7 +658,7 @@ function DupliquerSyllabusForm({
             <select
               value={cibleFormationId}
               onChange={(e) => setCibleFormationId(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 focus:border-brand-orange focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 focus:border-brand-orange focus:outline-none cursor-pointer"
             >
               <option value="">-- Choisir la cible --</option>
               {formationsPourMatiere.map((f) => (
@@ -557,9 +674,8 @@ function DupliquerSyllabusForm({
           <div className="mt-3 pt-3 border-t border-slate-200/60 flex flex-wrap items-center justify-between text-xs text-slate-600 gap-2">
             <div className="flex items-center gap-2">
               <span
-                className={`w-3 h-3 rounded-full ${
-                  couleurActive?.bg || "bg-brand-orange"
-                }`}
+                className="w-3 h-3 rounded-full shrink-0"
+                style={{ backgroundColor: couleurActive?.hex || "#f97316" }}
               />
               <span>
                 Cours disponibles en source :{" "}

@@ -56,14 +56,14 @@ class ApprenantControllerTest {
     private Apprenant unApprenant() {
         return new Apprenant(UUID.randomUUID(), "Mballa", "Sophie",
                 LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
-                CENTRE_ID, null, null, null);
+                CENTRE_ID, UUID.randomUUID(), null, null, null);
     }
 
     @Test
     @DisplayName("POST /api/apprenants avec des données valides retourne 201")
     void creerApprenant_donneesValides_retourne201() throws Exception {
         when(creerApprenantUseCase.creerApprenant(
-                any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(unApprenant());
+                any(), any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(unApprenant());
 
         mockMvc.perform(post("/api/apprenants")
                         .contentType("application/json")
@@ -76,7 +76,7 @@ class ApprenantControllerTest {
     @DisplayName("POST /api/apprenants avec un centre inexistant retourne 404")
     void creerApprenant_centreInexistant_retourne404() throws Exception {
         when(creerApprenantUseCase.creerApprenant(
-                any(), any(), any(), any(), any(), any(), any(), any()))
+                any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenThrow(new CentreIntrouvableException(CENTRE_ID));
 
         mockMvc.perform(post("/api/apprenants")
@@ -122,7 +122,7 @@ class ApprenantControllerTest {
         UUID nouveauCentreId = UUID.randomUUID();
         Apprenant apprenant = new Apprenant(UUID.randomUUID(), "Mballa", "Sophie",
                 LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
-                nouveauCentreId, null, null, null);
+                nouveauCentreId, UUID.randomUUID(), null, null, null);
         when(transfererCentreUseCase.transfererCentre(any(UUID.class), any(UUID.class))).thenReturn(apprenant);
 
         mockMvc.perform(patch("/api/apprenants/" + apprenant.getId() + "/transferer-centre")

@@ -20,6 +20,8 @@ import com.excelisprepas.backend.remuneration.domain.model.*;
 import com.excelisprepas.backend.remuneration.domain.port.out.BordereauPaieRepositoryPort;
 import com.excelisprepas.backend.remuneration.infrastructure.in.web.dto.FichePaieDetailResponse;
 import com.excelisprepas.backend.remuneration.infrastructure.in.web.dto.SeanceFichePaieItemResponse;
+import com.excelisprepas.backend.remuneration.infrastructure.out.persistence.FichePaieEnseignantJpaRepository;
+import com.excelisprepas.backend.academie.progression.infrastructure.out.persistence.ProgressionJpaRepository;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -47,6 +49,8 @@ class RemunerationServiceTest {
     private CentreRepositoryPort centreRepository;
     private SalleRepositoryPort salleRepository;
     private SessionAcademiqueRepositoryPort sessionRepository;
+    private ProgressionJpaRepository progressionJpaRepository;
+    private FichePaieEnseignantJpaRepository fichePaieJpaRepository;
 
     private RemunerationService service;
 
@@ -64,12 +68,15 @@ class RemunerationServiceTest {
         centreRepository = mock(CentreRepositoryPort.class);
         salleRepository = mock(SalleRepositoryPort.class);
         sessionRepository = mock(SessionAcademiqueRepositoryPort.class);
+        progressionJpaRepository = mock(ProgressionJpaRepository.class);
+        fichePaieJpaRepository = mock(FichePaieEnseignantJpaRepository.class);
 
         service = new RemunerationService(
                 affectationRepository, enseignantRepository, historiqueTarifRepository,
                 bordereauPaieRepository, saisirSortieUseCase,
                 rosterRepository, departementRepository, formationRepository, matiereRepository,
-                centreRepository, salleRepository, sessionRepository);
+                centreRepository, salleRepository, sessionRepository,
+                progressionJpaRepository, fichePaieJpaRepository);
     }
 
     @Test
@@ -224,5 +231,33 @@ class RemunerationServiceTest {
         assertThat(seanceItem.duree()).isEqualTo("2h30");
         assertThat(seanceItem.dateSeance()).isEqualTo(LocalDate.of(2026, 9, 1).plusDays((3 - 1) * 7 + 1));
         assertThat(seanceItem.coutApplique()).isEqualByComparingTo(new BigDecimal("18000"));
+    }
+
+    @Test
+    @DisplayName("mettreAJourThemeSeance() met à jour le thème d'une progression existante")
+    void mettreAJourThemeSeanceMetAJourProgressionExistante() {
+        UUID affId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        UUID formationId = UUID.randomUUID();
+        UUID matiereId = UUID.randomUUID();
+        UUID salleId = UUID.randomUUID();
+
+        Affectation aff = Affectation.reconstituer(affId, UUID.randomUUID(), sessionId, formationId,
+                salleId, matiereId, UUID.randomUUID(), Jour.LUNDI, 1, 1,
+                StatutAffectation.EFFECTUEE, StatutPaiement.PAYEE, null, null);
+
+        when(affectationRepository.findById(affId)).thenReturn(Optional.of(aff));
+        when(affectationRepository.findBySessionIdAndSemaine(sessionId, 1)).thenReturn(List.of(aff));
+
+        com.excelisprepas.backend.academie.progression.infrastructure.out.persistence.ProgressionEntity prog =
+                new com.excelisprepas.backend.academie.progression.infrastructure.out.persistence.ProgressionEntity();
+        prog.setTheme("Ancien thème");
+        when(progressionJpaRepository.findFirstByFormationIdAndMatiereIdAndSemaineAndNumeroCours(formationId, matiereId, 1, 1))
+                .thenReturn(Optional.of(prog));
+
+        service.mettreAJourThemeSeance(affId, "Nouveau thème de cours");
+
+        assertThat(prog.getTheme()).isEqualTo("Nouveau thème de cours");
+        verify(progressionJpaRepository).save(prog);
     }
 }

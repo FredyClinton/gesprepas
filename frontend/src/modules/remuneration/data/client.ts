@@ -92,3 +92,17 @@ export function executerPaiementFiche(
     { method: "POST" },
   );
 }
+
+export function mettreAJourThemeSeance(
+  affectationId: string,
+  theme: string,
+): Promise<void> {
+  return apiFetch<void>(
+    `/api/remuneration/seances/${affectationId}/theme`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ theme }),
+    },
+  );
+}
+

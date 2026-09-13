@@ -544,9 +544,10 @@ public class RemunerationService implements PreparerBordereauPaieUseCase, Valide
 
         String theme = "Séance de cours";
         if (progressionJpaRepository != null) {
+            int numeroCours = determinerNumeroCours(aff);
             Optional<ProgressionEntity> optProg = progressionJpaRepository
                     .findFirstByFormationIdAndMatiereIdAndSemaineAndNumeroCours(
-                            aff.getFormationId(), aff.getMatiereId(), aff.getSemaine(), aff.getSeance());
+                            aff.getFormationId(), aff.getMatiereId(), aff.getSemaine(), numeroCours);
             if (optProg.isPresent()) {
                 theme = optProg.get().getTheme();
             } else {
@@ -639,5 +640,82 @@ public class RemunerationService implements PreparerBordereauPaieUseCase, Valide
                 bordereau.getSaisiPar(),
                 fichesDetail
         );
+    }
+
+    public int determinerNumeroCours(Affectation aff) {
+        if (affectationRepository == null) {
+            return aff.getSeance();
+        }
+        List<Affectation> seancesSemaine = affectationRepository
+                .findBySessionIdAndSemaine(aff.getSessionId(), aff.getSemaine());
+        if (seancesSemaine == null || seancesSemaine.isEmpty()) {
+            return aff.getSeance();
+        }
+
+        List<Affectation> seancesMatiereSalle = new ArrayList<>(seancesSemaine.stream()
+                .filter(a -> a.getStatut() != StatutAffectation.ANNULEE)
+                .filter(a -> a.getFormationId().equals(aff.getFormationId())
+                        && a.getMatiereId().equals(aff.getMatiereId())
+                        && a.getSalleId().equals(aff.getSalleId()))
+                .toList());
+
+        seancesMatiereSalle.sort(Comparator
+                .comparingInt((Affectation a) -> switch (a.getJour()) {
+                    case LUNDI -> 0;
+                    case MARDI -> 1;
+                    case MERCREDI -> 2;
+                    case JEUDI -> 3;
+                    case VENDREDI -> 4;
+                    case SAMEDI -> 5;
+                })
+                .thenComparingInt(Affectation::getSeance));
+
+        for (int i = 0; i < seancesMatiereSalle.size(); i++) {
+            if (seancesMatiereSalle.get(i).getId().equals(aff.getId())) {
+                return i + 1;
+            }
+        }
+
+        return aff.getSeance();
+    }
+
+    @Transactional
+    public void mettreAJourThemeSeance(UUID affectationId, String nouveauTheme) {
+        if (nouveauTheme == null || nouveauTheme.trim().isEmpty()) {
+            throw new IllegalArgumentException("Le thème ne peut pas être vide");
+        }
+        Affectation aff = affectationRepository.findById(affectationId)
+                .orElseThrow(() -> new IllegalArgumentException("Affectation introuvable: " + affectationId));
+
+        int numeroCours = determinerNumeroCours(aff);
+
+        if (progressionJpaRepository != null) {
+            Optional<ProgressionEntity> optProg = progressionJpaRepository
+                    .findFirstByFormationIdAndMatiereIdAndSemaineAndNumeroCours(
+                            aff.getFormationId(), aff.getMatiereId(), aff.getSemaine(), numeroCours);
+            if (optProg.isPresent()) {
+                ProgressionEntity prog = optProg.get();
+                prog.setTheme(nouveauTheme.trim());
+                progressionJpaRepository.save(prog);
+            } else {
+                UUID phaseId = UUID.fromString("c1234567-89ab-cdef-0123-456789abcdef");
+                List<ProgressionEntity> existantes = progressionJpaRepository.findByFormationId(aff.getFormationId());
+                if (!existantes.isEmpty() && existantes.get(0).getPhaseId() != null) {
+                    phaseId = existantes.get(0).getPhaseId();
+                }
+
+                ProgressionEntity nouvelleProg = new ProgressionEntity();
+                nouvelleProg.setId(UUID.randomUUID());
+                nouvelleProg.setFormationId(aff.getFormationId());
+                nouvelleProg.setSessionId(aff.getSessionId());
+                nouvelleProg.setPhaseId(phaseId);
+                nouvelleProg.setMatiereId(aff.getMatiereId());
+                nouvelleProg.setSemaine(aff.getSemaine());
+                nouvelleProg.setNumeroCours(numeroCours);
+                nouvelleProg.setTheme(nouveauTheme.trim());
+                nouvelleProg.setContenu(nouveauTheme.trim());
+                progressionJpaRepository.save(nouvelleProg);
+            }
+        }
     }
 }

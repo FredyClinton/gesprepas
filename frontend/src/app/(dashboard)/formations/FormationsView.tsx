@@ -25,7 +25,13 @@ import {
   useDissocierMatiereFormation,
   type Formation,
 } from "@/modules/academique";
-import { useMatieres, construireCouleursMatieres, type Matiere } from "@/modules/matieres";
+import {
+  useMatieres,
+  construireCouleursMatieres,
+  getCouleurCardStyle,
+  getCouleurBadgeStyle,
+  type Matiere,
+} from "@/modules/matieres";
 import { useCentres, useSessionActive, type Centre, type SessionAcademique } from "@/modules/centres-sessions";
 import {
   useCentresAbonnesFormation,
@@ -474,7 +480,12 @@ export function FormationsView() {
                       </div>
                       {couleur && (
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${couleur.bg} ${couleur.texte}`}
+                          style={
+                            couleur.hex
+                              ? getCouleurBadgeStyle(couleur.hex)
+                              : undefined
+                          }
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${couleur.bg} ${couleur.texte}`}
                         >
                           Matière
                         </span>
@@ -598,6 +609,7 @@ export function FormationsView() {
                   >
                     <div className="flex items-center gap-3">
                       <span
+                        style={{ backgroundColor: couleur?.hex || "#cbd5e1" }}
                         className={`w-3 h-3 rounded-full shrink-0 ${
                           couleur ? couleur.bg : "bg-slate-300"
                         }`}
@@ -825,6 +837,11 @@ function CarteFormationItem({
                 return (
                   <span
                     key={mid}
+                    style={
+                      couleur?.hex
+                        ? getCouleurCardStyle(couleur.hex, true)
+                        : undefined
+                    }
                     className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
                       couleur ? `${couleur.bg} ${couleur.texte}` : "bg-slate-100 text-slate-700"
                     }`}

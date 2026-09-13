@@ -33,6 +33,7 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
     private final SessionAcademiqueRepositoryPort sessionRepository;
     private final MouvementFinancierRepositoryPort mouvementRepository;
     private final com.excelisprepas.backend.inscription.domain.port.out.DossierInscriptionRepositoryPort dossierInscriptionRepository;
+    private final com.excelisprepas.backend.apprenant.domain.port.out.ContratApprenantRepositoryPort contratApprenantRepository;
 
     public MouvementFinancierService(EntreeRepositoryPort entreeRepository,
                                      SortieRepositoryPort sortieRepository,
@@ -41,7 +42,8 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
                                      ApprenantRepositoryPort apprenantRepository,
                                      SessionAcademiqueRepositoryPort sessionRepository,
                                      MouvementFinancierRepositoryPort mouvementRepository,
-                                     com.excelisprepas.backend.inscription.domain.port.out.DossierInscriptionRepositoryPort dossierInscriptionRepository) {
+                                     com.excelisprepas.backend.inscription.domain.port.out.DossierInscriptionRepositoryPort dossierInscriptionRepository,
+                                     com.excelisprepas.backend.apprenant.domain.port.out.ContratApprenantRepositoryPort contratApprenantRepository) {
         this.entreeRepository = entreeRepository;
         this.sortieRepository = sortieRepository;
         this.motifRepository = motifRepository;
@@ -50,6 +52,7 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
         this.sessionRepository = sessionRepository;
         this.mouvementRepository = mouvementRepository;
         this.dossierInscriptionRepository = dossierInscriptionRepository;
+        this.contratApprenantRepository = contratApprenantRepository;
     }
 
     private Motif verifierMotif(UUID motifId, TypeMotif typeAttendu) {
@@ -78,7 +81,7 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
     @Override
     public Entree saisirEntree(UUID sessionId, UUID motifId, BigDecimal montant, LocalDate date,
                                UUID saisiParUtilisateurId, UUID centreId, UUID apprenantId, UUID dossierConcoursId) {
-        verifierMotif(motifId, TypeMotif.ENTREE);
+        Motif motif = verifierMotif(motifId, TypeMotif.ENTREE);
         verifierSessionUtilisable(sessionId);
         if (centreRepository.findById(centreId).isEmpty()) {
             throw new CentreIntrouvableException(centreId);
@@ -88,16 +91,50 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
         if (apprenantId != null) {
             Apprenant apprenant = apprenantRepository.findById(apprenantId)
                     .orElseThrow(() -> new ApprenantIntrouvableException(apprenantId));
+
+            // Règle de non-dépassement : Si ce n'est pas un achat de livre ni un paiement dossier concours, contrôler le solde
+            boolean estAchatLivre = motif.getNom().toLowerCase().contains("livre");
+            if (dossierConcoursId == null && !estAchatLivre) {
+                List<com.excelisprepas.backend.apprenant.domain.model.ContratApprenant> contrats = contratApprenantRepository.findByApprenantId(apprenantId);
+                BigDecimal totalContrat = contrats.stream()
+                        .filter(c -> "ACTIF".equalsIgnoreCase(c.getStatut()))
+                        .map(com.excelisprepas.backend.apprenant.domain.model.ContratApprenant::getMontantTotal)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                if (totalContrat.compareTo(BigDecimal.ZERO) == 0 && apprenant.getMontantContrat() != null) {
+                    totalContrat = apprenant.getMontantContrat();
+                }
+
+                if (totalContrat.compareTo(BigDecimal.ZERO) > 0) {
+                    List<Entree> versements = entreeRepository.findByApprenantId(apprenantId);
+                    BigDecimal dejaPaye = versements.stream()
+                            .filter(e -> e.getStatut() != StatutMouvement.REJETE && e.getDossierConcoursId().isEmpty())
+                            .map(Entree::getMontant)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                    BigDecimal soldeRestant = totalContrat.subtract(dejaPaye);
+                    if (montant.compareTo(soldeRestant) > 0) {
+                        log.warn("Tentative de dépassement de contrat pour apprenantId={}: montantSaisi={}, soldeRestant={}, totalContrat={}",
+                                apprenantId, montant, soldeRestant, totalContrat);
+                        throw new MontantDepasseContratException(apprenantId, montant, soldeRestant, totalContrat);
+                    }
+                }
+            }
+
             List<com.excelisprepas.backend.inscription.domain.model.DossierInscription> dossiers = dossierInscriptionRepository.findByApprenantIdAndSessionId(apprenantId, sessionId);
             if (!dossiers.isEmpty() && dossiers.get(0).getFormationsCibles() != null && !dossiers.get(0).getFormationsCibles().isEmpty()) {
                 formationId = dossiers.get(0).getFormationsCibles().get(0);
+            }
+            if (formationId == null) {
+                formationId = apprenant.getFormationId();
             }
         }
 
         Entree entree = new Entree(UUID.randomUUID(), sessionId, motifId, montant, date,
                 saisiParUtilisateurId, centreId, apprenantId, formationId, dossierConcoursId);
+        entree.appliquerDecision(StatutMouvement.VALIDE);
         entree = entreeRepository.save(entree);
-        log.info("Entrée saisie : id={}, sessionId={}, montant={}, centreId={}", entree.getId(), sessionId, montant, centreId);
+        log.info("Entrée saisie et validée : id={}, sessionId={}, montant={}, centreId={}", entree.getId(), sessionId, montant, centreId);
         return entree;
     }
 

@@ -14,5 +14,11 @@ export {
   usePiecesDossierConcours,
   useSoldeDossierConcours,
   useConcours,
+  useConcoursSession,
   usePiecesRequises,
 } from "./data/queries";
+export {
+  useCreerDossierInscription,
+  type CreerDossierInscriptionInput,
+  type DossierInscription,
+} from "./data/dossier-inscription.api";

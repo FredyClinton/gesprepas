@@ -33,7 +33,7 @@ class ApprenantRepositoryAdapterTest extends AbstractIntegrationTest {
         // Given
         Apprenant apprenant = new Apprenant(UUID.randomUUID(), "Mballa", "Sophie",
                 LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
-                UUID.randomUUID(), null, null, null);
+                UUID.randomUUID(), UUID.randomUUID(), null, null, null);
 
         // When
         adapter.save(apprenant);
@@ -61,7 +61,7 @@ class ApprenantRepositoryAdapterTest extends AbstractIntegrationTest {
         UUID centreId = UUID.randomUUID();
         Apprenant apprenant = new Apprenant(UUID.randomUUID(), "OSSEGUE", "CALVIN",
                 LocalDate.now(), LocalDate.now(),
-                centreId, null, null, null);
+                centreId, UUID.randomUUID(), null, null, null);
         adapter.save(apprenant);
 
         // When
@@ -78,10 +78,10 @@ class ApprenantRepositoryAdapterTest extends AbstractIntegrationTest {
     void findAllRetourneTousLesApprenants() {
         adapter.save(new Apprenant(UUID.randomUUID(), "Mballa", "Sophie",
                 LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
-                UUID.randomUUID(), null, null, null));
+                UUID.randomUUID(), UUID.randomUUID(), null, null, null));
         adapter.save(new Apprenant(UUID.randomUUID(), "Nkoulou", "Paul",
                 LocalDate.of(2004, 6, 20), LocalDate.of(2026, 9, 1),
-                UUID.randomUUID(), null, null, null));
+                UUID.randomUUID(), UUID.randomUUID(), null, null, null));
 
         List<Apprenant> resultat = adapter.findAll();
 
@@ -93,7 +93,7 @@ class ApprenantRepositoryAdapterTest extends AbstractIntegrationTest {
     void deleteByIdSupprimeLApprenant() {
         Apprenant apprenant = new Apprenant(UUID.randomUUID(), "À supprimer", "Test",
                 LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
-                UUID.randomUUID(), null, null, null);
+                UUID.randomUUID(), UUID.randomUUID(), null, null, null);
         adapter.save(apprenant);
 
         adapter.deleteById(apprenant.getId());

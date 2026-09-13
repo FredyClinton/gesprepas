@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Plus, Check, Pipette } from "lucide-react";
+import { isCouleurClaire } from "../couleurs";
 
 // Palette matricielle fidèle à Google Sheets
 // Ligne 1 : 10 niveaux de gris / neutres (du noir au blanc)
@@ -121,9 +123,55 @@ export function GoogleSheetColorPicker({
     return couleurActive ? [couleurActive] : [];
   });
 
+  const [coords, setCoords] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
+
   const popoverRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const nativeColorInputRef = useRef<HTMLInputElement>(null);
+
+  // Repositionnement dynamique et intelligent du popover
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const updatePosition = () => {
+      if (!triggerRef.current) return;
+      const rect = triggerRef.current.getBoundingClientRect();
+      const POPOVER_WIDTH = 270;
+      const POPOVER_HEIGHT = 380;
+
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+
+      // S'il n'y a pas assez de place en bas (< 380px) et plus de place en haut, on ouvre vers le haut
+      const placeAbove = spaceBelow < POPOVER_HEIGHT && spaceAbove > spaceBelow;
+
+      let top = placeAbove
+        ? Math.max(10, rect.top - POPOVER_HEIGHT - 6)
+        : Math.min(window.innerHeight - POPOVER_HEIGHT - 10, rect.bottom + 6);
+
+      let left = align === "right" ? rect.right - POPOVER_WIDTH : rect.left;
+      if (left + POPOVER_WIDTH > window.innerWidth - 10) {
+        left = window.innerWidth - POPOVER_WIDTH - 10;
+      }
+      if (left < 10) {
+        left = 10;
+      }
+
+      setCoords({ top, left });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [isOpen, align]);
 
   // Fermeture au clic extérieur
   useEffect(() => {
@@ -175,7 +223,12 @@ export function GoogleSheetColorPicker({
           className="w-6 h-6 rounded-md border border-black/15 shadow-xs flex items-center justify-center transition-transform group-hover:scale-105"
           style={{ backgroundColor: couleurActive }}
         >
-          <Pipette size={11} className="text-white drop-shadow-xs opacity-80" />
+          <Pipette
+            size={11}
+            className={`drop-shadow-xs opacity-90 ${
+              isCouleurClaire(couleurActive) ? "text-slate-800" : "text-white"
+            }`}
+          />
         </span>
         <span className="font-mono text-[11px] font-semibold text-slate-600 px-1 uppercase">
           {boutonLibelle ? (
@@ -186,62 +239,28 @@ export function GoogleSheetColorPicker({
         </span>
       </button>
 
-      {/* Popover Color Picker Google Sheets */}
-      {isOpen && (
-        <div
-          ref={popoverRef}
-          className={`absolute top-full mt-2 z-50 p-3 bg-white rounded-xl shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150 w-[270px] ${
-            align === "right" ? "right-0" : "left-0"
-          }`}
-        >
-          {/* Ligne Monochrome / Niveaux de gris */}
-          <div className="mb-2.5">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 px-0.5">
-              Neutres
-            </div>
-            <div className="grid grid-cols-10 gap-1">
-              {GOOGLE_SHEETS_MONOCHROME.map((hex) => {
-                const active = isSelected(hex);
-                return (
-                  <button
-                    key={hex}
-                    type="button"
-                    onClick={() => handleSelect(hex)}
-                    style={{ backgroundColor: hex }}
-                    className={`w-5 h-5 rounded-xs border transition-transform relative ${
-                      hex.toLowerCase() === "#ffffff"
-                        ? "border-slate-300"
-                        : "border-black/10"
-                    } ${active ? "ring-2 ring-brand-orange ring-offset-1 scale-110 z-10" : "hover:scale-115"}`}
-                    title={hex}
-                  >
-                    {active && (
-                      <Check
-                        size={11}
-                        className={`absolute inset-0 m-auto ${
-                          hex.toLowerCase() === "#ffffff" ||
-                          hex.toLowerCase() === "#f3f3f3" ||
-                          hex.toLowerCase() === "#efefef"
-                            ? "text-slate-900"
-                            : "text-white"
-                        }`}
-                        strokeWidth={3}
-                      />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Grille Principale Google Sheets (10 teintes x 6 nuances) */}
-          <div className="space-y-1 pb-3 border-b border-slate-100">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 px-0.5">
-              Palette standard
-            </div>
-            {GOOGLE_SHEETS_HUES_MATRIX.map((row, rowIndex) => (
-              <div key={rowIndex} className="grid grid-cols-10 gap-1">
-                {row.map((hex) => {
+      {/* Popover Color Picker Google Sheets rendu au niveau du body via createPortal pour éviter tout clipping d'overflow */}
+      {isOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            style={{
+              position: "fixed",
+              top: `${coords.top}px`,
+              left: `${coords.left}px`,
+              zIndex: 9999,
+              width: "270px",
+            }}
+            className="p-3 bg-white rounded-xl shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150"
+          >
+            {/* Ligne Monochrome / Niveaux de gris */}
+            <div className="mb-2.5">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 px-0.5">
+                Neutres
+              </div>
+              <div className="grid grid-cols-10 gap-1">
+                {GOOGLE_SHEETS_MONOCHROME.map((hex) => {
                   const active = isSelected(hex);
                   return (
                     <button
@@ -249,18 +268,22 @@ export function GoogleSheetColorPicker({
                       type="button"
                       onClick={() => handleSelect(hex)}
                       style={{ backgroundColor: hex }}
-                      className={`w-5 h-5 rounded-xs border border-black/10 transition-transform relative ${
-                        active
-                          ? "ring-2 ring-brand-orange ring-offset-1 scale-110 z-10"
-                          : "hover:scale-115"
-                      }`}
+                      className={`w-5 h-5 rounded-xs border transition-transform relative ${
+                        hex.toLowerCase() === "#ffffff"
+                          ? "border-slate-300"
+                          : "border-black/10"
+                      } ${active ? "ring-2 ring-brand-orange ring-offset-1 scale-110 z-10" : "hover:scale-115"}`}
                       title={hex}
                     >
                       {active && (
                         <Check
                           size={11}
                           className={`absolute inset-0 m-auto ${
-                            rowIndex < 2 ? "text-slate-900" : "text-white"
+                            hex.toLowerCase() === "#ffffff" ||
+                            hex.toLowerCase() === "#f3f3f3" ||
+                            hex.toLowerCase() === "#efefef"
+                              ? "text-slate-900"
+                              : "text-white"
                           }`}
                           strokeWidth={3}
                         />
@@ -269,71 +292,109 @@ export function GoogleSheetColorPicker({
                   );
                 })}
               </div>
-            ))}
-          </div>
-
-          {/* Section « Personnalisé » */}
-          <div className="pt-2.5">
-            <div className="flex items-center justify-between mb-1.5 px-0.5">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Personnalisé
-              </span>
-              <span className="font-mono text-[10px] text-slate-500">
-                {couleurActive}
-              </span>
             </div>
 
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {/* Bouton "+" pour ouvrir le sélecteur natif */}
-              <button
-                type="button"
-                onClick={() => nativeColorInputRef.current?.click()}
-                className="w-6 h-6 rounded-full border border-dashed border-slate-300 hover:border-brand-orange hover:text-brand-orange flex items-center justify-center text-slate-500 transition-colors cursor-pointer bg-slate-50 hover:bg-orange-50"
-                title="Ajouter une couleur personnalisée (pipette / code hex)"
-              >
-                <Plus size={13} strokeWidth={2.5} />
-              </button>
-
-              {/* Pastilles personnalisées déjà utilisées */}
-              {customColors.map((hex) => {
-                const active = isSelected(hex);
-                return (
-                  <button
-                    key={hex}
-                    type="button"
-                    onClick={() => handleSelect(hex)}
-                    style={{ backgroundColor: hex }}
-                    className={`w-6 h-6 rounded-full border border-black/15 transition-transform relative ${
-                      active
-                        ? "ring-2 ring-brand-orange ring-offset-1 scale-110"
-                        : "hover:scale-110"
-                    }`}
-                    title={hex}
-                  >
-                    {active && (
-                      <Check
-                        size={12}
-                        className="absolute inset-0 m-auto text-white drop-shadow-xs"
-                        strokeWidth={3}
-                      />
-                    )}
-                  </button>
-                );
-              })}
-
-              {/* Input color caché activé par le bouton "+" */}
-              <input
-                ref={nativeColorInputRef}
-                type="color"
-                value={couleurActive}
-                onChange={handleCustomChange}
-                className="sr-only"
-                aria-label="Sélecteur de couleur natif"
-              />
+            {/* Grille Principale Google Sheets (10 teintes x 6 nuances) */}
+            <div className="space-y-1 pb-3 border-b border-slate-100">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 px-0.5">
+                Palette standard
+              </div>
+              {GOOGLE_SHEETS_HUES_MATRIX.map((row, rowIndex) => (
+                <div key={rowIndex} className="grid grid-cols-10 gap-1">
+                  {row.map((hex) => {
+                    const active = isSelected(hex);
+                    return (
+                      <button
+                        key={hex}
+                        type="button"
+                        onClick={() => handleSelect(hex)}
+                        style={{ backgroundColor: hex }}
+                        className={`w-5 h-5 rounded-xs border border-black/10 transition-transform relative ${
+                          active
+                            ? "ring-2 ring-brand-orange ring-offset-1 scale-110 z-10"
+                            : "hover:scale-115"
+                        }`}
+                        title={hex}
+                      >
+                        {active && (
+                          <Check
+                            size={11}
+                            className={`absolute inset-0 m-auto ${
+                              rowIndex < 2 ? "text-slate-900" : "text-white"
+                            }`}
+                            strokeWidth={3}
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
-          </div>
-        </div>
-      )}
+
+            {/* Section « Personnalisé » */}
+            <div className="pt-2.5">
+              <div className="flex items-center justify-between mb-1.5 px-0.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Personnalisé
+                </span>
+                <span className="font-mono text-[10px] text-slate-500">
+                  {couleurActive}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {/* Bouton "+" pour ouvrir le sélecteur natif */}
+                <button
+                  type="button"
+                  onClick={() => nativeColorInputRef.current?.click()}
+                  className="w-6 h-6 rounded-full border border-dashed border-slate-300 hover:border-brand-orange hover:text-brand-orange flex items-center justify-center text-slate-500 transition-colors cursor-pointer bg-slate-50 hover:bg-orange-50"
+                  title="Ajouter une couleur personnalisée (pipette / code hex)"
+                >
+                  <Plus size={13} strokeWidth={2.5} />
+                </button>
+
+                {/* Pastilles personnalisées déjà utilisées */}
+                {customColors.map((hex) => {
+                  const active = isSelected(hex);
+                  return (
+                    <button
+                      key={hex}
+                      type="button"
+                      onClick={() => handleSelect(hex)}
+                      style={{ backgroundColor: hex }}
+                      className={`w-6 h-6 rounded-full border border-black/15 transition-transform relative ${
+                        active
+                          ? "ring-2 ring-brand-orange ring-offset-1 scale-110"
+                          : "hover:scale-110"
+                      }`}
+                      title={hex}
+                    >
+                      {active && (
+                        <Check
+                          size={12}
+                          className="absolute inset-0 m-auto text-white drop-shadow-xs"
+                          strokeWidth={3}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+
+                {/* Input color caché activé par le bouton "+" */}
+                <input
+                  ref={nativeColorInputRef}
+                  type="color"
+                  value={couleurActive}
+                  onChange={handleCustomChange}
+                  className="sr-only"
+                  aria-label="Sélecteur de couleur natif"
+                />
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

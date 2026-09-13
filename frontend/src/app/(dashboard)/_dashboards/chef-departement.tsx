@@ -36,7 +36,11 @@ import { useEnseignants, type Enseignant } from "@/modules/personnel";
 import { useCentres, useSessionActive } from "@/modules/centres-sessions";
 import { useSalles } from "@/modules/salle";
 import { useFormations } from "@/modules/academique";
-import { useMatieres, construireCouleursMatieres } from "@/modules/matieres";
+import {
+  useMatieres,
+  construireCouleursMatieres,
+  getCouleurCardStyle,
+} from "@/modules/matieres";
 import {
   useProgressions,
   construireMappingAffectationsProgressions,
@@ -390,6 +394,11 @@ export function ChefDepartementDashboard({ departementId, chefId }: Props) {
 
               {matiere && (
                 <span
+                  style={
+                    couleurMatiere?.hex
+                      ? getCouleurCardStyle(couleurMatiere.hex, true)
+                      : undefined
+                  }
                   className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-extrabold tracking-wide uppercase shadow-2xs ${
                     couleurMatiere
                       ? `${couleurMatiere.bg} ${couleurMatiere.texte} border-slate-200/60`

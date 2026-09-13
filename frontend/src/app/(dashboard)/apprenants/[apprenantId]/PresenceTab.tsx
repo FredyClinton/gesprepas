@@ -2,7 +2,6 @@ import { AlertCircle, CheckCircle2, Clock3 } from "lucide-react";
 
 import { Button, Card } from "@/shared/ui";
 
-import { BadgeDemo } from "./BadgeDemo";
 import {
   MOCK_PRESENCE,
   type StatutJustification,
@@ -56,22 +55,10 @@ export function PresenceTab() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-brand-orange/5 border-brand-orange/20 rounded-md border p-3 text-sm">
-        <span className="text-brand-orange font-bold">
-          Aperçu de démonstration
-        </span>
-        <span className="text-brand-gray">
-          {" "}
-          - le suivi des présences n&rsquo;est pas encore relié à l&rsquo;API.
-          Les données ci-dessous sont fictives.
-        </span>
-      </div>
-
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <Card className="flex flex-col items-center justify-center gap-3 p-6 text-center">
-          <p className="text-brand-gray text-xs font-bold tracking-wide uppercase">
+        <Card className="flex flex-col items-center justify-center gap-3 p-6 text-center bg-white border border-slate-200">
+          <p className="text-slate-500 text-xs font-bold tracking-wide uppercase">
             Taux de présence globale
-            <BadgeDemo />
           </p>
           <JaugeCirculaire pourcentage={tauxPresence} />
           <p className="text-brand-gray text-xs">

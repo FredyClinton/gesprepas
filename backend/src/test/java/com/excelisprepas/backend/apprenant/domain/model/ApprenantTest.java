@@ -20,7 +20,7 @@ class ApprenantTest {
     private Apprenant unApprenant() {
         return new Apprenant(unId(), "Mballa", "Sophie",
                 LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
-                unId(), null, null, null);
+                unId(), unId(), null, null, null);
     }
 
     @Nested
@@ -37,7 +37,7 @@ class ApprenantTest {
             // When
             Apprenant apprenant = new Apprenant(id, "Mballa", "Sophie",
                     LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
-                    centreId, null, null, null);
+                    centreId, unId(), null, null, null);
 
             // Then
             assertThat(apprenant.getNom()).isEqualTo("Mballa");
@@ -50,7 +50,7 @@ class ApprenantTest {
             // Given / When
             ThrowingCallable creation = () -> new Apprenant(unId(), "  ", "Sophie",
                     LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
-                    unId(), null, null, null);
+                    unId(), unId(), null, null, null);
 
             // Then
             assertThatThrownBy(creation).isInstanceOf(IllegalArgumentException.class);

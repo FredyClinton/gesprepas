@@ -43,9 +43,10 @@ class MouvementFinancierServiceTest {
     private CentreRepositoryPort centreRepository;
     private ApprenantRepositoryPort apprenantRepository;
     private SessionAcademiqueRepositoryPort sessionRepository;
-    private MouvementFinancierService service;
     private MouvementFinancierRepositoryPort mouvementRepository;
     private com.excelisprepas.backend.inscription.domain.port.out.DossierInscriptionRepositoryPort dossierInscriptionRepository;
+    private com.excelisprepas.backend.apprenant.domain.port.out.ContratApprenantRepositoryPort contratApprenantRepository;
+    private MouvementFinancierService service;
 
     @BeforeEach
     void setUp() {
@@ -57,8 +58,9 @@ class MouvementFinancierServiceTest {
         sessionRepository = mock(SessionAcademiqueRepositoryPort.class);
         mouvementRepository = mock(MouvementFinancierRepositoryPort.class);
         dossierInscriptionRepository = mock(com.excelisprepas.backend.inscription.domain.port.out.DossierInscriptionRepositoryPort.class);
+        contratApprenantRepository = mock(com.excelisprepas.backend.apprenant.domain.port.out.ContratApprenantRepositoryPort.class);
         service = new MouvementFinancierService(entreeRepository, sortieRepository, motifRepository,
-                centreRepository, apprenantRepository, sessionRepository, mouvementRepository, dossierInscriptionRepository);
+                centreRepository, apprenantRepository, sessionRepository, mouvementRepository, dossierInscriptionRepository, contratApprenantRepository);
     }
 
     private Motif unMotifEntree() {
@@ -112,7 +114,7 @@ class MouvementFinancierServiceTest {
                     new Centre(centreId, "Centre NIL", "Adresse", "Yaoundé")));
             when(apprenantRepository.findById(apprenantId)).thenReturn(Optional.of(
                     new Apprenant(apprenantId, "Essomba", "Paul", LocalDate.of(2005, 1, 1), date,
-                            centreId, null, null, null)));
+                            centreId, sessionId, null, null, null)));
             when(dossierInscriptionRepository.findByApprenantIdAndSessionId(apprenantId, sessionId)).thenReturn(List.of(
                     new com.excelisprepas.backend.inscription.domain.model.DossierInscription(
                             UUID.randomUUID(), apprenantId, sessionId, centreId, BigDecimal.ZERO, date,
@@ -406,7 +408,7 @@ class MouvementFinancierServiceTest {
             UUID apprenantId = UUID.randomUUID();
             when(apprenantRepository.findById(apprenantId)).thenReturn(Optional.of(
                     new Apprenant(apprenantId, "Essomba", "Paul", LocalDate.of(2005, 1, 1), date,
-                            centreId, null, null, null)));
+                            centreId, sessionId, null, null, null)));
             List<Entree> versements = List.of(
                     new Entree(UUID.randomUUID(), sessionId, UUID.randomUUID(), new BigDecimal("20000"),
                             date, saisiParUtilisateurId, centreId, apprenantId, null, null),
@@ -434,6 +436,61 @@ class MouvementFinancierServiceTest {
             // Then
             assertThatThrownBy(action).isInstanceOf(ApprenantIntrouvableException.class);
             verify(entreeRepository, never()).findByApprenantId(any(UUID.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("Règle de non-dépassement des contrats")
+    class RegleNonDepassementContrat {
+
+        @Test
+        @DisplayName("refuse le versement si le montant dépasse le solde restant du contrat")
+        void refuseSiMontantDepasseContrat() {
+            UUID motifId = UUID.randomUUID();
+            Motif motif = new Motif(motifId, "Scolarité", TypeMotif.ENTREE);
+            when(motifRepository.findById(motifId)).thenReturn(Optional.of(motif));
+            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
+            when(centreRepository.findById(centreId)).thenReturn(Optional.of(mock(com.excelisprepas.backend.centre.domain.model.Centre.class)));
+
+            UUID apprenantId = UUID.randomUUID();
+            Apprenant apprenant = new Apprenant(apprenantId, "Mbida", "Jean", LocalDate.of(2005, 5, 5), date,
+                    centreId, sessionId, null, null, null, null, null, BigDecimal.valueOf(50000), false, null);
+            when(apprenantRepository.findById(apprenantId)).thenReturn(Optional.of(apprenant));
+
+            // Déjà 40 000 payés
+            Entree entreeDejaPayee = new Entree(UUID.randomUUID(), sessionId, motifId, new BigDecimal("40000"),
+                    date, saisiParUtilisateurId, centreId, apprenantId, null, null);
+            entreeDejaPayee.appliquerDecision(StatutMouvement.VALIDE);
+            when(entreeRepository.findByApprenantId(apprenantId)).thenReturn(List.of(entreeDejaPayee));
+
+            // Tentative de verser 15 000 (solde restant = 10 000)
+            ThrowingCallable action = () -> service.saisirEntree(sessionId, motifId, new BigDecimal("15000"),
+                    date, saisiParUtilisateurId, centreId, apprenantId, null);
+
+            assertThatThrownBy(action).isInstanceOf(com.excelisprepas.backend.shared.exception.MontantDepasseContratException.class);
+        }
+
+        @Test
+        @DisplayName("autorise l'achat de livres même si la scolarité est soldée")
+        void autoriseAchatLivresMemeSiScolariteSoldee() {
+            UUID motifId = UUID.randomUUID();
+            Motif motif = new Motif(motifId, "Achat Livres", TypeMotif.ENTREE);
+            when(motifRepository.findById(motifId)).thenReturn(Optional.of(motif));
+            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
+            when(centreRepository.findById(centreId)).thenReturn(Optional.of(mock(com.excelisprepas.backend.centre.domain.model.Centre.class)));
+
+            UUID apprenantId = UUID.randomUUID();
+            Apprenant apprenant = new Apprenant(apprenantId, "Mbida", "Jean", LocalDate.of(2005, 5, 5), date,
+                    centreId, sessionId, null, null, null, null, null, BigDecimal.valueOf(50000), false, null);
+            when(apprenantRepository.findById(apprenantId)).thenReturn(Optional.of(apprenant));
+
+            when(entreeRepository.save(any(Entree.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            Entree resultat = service.saisirEntree(sessionId, motifId, new BigDecimal("19000"),
+                    date, saisiParUtilisateurId, centreId, apprenantId, null);
+
+            assertThat(resultat).isNotNull();
+            assertThat(resultat.getMontant()).isEqualByComparingTo("19000");
         }
     }
 }

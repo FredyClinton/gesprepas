@@ -39,7 +39,11 @@ import {
   useSupprimerSalle,
   type Salle,
 } from "@/modules/salle";
-import { useMatieres, construireCouleursMatieres } from "@/modules/matieres";
+import {
+  useMatieres,
+  construireCouleursMatieres,
+  getCouleurBadgeStyle,
+} from "@/modules/matieres";
 import { useDepartements } from "@/modules/departement";
 import { Button, Card, Modal } from "@/shared/ui";
 import { messageErreurApi } from "@/shared/lib/api-client";
@@ -797,6 +801,7 @@ export function FormationDetailView({
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2.5">
                           <span
+                            style={{ backgroundColor: couleur?.hex || "#cbd5e1" }}
                             className={`w-3.5 h-3.5 rounded-full shrink-0 ${
                               couleur ? couleur.bg : "bg-slate-300"
                             }`}
@@ -831,7 +836,14 @@ export function FormationDetailView({
                     <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
                       <span>Au catalogue</span>
                       {couleur && (
-                        <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${couleur.bg} ${couleur.texte}`}>
+                        <span
+                          style={
+                            couleur.hex
+                              ? getCouleurBadgeStyle(couleur.hex)
+                              : undefined
+                          }
+                          className={`px-2 py-0.5 rounded-full font-bold text-[10px] border ${couleur.bg} ${couleur.texte}`}
+                        >
                           Matière
                         </span>
                       )}
@@ -1195,6 +1207,7 @@ export function FormationDetailView({
                   >
                     <div className="flex items-center gap-3">
                       <span
+                        style={{ backgroundColor: couleur?.hex || "#cbd5e1" }}
                         className={`w-3 h-3 rounded-full shrink-0 ${
                           couleur ? couleur.bg : "bg-slate-300"
                         }`}

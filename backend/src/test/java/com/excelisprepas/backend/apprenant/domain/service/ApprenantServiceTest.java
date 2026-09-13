@@ -4,6 +4,9 @@ import com.excelisprepas.backend.apprenant.domain.model.Apprenant;
 import com.excelisprepas.backend.apprenant.domain.port.out.ApprenantRepositoryPort;
 import com.excelisprepas.backend.centre.domain.model.Centre;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
+import com.excelisprepas.backend.session.domain.model.SessionAcademique;
+import com.excelisprepas.backend.session.domain.model.StatutSession;
+import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import com.excelisprepas.backend.shared.exception.*;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,27 +27,34 @@ import static org.mockito.Mockito.*;
 class ApprenantServiceTest {
 
     private final UUID centreId = UUID.randomUUID();
+    private final UUID sessionId = UUID.randomUUID();
 
     private ApprenantRepositoryPort apprenantRepository;
     private CentreRepositoryPort centreRepository;
+    private SessionAcademiqueRepositoryPort sessionRepository;
     private ApprenantService service;
 
     @BeforeEach
     void setUp() {
         apprenantRepository = mock(ApprenantRepositoryPort.class);
         centreRepository = mock(CentreRepositoryPort.class);
-        service = new ApprenantService(apprenantRepository, centreRepository);
+        sessionRepository = mock(SessionAcademiqueRepositoryPort.class);
+        service = new ApprenantService(apprenantRepository, centreRepository, sessionRepository);
     }
 
     private Apprenant unApprenant() {
         return new Apprenant(UUID.randomUUID(), "Mballa", "Sophie",
                 LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
-                centreId, null, null, null);
+                centreId, sessionId, null, null, null);
     }
 
     private void stubCreationValide() {
         when(centreRepository.findById(centreId)).thenReturn(Optional.of(
                 new Centre(centreId, "Centre Yaoundé", "Avenue Kennedy", "Yaoundé")));
+        when(sessionRepository.findEnCours()).thenReturn(Optional.of(
+                SessionAcademique.reconstituer(sessionId, "2026-2027",
+                        LocalDate.of(2026, 9, 1), LocalDate.of(2027, 7, 31),
+                        StatutSession.EN_COURS)));
     }
 
     @Nested
@@ -59,7 +69,7 @@ class ApprenantServiceTest {
 
             Apprenant resultat = service.creerApprenant("Mballa", "Sophie",
                     LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
-                    centreId, null, null, null);
+                    centreId, null, null, null, null);
 
             assertThat(resultat.getNom()).isEqualTo("Mballa");
             verify(apprenantRepository).save(any(Apprenant.class));
@@ -72,9 +82,24 @@ class ApprenantServiceTest {
 
             ThrowingCallable creation = () -> service.creerApprenant("Mballa", "Sophie",
                     LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
-                    centreId, null, null, null);
+                    centreId, null, null, null, null);
 
             assertThatThrownBy(creation).isInstanceOf(CentreIntrouvableException.class);
+            verify(apprenantRepository, never()).save(any(Apprenant.class));
+        }
+
+        @Test
+        @DisplayName("refuse la creation si aucune session n'est en cours")
+        void refuseCreationSiAucuneSessionEnCours() {
+            when(centreRepository.findById(centreId)).thenReturn(Optional.of(
+                    new Centre(centreId, "Centre Yaoundé", "Avenue Kennedy", "Yaoundé")));
+            when(sessionRepository.findEnCours()).thenReturn(Optional.empty());
+
+            ThrowingCallable creation = () -> service.creerApprenant("Mballa", "Sophie",
+                    LocalDate.of(2005, 3, 12), LocalDate.of(2026, 9, 1),
+                    centreId, null, null, null, null);
+
+            assertThatThrownBy(creation).isInstanceOf(SessionIntrouvableException.class);
             verify(apprenantRepository, never()).save(any(Apprenant.class));
         }
     }

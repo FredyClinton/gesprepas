@@ -15,9 +15,15 @@ public class ApprenantPersistenceMapper {
         entite.setDateNaissance(domaine.getDateNaissance());
         entite.setDateInscription(domaine.getDateInscription());
         entite.setCentreId(domaine.getCentreId());
+        entite.setSessionId(domaine.getSessionId());
         entite.setContactApprenant(domaine.getContactApprenant());
         entite.setNomParent(domaine.getNomParent());
         entite.setContactParent(domaine.getContactParent());
+        entite.setEtablissementOrigine(domaine.getEtablissementOrigine());
+        entite.setFormationId(domaine.getFormationId());
+        entite.setMontantContrat(domaine.getMontantContrat());
+        entite.setPreInscrit(domaine.getPreInscrit() != null ? domaine.getPreInscrit() : false);
+        entite.setReferenceRecu(domaine.getReferenceRecu());
         return entite;
     }
 
@@ -25,7 +31,9 @@ public class ApprenantPersistenceMapper {
         if (entite == null) return null;
         return new Apprenant(entite.getId(), entite.getNom(), entite.getPrenom(),
                 entite.getDateNaissance(), entite.getDateInscription(),
-                entite.getCentreId(),
-                entite.getContactApprenant(), entite.getNomParent(), entite.getContactParent());
+                entite.getCentreId(), entite.getSessionId(),
+                entite.getContactApprenant(), entite.getNomParent(), entite.getContactParent(),
+                entite.getEtablissementOrigine(), entite.getFormationId(), entite.getMontantContrat(),
+                entite.getPreInscrit(), entite.getReferenceRecu());
     }
 }

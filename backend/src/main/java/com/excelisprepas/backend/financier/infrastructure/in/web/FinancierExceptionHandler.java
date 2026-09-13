@@ -17,6 +17,11 @@ public class FinancierExceptionHandler {
         return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
+    @ExceptionHandler(LivreIntrouvableException.class)
+    public ResponseEntity<ApiErrorResponse> gererLivreIntrouvable(LivreIntrouvableException ex) {
+        return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
     @ExceptionHandler(CentreIntrouvableException.class)
     public ResponseEntity<ApiErrorResponse> gererCentreIntrouvable(CentreIntrouvableException ex) {
         return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
@@ -74,6 +79,16 @@ public class FinancierExceptionHandler {
 
     @ExceptionHandler(BilanJournalierDejaExistantException.class)
     public ResponseEntity<ApiErrorResponse> gererBilanJournalierDejaExistant(BilanJournalierDejaExistantException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(MontantDepasseContratException.class)
+    public ResponseEntity<ApiErrorResponse> gererMontantDepasseContrat(MontantDepasseContratException ex) {
+        return construireReponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(LivreIndisponibleException.class)
+    public ResponseEntity<ApiErrorResponse> gererLivreIndisponible(LivreIndisponibleException ex) {
         return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 

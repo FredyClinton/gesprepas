@@ -300,7 +300,7 @@ export function BordereauPlanifieModal({
                     <th className="p-3.5">Département</th>
                     <th className="p-3.5 text-center">Séances Eff.</th>
                     <th className="w-44 p-3.5 text-right">
-                      Coût / Séance (FCFA)
+                      Contrat (FCFA)
                       <span className="text-brand-orange block text-[10px] font-normal">
                         Éditable pour ce bordereau
                       </span>

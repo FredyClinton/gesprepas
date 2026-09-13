@@ -7,6 +7,7 @@ import {
   getDossierParApprenant,
   getSoldeDossierConcours,
   listConcoursDuDossier,
+  listConcoursSession,
   listPiecesDossierConcours,
   listPiecesRequises,
 } from "./client";
@@ -57,9 +58,18 @@ export function useConcours(id: string | undefined) {
   });
 }
 
+export function useConcoursSession(sessionId: string | undefined) {
+  return useQuery({
+    queryKey: ["concours-session", sessionId],
+    queryFn: () => listConcoursSession(sessionId!),
+    enabled: Boolean(sessionId),
+  });
+}
+
 export function usePiecesRequises() {
   return useQuery({
     queryKey: ["pieces-requises"],
     queryFn: listPiecesRequises,
   });
 }
+

@@ -350,6 +350,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         String[] prenoms = {"Grace", "Franck", "Judith", "Yannick", "Carine", "Steve", "Rosine", "Junior", "Émilie", "Boris"};
         LocalDate dateInscription = LocalDate.of(2025, 9, 5);
 
+        String[] lycees = {"Lycée Général Leclerc", "Collège Libermann", "Lycée Joss", "Collège Vogt", "Lycée de Biyem-Assi"};
         for (int i = 0; i < formations.size(); i++) {
             FormationSeed formation = formations.get(i);
             for (int j = 0; j < 2; j++) {
@@ -357,7 +358,8 @@ public class DatabaseSeeder implements CommandLineRunner {
                 LocalDate dateNaissance = LocalDate.of(2007 - (index % 3), 3 + index % 6, 10 + index % 15);
                 Apprenant apprenant = creerApprenantUseCase.creerApprenant(
                         noms[index], prenoms[index], dateNaissance, dateInscription,
-                        formation.centreId(), null, null, null);
+                        formation.centreId(), null, null, null,
+                        lycees[index % lycees.length]);
                 
                 creerDossierInscriptionUseCase.creerDossierInscription(
                         apprenant.getId(), sessionEnCoursId, formation.centreId(),

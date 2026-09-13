@@ -8,6 +8,7 @@ import {
   getFichePaieDetail,
   validerBordereauEnseignant,
   executerPaiementFiche,
+  mettreAJourThemeSeance,
 } from "./client";
 import type {
   FichePaieEnseignant,
@@ -132,6 +133,30 @@ export function useExecuterPaiementFiche() {
       });
       await queryClient.invalidateQueries({
         queryKey: ["fiches-paie-enseignant"],
+      });
+    },
+  });
+}
+
+export function useMettreAJourThemeSeance() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      affectationId,
+      theme,
+    }: {
+      affectationId: string;
+      theme: string;
+    }) => mettreAJourThemeSeance(affectationId, theme),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["fiche-paie-detail"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["progressions"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["affectations"],
       });
     },
   });

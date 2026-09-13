@@ -32,7 +32,7 @@ import {
 import { useProgressionQuotas } from "../hooks/useProgressionQuotas";
 import { TransfererCoursModal } from "./TransfererCoursModal";
 import { ExporterProgressionModal } from "./ExporterProgressionModal";
-import { useFormations } from "@/modules/academique";
+import { useFormations, type Formation } from "@/modules/academique";
 import type { Matiere } from "@/modules/matieres";
 import type { Affectation } from "@/modules/affectation";
 
@@ -608,6 +608,10 @@ export interface SyllabusMultiMatieresViewProps {
   matieres: Matiere[];
   progressions: Progression[];
   affectations: Affectation[];
+  allFormations?: Formation[];
+  toutesMatieres?: Matiere[];
+  toutesProgressions?: Progression[];
+  toutesAffectations?: Affectation[];
   sessionId: string;
   phaseId?: string;
   sessionAnnee?: string;
@@ -617,14 +621,19 @@ export interface SyllabusMultiMatieresViewProps {
   onOuvrirAjout?: () => void;
   semaineSelectionnee?: number | "TOUTES";
   onChangerSemaine?: (s: number | "TOUTES") => void;
+  barreNavigation?: React.ReactNode;
 }
 
 export function SyllabusMultiMatieresView({
   formationId,
   formationNom,
   matieres,
+  allFormations: propAllFormations,
+  toutesMatieres,
   progressions,
   affectations,
+  toutesProgressions,
+  toutesAffectations,
   sessionId,
   phaseId = "",
   sessionAnnee = "2026",
@@ -634,6 +643,7 @@ export function SyllabusMultiMatieresView({
   onOuvrirAjout,
   semaineSelectionnee: propSemaineSelectionnee,
   onChangerSemaine,
+  barreNavigation,
 }: SyllabusMultiMatieresViewProps) {
   const supprimerMutation = useSupprimerProgression();
   const { data: authSession } = useSession();
@@ -755,6 +765,11 @@ export function SyllabusMultiMatieresView({
   }
 
   async function handleSupprimerSemaine(semaine: number) {
+    if (!estDirecteur) {
+      alert("Seul le Directeur Académique est habilité à supprimer un tableau complet de progression. Vous pouvez supprimer individuellement vos entrées de cours.");
+      return;
+    }
+
     const progs = progressions.filter((p) => p.semaine === semaine);
     if (progs.length > 0) {
       const ok = window.confirm(
@@ -818,10 +833,10 @@ export function SyllabusMultiMatieresView({
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-slate-100 pb-5">
           <div className="space-y-1">
             <span className="text-[11px] font-black tracking-widest text-brand-orange uppercase">
-              Tableau Pédagogique Officiel Multi-Disciplines
+              Coordination Pédagogique
             </span>
             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 uppercase">
-              Fiche de Progression Excelis Prépas {sessionAnnee}
+              Fiche de Progression  {sessionAnnee}
             </h2>
             <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-slate-500 font-medium">
               <span className="font-bold text-slate-800">
@@ -934,6 +949,9 @@ export function SyllabusMultiMatieresView({
         )}
       </div>
 
+      {/* ── Bande 2 : Navigation Filières & Sélecteur Semaine (Permutée en 2e position) ── */}
+      {barreNavigation}
+
       {/* ── Tableaux des Semaines (Multi-Matières) ── */}
       {semainesAffichees.map((semaine) => {
         const progressionsSemaine = progressions.filter(
@@ -988,15 +1006,17 @@ export function SyllabusMultiMatieresView({
                   {progressionsSemaine.length} cours documenté{progressionsSemaine.length > 1 ? "s" : ""}
                 </span>
 
-                <button
-                  type="button"
-                  onClick={() => handleSupprimerSemaine(semaine)}
-                  className="no-print inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700 transition-all cursor-pointer shadow-2xs"
-                  title={`Supprimer le tableau complet de la Semaine ${semaine}`}
-                >
-                  <Trash2 size={12} className="text-slate-400 group-hover:text-red-600" />
-                  <span>Supprimer Semaine {semaine}</span>
-                </button>
+                {estDirecteur && (
+                  <button
+                    type="button"
+                    onClick={() => handleSupprimerSemaine(semaine)}
+                    className="no-print inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700 transition-all cursor-pointer shadow-2xs"
+                    title={`Supprimer le tableau complet de la Semaine ${semaine}`}
+                  >
+                    <Trash2 size={12} className="text-slate-400 group-hover:text-red-600" />
+                    <span>Supprimer Semaine {semaine}</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1248,17 +1268,23 @@ export function SyllabusMultiMatieresView({
           isOpen={showExportModal}
           onClose={() => setShowExportModal(false)}
           formations={
-            allFormations.length > 0
-              ? allFormations
-              : [{ id: formationId, nom: formationNom }]
+            (propAllFormations && propAllFormations.length > 0)
+              ? propAllFormations
+              : allFormations.length > 0
+                ? allFormations
+                : [{ id: formationId, nom: formationNom }]
           }
           formationIdActive={formationId}
           semaineActive={propSemaineSelectionnee ?? "TOUTES"}
-          matieres={matieres}
+          matieres={
+            toutesMatieres && toutesMatieres.length > 0
+              ? toutesMatieres
+              : matieres
+          }
           sessionAnnee={sessionAnnee}
           sessionId={sessionId}
-          progressions={progressions}
-          affectations={affectations}
+          progressions={toutesProgressions ?? progressions}
+          affectations={toutesAffectations ?? affectations}
         />
       )}
     </div>

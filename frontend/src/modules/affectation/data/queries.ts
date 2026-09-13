@@ -83,6 +83,38 @@ export function useAffectationsMultiMatiere({
   };
 }
 
+export function useAffectationsMultiSemaines({
+  sessionId,
+  semaines,
+  matiereId,
+  centreId,
+}: {
+  sessionId: string | undefined;
+  semaines: number[];
+  matiereId?: string;
+  centreId?: string;
+}) {
+  const résultats = useQueries({
+    queries: semaines.map((semaine) => ({
+      queryKey: ["affectations", sessionId, semaine, matiereId, centreId],
+      queryFn: () =>
+        listAffectations({
+          sessionId: sessionId!,
+          semaine,
+          matiereId,
+          centreId,
+        }),
+      enabled: Boolean(sessionId && semaine > 0),
+      staleTime: 60_000,
+    })),
+  });
+
+  return {
+    data: résultats.flatMap((r) => r.data ?? []),
+    isLoading: résultats.some((r) => r.isLoading),
+  };
+}
+
 // Pas de mise à jour optimiste : le backend valide la disponibilité de l'enseignant
 // au moment de l'assignation (409 possible) - on préfère réinterroger plutôt que
 // de supposer le succès dans l'UI avant confirmation du serveur.

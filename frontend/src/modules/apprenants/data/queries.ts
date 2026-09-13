@@ -2,7 +2,13 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { creerApprenant, getApprenant, listApprenants } from "./client";
+import {
+  creerApprenant,
+  getApprenant,
+  listApprenants,
+  modifierApprenant,
+  type ModifierApprenantInput,
+} from "./client";
 
 // Pas d'endpoint de pagination/comptage côté backend : on récupère la liste complète
 // et "Total apprenants" se calcule côté client (items.length). À revoir si le volume
@@ -28,6 +34,18 @@ export function useCreerApprenant() {
     mutationFn: creerApprenant,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["apprenants"] });
+    },
+  });
+}
+
+export function useModifierApprenant() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: ModifierApprenantInput }) =>
+      modifierApprenant(id, input),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["apprenants"] });
+      queryClient.invalidateQueries({ queryKey: ["apprenant", variables.id] });
     },
   });
 }

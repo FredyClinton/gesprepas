@@ -14,6 +14,8 @@ import { useFormations, type Formation } from "@/modules/academique";
 import {
   useMatieres,
   construireCouleursMatieres,
+  getCouleurCardStyle,
+  isCouleurClaire,
   type Matiere,
   type CouleurMatiere,
 } from "@/modules/matieres";
@@ -28,6 +30,12 @@ import {
   type InfoProgressionAffectation,
 } from "@/modules/progression";
 import { Modal } from "@/shared/ui";
+import {
+  useConcoursBlancs,
+  ContenuEpreuveModal,
+  type ConcoursBlanc,
+  type EpreuveConcoursBlanc,
+} from "@/modules/concours-blancs";
 import { semaineCouranteDepuis } from "@/shared/lib/semaine";
 import {
   Palette,
@@ -77,6 +85,15 @@ function PlanningPublicContenu() {
     matiereId: undefined,
     centreId: centreIdParam ?? undefined,
   });
+
+  const { data: concoursBlancsSession = [] } = useConcoursBlancs(sessionId);
+  const [epreuveActiveModal, setEpreuveActiveModal] = useState<EpreuveConcoursBlanc | null>(null);
+  const [epreuvesConcoursModal, setEpreuvesConcoursModal] = useState<EpreuveConcoursBlanc[]>([]);
+  const [cbActifModal, setCbActifModal] = useState<ConcoursBlanc | null>(null);
+
+  const concoursBlancsSemaine = useMemo(() => {
+    return concoursBlancsSession.filter((cb) => cb.semaine === semaine);
+  }, [concoursBlancsSession, semaine]);
 
   const mappingAffectationsProgressions = useMemo(
     () =>
@@ -206,9 +223,9 @@ function PlanningPublicContenu() {
   const chargement = !sessionActive || !centres || !formations || !salles || !matieres;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="h-[100dvh] flex flex-col bg-slate-50">
       {/* En-tête de la page publique */}
-      <header className="border-b border-slate-200 bg-white px-8 py-5 shadow-xs">
+      <header className="shrink-0 border-b border-slate-200 bg-white px-4 sm:px-8 py-5 shadow-xs">
         <div className="mx-auto max-w-[1600px] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-orange text-white font-black text-xl shadow-xs">
@@ -269,9 +286,9 @@ function PlanningPublicContenu() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1600px] p-6 flex flex-col gap-5">
+      <main className="mx-auto w-full max-w-[1600px] flex-1 min-h-0 px-4 sm:px-8 py-6 flex flex-col gap-5">
         {/* Grille + Légende */}
-        <div className="flex flex-col xl:flex-row gap-4 min-h-0">
+        <div className="flex flex-col xl:flex-row gap-4 flex-1 min-h-0">
           {/* Grille */}
           <div className="flex-1 overflow-auto rounded-xl border border-slate-200 bg-white shadow-xs">
             {chargement ? (
@@ -289,13 +306,13 @@ function PlanningPublicContenu() {
                   <tr>
                     <th
                       rowSpan={3}
-                      className="sticky left-0 z-30 min-w-[90px] w-[90px] border-b border-r border-slate-200 bg-slate-100 p-2.5 text-center align-middle text-xs font-bold uppercase tracking-wider text-slate-700 shadow-[1px_0_0_0_#e2e8f0]"
+                      className="sticky left-0 z-30 min-w-[90px] w-[90px] border-b border-b-slate-300 border-r border-r-slate-300 bg-slate-100 p-2.5 text-center align-middle text-xs font-bold uppercase tracking-wider text-slate-700 shadow-[1px_0_0_0_#e2e8f0]"
                     >
                       Jour
                     </th>
                     <th
                       rowSpan={3}
-                      className="sticky left-[90px] z-30 min-w-[50px] w-[50px] border-b border-r border-slate-200 bg-slate-100 p-2.5 text-center align-middle text-xs font-bold uppercase tracking-wider text-slate-700 shadow-[1px_0_0_0_#e2e8f0]"
+                      className="sticky left-[90px] z-30 min-w-[50px] w-[50px] border-b border-b-slate-300 border-r border-r-slate-300 bg-slate-100 p-2.5 text-center align-middle text-xs font-bold uppercase tracking-wider text-slate-700 shadow-[1px_0_0_0_#e2e8f0]"
                     >
                       Séance
                     </th>
@@ -323,7 +340,7 @@ function PlanningPublicContenu() {
                         <th
                           key={gf.formation.id}
                           colSpan={gf.salles.length}
-                          className={`border-b border-r bg-brand-orange/90 p-2 text-center text-xs font-bold text-white uppercase ${
+                          className={`border-b border-r border-orange-200/80 bg-orange-100/60 p-2 text-center text-xs font-black text-orange-950 uppercase tracking-wide ${
                             groupeIndex > 0 && formationIndex === 0
                               ? "border-l-2 border-l-slate-400"
                               : ""
@@ -341,7 +358,7 @@ function PlanningPublicContenu() {
                         gf.salles.map((salle, salleIndex) => (
                           <th
                             key={salle.id}
-                            className={`min-w-[120px] border-b border-r bg-slate-50 p-2.5 text-center text-xs font-semibold text-slate-600 ${
+                            className={`min-w-[120px] border-b border-b-slate-300 border-r border-r-slate-300 bg-slate-50 p-2.5 text-center text-xs font-semibold text-slate-700 ${
                               groupeIndex > 0 && formationIndex === 0 && salleIndex === 0
                                 ? "border-l-2 border-l-slate-400"
                                 : ""
@@ -373,7 +390,7 @@ function PlanningPublicContenu() {
                         {ligne === 0 && (
                           <td
                             rowSpan={hauteur}
-                            className={`sticky left-0 z-20 w-[90px] min-w-[90px] border-r border-slate-200 bg-slate-50/95 backdrop-blur-xs p-2 text-center align-middle shadow-[1px_0_0_0_#e2e8f0] ${
+                            className={`sticky left-0 z-20 w-[90px] min-w-[90px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-50/95 backdrop-blur-xs p-2 text-center align-middle shadow-[1px_0_0_0_#e2e8f0] ${
                               jourIndex > 0 ? BORDURE_JOUR : ""
                             }`}
                           >
@@ -383,7 +400,7 @@ function PlanningPublicContenu() {
                           </td>
                         )}
                         <td
-                          className={`sticky left-[90px] z-20 w-[50px] min-w-[50px] border-r border-b border-slate-200 bg-slate-50/95 backdrop-blur-xs p-2 text-center align-middle shadow-[1px_0_0_0_#e2e8f0] ${
+                          className={`sticky left-[90px] z-20 w-[50px] min-w-[50px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-50/95 backdrop-blur-xs p-2 text-center align-middle shadow-[1px_0_0_0_#e2e8f0] ${
                             ligne === 0 && jourIndex > 0 ? BORDURE_JOUR : ""
                           }`}
                         >
@@ -396,6 +413,20 @@ function PlanningPublicContenu() {
                             gf.salles.map((salle, salleIndex) => {
                               const contenu = creneauxPour(salle.id, jour);
                               const creneau = contenu[ligne];
+                              const seanceNum = ligne + 1;
+                              const concoursSurCreneau = concoursBlancsSemaine.find(
+                                (cb) =>
+                                  cb.jour === jour &&
+                                  seanceNum >= cb.seanceDebut &&
+                                  seanceNum <= cb.seanceFin &&
+                                  (cb.tousLesCentres || (cb.centreIds && cb.centreIds.includes(groupe.centre.id))) &&
+                                  cb.epreuves.some((e) => e.formationId === gf.formation.id),
+                              );
+                              const epreuvesConcours = concoursSurCreneau
+                                ? concoursSurCreneau.epreuves.filter(
+                                    (e) => e.formationId === gf.formation.id,
+                                  )
+                                : [];
                               const bordureCentre =
                                 groupeIndex > 0 && formationIndex === 0 && salleIndex === 0
                                   ? "border-l-2 border-l-slate-400"
@@ -405,9 +436,46 @@ function PlanningPublicContenu() {
                               return (
                                 <td
                                   key={`${salle.id}-${jour}-${ligne}`}
-                                  className={`border-r border-b border-slate-100 p-1.5 align-middle ${bordureCentre} ${bordureJour}`}
+                                  className={`border-r border-r-slate-300 border-b border-b-slate-300 p-1.5 align-middle ${bordureCentre} ${bordureJour}`}
                                 >
-                                  {creneau && (() => {
+                                  {concoursSurCreneau && (
+                                    <div
+                                      onClick={() => {
+                                        setCbActifModal(concoursSurCreneau);
+                                        setEpreuvesConcoursModal(epreuvesConcours);
+                                        setEpreuveActiveModal(epreuvesConcours[0] || null);
+                                      }}
+                                      className="w-full cursor-pointer rounded-xl border border-orange-300/80 bg-gradient-to-r from-orange-500 to-amber-500 p-2 text-white shadow-xs hover:shadow-md hover:scale-[1.01] transition-all flex flex-col justify-between min-h-[64px]"
+                                      title="Créneau Concours Blanc - Cliquez pour voir les épreuves et les contenus"
+                                    >
+                                      <div className="flex items-center justify-between gap-1">
+                                        <span className="rounded-md bg-white/20 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white">
+                                          Concours Blanc
+                                        </span>
+                                        <span className="text-[10px] font-bold text-orange-100">
+                                          S{concoursSurCreneau.seanceDebut}-S{concoursSurCreneau.seanceFin}
+                                        </span>
+                                      </div>
+                                      <div className="font-bold text-xs truncate mt-0.5">
+                                        {concoursSurCreneau.titre}
+                                      </div>
+                                      {/* Affichage de TOUTES LES MATIÈRES du concours blanc */}
+                                      <div className="mt-1 flex flex-wrap gap-1">
+                                        {epreuvesConcours.map((e) => (
+                                          <span
+                                            key={e.id}
+                                            className="inline-flex items-center gap-1 rounded bg-black/25 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-2xs leading-tight"
+                                          >
+                                            <span>{e.intitule}</span>
+                                            <span className="text-orange-200 text-[8px] font-normal">
+                                              {e.dureeMinutes ? `${Math.round(e.dureeMinutes / 60)}h` : ""}{e.coefficient ? ` · c${e.coefficient}` : ""}
+                                            </span>
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {creneau && !concoursSurCreneau && (() => {
                                     const couleur = couleursMatieres.get(creneau.matiereId);
                                     const enseignant = enseignants?.find(
                                       (e) => e.id === creneau.enseignantId,
@@ -420,93 +488,93 @@ function PlanningPublicContenu() {
                                      const progression = infoProg?.progression;
                                      const numeroCours = infoProg?.numeroCours ?? creneau.seance;
 
+                                     const hex = couleur?.hex || matiere?.couleur;
+                                     const isLight = isCouleurClaire(hex);
+
                                      return (
-                                         <div
-                                           role="button"
-                                           tabIndex={0}
-                                           onClick={() => setCreneauSelectionne(creneau)}
-                                           onKeyDown={(e) => {
-                                             if (e.key === "Enter" || e.key === " ") {
-                                               e.preventDefault();
-                                               setCreneauSelectionne(creneau);
-                                             }
-                                           }}
-                                           title={
-                                             progression
-                                               ? `Cours N°${numeroCours} : ${progression.theme}`
-                                               : `Séance N°${creneau.seance} (${numeroCours === 1 ? "1er" : `${numeroCours}e`} cours de ${matiere?.nom ?? "la matière"})`
+                                       <div
+                                         key={creneau.id}
+                                         role="button"
+                                         tabIndex={0}
+                                         onClick={() => setCreneauSelectionne(creneau)}
+                                         onKeyDown={(e) => {
+                                           if (e.key === "Enter" || e.key === " ") {
+                                             e.preventDefault();
+                                             setCreneauSelectionne(creneau);
                                            }
-                                          className={`group/cell cursor-pointer rounded-xl p-2.5 text-left transition-all border border-slate-200/80 shadow-2xs hover:shadow-md hover:border-brand-orange/60 hover:scale-[1.01] ${
-                                            couleur ? couleur.bg : "bg-white"
-                                          } ${attenue ? "opacity-20" : ""}`}
+                                         }}
+                                          title={
+                                            progression
+                                              ? `Cours N°${numeroCours} : ${progression.theme}`
+                                              : `Séance N°${creneau.seance} (${numeroCours === 1 ? "1er" : `${numeroCours}e`} cours de ${matiere?.nom ?? "la matière"})`
+                                          }
+                                          style={{
+                                            borderColor: hex,
+                                          }}
+                                          className={`group/cell cursor-pointer rounded-xl bg-white border-2 p-2.5 text-left transition-all shadow-2xs hover:shadow-md hover:bg-slate-50/60 ${
+                                            attenue ? "opacity-20" : ""
+                                          }`}
                                         >
-                                          {/* Si enseignant assigné : Enseignant en premier plan */}
+                                          {/* En-tête : Badge Matière + Statut Fait */}
+                                          <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                                            <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-50 border border-slate-200/80 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-slate-700 max-w-[135px] truncate">
+                                              <span
+                                                className="h-2 w-2 rounded-full shrink-0 border border-black/10"
+                                                style={{ backgroundColor: hex }}
+                                              />
+                                              <span className="truncate">{matiere?.nom ?? "Matière"}</span>
+                                            </span>
+
+                                            {creneau.statut === "EFFECTUEE" && (
+                                              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">
+                                                <CheckCircle2 size={10} className="text-emerald-600" />
+                                                <span>Fait</span>
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          {/* Si enseignant assigné */}
                                           {enseignant ? (
-                                            <div className="flex flex-col gap-1.5">
-                                              {/* Ligne principale : Avatar + (Nom, Prénom & Téléphone) + Badge Effectuée */}
-                                              <div className="flex items-start justify-between gap-1.5">
-                                                <div className="flex items-start gap-2 min-w-0">
-                                                  <span
-                                                    className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-black border shadow-2xs mt-0.5 ${
-                                                      couleur
-                                                        ? `${couleur.texte} bg-white border-slate-200/80`
-                                                        : "bg-slate-100 text-slate-700 border-slate-300"
-                                                    }`}
-                                                  >
-                                                    {enseignant.prenom[0]}{enseignant.nom[0]}
-                                                  </span>
-                                                  <div className="min-w-0 flex-1 leading-tight">
-                                                    <p className="text-xs font-bold text-slate-900 truncate">
-                                                      {enseignant.nom} {enseignant.prenom}
-                                                    </p>
-                                                    <div className="mt-1 flex items-center gap-1.5 rounded-md bg-white/90 border border-slate-300 px-2 py-0.5 text-xs font-mono font-bold text-slate-900 shadow-2xs">
-                                                      <Phone size={11} className="shrink-0 text-brand-orange" />
-                                                      <span className="tracking-wide truncate">{enseignant.telephone || "-"}</span>
-                                                    </div>
-                                                  </div>
+                                            <div className="flex items-start gap-2 min-w-0 pt-0.5">
+                                              <span
+                                                className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-black border-2 bg-white shadow-2xs"
+                                                style={{
+                                                  borderColor: hex,
+                                                  color: isLight ? "#0f172a" : hex,
+                                                }}
+                                              >
+                                                {enseignant.prenom[0]}{enseignant.nom[0]}
+                                              </span>
+                                              <div className="min-w-0 flex-1 leading-tight">
+                                                <p className="text-xs font-bold truncate text-slate-900">
+                                                  {enseignant.nom} {enseignant.prenom}
+                                                </p>
+                                                <div className="mt-1 flex items-center gap-1.5 rounded-md bg-slate-50 border border-slate-200/90 px-2 py-0.5 text-xs font-mono font-bold text-slate-800 shadow-2xs">
+                                                  <Phone size={11} className="shrink-0 text-brand-orange" />
+                                                  <span className="tracking-wide truncate">{enseignant.telephone || "-"}</span>
                                                 </div>
-                                                {creneau.statut === "EFFECTUEE" && (
-                                                  <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[9px] font-bold shrink-0">
-                                                    <CheckCircle2 size={10} className="text-emerald-600" />
-                                                    <span>Fait</span>
-                                                  </span>
-                                                )}
                                               </div>
                                             </div>
                                           ) : (
-                                          /* Si aucun enseignant assigné */
-                                          <div className="flex flex-col gap-1">
-                                            <div className="flex items-center justify-between gap-1">
-                                              <span
-                                                className={`inline-block rounded-md px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide truncate max-w-[125px] ${
-                                                  couleur
-                                                    ? `${couleur.bg} ${couleur.texte}`
-                                                    : "bg-slate-100 text-slate-700"
-                                                }`}
-                                              >
-                                                {matiere?.nom ?? "Matière"}
-                                              </span>
-                                              <span className="text-[10px] font-semibold text-amber-600">
-                                                Non assigné
-                                              </span>
-                                            </div>
-                                          </div>
-                                        )}
+                                            <p className="text-[10px] italic text-slate-400 py-1">
+                                              Non assigné
+                                            </p>
+                                          )}
 
-                                        {/* Aperçu du thème de progression au programme */}
-                                        {progression ? (
-                                          <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-white/95 px-2 py-1 text-[10px] font-medium text-slate-800 border border-slate-200/80 shadow-2xs truncate group-hover/cell:border-brand-orange/40">
-                                            <BookOpen size={10} className="text-brand-orange shrink-0" />
-                                            <span className="text-[9px] font-extrabold text-brand-orange shrink-0">C{numeroCours} :</span>
-                                            <span className="truncate font-semibold">{progression.theme}</span>
-                                          </div>
-                                        ) : (
-                                          <div className="mt-1.5 flex items-center gap-1 text-[9px] text-slate-400 opacity-60">
-                                            <BookOpen size={9} />
-                                            <span>Cours {numeroCours} · Détails</span>
-                                          </div>
-                                        )}
-                                      </div>
+                                          {/* Aperçu du thème de progression au programme */}
+                                          {progression ? (
+                                            <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-slate-50/90 px-2 py-1 text-[10px] font-medium text-slate-800 border border-slate-200/80 shadow-2xs truncate group-hover/cell:border-brand-orange/40">
+                                              <BookOpen size={10} className="text-brand-orange shrink-0" />
+                                              <span className="text-[9px] font-extrabold text-brand-orange shrink-0">C{numeroCours} :</span>
+                                              <span className="truncate font-semibold">{progression.theme}</span>
+                                            </div>
+                                          ) : (
+                                            <div className="mt-1.5 flex items-center gap-1 text-[9px] text-slate-400 opacity-60">
+                                              <BookOpen size={9} />
+                                              <span>Cours {numeroCours} · Détails</span>
+                                            </div>
+                                          )}
+                                        </div>
                                     );
                                   })()}
                                 </td>
@@ -523,7 +591,7 @@ function PlanningPublicContenu() {
           </div>
 
           {/* Légende */}
-          <div className="w-full xl:w-52 shrink-0 rounded-xl border border-brand-orange/20 bg-brand-orange/5 p-4 shadow-xs">
+          <div className="w-full xl:w-52 shrink-0 max-h-48 xl:max-h-none overflow-y-auto rounded-xl border border-brand-orange/20 bg-brand-orange/5 p-4 shadow-xs">
             <div className="mb-3 flex items-center gap-2">
               <Palette size={15} className="text-brand-orange" />
               <h2 className="text-xs font-bold uppercase tracking-wider text-brand-anthracite">
@@ -536,14 +604,12 @@ function PlanningPublicContenu() {
               <div className="flex flex-col gap-2">
                 {matieresVisibles.map((matiere) => {
                   const couleur = couleursMatieres.get(matiere.id);
+                  const hex = couleur?.hex || matiere.couleur;
                   return (
                     <span
                       key={matiere.id}
-                      className={`rounded-lg px-3 py-1.5 text-center text-xs font-bold shadow-xs ${
-                        couleur
-                          ? `${couleur.bg} ${couleur.texte}`
-                          : "bg-slate-100 text-slate-600"
-                      }`}
+                      className="rounded-lg px-3 py-1.5 text-center text-xs font-bold shadow-xs border"
+                      style={getCouleurCardStyle(hex, true)}
                     >
                       {matiere.nom}
                     </span>
@@ -574,6 +640,21 @@ function PlanningPublicContenu() {
           couleur={couleursMatieres.get(creneauSelectionne.matiereId)}
         />
       )}
+
+      {/* ── MODALE CONTENU CONCOURS BLANC (LECTURE SEULE) ── */}
+      <ContenuEpreuveModal
+        isOpen={Boolean(epreuveActiveModal && cbActifModal)}
+        onClose={() => {
+          setEpreuveActiveModal(null);
+          setCbActifModal(null);
+          setEpreuvesConcoursModal([]);
+        }}
+        concoursBlancId={cbActifModal?.id || ""}
+        concoursBlancTitre={cbActifModal?.titre || ""}
+        epreuve={epreuveActiveModal}
+        toutesLesEpreuves={epreuvesConcoursModal}
+        peutEditer={false}
+      />
     </div>
   );
 }
@@ -631,10 +712,10 @@ function ModalProgressionPublic({
                 Lieu
               </span>
               <p className="text-xs font-bold text-slate-900 mt-0.5">
-                {salle?.nom ?? "Salle"}
+                 {centre?.nom ?? "Centre"}
               </p>
               <p className="text-[11px] text-slate-500">
-                {centre?.nom ?? "Centre"}
+                {salle?.nom ?? "Salle"}
               </p>
             </div>
           </div>
@@ -676,11 +757,13 @@ function ModalProgressionPublic({
           <div className="flex flex-col gap-2 rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2.5">
               <div
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-black shadow-2xs ${
-                  couleur
-                    ? `${couleur.bg} ${couleur.texte} border border-slate-200`
-                    : "bg-slate-100 text-slate-700"
-                }`}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-black shadow-2xs border border-slate-200/80"
+                style={{
+                  backgroundColor: couleur?.hex || matiere?.couleur || "#f1f5f9",
+                  color: isCouleurClaire(couleur?.hex || matiere?.couleur)
+                    ? "#0f172a"
+                    : "#ffffff",
+                }}
               >
                 {enseignant.prenom[0]}
                 {enseignant.nom[0]}

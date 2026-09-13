@@ -8,6 +8,7 @@ import {
   ClipboardList,
   Building2,
   ArrowUpRight,
+  BookOpen,
 } from "lucide-react";
 
 import { Card } from "@/shared/ui";
@@ -100,13 +101,23 @@ export function DirecteurAcademiqueDashboard() {
   return (
     <div className="mx-auto max-w-7xl space-y-8">
       {/* En-tête de page */}
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-          Vue d&rsquo;ensemble Pédagogique
-        </h1>
-        <p className="text-sm text-slate-500">
-          Supervision et conformité de l&rsquo;activité pédagogique du réseau
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            Vue d&rsquo;ensemble Pédagogique
+          </h1>
+          <p className="text-sm text-slate-500">
+            Supervision et conformité de l&rsquo;activité pédagogique du réseau
+          </p>
+        </div>
+
+        <Link
+          href="/livres"
+          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs hover:border-brand-orange/40 hover:text-brand-orange transition-colors"
+        >
+          <BookOpen size={16} className="text-brand-orange" />
+          <span>Gérer les Livres & Supports</span>
+        </Link>
       </div>
 
       {/* KPIs Opérationnels */}

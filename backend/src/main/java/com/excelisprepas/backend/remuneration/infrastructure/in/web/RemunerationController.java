@@ -118,6 +118,16 @@ public class RemunerationController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "Mettre à jour le thème d'une séance dans la fiche de paie")
+    @PatchMapping("/seances/{affectationId}/theme")
+    public ResponseEntity<Void> mettreAJourThemeSeance(
+            @PathVariable UUID affectationId,
+            @RequestBody java.util.Map<String, String> payload) {
+        String theme = payload != null ? payload.get("theme") : null;
+        remunerationService.mettreAJourThemeSeance(affectationId, theme);
+        return ResponseEntity.noContent().build();
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<java.util.Map<String, String>> handleIllegalArgument(IllegalArgumentException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(java.util.Map.of("message", e.getMessage()));

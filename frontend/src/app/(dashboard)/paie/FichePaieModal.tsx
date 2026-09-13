@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   X,
   Printer,
@@ -13,8 +13,12 @@ import {
   CheckCircle2,
   Clock,
   BookOpen,
+  Pencil,
 } from "lucide-react";
-import { useFichePaieDetail } from "@/modules/remuneration/data/queries";
+import {
+  useFichePaieDetail,
+  useMettreAJourThemeSeance,
+} from "@/modules/remuneration/data/queries";
 import { formatVolumeHoraire } from "@/modules/remuneration/domain/volumeHoraire";
 
 interface FichePaieModalProps {
@@ -30,6 +34,31 @@ export function FichePaieModal({ ficheId, onClose }: FichePaieModalProps) {
   } = useFichePaieDetail(ficheId || undefined);
   const printContentRef = useRef<HTMLDivElement>(null);
 
+  const [seanceEnEditionId, setSeanceEnEditionId] = useState<string | null>(null);
+  const [themeEnEdition, setThemeEnEdition] = useState<string>("");
+  const mettreAJourThemeMutation = useMettreAJourThemeSeance();
+
+  function demarrerEditionTheme(affectationId: string, themeActuel: string) {
+    setSeanceEnEditionId(affectationId);
+    setThemeEnEdition(themeActuel === "Séance de cours" ? "" : themeActuel);
+  }
+
+  async function validerEditionTheme(affectationId: string) {
+    if (!themeEnEdition.trim()) {
+      setSeanceEnEditionId(null);
+      return;
+    }
+    try {
+      await mettreAJourThemeMutation.mutateAsync({
+        affectationId,
+        theme: themeEnEdition.trim(),
+      });
+      setSeanceEnEditionId(null);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   if (!ficheId) return null;
 
   const handlePrint = () => {
@@ -37,8 +66,8 @@ export function FichePaieModal({ ficheId, onClose }: FichePaieModalProps) {
   };
 
   return (
-    <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm duration-200">
-      <div className="relative flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+    <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm duration-200 print:static print:block print:p-0 print:m-0 print:bg-white print:overflow-visible print:h-auto print:max-h-none print:w-auto print:inset-auto print:z-auto">
+      <div className="relative flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl print:static print:block print:max-h-none print:h-auto print:w-full print:max-w-none print:overflow-visible print:rounded-none print:border-none print:shadow-none print:m-0 print:p-0">
         {/* Modal Top Bar (Hidden on print) */}
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-6 py-4 print:hidden">
           <div className="flex items-center gap-2.5">
@@ -76,7 +105,7 @@ export function FichePaieModal({ ficheId, onClose }: FichePaieModalProps) {
 
         {/* Modal Body / Printable Document */}
         <div
-          className="flex-1 overflow-y-auto p-8 print:p-0"
+          className="flex-1 overflow-y-auto p-8 print:p-0 print:overflow-visible print:h-auto print:max-h-none print:block"
           ref={printContentRef}
         >
           {error && (
@@ -277,12 +306,60 @@ export function FichePaieModal({ ficheId, onClose }: FichePaieModalProps) {
                                 </div>
                               </td>
                               <td className="p-2.5">
-                                <div className="inline-flex items-center gap-1.5 rounded border border-slate-200/60 bg-slate-100/80 px-2 py-1 text-[11px] font-medium text-slate-800">
-                                  <BookOpen className="text-brand-orange h-3 w-3 shrink-0" />
-                                  <span className="line-clamp-2">
-                                    {s.theme || "Séance de cours"}
-                                  </span>
-                                </div>
+                                {seanceEnEditionId === s.affectationId ? (
+                                  <div className="flex items-center gap-1.5 print:hidden">
+                                    <input
+                                      type="text"
+                                      autoFocus
+                                      value={themeEnEdition}
+                                      onChange={(e) => setThemeEnEdition(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          e.preventDefault();
+                                          validerEditionTheme(s.affectationId);
+                                        } else if (e.key === "Escape") {
+                                          setSeanceEnEditionId(null);
+                                        }
+                                      }}
+                                      placeholder="Thème / leçon dispensée..."
+                                      className="w-full rounded-md border border-brand-orange bg-white px-2 py-1 text-[11px] font-semibold text-slate-800 shadow-2xs focus:outline-hidden"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => validerEditionTheme(s.affectationId)}
+                                      disabled={mettreAJourThemeMutation.isPending}
+                                      className="rounded bg-brand-orange px-2 py-1 text-[10px] font-bold text-white shadow-2xs hover:bg-orange-600 disabled:opacity-50 cursor-pointer"
+                                    >
+                                      OK
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setSeanceEnEditionId(null)}
+                                      className="rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] text-slate-500 hover:bg-slate-100 cursor-pointer"
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="group/theme flex items-center justify-between gap-1.5 rounded-lg border border-slate-200/70 bg-slate-50/80 px-2.5 py-1 text-[11px] font-medium text-slate-800 transition-all hover:border-brand-orange/40 hover:bg-white">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <BookOpen className="text-brand-orange h-3 w-3 shrink-0" />
+                                      <span className="line-clamp-2">
+                                        {s.theme || "Séance de cours"}
+                                      </span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        demarrerEditionTheme(s.affectationId, s.theme || "")
+                                      }
+                                      title="Modifier le thème de ce cours"
+                                      className="opacity-0 group-hover/theme:opacity-100 text-slate-400 hover:text-brand-orange transition-opacity p-0.5 rounded cursor-pointer print:hidden shrink-0"
+                                    >
+                                      <Pencil size={11} />
+                                    </button>
+                                  </div>
+                                )}
                               </td>
                               <td className="p-2.5 text-slate-600">
                                 <div className="font-medium text-slate-800">

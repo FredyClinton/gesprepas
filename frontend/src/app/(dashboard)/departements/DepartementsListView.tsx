@@ -34,6 +34,7 @@ import {
 import {
   useMatieres,
   construireCouleursMatieres,
+  getCouleurCardStyle,
   PALETTE_COULEURS_SELECTION,
   CatalogueMatieresModal,
   type Matiere,
@@ -594,6 +595,11 @@ export function DepartementsListView() {
                         <div className="mt-2 flex items-center gap-2">
                           {matiere ? (
                             <span
+                              style={
+                                couleur?.hex
+                                  ? getCouleurCardStyle(couleur.hex, true)
+                                  : undefined
+                              }
                               className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-extrabold uppercase tracking-wide border shadow-2xs ${
                                 couleur
                                   ? `${couleur.bg} ${couleur.texte} border-slate-200/60`
@@ -1320,6 +1326,11 @@ function DepartementDetailModal({
                 </h2>
                 {matiere && (
                   <span
+                    style={
+                      couleur?.hex
+                        ? getCouleurCardStyle(couleur.hex, true)
+                        : undefined
+                    }
                     className={`rounded-lg px-2 py-0.5 text-[11px] font-extrabold uppercase tracking-wide border shadow-2xs ${
                       couleur
                         ? `${couleur.bg} ${couleur.texte} border-slate-200/60`
@@ -1459,7 +1470,7 @@ function DepartementDetailModal({
                   </p>
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-slate-200 shadow-2xs">
+                <div className="overflow-hidden overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
                   <table className="w-full border-collapse text-left text-xs">
                     <thead>
                       <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
@@ -1541,7 +1552,7 @@ function DepartementDetailModal({
                   Aucun créneau planifié pour cette matière cette semaine.
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-slate-200 shadow-2xs">
+                <div className="overflow-hidden overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
                   <table className="w-full border-collapse text-left text-xs">
                     <thead>
                       <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">

@@ -1,4 +1,8 @@
-// Barrel export du module concours-blancs.
-// Expose ici uniquement ce que le reste de l'application peut importer
-// (types, hooks de données, composants partagés) - pas les détails internes.
-export {};
+export * from "./types/concours-blanc.types";
+export * from "./data/concours-blanc.api";
+export * from "./hooks/useConcoursBlancs";
+export { ProgrammerConcoursBlancModal } from "./components/ProgrammerConcoursBlancModal";
+export { ContenuEpreuveModal } from "./components/ContenuEpreuveModal";
+export { SaisieNotesCentreModal } from "./components/SaisieNotesCentreModal";
+export { BordereauResultatsView } from "./components/BordereauResultatsView";
+export { ExporterBordereauModal } from "./components/ExporterBordereauModal";

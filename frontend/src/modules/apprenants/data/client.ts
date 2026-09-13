@@ -27,15 +27,41 @@ export type CreerApprenantInput = {
   dateNaissance: string;
   dateInscription: string;
   montantContrat: number;
-  dateDefinitionContrat: string;
+  dateDefinitionContrat?: string;
   centreId: string;
   sessionId: string;
   formationId: string;
+  etablissementOrigine?: string;
+  contactApprenant?: string;
+  nomParent?: string;
+  contactParent?: string;
+  preInscrit?: boolean;
+  referenceRecu?: string;
 };
 
 export function creerApprenant(input: CreerApprenantInput): Promise<Apprenant> {
   return apiFetch<Apprenant>("/api/apprenants", {
     method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export type ModifierApprenantInput = {
+  nom: string;
+  prenom: string;
+  dateNaissance: string;
+  contactApprenant?: string;
+  nomParent?: string;
+  contactParent?: string;
+  etablissementOrigine?: string;
+};
+
+export function modifierApprenant(
+  id: string,
+  input: ModifierApprenantInput,
+): Promise<Apprenant> {
+  return apiFetch<Apprenant>(`/api/apprenants/${id}`, {
+    method: "PATCH",
     body: JSON.stringify(input),
   });
 }

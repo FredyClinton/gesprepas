@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -36,6 +37,9 @@ public class ApprenantEntity {
     @Column(name = "centre_id", nullable = false)
     private UUID centreId; // référence brute - pas de @ManyToOne (bounded context séparé)
 
+    @Column(name = "session_id", nullable = false)
+    private UUID sessionId; // référence brute - pas de @ManyToOne (bounded context séparé)
+
     @Column(name = "contact_apprenant")
     private String contactApprenant;
 
@@ -44,4 +48,19 @@ public class ApprenantEntity {
 
     @Column(name = "contact_parent")
     private String contactParent;
+
+    @Column(name = "etablissement_origine")
+    private String etablissementOrigine;
+
+    @Column(name = "formation_id")
+    private UUID formationId;
+
+    @Column(name = "montant_contrat")
+    private BigDecimal montantContrat;
+
+    @Column(name = "pre_inscrit", nullable = false)
+    private Boolean preInscrit = false;
+
+    @Column(name = "reference_recu")
+    private String referenceRecu;
 }

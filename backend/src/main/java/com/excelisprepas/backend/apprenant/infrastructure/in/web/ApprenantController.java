@@ -29,24 +29,29 @@ public class ApprenantController {
     private final ListerApprenantsUseCase listerApprenantsUseCase;
     private final TransfererCentreUseCase transfererCentreUseCase;
     private final SupprimerApprenantUseCase supprimerApprenantUseCase;
+    private final ModifierApprenantUseCase modifierApprenantUseCase;
 
     public ApprenantController(CreerApprenantUseCase creerApprenantUseCase,
                                RecupererApprenantUseCase recupererApprenantUseCase,
                                ListerApprenantsUseCase listerApprenantsUseCase,
                                TransfererCentreUseCase transfererCentreUseCase,
-                               SupprimerApprenantUseCase supprimerApprenantUseCase) {
+                               SupprimerApprenantUseCase supprimerApprenantUseCase,
+                               ModifierApprenantUseCase modifierApprenantUseCase) {
         this.creerApprenantUseCase = creerApprenantUseCase;
         this.recupererApprenantUseCase = recupererApprenantUseCase;
         this.listerApprenantsUseCase = listerApprenantsUseCase;
         this.transfererCentreUseCase = transfererCentreUseCase;
         this.supprimerApprenantUseCase = supprimerApprenantUseCase;
+        this.modifierApprenantUseCase = modifierApprenantUseCase;
     }
 
     private static ApprenantResponse versReponse(Apprenant apprenant) {
         return new ApprenantResponse(
                 apprenant.getId(), apprenant.getNom(), apprenant.getPrenom(), apprenant.getDateNaissance(),
-                apprenant.getDateInscription(), apprenant.getCentreId(),
-                apprenant.getContactApprenant(), apprenant.getNomParent(), apprenant.getContactParent());
+                apprenant.getDateInscription(), apprenant.getCentreId(), apprenant.getSessionId(),
+                apprenant.getContactApprenant(), apprenant.getNomParent(), apprenant.getContactParent(),
+                apprenant.getEtablissementOrigine(), apprenant.getFormationId(), apprenant.getMontantContrat(),
+                apprenant.getPreInscrit(), apprenant.getReferenceRecu());
     }
 
     @Operation(summary = "Inscrire un apprenant",
@@ -62,7 +67,9 @@ public class ApprenantController {
         Apprenant apprenant = creerApprenantUseCase.creerApprenant(
                 request.nom(), request.prenom(), request.dateNaissance(), request.dateInscription(),
                 request.centreId(),
-                request.contactApprenant(), request.nomParent(), request.contactParent());
+                request.contactApprenant(), request.nomParent(), request.contactParent(),
+                request.etablissementOrigine(),
+                request.formationId(), request.montantContrat(), request.preInscrit(), request.referenceRecu());
         return ResponseEntity.status(HttpStatus.CREATED).body(versReponse(apprenant));
     }
 
@@ -87,6 +94,24 @@ public class ApprenantController {
                 .map(ApprenantController::versReponse)
                 .toList();
         return ResponseEntity.ok(reponses);
+    }
+
+    @Operation(summary = "Modifier les coordonnées d'un apprenant",
+            description = "Met à jour les données personnelles, contacts et établissement d'origine de l'apprenant.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Apprenant mis à jour",
+                    content = @Content(schema = @Schema(implementation = ApprenantResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Apprenant introuvable", content = @Content)
+    })
+    @PatchMapping("/{id}")
+    public ResponseEntity<ApprenantResponse> modifierApprenant(
+            @Parameter(description = "Identifiant de l'apprenant") @PathVariable UUID id,
+            @Valid @RequestBody ModifierApprenantRequest request) {
+        return ResponseEntity.ok(versReponse(modifierApprenantUseCase.modifierApprenant(
+                id, request.nom(), request.prenom(), request.dateNaissance(),
+                request.contactApprenant(), request.nomParent(), request.contactParent(),
+                request.etablissementOrigine())));
     }
 
     @Operation(summary = "Transférer un apprenant vers un autre centre",

@@ -32,8 +32,8 @@ import {
 import { useProgressionQuotas } from "../hooks/useProgressionQuotas";
 import { TransfererCoursModal } from "./TransfererCoursModal";
 import { ExporterProgressionModal } from "./ExporterProgressionModal";
-import { useFormations } from "@/modules/academique";
-import { useMatieres } from "@/modules/matieres";
+import { useFormations, type Formation } from "@/modules/academique";
+import { useMatieres, type Matiere } from "@/modules/matieres";
 import type { Affectation } from "@/modules/affectation";
 
 // ── Utilitaires de conversion Lignes <-> Contenu texte ──
@@ -557,6 +557,10 @@ interface SyllabusFiliereViewProps {
   sessionAnnee?: string;
   progressions: Progression[];
   affectations: Affectation[];
+  allFormations?: Formation[];
+  toutesMatieres?: Matiere[];
+  toutesProgressions?: Progression[];
+  toutesAffectations?: Affectation[];
   onAjouter?: (prefill?: { semaine?: number; numeroCours?: number }) => void;
   onModifier?: (progression: Progression) => void;
   onSupprimer?: (progression: Progression) => void;
@@ -564,11 +568,14 @@ interface SyllabusFiliereViewProps {
   onOuvrirDuplication?: () => void;
   semaineSelectionnee?: number | "TOUTES";
   onChangerSemaine?: (s: number | "TOUTES") => void;
+  peutSupprimerSemaine?: boolean;
 }
 
 export function SyllabusFiliereView({
   formationId,
   formationNom,
+  allFormations: propAllFormations,
+  toutesMatieres: propToutesMatieres,
   matiereId,
   matiereNom = "MATHEMATIQUES",
   sessionId,
@@ -576,18 +583,24 @@ export function SyllabusFiliereView({
   sessionAnnee = "2026",
   progressions,
   affectations,
+  toutesProgressions,
+  toutesAffectations,
   onSupprimer,
   onOuvrirSaisieLot,
   onOuvrirDuplication,
   onAjouter,
   semaineSelectionnee: propSemaineSelectionnee,
   onChangerSemaine,
+  peutSupprimerSemaine = false,
 }: SyllabusFiliereViewProps) {
   const supprimerMutation = useSupprimerProgression();
   const { data: authSession } = useSession();
   const estDirecteur =
     authSession?.user?.role === "DIRECTEUR_ACADEMIQUE" ||
     authSession?.user?.role === "DIRECTEUR";
+
+  const droitSupprimerSemaine =
+    peutSupprimerSemaine !== undefined ? peutSupprimerSemaine : estDirecteur;
 
   const { getQuota, setQuota } = useProgressionQuotas(formationId);
   const { data: allFormations = [] } = useFormations();
@@ -690,6 +703,13 @@ export function SyllabusFiliereView({
   }
 
   async function handleSupprimerSemaine(semaine: number) {
+    if (!droitSupprimerSemaine) {
+      alert(
+        "Seule la Direction Académique est habilitée à supprimer un tableau complet de progression. Vous pouvez supprimer individuellement vos cours.",
+      );
+      return;
+    }
+
     const progs = progressions.filter((p) => p.semaine === semaine);
     if (progs.length > 0) {
       const ok = window.confirm(
@@ -742,121 +762,53 @@ export function SyllabusFiliereView({
         </div>
       </div>
 
-      {/* ── BANDEAU EN-TÊTE DE LA FICHE PAPIER EXCELIS PRÉPAS (Écran uniquement) ── */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs no-print print:hidden">
-        <div className="flex flex-col gap-3 text-center sm:text-left sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-3.5">
-          <div>
-            <h2 className="text-base sm:text-lg font-black tracking-tight text-slate-900 uppercase">
-              FICHE DE PROGRESSION EXCELIS PREPAS {sessionAnnee}
-            </h2>
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600">
-              <span className="rounded-md bg-orange-100 px-2 py-0.5 text-brand-orange uppercase">
-                FORMATION : {formationNom}
-              </span>
-              <span>•</span>
-              <span className="text-slate-800 uppercase font-bold">
-                MATIÈRE : {matiereNom}
-              </span>
-            </div>
-          </div>
-
-          <div className="no-print flex flex-wrap items-center justify-center sm:justify-end gap-2">
-            {/* Bouton Export PDF */}
-            <button
-              type="button"
-              onClick={() => setShowExportModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 hover:border-brand-orange hover:text-brand-orange transition-colors cursor-pointer"
-              title="Exporter ou imprimer le syllabus en PDF A4 Paysage"
+      {/* ── SÉLECTION DES SEMAINES (affichée uniquement si non gérée par la navigation parente) ── */}
+      {propSemaineSelectionnee === undefined && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-2xs no-print print:hidden">
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor="select-semaine-filiere"
+              className="text-xs font-bold uppercase tracking-wider text-slate-500 shrink-0"
             >
-              <Printer size={13} className="text-brand-orange" />
-              <span>Exporter en PDF</span>
-            </button>
-
-            {onOuvrirDuplication && (
-              <button
-                type="button"
-                onClick={onOuvrirDuplication}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors cursor-pointer"
-                title="Copier le syllabus vers ou depuis une autre filière"
-              >
-                <Copy size={13} className="text-slate-500" />
-                <span>Dupliquer</span>
-              </button>
-            )}
-
-            {onOuvrirSaisieLot && (
-              <button
-                type="button"
-                onClick={onOuvrirSaisieLot}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-2xs hover:border-brand-orange hover:text-brand-orange transition-colors cursor-pointer"
-                title="Coller plusieurs thèmes en une seule fois"
-              >
-                <Sparkles size={13} className="text-amber-500" />
-                <span>Saisie en lot</span>
-              </button>
-            )}
-
-            {onAjouter && (
-              <button
-                type="button"
-                onClick={() => onAjouter()}
-                className="bg-brand-orange hover:bg-brand-orange/90 inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-white shadow-xs transition-all hover:shadow-md cursor-pointer"
-              >
-                <Plus size={14} />
-                <span>Nouveau cours</span>
-              </button>
-            )}
+              Semaine :
+            </label>
+            <select
+              id="select-semaine-filiere"
+              value={semaineSelectionnee}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSemaineSelectionnee(
+                  val === "TOUTES" ? "TOUTES" : Number(val),
+                );
+              }}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 shadow-2xs focus:border-brand-orange focus:outline-hidden focus:ring-1 focus:ring-brand-orange/20 cursor-pointer"
+            >
+              <option value="TOUTES">
+                Toutes les semaines (S1 à S
+                {semainesDisponibles[semainesDisponibles.length - 1] || 1}) ·{" "}
+                {progressions.length} cours
+              </option>
+              {semainesDisponibles.map((s) => {
+                const count = progressionsParSemaine.get(s)?.length ?? 0;
+                return (
+                  <option key={s} value={s}>
+                    Semaine {s} ({count} cours)
+                  </option>
+                );
+              })}
+            </select>
           </div>
+
+          <button
+            type="button"
+            onClick={handleAjouterNouvelleSemaine}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:border-brand-orange hover:text-brand-orange transition-colors cursor-pointer shrink-0"
+          >
+            <Plus size={13} />
+            <span>+ Nouvelle Semaine</span>
+          </button>
         </div>
-
-        {/* ── BARRE DE SÉLECTION DES SEMAINES (affichée si non gérée par le parent) ── */}
-        {propSemaineSelectionnee === undefined && (
-          <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 pt-1">
-            <div className="flex items-center gap-2">
-              <label
-                htmlFor="select-semaine-filiere"
-                className="text-xs font-bold uppercase tracking-wider text-slate-500 shrink-0"
-              >
-                Semaine :
-              </label>
-              <select
-                id="select-semaine-filiere"
-                value={semaineSelectionnee}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setSemaineSelectionnee(
-                    val === "TOUTES" ? "TOUTES" : Number(val),
-                  );
-                }}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 shadow-2xs focus:border-brand-orange focus:outline-hidden focus:ring-1 focus:ring-brand-orange/20 cursor-pointer"
-              >
-                <option value="TOUTES">
-                  Toutes les semaines (S1 à S
-                  {semainesDisponibles[semainesDisponibles.length - 1] || 1}) ·{" "}
-                  {progressions.length} cours
-                </option>
-                {semainesDisponibles.map((s) => {
-                  const count = progressionsParSemaine.get(s)?.length ?? 0;
-                  return (
-                    <option key={s} value={s}>
-                      Semaine {s} ({count} cours)
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleAjouterNouvelleSemaine}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:border-brand-orange hover:text-brand-orange transition-colors cursor-pointer shrink-0"
-            >
-              <Plus size={13} />
-              <span>+ Nouvelle Semaine</span>
-            </button>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* ── TABLEAU ÉDITABLE SUR PLACE (STYLE EXCELIS PREPAS PAPIER) ── */}
       <div className="space-y-6">
@@ -946,15 +898,17 @@ export function SyllabusFiliereView({
                     {coursList.length} cours rédigé{coursList.length > 1 ? "s" : ""}
                   </span>
 
-                  <button
-                    type="button"
-                    onClick={() => handleSupprimerSemaine(semaine)}
-                    className="no-print inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700 transition-all cursor-pointer shadow-2xs"
-                    title={`Supprimer le tableau de la Semaine ${semaine}`}
-                  >
-                    <Trash2 size={11} className="text-slate-400 group-hover:text-red-600" />
-                    <span>Supprimer Semaine {semaine}</span>
-                  </button>
+                  {droitSupprimerSemaine && (
+                    <button
+                      type="button"
+                      onClick={() => handleSupprimerSemaine(semaine)}
+                      className="no-print inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700 transition-all cursor-pointer shadow-2xs"
+                      title={`Supprimer le tableau de la Semaine ${semaine}`}
+                    >
+                      <Trash2 size={11} className="text-slate-400 group-hover:text-red-600" />
+                      <span>Supprimer Semaine {semaine}</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1113,21 +1067,25 @@ export function SyllabusFiliereView({
           isOpen={showExportModal}
           onClose={() => setShowExportModal(false)}
           formations={
-            allFormations.length > 0
-              ? allFormations
-              : [{ id: formationId, nom: formationNom }]
+            (propAllFormations && propAllFormations.length > 0)
+              ? propAllFormations
+              : allFormations.length > 0
+                ? allFormations
+                : [{ id: formationId, nom: formationNom }]
           }
           formationIdActive={formationId}
           semaineActive={propSemaineSelectionnee ?? "TOUTES"}
           matieres={
-            allMatieres.length > 0
-              ? allMatieres
-              : [{ id: matiereId, nom: matiereNom }]
+            propToutesMatieres && propToutesMatieres.length > 0
+              ? propToutesMatieres
+              : allMatieres.length > 0
+                ? allMatieres
+                : [{ id: matiereId, nom: matiereNom }]
           }
           sessionAnnee={sessionAnnee}
           sessionId={sessionId}
-          progressions={progressions}
-          affectations={affectations}
+          progressions={toutesProgressions ?? progressions}
+          affectations={toutesAffectations ?? affectations}
         />
       )}
     </div>

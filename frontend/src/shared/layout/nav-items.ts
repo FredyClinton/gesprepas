@@ -18,6 +18,7 @@ import {
   UserRound,
   TrendingUp,
   GraduationCap,
+  BookOpen,
 } from "lucide-react";
 
 import type { Role } from "@/types/roles";
@@ -33,7 +34,9 @@ const NAV_DIRECTEUR: NavItem[] = [
   { href: "/centres", label: "Centres", icon: MapPin },
   { href: "/departements", label: "Départements", icon: Building2 },
   { href: "/planification", label: "Planification", icon: CalendarClock },
+  { href: "/concours-blancs", label: "Concours blancs", icon: ClipboardList },
   { href: "/finances", label: "Finances", icon: Wallet },
+  { href: "/livres", label: "Livres & Supports", icon: BookOpen },
   { href: "/paie", label: "Paie", icon: Banknote },
   { href: "/archive", label: "Archive", icon: Archive },
   { href: "/sessions", label: "Sessions", icon: CalendarRange },
@@ -51,7 +54,9 @@ const NAV_CHEF_CENTRE: NavItem[] = [
   { href: "/mon-centre", label: "Mon centre", icon: MapPin },
   { href: "/apprenants", label: "Apprenants", icon: Users },
   { href: "/planification", label: "Planification", icon: CalendarClock },
+  { href: "/concours-blancs", label: "Concours blancs", icon: ClipboardList },
   { href: "/finances", label: "Finances", icon: Wallet },
+  { href: "/livres", label: "Livres & Supports", icon: BookOpen },
   {
     href: "/bilan-journalier",
     label: "Bilan Journalier",
@@ -67,6 +72,7 @@ const NAV_DIRECTEUR_ACADEMIQUE: NavItem[] = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
   { href: "/centres", label: "Centres", icon: MapPin },
   { href: "/formations", label: "Formations", icon: GraduationCap },
+  { href: "/livres", label: "Livres & Supports", icon: BookOpen },
   { href: "/enseignants", label: "Enseignants", icon: UserRound },
   { href: "/departements", label: "Départements", icon: Building2 },
   { href: "/planification", label: "Planification", icon: CalendarClock },

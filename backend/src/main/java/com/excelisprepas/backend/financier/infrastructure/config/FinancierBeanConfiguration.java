@@ -54,9 +54,10 @@ public class FinancierBeanConfiguration {
                                                                ApprenantRepositoryPort apprenantRepository,
                                                                SessionAcademiqueRepositoryPort sessionRepository,
                                                                MouvementFinancierRepositoryPort mouvementRepository,
-                                                               com.excelisprepas.backend.inscription.domain.port.out.DossierInscriptionRepositoryPort dossierInscriptionRepository) {
+                                                               com.excelisprepas.backend.inscription.domain.port.out.DossierInscriptionRepositoryPort dossierInscriptionRepository,
+                                                               com.excelisprepas.backend.apprenant.domain.port.out.ContratApprenantRepositoryPort contratApprenantRepository) {
         return new MouvementFinancierService(entreeRepository, sortieRepository, motifRepository,
-                centreRepository, apprenantRepository, sessionRepository, mouvementRepository, dossierInscriptionRepository);
+                centreRepository, apprenantRepository, sessionRepository, mouvementRepository, dossierInscriptionRepository, contratApprenantRepository);
     }
 
 

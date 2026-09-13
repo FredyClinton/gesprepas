@@ -20,7 +20,12 @@ import {
   useCreerMatiere,
   useSupprimerMatiere,
 } from "../data/queries";
-import { PALETTE_COULEURS_SELECTION, trouverCouleurParHex } from "../couleurs";
+import {
+  PALETTE_COULEURS_SELECTION,
+  trouverCouleurParHex,
+  getCouleurBadgeStyle,
+  isCouleurClaire,
+} from "../couleurs";
 import { GoogleSheetColorPicker } from "./GoogleSheetColorPicker";
 import type { Matiere } from "../domain/types";
 
@@ -242,7 +247,7 @@ export function CatalogueMatieresModal({
             </p>
           </div>
         ) : (
-          <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 bg-white shadow-xs">
+          <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 bg-white shadow-xs">
             {matieresFiltrees.map((matiere) => {
               const couleurResolue = trouverCouleurParHex(matiere.couleur);
               const hexActuel = matiere.couleur || "#3B82F6";
@@ -251,7 +256,7 @@ export function CatalogueMatieresModal({
               return (
                 <div
                   key={matiere.id}
-                  className="p-3.5 hover:bg-slate-50/70 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  className="p-3.5 hover:bg-slate-50/70 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4 first:rounded-t-xl last:rounded-b-xl"
                 >
                   {/* Nom & Édition */}
                   <div className="flex items-center gap-3 min-w-[200px] flex-1">
@@ -260,7 +265,14 @@ export function CatalogueMatieresModal({
                       className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 shadow-xs border border-black/10"
                       style={{ backgroundColor: hexActuel }}
                     >
-                      <Palette size={13} className="text-white drop-shadow-xs" />
+                      <Palette
+                        size={13}
+                        className={`drop-shadow-xs ${
+                          isCouleurClaire(hexActuel)
+                            ? "text-slate-900"
+                            : "text-white"
+                        }`}
+                      />
                     </div>
 
                     {isEditing ? (
@@ -321,10 +333,8 @@ export function CatalogueMatieresModal({
                     {/* Aperçu du badge textuel */}
                     <div className="hidden sm:block">
                       <span
-                        className={`text-xs px-2.5 py-1 rounded-md font-medium border ${
-                          couleurResolue?.badge ||
-                          "bg-slate-100 text-slate-700 border-slate-200"
-                        }`}
+                        className="text-xs px-2.5 py-1 rounded-md font-semibold border"
+                        style={getCouleurBadgeStyle(hexActuel)}
                       >
                         {matiere.nom.substring(0, 10)}
                       </span>

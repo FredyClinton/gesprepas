@@ -13,9 +13,6 @@ import {
 } from "@/modules/dossiers";
 import type { Centre, SessionAcademique } from "@/modules/centres-sessions";
 
-import { BadgeDemo } from "./BadgeDemo";
-import { MOCK_DOSSIER, type ConcoursRattacheMock } from "./mocks";
-
 const FCFA = new Intl.NumberFormat("fr-FR");
 
 const LABELS_STATUT_DOSSIER: Record<Dossier["statut"], string> = {
@@ -62,50 +59,17 @@ export function DossierAdministratifTab({
   if (!dossier) {
     return (
       <div className="space-y-6">
-        <div className="bg-brand-orange/5 border-brand-orange/20 rounded-md border p-3 text-sm">
-          <span className="text-brand-orange font-bold">
-            Aperçu de démonstration
-          </span>
-          <span className="text-brand-gray">
-            {" "}
-            - cet apprenant n&rsquo;a pas encore de dossier réel. Les données
-            ci-dessous sont fictives, à titre d&rsquo;illustration.
-          </span>
-        </div>
-
-        <Card className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <h2 className="text-brand-anthracite text-lg font-bold">
-                Dossier d&rsquo;inscription
-              </h2>
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${CLASSES_STATUT_DOSSIER[MOCK_DOSSIER.statut]}`}
-              >
-                {LABELS_STATUT_DOSSIER[MOCK_DOSSIER.statut]}
-              </span>
-              <BadgeDemo />
-            </div>
-            <p className="text-brand-gray mt-1 text-sm">
-              Ouvert le{" "}
-              {new Date(MOCK_DOSSIER.dateOuverture).toLocaleDateString("fr-FR")}
-            </p>
+        <Card className="p-10 text-center bg-white border border-slate-200 shadow-xs">
+          <div className="h-12 w-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+            <CheckCircle2 size={24} className="text-slate-400" />
           </div>
+          <h2 className="text-base font-bold text-slate-900">
+            Aucun dossier administratif ouvert
+          </h2>
+          <p className="mt-1 text-xs text-slate-500 max-w-md mx-auto">
+            Le dossier administratif permet de centraliser les pièces obligatoires (photos, CNI, diplômes) et d&rsquo;effectuer le suivi des candidatures aux concours.
+          </p>
         </Card>
-
-        <div>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-brand-anthracite text-lg font-bold">
-              Concours rattachés
-            </h2>
-            <RattacherConcoursBouton />
-          </div>
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            {MOCK_DOSSIER.concours.map((c) => (
-              <ConcoursRattacheCardMock key={c.nom} concours={c} />
-            ))}
-          </div>
-        </div>
       </div>
     );
   }
@@ -298,33 +262,6 @@ function ConcoursRattacheCard({
         nom:
           piecesRequises?.find((pr) => pr.id === p.pieceRequiseId)?.nom ??
           "Pièce",
-        quantite: p.quantite,
-        validee: p.statut === "VALIDEE",
-      }))}
-    />
-  );
-}
-
-function ConcoursRattacheCardMock({
-  concours,
-}: {
-  concours: ConcoursRattacheMock;
-}) {
-  const nbValidees = concours.pieces.filter(
-    (p) => p.statut === "VALIDEE",
-  ).length;
-  const pourcentage = Math.round((nbValidees / concours.pieces.length) * 100);
-
-  return (
-    <ConcoursCardVisual
-      nom={`${concours.nom} (${concours.centreNom})`}
-      sousTitre={`Session ${concours.sessionAnnee} · Ajouté le ${new Date(concours.dateAjout).toLocaleDateString("fr-FR")}`}
-      pourcentage={pourcentage}
-      montantPaye={concours.montantPaye}
-      soldeRestant={concours.soldeRestant}
-      pieces={concours.pieces.map((p, index) => ({
-        id: `${concours.nom}-${index}`,
-        nom: p.nom,
         quantite: p.quantite,
         validee: p.statut === "VALIDEE",
       }))}
