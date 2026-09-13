@@ -41,6 +41,20 @@ public class Entree extends MouvementFinancier {
                 centreId, apprenantId, formationId, bilanJournalierId, dossierConcoursId);
     }
 
+    public Entree mettreAJour(BigDecimal nouveauMontant, LocalDate nouvelleDate, UUID nouveauMotifId, UUID nouvelApprenantId, UUID nouvelleFormationId) {
+        return new Entree(this.id, this.sessionId,
+                nouveauMotifId != null ? nouveauMotifId : this.motifId,
+                nouveauMontant != null ? nouveauMontant : this.montant,
+                nouvelleDate != null ? nouvelleDate : this.date,
+                this.saisiParUtilisateurId,
+                this.statut,
+                this.centreId,
+                nouvelApprenantId != null ? nouvelApprenantId : this.apprenantId,
+                nouvelleFormationId != null ? nouvelleFormationId : this.formationId,
+                this.bilanJournalierId,
+                this.dossierConcoursId);
+    }
+
     public UUID getCentreId() {
         return centreId;
     }

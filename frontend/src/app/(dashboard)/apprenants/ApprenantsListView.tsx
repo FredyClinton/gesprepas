@@ -19,7 +19,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-import { Button, Card, Pagination } from "@/shared/ui";
+import { Button, Card, Pagination, Skeleton } from "@/shared/ui";
 import { useApprenants, useCursusApprenant, type Apprenant } from "@/modules/apprenants";
 import { useFormations, type Formation } from "@/modules/academique";
 import { useSessionActive } from "@/modules/centres-sessions";
@@ -461,13 +461,38 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {chargement && (
-                <tr>
-                  <td colSpan={6} className="text-slate-400 p-8 text-center text-xs">
-                    Chargement des apprenants...
-                  </td>
-                </tr>
-              )}
+              {chargement &&
+                Array.from({ length: 6 }).map((_, idx) => (
+                  <tr key={idx} className="animate-pulse">
+                    <td className="p-3.5">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="h-9 w-9 rounded-xl shrink-0" />
+                        <div className="space-y-1.5 flex-1">
+                          <Skeleton className="h-3.5 w-32" />
+                          <Skeleton className="h-2.5 w-20" />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-3.5">
+                      <Skeleton className="h-3.5 w-24" />
+                    </td>
+                    <td className="p-3.5">
+                      <Skeleton className="h-3.5 w-28" />
+                    </td>
+                    <td className="p-3.5">
+                      <div className="space-y-1.5">
+                        <Skeleton className="h-3.5 w-20" />
+                        <Skeleton className="h-2 w-28" />
+                      </div>
+                    </td>
+                    <td className="p-3.5">
+                      <Skeleton className="h-5 w-16 rounded-full" />
+                    </td>
+                    <td className="p-3.5 text-right">
+                      <Skeleton className="h-7 w-20 rounded-lg ml-auto" />
+                    </td>
+                  </tr>
+                ))}
               {!chargement && apprenantsFiltres.length === 0 && (
                 <tr>
                   <td colSpan={6} className="text-slate-400 p-8 text-center text-xs">

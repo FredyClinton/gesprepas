@@ -55,9 +55,12 @@ public class FinancierBeanConfiguration {
                                                                SessionAcademiqueRepositoryPort sessionRepository,
                                                                MouvementFinancierRepositoryPort mouvementRepository,
                                                                com.excelisprepas.backend.inscription.domain.port.out.DossierInscriptionRepositoryPort dossierInscriptionRepository,
-                                                               com.excelisprepas.backend.apprenant.domain.port.out.ContratApprenantRepositoryPort contratApprenantRepository) {
+                                                               com.excelisprepas.backend.apprenant.domain.port.out.ContratApprenantRepositoryPort contratApprenantRepository,
+                                                               com.excelisprepas.backend.financier.domain.port.out.BilanJournalierRepositoryPort bilanRepository,
+                                                               com.excelisprepas.backend.livre.domain.port.out.VenteLivreRepositoryPort venteLivreRepository) {
         return new MouvementFinancierService(entreeRepository, sortieRepository, motifRepository,
-                centreRepository, apprenantRepository, sessionRepository, mouvementRepository, dossierInscriptionRepository, contratApprenantRepository);
+                centreRepository, apprenantRepository, sessionRepository, mouvementRepository,
+                dossierInscriptionRepository, contratApprenantRepository, bilanRepository, venteLivreRepository);
     }
 
 
@@ -83,6 +86,16 @@ public class FinancierBeanConfiguration {
 
     @Bean
     public SaisirSortieUseCase saisirSortieUseCase(MouvementFinancierService mouvementFinancierService) {
+        return mouvementFinancierService;
+    }
+
+    @Bean
+    public ModifierEntreeUseCase modifierEntreeUseCase(MouvementFinancierService mouvementFinancierService) {
+        return mouvementFinancierService;
+    }
+
+    @Bean
+    public SupprimerEntreeUseCase supprimerEntreeUseCase(MouvementFinancierService mouvementFinancierService) {
         return mouvementFinancierService;
     }
 }

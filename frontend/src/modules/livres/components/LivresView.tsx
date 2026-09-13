@@ -25,7 +25,7 @@ import {
   Receipt,
   Filter,
 } from "lucide-react";
-import { Card, Button, Modal } from "@/shared/ui";
+import { Card, Button, Modal, SkeletonCard, SkeletonTable } from "@/shared/ui";
 import {
   useLivres,
   useCreerLivre,
@@ -467,9 +467,10 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
 
           {/* Grille des Livres */}
           {livresLoading ? (
-            <div className="flex flex-col items-center justify-center p-12 text-slate-400">
-              <Loader2 size={32} className="animate-spin text-brand-orange mb-2" />
-              <p className="text-xs font-semibold">Chargement des livres en cours...</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, idx) => (
+                <SkeletonCard key={idx} />
+              ))}
             </div>
           ) : livresError ? (
             <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-700 font-medium">
@@ -833,9 +834,8 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
             </div>
 
             {statsLoading ? (
-              <div className="p-8 text-center text-slate-400">
-                <Loader2 size={24} className="animate-spin text-brand-orange mx-auto mb-2" />
-                <p className="text-xs font-semibold">Calcul de la ventilation par livre...</p>
+              <div className="p-4">
+                <SkeletonTable rows={4} columns={4} />
               </div>
             ) : !statsVentes || statsVentes.parLivre.length === 0 ? (
               <div className="p-8 text-center text-slate-500 text-xs">
@@ -994,9 +994,8 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
             </div>
 
             {ventesLoading ? (
-              <div className="p-10 text-center text-slate-400">
-                <Loader2 size={24} className="animate-spin text-brand-orange mx-auto mb-2" />
-                <p className="text-xs font-semibold">Chargement des transactions de vente...</p>
+              <div className="p-4">
+                <SkeletonTable rows={5} columns={8} />
               </div>
             ) : ventesError ? (
               <div className="p-6 text-center text-xs text-rose-600">

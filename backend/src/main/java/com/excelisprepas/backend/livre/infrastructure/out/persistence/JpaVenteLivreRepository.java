@@ -27,5 +27,7 @@ public interface JpaVenteLivreRepository extends JpaRepository<VenteLivreEntity,
             @Param("dateDebut") LocalDate dateDebut,
             @Param("dateFin") LocalDate dateFin
     );
+
+    List<VenteLivreEntity> findByEntreeId(UUID entreeId);
 }
 

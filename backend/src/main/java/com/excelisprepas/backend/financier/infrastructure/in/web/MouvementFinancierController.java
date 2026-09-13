@@ -30,17 +30,23 @@ public class MouvementFinancierController {
     private final RecupererMouvementUseCase recupererMouvementUseCase;
     private final ListerMouvementsUseCase listerMouvementsUseCase;
     private final ListerVersementsApprenantUseCase listerVersementsApprenantUseCase;
+    private final ModifierEntreeUseCase modifierEntreeUseCase;
+    private final SupprimerEntreeUseCase supprimerEntreeUseCase;
 
     public MouvementFinancierController(SaisirEntreeUseCase saisirEntreeUseCase,
                                         SaisirSortieUseCase saisirSortieUseCase,
                                         RecupererMouvementUseCase recupererMouvementUseCase,
                                         ListerMouvementsUseCase listerMouvementsUseCase,
-                                        ListerVersementsApprenantUseCase listerVersementsApprenantUseCase) {
+                                        ListerVersementsApprenantUseCase listerVersementsApprenantUseCase,
+                                        ModifierEntreeUseCase modifierEntreeUseCase,
+                                        SupprimerEntreeUseCase supprimerEntreeUseCase) {
         this.saisirEntreeUseCase = saisirEntreeUseCase;
         this.saisirSortieUseCase = saisirSortieUseCase;
         this.recupererMouvementUseCase = recupererMouvementUseCase;
         this.listerMouvementsUseCase = listerMouvementsUseCase;
         this.listerVersementsApprenantUseCase = listerVersementsApprenantUseCase;
+        this.modifierEntreeUseCase = modifierEntreeUseCase;
+        this.supprimerEntreeUseCase = supprimerEntreeUseCase;
     }
 
     private static EntreeResponse versReponse(Entree entree) {
@@ -107,6 +113,33 @@ public class MouvementFinancierController {
                 .map(MouvementFinancierController::versReponse)
                 .toList();
         return ResponseEntity.ok(reponses);
+    }
+
+    @Operation(summary = "Modifier une entrée / versement",
+            description = "Met à jour une entrée si son bilan journalier n'a pas encore été validé.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Entrée mise à jour",
+                    content = @Content(schema = @Schema(implementation = EntreeResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Entrée introuvable", content = @Content),
+            @ApiResponse(responseCode = "409", description = "Bilan déjà validé pour cette date ou mouvement verrouillé", content = @Content)
+    })
+    @PutMapping("/entrees/{id}")
+    public ResponseEntity<EntreeResponse> modifierEntree(@PathVariable UUID id, @Valid @RequestBody ModifierEntreeRequest request) {
+        Entree entree = modifierEntreeUseCase.modifierEntree(id, request.montant(), request.date(), request.motifId(), request.apprenantId());
+        return ResponseEntity.ok(versReponse(entree));
+    }
+
+    @Operation(summary = "Supprimer une entrée / versement",
+            description = "Supprime une entrée si son bilan journalier n'a pas encore été validé. Supprime également les ventes de livres associées.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Entrée supprimée"),
+            @ApiResponse(responseCode = "404", description = "Entrée introuvable", content = @Content),
+            @ApiResponse(responseCode = "409", description = "Bilan déjà validé pour cette date ou mouvement verrouillé", content = @Content)
+    })
+    @DeleteMapping("/entrees/{id}")
+    public ResponseEntity<Void> supprimerEntree(@PathVariable UUID id) {
+        supprimerEntreeUseCase.supprimerEntree(id);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Saisir une sortie", description = "Enregistre une sortie financière pour une session.")

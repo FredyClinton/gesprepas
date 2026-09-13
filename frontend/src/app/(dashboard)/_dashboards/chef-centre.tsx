@@ -23,9 +23,12 @@ import {
   DoorOpen,
   CalendarCheck,
   BookOpen,
+  Pencil,
+  Trash2,
+  Lock,
 } from "lucide-react";
 
-import { Card, Button } from "@/shared/ui";
+import { Card, Button, Modal, Skeleton, SkeletonCard, SkeletonTable } from "@/shared/ui";
 import { useApprenants } from "@/modules/apprenants";
 import { useFormations, usePhases } from "@/modules/academique";
 import { useCentres, useSessionActive } from "@/modules/centres-sessions";
@@ -34,7 +37,10 @@ import {
   useRepartitionFormations,
   useMouvementsFinanciers,
   useMotifs,
+  useSupprimerEntree,
   EnregistrerVersementModal,
+  ModifierVersementModal,
+  type VersementItem,
 } from "@/modules/financier";
 import { useSalles } from "@/modules/salle";
 import { useConcoursBlancs } from "@/modules/concours-blancs";
@@ -72,6 +78,17 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
     soldeRestant: number;
     formationId?: string;
   } | null>(null);
+
+  const [versementAModifier, setVersementAModifier] = useState<VersementItem | null>(null);
+  const [versementASupprimer, setVersementASupprimer] = useState<{
+    id: string;
+    montant: number;
+    libelle: string;
+    date: string;
+  } | null>(null);
+  const [erreurActionVersement, setErreurActionVersement] = useState<string | null>(null);
+
+  const supprimerEntreeMutation = useSupprimerEntree();
 
   const { data: centres } = useCentres();
   const { data: sessionActive } = useSessionActive();
@@ -275,6 +292,42 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
   const statutBilanInfo = bilan?.statut
     ? STATUT_BILAN_CONFIG[bilan.statut] || STATUT_BILAN_CONFIG.OUVERT
     : STATUT_BILAN_CONFIG.OUVERT;
+
+  if (chargementApprenants || chargementMouvements) {
+    return (
+      <div className="mx-auto max-w-7xl space-y-8">
+        {/* Banner Skeleton */}
+        <div className="h-44 w-full rounded-2xl bg-slate-100 p-6 flex flex-col justify-between">
+          <div className="flex gap-3">
+            <Skeleton className="h-6 w-32 rounded-lg" />
+            <Skeleton className="h-6 w-28 rounded-lg" />
+          </div>
+          <Skeleton className="h-9 w-72 rounded-xl" />
+          <Skeleton className="h-4 w-96 rounded-md" />
+        </div>
+
+        {/* Stats Cards Skeleton */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+
+        {/* Tables Skeleton */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-6">
+            <SkeletonTable rows={4} columns={4} />
+            <SkeletonTable rows={5} columns={6} />
+          </div>
+          <div className="space-y-6">
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
@@ -642,13 +695,20 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
                       <th className="p-3 font-bold">Motif</th>
                       <th className="p-3 font-bold text-right">Montant</th>
                       <th className="p-3 font-bold text-center">Statut</th>
+                      <th className="p-3 font-bold text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {entreesCentre.slice(0, 5).map((e) => {
+                    {entreesCentre.slice(0, 10).map((e) => {
                       const apprenant = apprenantsDuCentre.find((a) => a.id === e.apprenantId);
                       const formation = formations.find((f) => f.id === e.formationId);
                       const motif = motifs.find((m) => m.id === e.motifId);
+                      const aujourdhuiStr = new Date().toISOString().slice(0, 10);
+                      const bilanAujourdhuiValide =
+                        bilan?.statut === "EN_ATTENTE_CONTROLEUR" || bilan?.statut === "CLOTURE";
+                      const isDateVerrouillee =
+                        (e.date === aujourdhuiStr && bilanAujourdhuiValide) ||
+                        (e.date < aujourdhuiStr && e.statut === "VALIDE");
 
                       return (
                         <tr key={e.id} className="hover:bg-slate-50 transition-colors">
@@ -688,6 +748,53 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
                             >
                               {e.statut === "VALIDE" ? "Validé" : "En cours"}
                             </span>
+                          </td>
+                          <td className="p-3 text-right whitespace-nowrap">
+                            {isDateVerrouillee ? (
+                              <span
+                                title="Bilan clôturé pour cette date (modification verrouillée)"
+                                className="inline-flex items-center gap-1 text-slate-400 p-1 cursor-not-allowed"
+                              >
+                                <Lock size={13} />
+                              </span>
+                            ) : (
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setVersementAModifier({
+                                      id: e.id,
+                                      montant: e.montant,
+                                      date: e.date,
+                                      motifId: e.motifId,
+                                      motifNom: motif?.nom,
+                                      apprenantId: e.apprenantId,
+                                      apprenantNom: apprenant ? `${apprenant.prenom} ${apprenant.nom}` : undefined,
+                                    })
+                                  }
+                                  className="p-1 rounded-md text-slate-500 hover:text-brand-orange hover:bg-orange-50 transition-colors cursor-pointer"
+                                  title="Modifier ce versement"
+                                >
+                                  <Pencil size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setErreurActionVersement(null);
+                                    setVersementASupprimer({
+                                      id: e.id,
+                                      montant: e.montant,
+                                      libelle: motif?.nom || "Versement",
+                                      date: e.date,
+                                    });
+                                  }}
+                                  className="p-1 rounded-md text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                  title="Supprimer ce versement"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       );
@@ -881,6 +988,99 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
           formationId={apprenantSelectionneVersement?.formationId}
           soldeRestant={apprenantSelectionneVersement?.soldeRestant ?? resteGlobalRecouvrer}
         />
+      )}
+
+      {/* ── Modal Modification de Versement ── */}
+      {versementAModifier && (
+        <ModifierVersementModal
+          isOpen={Boolean(versementAModifier)}
+          onClose={() => setVersementAModifier(null)}
+          versement={versementAModifier}
+        />
+      )}
+
+      {/* ── Modal Confirmation Suppression Versement ── */}
+      {versementASupprimer && (
+        <Modal
+          isOpen={Boolean(versementASupprimer)}
+          onClose={() => {
+            if (!supprimerEntreeMutation.isPending) {
+              setVersementASupprimer(null);
+              setErreurActionVersement(null);
+            }
+          }}
+          title="Confirmer la suppression du versement"
+        >
+          <div className="space-y-4">
+            {erreurActionVersement && (
+              <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs text-rose-700 font-medium">
+                <AlertCircle size={16} className="shrink-0 text-rose-500" />
+                <span>{erreurActionVersement}</span>
+              </div>
+            )}
+
+            <p className="text-xs text-slate-600">
+              Êtes-vous certain de vouloir supprimer ce versement ?
+            </p>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Montant :</span>
+                <span className="font-bold text-slate-900">{FCFA.format(versementASupprimer.montant)} FCFA</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Date :</span>
+                <span className="font-bold text-slate-900">{new Date(versementASupprimer.date).toLocaleDateString("fr-FR")}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Motif :</span>
+                <span className="font-bold text-slate-900">{versementASupprimer.libelle}</span>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 flex items-start gap-2">
+              <AlertCircle size={15} className="shrink-0 text-amber-600 mt-0.5" />
+              <span>
+                <strong>Attention :</strong> Cette action est irréversible. Si ce versement est lié à une vente d'ouvrages,
+                les enregistrements de vente associés seront automatiquement annulés.
+              </span>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={supprimerEntreeMutation.isPending}
+                onClick={() => {
+                  setVersementASupprimer(null);
+                  setErreurActionVersement(null);
+                }}
+              >
+                Annuler
+              </Button>
+              <Button
+                type="button"
+                disabled={supprimerEntreeMutation.isPending}
+                onClick={async () => {
+                  setErreurActionVersement(null);
+                  try {
+                    await supprimerEntreeMutation.mutateAsync(versementASupprimer.id);
+                    setVersementASupprimer(null);
+                  } catch (err: unknown) {
+                    const msg =
+                      err instanceof Error
+                        ? err.message
+                        : "Impossible de supprimer ce versement : le bilan de cette journée est déjà validé.";
+                    setErreurActionVersement(msg);
+                  }
+                }}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
+              >
+                {supprimerEntreeMutation.isPending ? "Suppression..." : "Confirmer la suppression"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

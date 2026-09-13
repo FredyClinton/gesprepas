@@ -92,6 +92,11 @@ public class FinancierExceptionHandler {
         return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
+    @ExceptionHandler(BilanDejaValideException.class)
+    public ResponseEntity<ApiErrorResponse> gererBilanDejaValide(BilanDejaValideException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     private ResponseEntity<ApiErrorResponse> construireReponse(HttpStatus statut, String message) {
         return ResponseEntity.status(statut).body(new ApiErrorResponse(statut.value(), statut.getReasonPhrase(), message));
     }

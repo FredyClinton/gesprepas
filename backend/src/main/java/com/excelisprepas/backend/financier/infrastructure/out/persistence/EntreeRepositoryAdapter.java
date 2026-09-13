@@ -73,4 +73,9 @@ public class EntreeRepositoryAdapter implements EntreeRepositoryPort {
     public List<Entree> findByDossierConcoursId(UUID dossierConcoursId) {
         return jpaRepository.findByDossierConcoursId(dossierConcoursId).stream().map(mapper::toDomain).toList();
     }
+
+    @Override
+    public void deleteById(UUID id) {
+        jpaRepository.deleteById(id);
+    }
 }

@@ -74,3 +74,27 @@ export function listMouvementsFinanciers(
   if (centreId) params.append("centreId", centreId);
   return apiFetch<MouvementFinancier[]>(`/api/mouvements-financiers?${params}`);
 }
+
+export type ModifierEntreeInput = {
+  montant: number;
+  date: string;
+  motifId: string;
+  apprenantId?: string;
+};
+
+export function modifierEntree(
+  id: string,
+  input: ModifierEntreeInput,
+): Promise<Entree> {
+  return apiFetch<Entree>(`/api/entrees/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export function supprimerEntree(id: string): Promise<void> {
+  return apiFetch<void>(`/api/entrees/${id}`, {
+    method: "DELETE",
+  });
+}
+

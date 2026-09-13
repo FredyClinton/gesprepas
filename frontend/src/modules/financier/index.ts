@@ -12,5 +12,9 @@ export {
   useMotifs,
   useSaisirEntree,
   useMouvementsFinanciers,
+  useModifierEntree,
+  useSupprimerEntree,
 } from "./data/queries";
 export { EnregistrerVersementModal } from "./components/EnregistrerVersementModal";
+export { ModifierVersementModal } from "./components/ModifierVersementModal";
+export type { VersementItem } from "./components/ModifierVersementModal";

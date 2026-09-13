@@ -9,6 +9,9 @@ import {
   listVersementsApprenant,
   saisirEntree,
   listMouvementsFinanciers,
+  modifierEntree,
+  supprimerEntree,
+  type ModifierEntreeInput,
 } from "./client";
 import type { TypeMotif } from "../domain/types";
 
@@ -62,6 +65,42 @@ export function useSaisirEntree() {
       }
       queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
       queryClient.invalidateQueries({ queryKey: ["mouvements-financiers"] });
+      queryClient.invalidateQueries({ queryKey: ["livres"] });
+    },
+  });
+}
+
+export function useModifierEntree() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: ModifierEntreeInput }) =>
+      modifierEntree(id, input),
+    onSuccess: (_, variables) => {
+      if (variables.input.apprenantId) {
+        queryClient.invalidateQueries({
+          queryKey: ["versements-apprenant", variables.input.apprenantId],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ["apprenants"],
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
+      queryClient.invalidateQueries({ queryKey: ["mouvements-financiers"] });
+    },
+  });
+}
+
+export function useSupprimerEntree() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => supprimerEntree(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["versements-apprenant"] });
+      queryClient.invalidateQueries({ queryKey: ["apprenants"] });
+      queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
+      queryClient.invalidateQueries({ queryKey: ["mouvements-financiers"] });
+      queryClient.invalidateQueries({ queryKey: ["livres"] });
+      queryClient.invalidateQueries({ queryKey: ["ventes-livres"] });
     },
   });
 }
@@ -76,3 +115,4 @@ export function useMouvementsFinanciers(
     enabled: Boolean(sessionId),
   });
 }
+
