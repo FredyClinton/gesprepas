@@ -115,6 +115,52 @@ globals.css` under `@theme inline` (mirrored, for reference, in `src/shared/conf
   shaped independently, e.g. two modules both fetching `centre` data). Don't import from `modules/<other>/domain`
   or `modules/<other>/data` directly.
 
+## Security
+
+`../backend` (see **Security** in `../backend/CLAUDE.md`) now requires a JWT access token on every route except
+`/api/auth/**`. This app calls the backend directly from the browser (no Next.js API proxy), so the access token has
+to live in client-readable memory:
+
+- `src/auth.ts` (NextAuth v5, credentials provider) stores `accessToken`, `refreshToken` and `accessTokenExpires`
+  (computed at login: `now + ACCESS_TOKEN_TTL_MS`, kept a safety margin under the backend's
+  `app.jwt.access-token-ttl-minutes`) in the encrypted JWT session cookie. The `jwt()` callback rotates the pair
+  automatically once `accessTokenExpires` has passed, by calling `refresh()` (`modules/utilisateurs/data/client.ts`,
+  → `POST /api/auth/refresh`); on failure it sets `token.error = "RefreshAccessTokenError"` instead of throwing (a
+  refresh token can legitimately be dead - expired, revoked, or rotated by a concurrent tab).
+- **The refresh token never reaches the browser.** Only `session.accessToken` is exposed to client code (see
+  `declare module "next-auth"` in `src/types/next-auth.d.ts`); the refresh token stays inside the server-side JWT
+  cookie, read only by `src/auth.ts` itself (in the `jwt()` callback and the `events.signOut` handler, which calls
+  `POST /api/auth/logout` to revoke it on sign-out - best-effort, a network failure there must not block sign-out).
+- `src/shared/lib/auth-token.ts` is a plain in-memory getter/setter (no next-auth import, safe to import from
+  anywhere including server code) holding the *current* access token. `apiFetch` (`shared/lib/api-client.ts`) reads
+  it on every call and attaches `Authorization: Bearer ...` when present - this is the only place that happens, no
+  module's `data/client.ts` needs to know about tokens.
+- `AuthTokenSync` (a client component mounted in `src/app/providers.tsx`, inside `SessionProvider`) is what keeps
+  `auth-token.ts` in sync: it watches `useSession()` and pushes `session.accessToken` into the cache whenever it
+  changes, and force-signs-out if `session.error === "RefreshAccessTokenError"`. `SessionProvider`'s
+  `refetchInterval` is set well under the access-token TTL so NextAuth actually polls `jwt()` often enough to rotate
+  before expiry - don't remove it, or the app only refreshes on window focus.
+- As a last-resort safety net (a request racing the rotation and losing), `query-client.ts` wires a global
+  `QueryCache`/`MutationCache` `onError` that calls `signOut()` on any `ApiError` with `status === 401`, since every
+  data fetch/mutation in this app goes through TanStack Query.
+- Verified end-to-end against a real running backend: login through the NextAuth credentials flow exposes
+  `accessToken` on the session (no `refreshToken` leak), that token is accepted by a real protected backend route,
+  and signing out revokes the refresh token row in `refresh_tokens` (checked directly in Postgres).
+- **Not yet done**: no UI reacts to a 403 from a `@PreAuthorize`-gated backend endpoint beyond whatever
+  `messageErreurApi` surfaces generically - there's no permission-aware conditional rendering (e.g. hiding a button
+  a CAISSIER isn't allowed to use). Fine for now since only `financier` and `academie/quota` endpoints enforce
+  permissions server-side, but revisit as more modules get `@PreAuthorize`.
+- `modules/progression/hooks/useProgressionQuotas.ts` used to keep the Directeur Académique's weekly course quota
+  in `localStorage` only - never sent to the backend, so a Chef de Département's saisie was never actually capped
+  (see `PROGRESSION_GERER_QUOTA` in `../backend/CLAUDE.md`). It now wraps `useQuotasHebdomadaires`/`useDefinirQuota`
+  (`modules/progression/data/queries.ts`, `PUT`/`GET /api/quotas-hebdomadaires`) - same `getQuota`/`setQuota` call
+  shape as before, so `SyllabusFiliereView`/`SyllabusMultiMatieresView` needed no changes beyond passing `sessionId`
+  through. `ExporterProgressionModal` reads quotas across *several* formations at once (its "TOUTES" filter), so it
+  can't call the hook in a loop - it uses `useQueries` directly with the shared `quotaHebdomadaireQueryOptions(...)`
+  query key/fn exported from `queries.ts`, which keeps its cache in sync with the editing views' own quota reads.
+  Verified end-to-end against a real backend: a Directeur Académique setting a quota of 1 lets one course through
+  and 409s the second; a Chef de Département gets 403 attempting to set a quota but can still read one.
+
 ## Configuration notes
 
 - Package manager is pnpm; there is no npm/yarn lockfile - don't generate one.

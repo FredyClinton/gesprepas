@@ -128,7 +128,7 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
           href="/apprenants"
           className="text-slate-500 hover:text-slate-900 mb-3 inline-flex items-center gap-1.5 text-xs font-bold transition-colors"
         >
-          <ArrowLeft size={14} />
+          <ArrowLeft size={16} />
           Retour à la liste des apprenants
         </Link>
       </div>

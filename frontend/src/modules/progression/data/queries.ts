@@ -4,11 +4,15 @@ import {
   creerProgression,
   mettreAJourContenuProgression,
   supprimerProgression,
+  listQuotas,
+  definirQuota,
 } from "./client";
 import type {
   CreerProgressionPayload,
   MettreAJourContenuPayload,
   Progression,
+  QuotaHebdomadaire,
+  DefinirQuotaPayload,
 } from "../domain/types";
 
 export function useProgressions() {
@@ -54,6 +58,62 @@ export function useSupprimerProgression() {
   });
 }
 
+// Clé de requête partagée entre useQuotasHebdomadaires (lecture) et useQueries
+// (ExporterProgressionModal, qui doit lire les quotas de plusieurs formations à
+// la fois - useQueries ne peut pas appeler un hook dans une boucle, donc il
+// reconstruit cette même clé/fonction directement plutôt que d'appeler le hook).
+export function quotaHebdomadaireQueryOptions(
+  formationId: string,
+  sessionId: string,
+) {
+  return {
+    queryKey: ["quotas-hebdomadaires", formationId, sessionId] as const,
+    queryFn: () => listQuotas(formationId, sessionId),
+  };
+}
+
+export function useQuotasHebdomadaires(
+  formationId?: string,
+  sessionId?: string,
+) {
+  return useQuery<QuotaHebdomadaire[]>({
+    ...quotaHebdomadaireQueryOptions(formationId ?? "", sessionId ?? ""),
+    enabled: Boolean(formationId && sessionId),
+  });
+}
+
+export function useDefinirQuota(formationId?: string, sessionId?: string) {
+  const queryClient = useQueryClient();
+  const queryKey = quotaHebdomadaireQueryOptions(
+    formationId ?? "",
+    sessionId ?? "",
+  ).queryKey;
+
+  return useMutation({
+    mutationFn: (payload: DefinirQuotaPayload) => definirQuota(payload),
+    onMutate: async (payload) => {
+      await queryClient.cancelQueries({ queryKey });
+      const precedent =
+        queryClient.getQueryData<QuotaHebdomadaire[]>(queryKey) ?? [];
+      const sansCelui = precedent.filter(
+        (q) =>
+          !(q.semaine === payload.semaine && q.matiereId === payload.matiereId),
+      );
+      queryClient.setQueryData<QuotaHebdomadaire[]>(queryKey, [
+        ...sansCelui,
+        { id: "optimiste", ...payload },
+      ]);
+      return { precedent };
+    },
+    onError: (_err, _payload, contexte) => {
+      if (contexte) queryClient.setQueryData(queryKey, contexte.precedent);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
+}
+
 export function useCreerProgressionsLot() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -70,4 +130,3 @@ export function useCreerProgressionsLot() {
     },
   });
 }
-

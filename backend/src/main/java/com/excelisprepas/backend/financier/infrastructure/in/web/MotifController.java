@@ -17,6 +17,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -55,6 +56,7 @@ public class MotifController {
                     content = @Content(schema = @Schema(implementation = MotifResponse.class))),
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content)
     })
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_MOTIF')")
     @PostMapping
     public ResponseEntity<MotifResponse> creerMotif(@Valid @RequestBody CreerMotifRequest request) {
         Motif motif = creerMotifUseCase.creerMotif(request.nom(), request.type());
@@ -68,6 +70,7 @@ public class MotifController {
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "404", description = "Motif introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_MOTIF')")
     @PatchMapping("/{id}/renommer")
     public ResponseEntity<MotifResponse> renommer(
             @Parameter(description = "Identifiant du motif") @PathVariable UUID id,
@@ -81,6 +84,7 @@ public class MotifController {
                     content = @Content(schema = @Schema(implementation = MotifResponse.class))),
             @ApiResponse(responseCode = "404", description = "Motif introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_MOTIF')")
     @PatchMapping("/{id}/desactiver")
     public ResponseEntity<MotifResponse> desactiver(
             @Parameter(description = "Identifiant du motif") @PathVariable UUID id) {
@@ -93,6 +97,7 @@ public class MotifController {
                     content = @Content(schema = @Schema(implementation = MotifResponse.class))),
             @ApiResponse(responseCode = "404", description = "Motif introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_MOTIF')")
     @PatchMapping("/{id}/reactiver")
     public ResponseEntity<MotifResponse> reactiver(
             @Parameter(description = "Identifiant du motif") @PathVariable UUID id) {
@@ -102,6 +107,7 @@ public class MotifController {
     @Operation(summary = "Lister les motifs", description = "Retourne la liste des motifs, filtrable par type (entrée ou sortie).")
     @ApiResponse(responseCode = "200", description = "Liste des motifs",
             content = @Content(array = @ArraySchema(schema = @Schema(implementation = MotifResponse.class))))
+    @PreAuthorize("hasAuthority('FINANCIER_CONSULTER')")
     @GetMapping
     public ResponseEntity<List<MotifResponse>> lister(
             @Parameter(description = "Type de motif") @RequestParam(required = false) TypeMotif type) {

@@ -20,6 +20,7 @@ import { useRosterDepartement } from "@/modules/affectation-departementale";
 import {
   useSessionActive,
   useCentres,
+  useSemaines,
   Centre,
 } from "@/modules/centres-sessions";
 import { useAbonnementsSession } from "@/modules/abonnement";
@@ -104,6 +105,7 @@ export function PlanificationView({
 }: Props) {
   const { data: sessionActive } = useSessionActive();
   const sessionId = sessionActive?.id;
+  const { data: semainesPersistantes = [] } = useSemaines(sessionId);
 
   const { data: departements = [] } = useDepartements();
 
@@ -166,9 +168,14 @@ export function PlanificationView({
   // courante), ici on doit pouvoir naviguer sur TOUTE la session, y compris les
   // semaines futures : construire/consulter le planning à l'avance est le but même
   // de cet écran pour le Directeur Académique.
-  const semaineTotale = sessionActive
+  const semaineTotaleCalculee = sessionActive
     ? semaineTotaleSession(sessionActive.dateDebut, sessionActive.dateFin)
     : 1;
+  const semaineTotale = Math.max(
+    semaineTotaleCalculee,
+    ...semainesPersistantes,
+    1,
+  );
 
   const [semaineChoisie, setSemaineChoisie] = useState<number | null>(null);
   const semaine = semaineChoisie ?? semaineCourante;
@@ -624,19 +631,19 @@ export function PlanificationView({
                     : "Aucune formation abonnée disposant de salles pour cette session."}
               </p>
             ) : (
-              <table className="w-full border-collapse text-left text-sm">
+              <table className="min-w-max w-full border-collapse text-left text-sm">
                 <thead className="sticky top-0 z-30 bg-white">
                   {/* Ligne 1 : Centres */}
                   <tr>
                     <th
                       rowSpan={3}
-                      className="sticky left-0 z-30 w-[90px] min-w-[90px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-100 p-2.5 text-center align-middle text-xs font-bold tracking-wider text-slate-700 uppercase shadow-[1px_0_0_0_#e2e8f0]"
+                      className="sticky left-0 z-30 w-[52px] min-w-[52px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-100 p-1 text-center align-middle text-[10px] font-bold tracking-wide text-slate-700 uppercase shadow-[1px_0_0_0_#e2e8f0] sm:w-[64px] sm:min-w-[64px] sm:p-2 sm:text-xs sm:tracking-wider"
                     >
                       Jour
                     </th>
                     <th
                       rowSpan={3}
-                      className="sticky left-[90px] z-30 w-[50px] min-w-[50px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-100 p-2.5 text-center align-middle text-xs font-bold tracking-wider text-slate-700 uppercase shadow-[1px_0_0_0_#e2e8f0]"
+                      className="sticky left-[52px] z-30 w-[36px] min-w-[36px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-100 p-1 text-center align-middle text-[10px] font-bold tracking-wide text-slate-700 uppercase shadow-[1px_0_0_0_#e2e8f0] sm:left-[64px] sm:w-[40px] sm:min-w-[40px] sm:p-2 sm:text-xs sm:tracking-wider"
                     >
                       Séance
                     </th>
@@ -685,7 +692,7 @@ export function PlanificationView({
                         gf.salles.map((salle, salleIndex) => (
                           <th
                             key={salle.id}
-                            className={`min-w-[120px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-50 p-2.5 text-center text-xs font-semibold text-slate-700 ${
+                            className={`min-w-[88px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-50 p-1.5 text-center text-[10px] font-semibold text-slate-700 sm:min-w-[120px] sm:p-2.5 sm:text-xs ${
                               groupeIndex > 0 &&
                               formationIndex === 0 &&
                               salleIndex === 0
@@ -723,7 +730,7 @@ export function PlanificationView({
                         {ligne === 0 && (
                           <td
                             rowSpan={hauteur}
-                            className={`sticky left-0 z-20 w-[90px] min-w-[90px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-50/95 p-2 text-center align-middle shadow-[1px_0_0_0_#e2e8f0] backdrop-blur-xs ${
+                            className={`sticky left-0 z-20 w-[52px] min-w-[52px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-50/95 p-1 text-center align-middle text-[10px] shadow-[1px_0_0_0_#e2e8f0] backdrop-blur-xs sm:w-[64px] sm:min-w-[64px] sm:p-2 sm:text-xs ${
                               jourIndex > 0 ? BORDURE_JOUR : ""
                             }`}
                           >
@@ -733,7 +740,7 @@ export function PlanificationView({
                           </td>
                         )}
                         <td
-                          className={`sticky left-[90px] z-20 w-[50px] min-w-[50px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-50/95 p-2 text-center align-middle shadow-[1px_0_0_0_#e2e8f0] backdrop-blur-xs ${
+                          className={`sticky left-[52px] z-20 w-[36px] min-w-[36px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-50/95 p-1 text-center align-middle text-[10px] shadow-[1px_0_0_0_#e2e8f0] backdrop-blur-xs sm:left-[64px] sm:w-[40px] sm:min-w-[40px] sm:p-2 sm:text-xs ${
                             ligne === 0 && jourIndex > 0 ? BORDURE_JOUR : ""
                           }`}
                         >

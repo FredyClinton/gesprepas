@@ -11,6 +11,8 @@ public interface RattachementCentreRepositoryPort {
 
     Optional<RattachementCentre> findById(UUID id);
 
+    Optional<RattachementCentre> findByUtilisateurIdAndSessionId(UUID utilisateurId, UUID sessionId);
+
     boolean existsByUtilisateurIdAndSessionId(UUID utilisateurId, UUID sessionId);
 
     List<RattachementCentre> findByCentreIdAndSessionId(UUID centreId, UUID sessionId);

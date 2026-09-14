@@ -5,6 +5,7 @@ export type {
   SessionAcademique,
   StatutSession,
 } from "./domain/types";
+export type { SemaineSession } from "./domain/semaine";
 export {
   useCentres,
   useSessionActive,
@@ -14,8 +15,11 @@ export {
   useFermerCentre,
   useRouvrirCentre,
   useRejoindreSession,
+  useSemaines,
+  useAjouterSemaine,
 } from "./data/queries";
 export { getCentre } from "./data/client";
+export { SelecteurSemaine } from "./components/SelecteurSemaine";
 export {
   relocalisationSchema,
   type RelocalisationFormValues,

@@ -8,6 +8,9 @@ import com.excelisprepas.backend.academie.affectation.domain.model.StatutAffecta
 import com.excelisprepas.backend.academie.affectation.domain.port.in.*;
 import com.excelisprepas.backend.academie.affectation.domain.port.out.AffectationRepositoryPort;
 import com.excelisprepas.backend.academie.affectationdepartementale.domain.port.out.AffectationDepartementaleRepositoryPort;
+import com.excelisprepas.backend.auth.domain.model.ContexteUtilisateur;
+import com.excelisprepas.backend.auth.domain.model.Permission;
+import com.excelisprepas.backend.auth.domain.port.out.ContexteUtilisateurPort;
 import com.excelisprepas.backend.centre.domain.model.Centre;
 import com.excelisprepas.backend.centre.domain.model.StatutCentre;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
@@ -44,6 +47,29 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
     private final SessionAcademiqueRepositoryPort sessionRepository;
     private final DepartementRepositoryPort departementRepository;
     private final AffectationDepartementaleRepositoryPort rosterRepository;
+    private final ContexteUtilisateurPort contexteUtilisateurPort;
+
+    public AffectationService(AffectationRepositoryPort affectationRepository,
+                              CentreRepositoryPort centreRepository,
+                              FormationRepositoryPort formationRepository,
+                              SalleRepositoryPort salleRepository,
+                              MatiereRepositoryPort matiereRepository,
+                              EnseignantRepositoryPort enseignantRepository,
+                              SessionAcademiqueRepositoryPort sessionRepository,
+                              DepartementRepositoryPort departementRepository,
+                              AffectationDepartementaleRepositoryPort rosterRepository,
+                              ContexteUtilisateurPort contexteUtilisateurPort) {
+        this.affectationRepository = affectationRepository;
+        this.centreRepository = centreRepository;
+        this.formationRepository = formationRepository;
+        this.salleRepository = salleRepository;
+        this.matiereRepository = matiereRepository;
+        this.enseignantRepository = enseignantRepository;
+        this.sessionRepository = sessionRepository;
+        this.departementRepository = departementRepository;
+        this.rosterRepository = rosterRepository;
+        this.contexteUtilisateurPort = contexteUtilisateurPort;
+    }
 
     public AffectationService(AffectationRepositoryPort affectationRepository,
                               CentreRepositoryPort centreRepository,
@@ -54,15 +80,9 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
                               SessionAcademiqueRepositoryPort sessionRepository,
                               DepartementRepositoryPort departementRepository,
                               AffectationDepartementaleRepositoryPort rosterRepository) {
-        this.affectationRepository = affectationRepository;
-        this.centreRepository = centreRepository;
-        this.formationRepository = formationRepository;
-        this.salleRepository = salleRepository;
-        this.matiereRepository = matiereRepository;
-        this.enseignantRepository = enseignantRepository;
-        this.sessionRepository = sessionRepository;
-        this.departementRepository = departementRepository;
-        this.rosterRepository = rosterRepository;
+        this(affectationRepository, centreRepository, formationRepository, salleRepository,
+                matiereRepository, enseignantRepository, sessionRepository, departementRepository,
+                rosterRepository, null);
     }
 
     @Override
@@ -184,6 +204,7 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
     public Affectation marquerEffectuee(UUID affectationId) {
         Affectation affectation = affectationRepository.findById(affectationId)
                 .orElseThrow(() -> new AffectationIntrouvableException(affectationId));
+        verifierAccesCentre(affectation.getCentreId());
 
         UUID sessionId = affectation.getSessionId();
         SessionAcademique session = sessionRepository.findById(sessionId)
@@ -206,10 +227,19 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
     public Affectation annulerEffectuee(UUID affectationId) {
         Affectation affectation = affectationRepository.findById(affectationId)
                 .orElseThrow(() -> new AffectationIntrouvableException(affectationId));
+        verifierAccesCentre(affectation.getCentreId());
         affectation.annulerEffectuee();
         affectation = this.affectationRepository.save(affectation);
         log.info("Marquage effectuée annulé : id={}", affectationId);
         return affectation;
+    }
+
+    private void verifierAccesCentre(UUID centreId) {
+        if (contexteUtilisateurPort == null) return;
+        ContexteUtilisateur contexte = contexteUtilisateurPort.courant();
+        if (!contexte.possedePourCentre(Permission.ACADEMIE_MARQUER_EFFECTUEE, centreId)) {
+            throw new AccesCentreInterditException(centreId);
+        }
     }
 
     @Override

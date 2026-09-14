@@ -2,6 +2,8 @@
 // dans leur `data/client.ts` pour construire leurs appels typés - pas d'appel fetch()
 // brut ailleurs dans l'app.
 
+import { getAccessToken } from "./auth-token";
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
@@ -36,11 +38,20 @@ export function messageErreurApi(erreur: unknown, repli: string): string {
 export async function apiFetch<T>(
   path: string,
   init?: RequestInit,
+  // Surcharge explicite du token, pour les appels faits depuis un Server Component
+  // (ex: dashboard layout) : getAccessToken() n'y renvoie jamais rien, ce cache
+  // n'étant alimenté que côté client par AuthTokenSync (providers.tsx). Là où
+  // l'appelant a déjà `session.accessToken` sous la main (via `auth()`), il doit
+  // le passer ici plutôt que de laisser la requête partir sans Authorization.
+  token?: string,
 ): Promise<T> {
+  const jeton = token ?? getAccessToken();
+
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(jeton ? { Authorization: `Bearer ${jeton}` } : {}),
       ...init?.headers,
     },
   });

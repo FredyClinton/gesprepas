@@ -6,6 +6,8 @@ import com.excelisprepas.backend.academie.matiere.domain.port.out.MatiereReposit
 import com.excelisprepas.backend.academie.progression.domain.model.Progression;
 import com.excelisprepas.backend.academie.progression.domain.port.in.*;
 import com.excelisprepas.backend.academie.progression.domain.port.out.ProgressionRepositoryPort;
+import com.excelisprepas.backend.academie.quota.domain.model.QuotaHebdomadaire;
+import com.excelisprepas.backend.academie.quota.domain.port.out.QuotaHebdomadaireRepositoryPort;
 import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.model.StatutSession;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
@@ -23,15 +25,18 @@ public class ProgressionService implements CreerProgressionUseCase, RecupererPro
     private final FormationRepositoryPort formationRepository;
     private final MatiereRepositoryPort matiereRepository;
     private final SessionAcademiqueRepositoryPort sessionRepository;
+    private final QuotaHebdomadaireRepositoryPort quotaRepository;
 
     public ProgressionService(ProgressionRepositoryPort progressionRepository,
                               FormationRepositoryPort formationRepository,
                               MatiereRepositoryPort matiereRepository,
-                              SessionAcademiqueRepositoryPort sessionRepository) {
+                              SessionAcademiqueRepositoryPort sessionRepository,
+                              QuotaHebdomadaireRepositoryPort quotaRepository) {
         this.progressionRepository = progressionRepository;
         this.formationRepository = formationRepository;
         this.matiereRepository = matiereRepository;
         this.sessionRepository = sessionRepository;
+        this.quotaRepository = quotaRepository;
     }
 
     @Override
@@ -54,6 +59,9 @@ public class ProgressionService implements CreerProgressionUseCase, RecupererPro
             throw new MatiereNonAuProgrammeException(formationId, matiereId);
         }
 
+        quotaRepository.findByFormationIdAndSessionIdAndMatiereIdAndSemaine(formationId, sessionId, matiereId, semaine)
+                .ifPresent(quota -> verifierQuotaNonAtteint(quota, formationId, sessionId, matiereId, semaine));
+
         if (progressionRepository.existsByFormationIdAndSessionIdAndPhaseIdAndMatiereIdAndSemaineAndNumeroCours(
                 formationId, sessionId, phaseId, matiereId, semaine, numeroCours)) {
             log.warn("Création de progression refusée : numéro de cours {} déjà utilisé pour formationId={}, sessionId={}, phaseId={}, matiereId={}, semaine={}",
@@ -68,6 +76,16 @@ public class ProgressionService implements CreerProgressionUseCase, RecupererPro
         log.info("Progression créée : id={}, formationId={}, matiereId={}, semaine={}, numeroCours={}",
                 progression.getId(), formationId, matiereId, semaine, numeroCours);
         return progression;
+    }
+
+    private void verifierQuotaNonAtteint(QuotaHebdomadaire quota, UUID formationId, UUID sessionId, UUID matiereId, int semaine) {
+        int nombreExistant = progressionRepository.countByFormationIdAndSessionIdAndMatiereIdAndSemaine(
+                formationId, sessionId, matiereId, semaine);
+        if (nombreExistant >= quota.getQuota()) {
+            log.warn("Création de progression refusée : quota atteint ({}/{}) pour formationId={}, sessionId={}, matiereId={}, semaine={}",
+                    nombreExistant, quota.getQuota(), formationId, sessionId, matiereId, semaine);
+            throw new QuotaHebdomadaireDepasseException(formationId, matiereId, semaine, quota.getQuota());
+        }
     }
 
     @Override

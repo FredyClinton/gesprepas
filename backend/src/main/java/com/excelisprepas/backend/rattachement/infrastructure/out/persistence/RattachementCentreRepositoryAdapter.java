@@ -31,6 +31,11 @@ public class RattachementCentreRepositoryAdapter implements RattachementCentreRe
     }
 
     @Override
+    public Optional<RattachementCentre> findByUtilisateurIdAndSessionId(UUID utilisateurId, UUID sessionId) {
+        return jpaRepository.findByUtilisateurIdAndSessionId(utilisateurId, sessionId).map(mapper::toDomain);
+    }
+
+    @Override
     public boolean existsByUtilisateurIdAndSessionId(UUID utilisateurId, UUID sessionId) {
         return jpaRepository.existsByUtilisateurIdAndSessionId(utilisateurId, sessionId);
     }

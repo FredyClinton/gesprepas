@@ -60,4 +60,10 @@ public class ProgressionRepositoryAdapter implements ProgressionRepositoryPort {
     public boolean existsByMatiereId(UUID matiereId) {
         return jpaRepository.existsByMatiereId(matiereId);
     }
+
+    @Override
+    public int countByFormationIdAndSessionIdAndMatiereIdAndSemaine(
+            UUID formationId, UUID sessionId, UUID matiereId, int semaine) {
+        return jpaRepository.countByFormationIdAndSessionIdAndMatiereIdAndSemaine(formationId, sessionId, matiereId, semaine);
+    }
 }

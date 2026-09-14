@@ -179,3 +179,4 @@ npm run lint
 4. **Environnement Linux & Sandbox** :
    - Spécifier le `JAVA_HOME` JDK 21 lors de l'appel à Maven.
    - Utiliser `BypassSandbox: true` pour les opérations Git (`commit`, `push`) nécessitant l'accès en écriture au verrou `.git/index.lock`.
+

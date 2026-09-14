@@ -22,7 +22,7 @@ import com.excelisprepas.backend.apprenant.domain.model.Apprenant;
 import com.excelisprepas.backend.apprenant.domain.port.out.ApprenantRepositoryPort;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.Optional;
+
 
 @RestController
 @RequestMapping("/api/concours-blancs")

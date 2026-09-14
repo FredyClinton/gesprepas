@@ -3,6 +3,8 @@ import type {
   Progression,
   CreerProgressionPayload,
   MettreAJourContenuPayload,
+  QuotaHebdomadaire,
+  DefinirQuotaPayload,
 } from "../domain/types";
 
 export function listProgressions(): Promise<Progression[]> {
@@ -31,5 +33,23 @@ export function mettreAJourContenuProgression(
 export function supprimerProgression(id: string): Promise<void> {
   return apiFetch<void>(`/api/progressions/${id}`, {
     method: "DELETE",
+  });
+}
+
+export function listQuotas(
+  formationId: string,
+  sessionId: string,
+): Promise<QuotaHebdomadaire[]> {
+  return apiFetch<QuotaHebdomadaire[]>(
+    `/api/quotas-hebdomadaires?formationId=${formationId}&sessionId=${sessionId}`,
+  );
+}
+
+export function definirQuota(
+  payload: DefinirQuotaPayload,
+): Promise<QuotaHebdomadaire> {
+  return apiFetch<QuotaHebdomadaire>("/api/quotas-hebdomadaires", {
+    method: "PUT",
+    body: JSON.stringify(payload),
   });
 }

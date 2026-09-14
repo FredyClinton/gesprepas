@@ -19,6 +19,7 @@ import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -62,6 +63,7 @@ public class BilanJournalierController {
             @ApiResponse(responseCode = "404", description = "Centre, session ou utilisateur introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Bilan déjà existant pour ce centre, cette session et cette date", content = @Content)
     })
+    @PreAuthorize("hasAuthority('FINANCIER_VALIDER_BILAN_CHEF_CENTRE')")
     @PostMapping("/valider-chef-centre")
     public ResponseEntity<BilanJournalierResponse> validerChefCentre(
             @Valid @RequestBody ValiderBilanChefCentreRequest request) {
@@ -78,6 +80,7 @@ public class BilanJournalierController {
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "404", description = "Bilan journalier ou utilisateur introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('FINANCIER_VALIDER_BILAN_CONTROLEUR')")
     @PatchMapping("/{id}/valider-controleur")
     public ResponseEntity<BilanJournalierResponse> validerControleur(
             @Parameter(description = "Identifiant du bilan journalier") @PathVariable UUID id,
@@ -93,6 +96,7 @@ public class BilanJournalierController {
                     content = @Content(schema = @Schema(implementation = BilanApercuResponse.class))),
             @ApiResponse(responseCode = "404", description = "Centre ou session introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('FINANCIER_CONSULTER')")
     @GetMapping("/du-jour")
     public ResponseEntity<BilanApercuResponse> consulterBilanDuJour(
             @Parameter(description = "Identifiant du centre") @RequestParam UUID centreId,
@@ -111,6 +115,7 @@ public class BilanJournalierController {
                     content = @Content(array = @ArraySchema(schema = @Schema(implementation = RepartitionFormationResponse.class)))),
             @ApiResponse(responseCode = "404", description = "Bilan journalier introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('FINANCIER_CONSULTER')")
     @GetMapping("/{id}/repartition-formations")
     public ResponseEntity<List<RepartitionFormationResponse>> consulterRepartitionParFormation(
             @Parameter(description = "Identifiant du bilan journalier") @PathVariable UUID id) {

@@ -6,6 +6,8 @@ import com.excelisprepas.backend.academie.matiere.domain.model.Matiere;
 import com.excelisprepas.backend.academie.matiere.domain.port.out.MatiereRepositoryPort;
 import com.excelisprepas.backend.academie.progression.domain.model.Progression;
 import com.excelisprepas.backend.academie.progression.domain.port.out.ProgressionRepositoryPort;
+import com.excelisprepas.backend.academie.quota.domain.model.QuotaHebdomadaire;
+import com.excelisprepas.backend.academie.quota.domain.port.out.QuotaHebdomadaireRepositoryPort;
 import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.model.StatutSession;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
@@ -35,6 +37,7 @@ class ProgressionServiceTest {
     private FormationRepositoryPort formationRepository;
     private MatiereRepositoryPort matiereRepository;
     private SessionAcademiqueRepositoryPort sessionRepository;
+    private QuotaHebdomadaireRepositoryPort quotaRepository;
     private ProgressionService service;
 
     @BeforeEach
@@ -43,7 +46,10 @@ class ProgressionServiceTest {
         formationRepository = mock(FormationRepositoryPort.class);
         matiereRepository = mock(MatiereRepositoryPort.class);
         sessionRepository = mock(SessionAcademiqueRepositoryPort.class);
-        service = new ProgressionService(progressionRepository, formationRepository, matiereRepository, sessionRepository);
+        quotaRepository = mock(QuotaHebdomadaireRepositoryPort.class);
+        service = new ProgressionService(progressionRepository, formationRepository, matiereRepository, sessionRepository, quotaRepository);
+        when(quotaRepository.findByFormationIdAndSessionIdAndMatiereIdAndSemaine(any(), any(), any(), anyInt()))
+                .thenReturn(Optional.empty());
     }
 
     private void stubToutValide() {
@@ -185,5 +191,48 @@ class ProgressionServiceTest {
         // Then
         assertThatThrownBy(creation).isInstanceOf(NumeroCoursDejaUtiliseException.class);
         verify(progressionRepository, never()).save(any(Progression.class));
+    }
+
+    @Test
+    @DisplayName("refuse la création si le quota hebdomadaire de la matière est déjà atteint")
+    void refuseCreationSiQuotaAtteint() {
+        // Given
+        stubToutValide();
+        UUID phaseId = UUID.randomUUID();
+        when(quotaRepository.findByFormationIdAndSessionIdAndMatiereIdAndSemaine(formationId, sessionId, matiereId, 1))
+                .thenReturn(Optional.of(new QuotaHebdomadaire(UUID.randomUUID(), formationId, sessionId, matiereId, 1, 2)));
+        when(progressionRepository.countByFormationIdAndSessionIdAndMatiereIdAndSemaine(formationId, sessionId, matiereId, 1))
+                .thenReturn(2);
+
+        // When
+        ThrowingCallable creation = () -> service.creerProgression(formationId, sessionId, phaseId, matiereId, 1, 3,
+                "Thème", "Contenu", null);
+
+        // Then
+        assertThatThrownBy(creation).isInstanceOf(QuotaHebdomadaireDepasseException.class);
+        verify(progressionRepository, never()).save(any(Progression.class));
+    }
+
+    @Test
+    @DisplayName("crée la progression quand le quota hebdomadaire de la matière n'est pas encore atteint")
+    void creeProgressionSiQuotaNonAtteint() {
+        // Given
+        stubToutValide();
+        UUID phaseId = UUID.randomUUID();
+        when(quotaRepository.findByFormationIdAndSessionIdAndMatiereIdAndSemaine(formationId, sessionId, matiereId, 1))
+                .thenReturn(Optional.of(new QuotaHebdomadaire(UUID.randomUUID(), formationId, sessionId, matiereId, 1, 2)));
+        when(progressionRepository.countByFormationIdAndSessionIdAndMatiereIdAndSemaine(formationId, sessionId, matiereId, 1))
+                .thenReturn(1);
+        when(progressionRepository.existsByFormationIdAndSessionIdAndPhaseIdAndMatiereIdAndSemaineAndNumeroCours(
+                formationId, sessionId, phaseId, matiereId, 1, 2)).thenReturn(false);
+        when(progressionRepository.save(any(Progression.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        Progression resultat = service.creerProgression(formationId, sessionId, phaseId, matiereId, 1, 2,
+                "Thème", "Contenu", null);
+
+        // Then
+        assertThat(resultat.getNumeroCours()).isEqualTo(2);
+        verify(progressionRepository).save(any(Progression.class));
     }
 }

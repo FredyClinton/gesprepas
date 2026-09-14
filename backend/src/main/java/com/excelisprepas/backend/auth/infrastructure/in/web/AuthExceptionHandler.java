@@ -1,6 +1,7 @@
 package com.excelisprepas.backend.auth.infrastructure.in.web;
 
 import com.excelisprepas.backend.shared.exception.AuthentificationEchoueeException;
+import com.excelisprepas.backend.shared.exception.TokenInvalideException;
 import com.excelisprepas.backend.shared.infrastructure.in.web.dto.ApiErrorResponse;
 
 import org.springframework.http.HttpStatus;
@@ -15,6 +16,11 @@ public class AuthExceptionHandler {
 
     @ExceptionHandler(AuthentificationEchoueeException.class)
     public ResponseEntity<ApiErrorResponse> gererAuthentificationEchouee(AuthentificationEchoueeException ex) {
+        return construireReponse(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
+    @ExceptionHandler(TokenInvalideException.class)
+    public ResponseEntity<ApiErrorResponse> gererTokenInvalide(TokenInvalideException ex) {
         return construireReponse(HttpStatus.UNAUTHORIZED, ex.getMessage());
     }
 

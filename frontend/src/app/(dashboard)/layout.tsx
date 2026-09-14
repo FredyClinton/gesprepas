@@ -27,7 +27,7 @@ export default async function DashboardLayout({
   // afficher de centre : c'est le rôle qui décide, pas la donnée.
   const centre =
     session.user.centreId && CENTRE_SCOPE_ROLES.has(session.user.role)
-      ? await getCentre(session.user.centreId)
+      ? await getCentre(session.user.centreId, session.accessToken)
       : null;
 
   return (

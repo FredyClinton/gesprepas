@@ -51,6 +51,25 @@ class RattachementCentreRepositoryAdapterTest extends AbstractIntegrationTest {
     }
 
     @Test
+    @DisplayName("findByUtilisateurIdAndSessionId() retrouve le rattachement correspondant")
+    void findByUtilisateurIdAndSessionIdRetrouve() {
+        // Given
+        UUID utilisateurId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        UUID centreId = UUID.randomUUID();
+        adapter.save(new RattachementCentre(UUID.randomUUID(), utilisateurId, sessionId, centreId));
+
+        // When
+        Optional<RattachementCentre> retrouve = adapter.findByUtilisateurIdAndSessionId(utilisateurId, sessionId);
+        Optional<RattachementCentre> absent = adapter.findByUtilisateurIdAndSessionId(utilisateurId, UUID.randomUUID());
+
+        // Then
+        assertThat(retrouve).isPresent();
+        assertThat(retrouve.get().getCentreId()).isEqualTo(centreId);
+        assertThat(absent).isEmpty();
+    }
+
+    @Test
     @DisplayName("existsByUtilisateurIdAndSessionId() détecte un rattachement existant")
     void existsByUtilisateurIdAndSessionIdDetecte() {
         // Given

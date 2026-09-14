@@ -10,6 +10,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class AffectationExceptionHandler {
 
+    @ExceptionHandler(AccesCentreInterditException.class)
+    public ResponseEntity<ApiErrorResponse> gererAccesCentreInterdit(AccesCentreInterditException ex) {
+        return construireReponse(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
     @ExceptionHandler(CentreIntrouvableException.class)
     public ResponseEntity<ApiErrorResponse> gererCentreIntrouvable(CentreIntrouvableException ex) {
         return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());

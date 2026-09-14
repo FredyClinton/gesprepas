@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -93,6 +94,7 @@ public class MouvementFinancierController {
             @ApiResponse(responseCode = "404", description = "Session, motif, centre, apprenant ou utilisateur introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Session non utilisable, motif inactif ou de type incorrect", content = @Content)
     })
+    @PreAuthorize("hasAuthority('FINANCIER_SAISIR_MOUVEMENT')")
     @PostMapping("/entrees")
     public ResponseEntity<EntreeResponse> saisirEntree(@Valid @RequestBody SaisirEntreeRequest request) {
         Entree entree = saisirEntreeUseCase.saisirEntree(request.sessionId(), request.motifId(), request.montant(),
@@ -107,6 +109,7 @@ public class MouvementFinancierController {
                     content = @Content(schema = @Schema(implementation = EntreeResponse.class))),
             @ApiResponse(responseCode = "404", description = "Apprenant introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('FINANCIER_CONSULTER')")
     @GetMapping("/entrees")
     public ResponseEntity<List<EntreeResponse>> listerVersementsApprenant(@RequestParam UUID apprenantId) {
         List<EntreeResponse> reponses = listerVersementsApprenantUseCase.listerVersementsApprenant(apprenantId).stream()
@@ -123,6 +126,7 @@ public class MouvementFinancierController {
             @ApiResponse(responseCode = "404", description = "Entrée introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Bilan déjà validé pour cette date ou mouvement verrouillé", content = @Content)
     })
+    @PreAuthorize("hasAuthority('FINANCIER_MODIFIER_MOUVEMENT')")
     @PutMapping("/entrees/{id}")
     public ResponseEntity<EntreeResponse> modifierEntree(@PathVariable UUID id, @Valid @RequestBody ModifierEntreeRequest request) {
         Entree entree = modifierEntreeUseCase.modifierEntree(id, request.montant(), request.date(), request.motifId(), request.apprenantId());
@@ -136,6 +140,7 @@ public class MouvementFinancierController {
             @ApiResponse(responseCode = "404", description = "Entrée introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Bilan déjà validé pour cette date ou mouvement verrouillé", content = @Content)
     })
+    @PreAuthorize("hasAuthority('FINANCIER_MODIFIER_MOUVEMENT')")
     @DeleteMapping("/entrees/{id}")
     public ResponseEntity<Void> supprimerEntree(@PathVariable UUID id) {
         supprimerEntreeUseCase.supprimerEntree(id);
@@ -150,6 +155,7 @@ public class MouvementFinancierController {
             @ApiResponse(responseCode = "404", description = "Session, motif, centre ou utilisateur introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Session non utilisable, motif inactif ou de type incorrect", content = @Content)
     })
+    @PreAuthorize("hasAuthority('FINANCIER_SAISIR_MOUVEMENT')")
     @PostMapping("/sorties")
     public ResponseEntity<SortieResponse> saisirSortie(@Valid @RequestBody SaisirSortieRequest request) {
         Sortie sortie = saisirSortieUseCase.saisirSortie(request.sessionId(), request.motifId(), request.montant(),
@@ -164,6 +170,7 @@ public class MouvementFinancierController {
                     content = @Content(schema = @Schema(implementation = MouvementFinancierResponse.class))),
             @ApiResponse(responseCode = "404", description = "Mouvement introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('FINANCIER_CONSULTER')")
     @GetMapping("/mouvements-financiers/{id}")
     public ResponseEntity<MouvementFinancierResponse> recupererMouvement(@PathVariable UUID id) {
         return ResponseEntity.ok(versReponseGenerique(recupererMouvementUseCase.recupererMouvement(id)));
@@ -176,6 +183,7 @@ public class MouvementFinancierController {
             @ApiResponse(responseCode = "200", description = "Liste des mouvements",
                     content = @Content(schema = @Schema(implementation = MouvementFinancierResponse.class)))
     })
+    @PreAuthorize("hasAuthority('FINANCIER_CONSULTER')")
     @GetMapping("/mouvements-financiers")
     public ResponseEntity<List<MouvementFinancierResponse>> listerMouvements(
             @RequestParam UUID sessionId,

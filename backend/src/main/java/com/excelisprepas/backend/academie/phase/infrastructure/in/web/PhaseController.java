@@ -1,6 +1,5 @@
 package com.excelisprepas.backend.academie.phase.infrastructure.in.web;
 
-import com.excelisprepas.backend.academie.phase.domain.model.Phase;
 import com.excelisprepas.backend.academie.phase.domain.port.out.PhaseRepositoryPort;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

@@ -1,11 +1,8 @@
 package com.excelisprepas.backend.livre.domain.service;
 
-import com.excelisprepas.backend.apprenant.domain.model.Apprenant;
 import com.excelisprepas.backend.apprenant.domain.port.out.ApprenantRepositoryPort;
 import com.excelisprepas.backend.centre.domain.model.Centre;
-import com.excelisprepas.backend.centre.domain.model.StatutCentre;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
-import com.excelisprepas.backend.financier.domain.model.Entree;
 import com.excelisprepas.backend.financier.domain.port.in.SaisirEntreeUseCase;
 import com.excelisprepas.backend.financier.domain.port.out.MotifRepositoryPort;
 import com.excelisprepas.backend.livre.domain.model.Livre;

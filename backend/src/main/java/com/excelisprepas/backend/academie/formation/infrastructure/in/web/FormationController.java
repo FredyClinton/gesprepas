@@ -17,6 +17,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -66,6 +67,7 @@ public class FormationController {
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content)
     })
     @PostMapping
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_FORMATIONS')")
     public ResponseEntity<FormationResponse> creerFormation(@Valid @RequestBody CreerFormationRequest request) {
         Formation formation = creerFormationUseCase.creerFormation(
                 request.nom(), request.matiereIds());
@@ -103,6 +105,7 @@ public class FormationController {
             @ApiResponse(responseCode = "404", description = "Formation introuvable", content = @Content)
     })
     @PatchMapping("/{id}/renommer")
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_FORMATIONS')")
     public ResponseEntity<FormationResponse> renommerFormation(
             @Parameter(description = "Identifiant de la formation") @PathVariable UUID id,
             @Valid @RequestBody RenommerFormationRequest request) {
@@ -116,6 +119,7 @@ public class FormationController {
             @ApiResponse(responseCode = "409", description = "Formation encore référencée par d'autres entités", content = @Content)
     })
     @DeleteMapping("/{id}")
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_FORMATIONS')")
     public ResponseEntity<Void> supprimerFormation(
             @Parameter(description = "Identifiant de la formation") @PathVariable UUID id) {
         supprimerFormationUseCase.supprimerFormation(id);
@@ -124,6 +128,7 @@ public class FormationController {
 
     @Operation(summary = "Associer une matière à une formation", description = "Ajoute une matière au programme pédagogique de la formation.")
     @PostMapping("/{id}/matieres/{matiereId}")
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_FORMATIONS')")
     public ResponseEntity<FormationResponse> associerMatiere(
             @Parameter(description = "Identifiant de la formation") @PathVariable UUID id,
             @Parameter(description = "Identifiant de la matière") @PathVariable UUID matiereId) {
@@ -133,6 +138,7 @@ public class FormationController {
 
     @Operation(summary = "Dissocier une matière d'une formation", description = "Retire une matière du programme pédagogique de la formation.")
     @DeleteMapping("/{id}/matieres/{matiereId}")
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_FORMATIONS')")
     public ResponseEntity<FormationResponse> dissocierMatiere(
             @Parameter(description = "Identifiant de la formation") @PathVariable UUID id,
             @Parameter(description = "Identifiant de la matière") @PathVariable UUID matiereId) {

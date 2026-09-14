@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
+import { useQueries } from "@tanstack/react-query";
 import { createPortal } from "react-dom";
 import {
   Printer,
@@ -27,10 +28,8 @@ import {
   type TypeProgression,
 } from "../domain/types";
 import { reordonnerMatieres } from "../hooks/useOrdreColonnes";
-import {
-  trouverCouleurParHex,
-  getCouleurBadgeStyle,
-} from "@/modules/matieres";
+import { quotaHebdomadaireQueryOptions } from "../data/queries";
+import { trouverCouleurParHex, getCouleurBadgeStyle } from "@/modules/matieres";
 
 interface ExporterProgressionModalProps {
   isOpen: boolean;
@@ -43,24 +42,6 @@ interface ExporterProgressionModalProps {
   sessionId?: string;
   progressions: Progression[];
   affectations?: Affectation[];
-}
-
-function getQuotaForFormation(
-  formationId: string,
-  semaine: number,
-  matiereId: string,
-  defaut: number = 0,
-): number {
-  if (typeof window === "undefined") return defaut;
-  try {
-    const raw = localStorage.getItem(`excelis_quotas_${formationId}`);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      const key = `${semaine}_${matiereId}`;
-      if (parsed[key] !== undefined) return parsed[key];
-    }
-  } catch {}
-  return defaut;
 }
 
 function parseContenuLines(contenu?: string | null): string[] {
@@ -95,7 +76,8 @@ export function ExporterProgressionModal({
   >(semaineActive);
 
   // Masquer les disciplines non programmées (quota 00 et aucun cours)
-  const [masquerNonProgrammes, setMasquerNonProgrammes] = useState<boolean>(true);
+  const [masquerNonProgrammes, setMasquerNonProgrammes] =
+    useState<boolean>(true);
 
   // Liste ordonnée de toutes les semaines existantes dans les progressions ou affectations
   const toutesLesSemaines = useMemo(() => {
@@ -108,10 +90,11 @@ export function ExporterProgressionModal({
   }, [progressions, affectations]);
 
   // Récupérer les affectations pour toutes les semaines pertinentes de la session
-  const { data: affectationsToutesSemaines = [] } = useAffectationsMultiSemaines({
-    sessionId,
-    semaines: toutesLesSemaines,
-  });
+  const { data: affectationsToutesSemaines = [] } =
+    useAffectationsMultiSemaines({
+      sessionId,
+      semaines: toutesLesSemaines,
+    });
 
   const toutesAffectations = useMemo(() => {
     const map = new Map<string, Affectation>();
@@ -184,7 +167,9 @@ export function ExporterProgressionModal({
 
       map.set(
         f.id,
-        ordrePerso ? reordonnerMatieres(toutesLesMatieres, ordrePerso) : toutesLesMatieres,
+        ordrePerso
+          ? reordonnerMatieres(toutesLesMatieres, ordrePerso)
+          : toutesLesMatieres,
       );
     });
 
@@ -206,6 +191,29 @@ export function ExporterProgressionModal({
     const f = formations.find((item) => item.id === formationSelectionnee);
     return f ? [f] : formations;
   }, [formations, formationSelectionnee]);
+
+  // Quotas hebdomadaires réels (backend, plus de localStorage) des formations
+  // exportées - useQueries plutôt que le hook useProgressionQuotas, qui ne peut
+  // pas être appelé en boucle pour chaque formation.
+  const quotasQueries = useQueries({
+    queries: (sessionId ? formationsAExporter : []).map((formation) =>
+      quotaHebdomadaireQueryOptions(formation.id, sessionId!),
+    ),
+  });
+
+  // Pas de useMemo ici : quotasQueries (useQueries) est un nouveau tableau à
+  // chaque rendu, donc le mémoriser n'apporterait rien - la reconstruction de
+  // cette map reste de toute façon bornée (quelques formations x matières x
+  // semaines), donc négligeable.
+  const quotasParFormationSemaineMatiere = new Map<string, number>();
+  quotasQueries.forEach((q) => {
+    (q.data ?? []).forEach((quota) => {
+      quotasParFormationSemaineMatiere.set(
+        `${quota.formationId}_${quota.semaine}_${quota.matiereId}`,
+        quota.quota,
+      );
+    });
+  });
 
   // Semaines à exporter pour le document
   const semainesAExporter = useMemo(() => {
@@ -264,7 +272,7 @@ export function ExporterProgressionModal({
   const modalContent = (
     <div
       id="printable-progression-modal"
-      className="printable-progression-modal fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-brand-anthracite/60 backdrop-blur-xs animate-in fade-in duration-150 print:static print:block print:p-0 print:m-0 print:bg-white print:overflow-visible print:h-auto print:max-h-none print:w-full print:inset-auto print:z-auto"
+      className="printable-progression-modal bg-brand-anthracite/60 animate-in fade-in fixed inset-0 z-50 flex items-center justify-center p-3 backdrop-blur-xs duration-150 sm:p-5 print:static print:inset-auto print:z-auto print:m-0 print:block print:h-auto print:max-h-none print:w-full print:overflow-visible print:bg-white print:p-0"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -272,13 +280,13 @@ export function ExporterProgressionModal({
       aria-modal="true"
     >
       <div
-        className="relative flex flex-col w-full max-w-6xl h-[92vh] max-h-[92vh] rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden print:static print:block print:max-h-none print:h-auto print:w-full print:max-w-none print:overflow-visible print:rounded-none print:border-none print:shadow-none print:m-0 print:p-0"
+        className="relative flex h-[92vh] max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl print:static print:m-0 print:block print:h-auto print:max-h-none print:w-full print:max-w-none print:overflow-visible print:rounded-none print:border-none print:p-0 print:shadow-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Barre de contrôle supérieure (Masquée à l'impression) */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 bg-white px-6 py-3.5 gap-3 print:hidden shrink-0">
+        <div className="flex shrink-0 flex-col justify-between gap-3 border-b border-slate-200 bg-white px-6 py-3.5 sm:flex-row sm:items-center print:hidden">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-orange text-white shadow-sm">
+            <div className="bg-brand-orange flex h-9 w-9 items-center justify-center rounded-xl text-white shadow-sm">
               <Printer className="h-5 w-5" />
             </div>
             <div>
@@ -286,7 +294,9 @@ export function ExporterProgressionModal({
                 Aperçu avant impression — Progression Pédagogique
               </h3>
               <p className="text-xs text-slate-500">
-                Prévisualisation haute fidélité au format officiel A4 Paysage ({feuillesAExporter.length} page{feuillesAExporter.length > 1 ? "s" : ""})
+                Prévisualisation haute fidélité au format officiel A4 Paysage (
+                {feuillesAExporter.length} page
+                {feuillesAExporter.length > 1 ? "s" : ""})
               </p>
             </div>
           </div>
@@ -295,7 +305,7 @@ export function ExporterProgressionModal({
             <button
               type="button"
               onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-brand-orange px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-orange-600 transition-colors cursor-pointer active:scale-95"
+              className="bg-brand-orange inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-orange-600 active:scale-95"
             >
               <Printer className="h-4 w-4" />
               <span>Imprimer / Exporter PDF</span>
@@ -303,7 +313,7 @@ export function ExporterProgressionModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
+              className="cursor-pointer rounded-xl p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
               title="Fermer (Échap)"
             >
               <X className="h-5 w-5" />
@@ -312,17 +322,17 @@ export function ExporterProgressionModal({
         </div>
 
         {/* Options de compilation et filtrage (Masquées à l'impression) */}
-        <div className="border-b border-slate-200/80 bg-white px-6 py-3.5 space-y-3 print:hidden">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
+        <div className="space-y-3 border-b border-slate-200/80 bg-white px-6 py-3.5 print:hidden">
+          <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-3">
             {/* Choix de formation */}
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+              <label className="mb-1 block text-[11px] font-bold tracking-wider text-slate-500 uppercase">
                 Formation à inclure
               </label>
               <select
                 value={formationSelectionnee}
                 onChange={(e) => setFormationSelectionnee(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 focus:border-brand-orange focus:outline-none"
+                className="focus:border-brand-orange w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none"
               >
                 <option value="TOUTES">
                   🌟 Toutes les formations ({formations.length})
@@ -337,17 +347,19 @@ export function ExporterProgressionModal({
 
             {/* Choix de semaine */}
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+              <label className="mb-1 block text-[11px] font-bold tracking-wider text-slate-500 uppercase">
                 Semaines à exporter
               </label>
               <select
                 value={semaineSelectionnee}
                 onChange={(e) =>
                   setSemaineSelectionnee(
-                    e.target.value === "TOUTES" ? "TOUTES" : Number(e.target.value),
+                    e.target.value === "TOUTES"
+                      ? "TOUTES"
+                      : Number(e.target.value),
                   )
                 }
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 focus:border-brand-orange focus:outline-none"
+                className="focus:border-brand-orange w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none"
               >
                 <option value="TOUTES">
                   Toutes les semaines (S1 à S{toutesLesSemaines.length || 1})
@@ -364,47 +376,46 @@ export function ExporterProgressionModal({
             <div className="flex items-center pt-5">
               <label
                 onClick={() => setMasquerNonProgrammes(!masquerNonProgrammes)}
-                className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-slate-700 hover:text-brand-orange transition-colors"
+                className="hover:text-brand-orange flex cursor-pointer items-center gap-2 text-xs font-bold text-slate-700 transition-colors select-none"
               >
                 <div
-                  className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${
+                  className={`flex h-5 w-5 items-center justify-center rounded-md border transition-all ${
                     masquerNonProgrammes
                       ? "bg-brand-orange border-brand-orange text-white"
-                      : "bg-white border-slate-300 text-transparent"
+                      : "border-slate-300 bg-white text-transparent"
                   }`}
                 >
                   <CheckSquare size={14} />
                 </div>
-                <span>
-                  Masquer les disciplines à quota 00 (gain de place)
-                </span>
+                <span>Masquer les disciplines à quota 00 (gain de place)</span>
               </label>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 text-[11px] text-slate-500 bg-amber-50/60 border border-amber-200/60 rounded-lg px-3 py-1.5">
-            <AlertCircle size={13} className="text-amber-600 shrink-0" />
+          <div className="flex items-center gap-2 rounded-lg border border-amber-200/60 bg-amber-50/60 px-3 py-1.5 text-[11px] text-slate-500">
+            <AlertCircle size={13} className="shrink-0 text-amber-600" />
             <span>
-              <strong>Aperçu fidèle :</strong> Chaque feuille ci-dessous correspond exactement à une page A4 paysage imprimée ({feuillesAExporter.length} page{feuillesAExporter.length > 1 ? "s" : ""} au total), avec son cartouche officiel, son tableau complet et ses visas de validation.
+              <strong>Aperçu fidèle :</strong> Chaque feuille ci-dessous
+              correspond exactement à une page A4 paysage imprimée (
+              {feuillesAExporter.length} page
+              {feuillesAExporter.length > 1 ? "s" : ""} au total), avec son
+              cartouche officiel, son tableau complet et ses visas de
+              validation.
             </span>
           </div>
         </div>
 
         {/* Corps du document imprimable / Aperçu */}
-        <div className="flex-1 overflow-y-auto bg-slate-100/70 p-4 sm:p-8 print:bg-white print:p-0 print:overflow-visible print:h-auto print:max-h-none print:block">
+        <div className="flex-1 overflow-y-auto bg-slate-100/70 p-4 sm:p-8 print:block print:h-auto print:max-h-none print:overflow-visible print:bg-white print:p-0">
           <div className="space-y-8 print:space-y-0">
             {feuillesAExporter.map(({ formation, semaine }, index) => {
               const estDerniereFeuille = index === feuillesAExporter.length - 1;
 
               const progressionsSemaine = progressions.filter(
-                (p) =>
-                  p.formationId === formation.id &&
-                  p.semaine === semaine,
+                (p) => p.formationId === formation.id && p.semaine === semaine,
               );
               const affectationsSemaine = toutesAffectations.filter(
-                (a) =>
-                  a.formationId === formation.id &&
-                  a.semaine === semaine,
+                (a) => a.formationId === formation.id && a.semaine === semaine,
               );
 
               // Analyser les matières actives et non programmées
@@ -435,19 +446,21 @@ export function ExporterProgressionModal({
                     : progsMatiere.length > 0
                       ? progsMatiere.length
                       : 0;
-                const quota = getQuotaForFormation(
-                  formation.id,
-                  semaine,
-                  m.id,
-                  defaultQuota,
-                );
+                const quota =
+                  quotasParFormationSemaineMatiere.get(
+                    `${formation.id}_${semaine}_${m.id}`,
+                  ) ?? defaultQuota;
 
                 // Règle métier :
                 // Les cours prévus mais pas documentés doivent quand même figurer dans le tableau.
                 // C'est quand la matière n'a AUCUNE séance prévue qu'elle est considérée comme non programmée.
                 const aDesCoursPrevus =
                   nbSeances > 0 || quota > 0 || progsMatiere.length > 0;
-                const quotaEffectif = Math.max(nbSeances, quota, progsMatiere.length);
+                const quotaEffectif = Math.max(
+                  nbSeances,
+                  quota,
+                  progsMatiere.length,
+                );
 
                 if (masquerNonProgrammes && !aDesCoursPrevus) {
                   matieresNonProgrammes.push({ matiere: m, quota: 0 });
@@ -479,7 +492,7 @@ export function ExporterProgressionModal({
               return (
                 <div
                   key={`${formation.id}_${semaine}`}
-                  className="progression-sheet-page bg-white p-6 sm:p-8 mx-auto w-full max-w-5xl shadow-md border border-slate-300/80 rounded-sm print:max-w-none print:w-full print:p-0 print:m-0 print:shadow-none print:border-none print:rounded-none mb-8 print:mb-0 flex flex-col justify-between"
+                  className="progression-sheet-page mx-auto mb-8 flex w-full max-w-5xl flex-col justify-between rounded-sm border border-slate-300/80 bg-white p-6 shadow-md sm:p-8 print:m-0 print:mb-0 print:w-full print:max-w-none print:rounded-none print:border-none print:p-0 print:shadow-none"
                   style={{
                     pageBreakAfter: estDerniereFeuille ? "auto" : "always",
                     breakAfter: estDerniereFeuille ? "auto" : "page",
@@ -488,32 +501,34 @@ export function ExporterProgressionModal({
                   }}
                 >
                   {/* Indicateur de page à l'écran (masqué à l'impression) */}
-                  <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-100 text-[11px] font-bold text-slate-400 print:hidden">
+                  <div className="mb-3 flex items-center justify-between border-b border-slate-100 pb-2 text-[11px] font-bold text-slate-400 print:hidden">
                     <span className="flex items-center gap-1.5">
                       <FileText size={13} className="text-brand-orange" />
                       <span>
-                        Page {index + 1} / {feuillesAExporter.length} — {formation.nom} (Semaine {semaine})
+                        Page {index + 1} / {feuillesAExporter.length} —{" "}
+                        {formation.nom} (Semaine {semaine})
                       </span>
                     </span>
-                    <span className="text-[10px] uppercase tracking-wider bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-semibold">
+                    <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-slate-500 uppercase">
                       Format A4 Paysage
                     </span>
                   </div>
 
                   {/* Cartouche officiel EXCELIS PRÉPAS pour cette feuille */}
-                  <div className="mb-2.5 border-2 border-brand-orange rounded-xl bg-orange-50/20 p-2.5 print:p-2 print:mb-2">
-                    <div className="flex items-start justify-between border-b border-orange-200 pb-1.5 mb-2">
+                  <div className="border-brand-orange mb-2.5 rounded-xl border-2 bg-orange-50/20 p-2.5 print:mb-2 print:p-2">
+                    <div className="mb-2 flex items-start justify-between border-b border-orange-200 pb-1.5">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-base sm:text-lg font-black tracking-tight text-slate-900 uppercase">
+                          <span className="text-base font-black tracking-tight text-slate-900 uppercase sm:text-lg">
                             EXCELIS PRÉPAS
                           </span>
-                          <span className="text-xs font-bold text-brand-orange">
+                          <span className="text-brand-orange text-xs font-bold">
                             — FICHE DE PROGRESSION PÉDAGOGIQUE
                           </span>
                         </div>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                          Classes Préparatoires aux Grandes Écoles & Concours d'Excellence
+                        <p className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">
+                          Classes Préparatoires aux Grandes Écoles & Concours
+                          d'Excellence
                         </p>
                       </div>
 
@@ -521,27 +536,29 @@ export function ExporterProgressionModal({
                         <p className="font-black text-slate-900">
                           SESSION {sessionAnnee}
                         </p>
-                        <p className="text-[10px] text-slate-500 font-medium">
+                        <p className="text-[10px] font-medium text-slate-500">
                           Édité le {new Date().toLocaleDateString("fr-FR")}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-between text-xs font-semibold text-slate-700 gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-700">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-slate-500 uppercase text-[10px] font-bold">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">
                           FORMATION :
                         </span>{" "}
-                        <span className="font-black text-slate-900 uppercase bg-white border border-slate-200 px-2 py-0.5 rounded-md text-xs">
+                        <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-black text-slate-900 uppercase">
                           {formation.nom}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="bg-brand-orange text-white font-black text-[11px] px-2 py-0.5 rounded uppercase">
+                        <span className="bg-brand-orange rounded px-2 py-0.5 text-[11px] font-black text-white uppercase">
                           Semaine {semaine}
                         </span>
-                        <span className="text-[10px] text-slate-500 font-medium">
-                          ({matieresActives.length} discipline{matieresActives.length > 1 ? "s" : ""} active{matieresActives.length > 1 ? "s" : ""})
+                        <span className="text-[10px] font-medium text-slate-500">
+                          ({matieresActives.length} discipline
+                          {matieresActives.length > 1 ? "s" : ""} active
+                          {matieresActives.length > 1 ? "s" : ""})
                         </span>
                       </div>
                     </div>
@@ -549,15 +566,16 @@ export function ExporterProgressionModal({
 
                   {/* Tableau grille de la semaine */}
                   {matieresActives.length === 0 ? (
-                    <div className="py-8 text-center text-xs text-slate-500 bg-slate-50/50 rounded-lg border border-slate-200">
-                      Aucune discipline active pour {formation.nom} en Semaine {semaine}.
+                    <div className="rounded-lg border border-slate-200 bg-slate-50/50 py-8 text-center text-xs text-slate-500">
+                      Aucune discipline active pour {formation.nom} en Semaine{" "}
+                      {semaine}.
                     </div>
                   ) : (
                     <div className="overflow-x-auto print:overflow-visible">
-                      <table className="w-full table-fixed border-collapse text-left text-xs border border-slate-300">
+                      <table className="w-full table-fixed border-collapse border border-slate-300 text-left text-xs">
                         <thead>
                           <tr className="bg-brand-orange text-white">
-                            <th className="w-16 p-2 text-center font-black uppercase tracking-wider text-[11px] border-r border-orange-600/50">
+                            <th className="w-16 border-r border-orange-600/50 p-2 text-center text-[11px] font-black tracking-wider uppercase">
                               COURS
                             </th>
                             {matieresActives.map(
@@ -565,15 +583,17 @@ export function ExporterProgressionModal({
                                 return (
                                   <th
                                     key={matiere.id}
-                                    className="p-2 text-center font-black uppercase tracking-wider text-xs border-r border-orange-600/50 last:border-r-0"
+                                    className="border-r border-orange-600/50 p-2 text-center text-xs font-black tracking-wider uppercase last:border-r-0"
                                   >
-                                    <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                                      <span className="truncate">{matiere.nom}</span>
+                                    <div className="flex flex-wrap items-center justify-center gap-1.5">
+                                      <span className="truncate">
+                                        {matiere.nom}
+                                      </span>
                                       <span className="font-mono text-[11px] opacity-95">
                                         ({String(quota).padStart(2, "0")})
                                       </span>
                                     </div>
-                                    <div className="text-[10px] font-normal opacity-85 normal-case mt-0.5">
+                                    <div className="mt-0.5 text-[10px] font-normal normal-case opacity-85">
                                       {quota === 0
                                         ? "Dispensé"
                                         : progs.length === 0
@@ -591,10 +611,10 @@ export function ExporterProgressionModal({
                           {numerosCours.map((numCours) => (
                             <tr
                               key={numCours}
-                              className="hover:bg-slate-50/50 transition-colors"
+                              className="transition-colors hover:bg-slate-50/50"
                             >
                               {/* En-tête de ligne COURS 1, COURS 2... */}
-                              <td className="p-2 text-center font-black bg-slate-50/80 text-slate-700 border-r border-slate-200 text-xs whitespace-nowrap align-middle">
+                              <td className="border-r border-slate-200 bg-slate-50/80 p-2 text-center align-middle text-xs font-black whitespace-nowrap text-slate-700">
                                 COURS {numCours}
                               </td>
 
@@ -604,14 +624,13 @@ export function ExporterProgressionModal({
                                   const prog = progs.find(
                                     (p) => p.numeroCours === numCours,
                                   );
-                                  const estExcedentaire =
-                                    numCours > quota;
+                                  const estExcedentaire = numCours > quota;
 
                                   if (!prog && estExcedentaire) {
                                     return (
                                       <td
                                         key={matiere.id}
-                                        className="p-2 text-center bg-slate-50/40 border-r border-slate-200 text-[10px] font-medium text-slate-300 italic last:border-r-0 align-middle"
+                                        className="border-r border-slate-200 bg-slate-50/40 p-2 text-center align-middle text-[10px] font-medium text-slate-300 italic last:border-r-0"
                                       >
                                         —
                                       </td>
@@ -622,13 +641,13 @@ export function ExporterProgressionModal({
                                     return (
                                       <td
                                         key={matiere.id}
-                                        className="p-2 text-center border-r border-slate-200 bg-amber-50/15 last:border-r-0 align-middle"
+                                        className="border-r border-slate-200 bg-amber-50/15 p-2 text-center align-middle last:border-r-0"
                                       >
-                                        <div className="inline-flex flex-col items-center justify-center py-1 px-2 rounded border border-dashed border-amber-300/80 bg-amber-50/40 text-amber-900 min-w-[100px]">
-                                          <span className="text-[9px] font-black uppercase tracking-wider text-amber-700">
+                                        <div className="inline-flex min-w-[100px] flex-col items-center justify-center rounded border border-dashed border-amber-300/80 bg-amber-50/40 px-2 py-1 text-amber-900">
+                                          <span className="text-[9px] font-black tracking-wider text-amber-700 uppercase">
                                             Cours prévu
                                           </span>
-                                          <span className="text-[10px] italic text-slate-400">
+                                          <span className="text-[10px] text-slate-400 italic">
                                             Non documenté
                                           </span>
                                         </div>
@@ -636,26 +655,31 @@ export function ExporterProgressionModal({
                                     );
                                   }
 
-                                  const { type, titre } = decomposerTheme(prog.theme);
+                                  const { type, titre } = decomposerTheme(
+                                    prog.theme,
+                                  );
                                   const lines = parseContenuLines(prog.contenu);
                                   const couleur = trouverCouleurParHex(
                                     matiere.couleur,
                                   );
-                                  const estRattrapage =
-                                    prog.theme?.toUpperCase().includes("RATTRAPAGE");
+                                  const estRattrapage = prog.theme
+                                    ?.toUpperCase()
+                                    .includes("RATTRAPAGE");
 
                                   return (
                                     <td
                                       key={matiere.id}
-                                      className="p-2 align-top border-r border-slate-200 space-y-1 last:border-r-0 break-words"
+                                      className="space-y-1 border-r border-slate-200 p-2 align-top break-words last:border-r-0"
                                     >
                                       {/* Type de cours & Badge Rattrapage */}
-                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                      <div className="flex flex-wrap items-center gap-1.5">
                                         <span
-                                          className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded border leading-none inline-block"
+                                          className="inline-block rounded border px-1.5 py-0.5 text-[9px] leading-none font-black uppercase"
                                           style={
                                             couleur?.hex
-                                              ? getCouleurBadgeStyle(couleur.hex)
+                                              ? getCouleurBadgeStyle(
+                                                  couleur.hex,
+                                                )
                                               : {
                                                   backgroundColor: "#f1f5f9",
                                                   color: "#334155",
@@ -666,24 +690,28 @@ export function ExporterProgressionModal({
                                           {type}
                                         </span>
                                         {estRattrapage && (
-                                          <span className="text-[9px] font-black uppercase px-1 py-0.5 border border-purple-400 bg-purple-50 text-purple-900 rounded leading-none inline-block">
+                                          <span className="inline-block rounded border border-purple-400 bg-purple-50 px-1 py-0.5 text-[9px] leading-none font-black text-purple-900 uppercase">
                                             [RATTRAPAGE]
                                           </span>
                                         )}
                                       </div>
 
                                       {/* Thème principal */}
-                                      <p className="font-extrabold text-slate-900 text-[11px] leading-snug break-words">
+                                      <p className="text-[11px] leading-snug font-extrabold break-words text-slate-900">
                                         {titre || prog.theme || "Sans titre"}
                                       </p>
 
                                       {/* Points / Contenu de la séance */}
-                                      {lines.filter((l) => l.trim().length > 0).length > 0 && (
-                                        <ul className="list-disc list-inside space-y-0.5 text-[10px] text-slate-700 leading-tight">
+                                      {lines.filter((l) => l.trim().length > 0)
+                                        .length > 0 && (
+                                        <ul className="list-inside list-disc space-y-0.5 text-[10px] leading-tight text-slate-700">
                                           {lines
                                             .filter((l) => l.trim().length > 0)
                                             .map((line, idx) => (
-                                              <li key={idx} className="break-words">
+                                              <li
+                                                key={idx}
+                                                className="break-words"
+                                              >
                                                 {line}
                                               </li>
                                             ))}
@@ -691,14 +719,15 @@ export function ExporterProgressionModal({
                                       )}
 
                                       {/* Exercices associés */}
-                                      {prog.exercices && prog.exercices.trim() && (
-                                        <p className="text-[9px] text-slate-600 pt-0.5 border-t border-slate-100 break-words">
-                                          <strong className="font-bold uppercase text-[8px] text-slate-500">
-                                            Exercices :{" "}
-                                          </strong>
-                                          <span>{prog.exercices}</span>
-                                        </p>
-                                      )}
+                                      {prog.exercices &&
+                                        prog.exercices.trim() && (
+                                          <p className="border-t border-slate-100 pt-0.5 text-[9px] break-words text-slate-600">
+                                            <strong className="text-[8px] font-bold text-slate-500 uppercase">
+                                              Exercices :{" "}
+                                            </strong>
+                                            <span>{prog.exercices}</span>
+                                          </p>
+                                        )}
                                     </td>
                                   );
                                 },
@@ -712,15 +741,15 @@ export function ExporterProgressionModal({
 
                   {/* Note de bas de tableau : Disciplines non programmées */}
                   {matieresNonProgrammes.length > 0 && (
-                    <div className="bg-slate-50 border border-t-0 border-slate-200 px-3 py-1.5 text-[11px] text-slate-600 flex items-center gap-2 rounded-b-lg">
-                      <span className="font-bold text-slate-700 shrink-0">
+                    <div className="flex items-center gap-2 rounded-b-lg border border-t-0 border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] text-slate-600">
+                      <span className="shrink-0 font-bold text-slate-700">
                         Disciplines non programmées cette semaine :
                       </span>
                       <div className="flex flex-wrap gap-1.5">
                         {matieresNonProgrammes.map(({ matiere }) => (
                           <span
                             key={matiere.id}
-                            className="inline-flex items-center gap-1 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-[10px] font-semibold text-slate-600"
+                            className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-600"
                           >
                             <span>{matiere.nom}</span>
                             <span className="font-mono text-slate-400">
@@ -734,26 +763,28 @@ export function ExporterProgressionModal({
 
                   {/* Bloc de signature officiel EXCELIS pour cette feuille */}
                   <div
-                    className="mt-6 pt-3 border-t-2 border-slate-200 grid grid-cols-2 gap-8 text-xs print:mt-3 print:pt-2"
+                    className="mt-6 grid grid-cols-2 gap-8 border-t-2 border-slate-200 pt-3 text-xs print:mt-3 print:pt-2"
                     style={{
                       breakInside: "avoid",
                       pageBreakInside: "avoid",
                     }}
                   >
                     <div>
-                      <p className="font-bold uppercase text-slate-700 mb-4 text-[11px]">
+                      <p className="mb-4 text-[11px] font-bold text-slate-700 uppercase">
                         Visa du Chef de Département / Enseignants :
                       </p>
                       <p className="text-[10px] text-slate-400 italic">
-                        Date et signature : ........................................
+                        Date et signature :
+                        ........................................
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold uppercase text-slate-700 mb-4 text-[11px]">
+                      <p className="mb-4 text-[11px] font-bold text-slate-700 uppercase">
                         Visa de la Direction Académique :
                       </p>
                       <p className="text-[10px] text-slate-400 italic">
-                        Cachet & Approbation : ........................................
+                        Cachet & Approbation :
+                        ........................................
                       </p>
                     </div>
                   </div>
@@ -768,4 +799,3 @@ export function ExporterProgressionModal({
 
   return createPortal(modalContent, document.body);
 }
-

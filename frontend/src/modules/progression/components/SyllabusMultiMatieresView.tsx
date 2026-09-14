@@ -35,6 +35,7 @@ import { ExporterProgressionModal } from "./ExporterProgressionModal";
 import { useFormations, type Formation } from "@/modules/academique";
 import type { Matiere } from "@/modules/matieres";
 import type { Affectation } from "@/modules/affectation";
+import { SelecteurSemaine } from "@/modules/centres-sessions";
 
 // ── Utilitaires de conversion Lignes <-> Contenu texte ──
 
@@ -148,7 +149,11 @@ function CelluleMultiMatiereInSitu({
       setTimeout(() => {
         lineInputRefs.current[index + 1]?.focus();
       }, 10);
-    } else if (e.key === "Backspace" && lines[index] === "" && lines.length > 1) {
+    } else if (
+      e.key === "Backspace" &&
+      lines[index] === "" &&
+      lines.length > 1
+    ) {
       e.preventDefault();
       const newLines = lines.filter((_, i) => i !== index);
       setLines(newLines);
@@ -281,8 +286,8 @@ function CelluleMultiMatiereInSitu({
   // Si quota fixé à 0 et pas de progression enregistrée : discipline non dispensée cette semaine
   if (quota === 0 && !progression) {
     return (
-      <td className="p-3 align-middle text-center border-r border-b border-slate-200 bg-slate-50/40 min-w-[280px] max-w-[340px]">
-        <div className="flex flex-col items-center justify-center gap-1 py-3 text-slate-400 select-none no-print">
+      <td className="max-w-[340px] min-w-[280px] border-r border-b border-slate-200 bg-slate-50/40 p-3 text-center align-middle">
+        <div className="no-print flex flex-col items-center justify-center gap-1 py-3 text-slate-400 select-none">
           <span className="text-[11px] font-bold text-slate-400">
             Aucun cours prévu (Quota : 0)
           </span>
@@ -290,7 +295,9 @@ function CelluleMultiMatiereInSitu({
             Discipline non dispensée cette semaine
           </span>
         </div>
-        <span className="hidden print:inline text-slate-300 select-none text-xs">—</span>
+        <span className="hidden text-xs text-slate-300 select-none print:inline">
+          —
+        </span>
       </td>
     );
   }
@@ -298,8 +305,8 @@ function CelluleMultiMatiereInSitu({
   // Si verrouillé par le quota fixé et aucun cours n'y est déjà enregistré : case inactive
   if (estVerrouille && !progression) {
     return (
-      <td className="p-3 align-middle text-center border-r border-b border-slate-200 bg-slate-50/50 min-w-[280px] max-w-[340px]">
-        <div className="flex flex-col items-center justify-center gap-1.5 py-4 text-slate-400 select-none no-print">
+      <td className="max-w-[340px] min-w-[280px] border-r border-b border-slate-200 bg-slate-50/50 p-3 text-center align-middle">
+        <div className="no-print flex flex-col items-center justify-center gap-1.5 py-4 text-slate-400 select-none">
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-200/70 text-slate-400">
             <Lock size={13} />
           </div>
@@ -310,7 +317,9 @@ function CelluleMultiMatiereInSitu({
             Quota fixé à {quota ?? 3} cours par la Direction
           </span>
         </div>
-        <span className="hidden print:inline text-slate-300 select-none text-xs">—</span>
+        <span className="hidden text-xs text-slate-300 select-none print:inline">
+          —
+        </span>
       </td>
     );
   }
@@ -318,30 +327,32 @@ function CelluleMultiMatiereInSitu({
   // Si pas de progression et pas activé : case incitative sobre
   if (!estActif) {
     return (
-      <td className="p-3 align-middle text-center border-r border-b border-slate-200 bg-slate-50/20 hover:bg-orange-50/20 transition-colors">
+      <td className="border-r border-b border-slate-200 bg-slate-50/20 p-3 text-center align-middle transition-colors hover:bg-orange-50/20">
         <button
           type="button"
           onClick={activerEdition}
-          className="no-print group inline-flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 hover:border-brand-orange bg-white/80 hover:bg-white px-3 py-4 text-xs font-semibold text-slate-500 hover:text-brand-orange transition-all cursor-pointer w-full min-h-[90px]"
+          className="no-print group hover:border-brand-orange hover:text-brand-orange inline-flex min-h-[90px] w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-white/80 px-3 py-4 text-xs font-semibold text-slate-500 transition-all hover:bg-white"
         >
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 group-hover:bg-orange-100 text-slate-400 group-hover:text-brand-orange transition-colors">
+          <div className="group-hover:text-brand-orange flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-slate-400 transition-colors group-hover:bg-orange-100">
             <Plus size={14} />
           </div>
           <span className="text-[11px] font-bold">
             + Renseigner {labelNumeroCours(numeroCours)}
           </span>
-          <span className="text-[10px] text-slate-400 font-medium">
+          <span className="text-[10px] font-medium text-slate-400">
             {matiereNom}
           </span>
         </button>
-        <span className="hidden print:inline text-slate-300 select-none text-xs">—</span>
+        <span className="hidden text-xs text-slate-300 select-none print:inline">
+          —
+        </span>
       </td>
     );
   }
 
   return (
     <td
-      className={`p-3 align-top border-r border-b border-slate-200 transition-colors min-w-[280px] max-w-[340px] ${
+      className={`max-w-[340px] min-w-[280px] border-r border-b border-slate-200 p-3 align-top transition-colors ${
         statutSauvegarde === "dirty" ? "bg-orange-50/25" : "bg-white"
       }`}
       onKeyDown={(e) => {
@@ -352,23 +363,23 @@ function CelluleMultiMatiereInSitu({
       }}
     >
       {/* ── Vue Impression Haute Fidélité (Pure lecture, masquée à l'écran) ── */}
-      <div className="hidden print:block space-y-1.5 text-left p-0.5">
+      <div className="hidden space-y-1.5 p-0.5 text-left print:block">
         <div className="border-b border-slate-300 pb-1">
-          <span className="font-black text-[10px] uppercase mr-1 px-1.5 py-0.5 border border-slate-800 rounded bg-slate-100">
+          <span className="mr-1 rounded border border-slate-800 bg-slate-100 px-1.5 py-0.5 text-[10px] font-black uppercase">
             {typeProgression}
           </span>
-          <span className="font-extrabold text-[11px] uppercase tracking-tight text-slate-900">
+          <span className="text-[11px] font-extrabold tracking-tight text-slate-900 uppercase">
             {titreTheme || progression?.theme || "Sans titre"}
           </span>
           {progression?.theme?.toUpperCase().includes("RATTRAPAGE") && (
-            <span className="ml-1 text-[9px] font-black uppercase px-1 py-0.2 border border-purple-400 bg-purple-50 text-purple-900 rounded">
+            <span className="py-0.2 ml-1 rounded border border-purple-400 bg-purple-50 px-1 text-[9px] font-black text-purple-900 uppercase">
               [RATTRAPAGE]
             </span>
           )}
         </div>
 
         {lines.filter((l) => l.trim().length > 0).length > 0 && (
-          <ul className="list-disc list-inside space-y-0.5 text-[11px] text-slate-800 leading-snug py-0.5">
+          <ul className="list-inside list-disc space-y-0.5 py-0.5 text-[11px] leading-snug text-slate-800">
             {lines
               .filter((l) => l.trim().length > 0)
               .map((line, idx) => (
@@ -378,8 +389,10 @@ function CelluleMultiMatiereInSitu({
         )}
 
         {exercices.trim() && (
-          <p className="text-[10px] text-slate-800 pt-0.5 border-t border-slate-200">
-            <strong className="font-bold uppercase text-[9px] text-slate-600">Exercices : </strong>
+          <p className="border-t border-slate-200 pt-0.5 text-[10px] text-slate-800">
+            <strong className="text-[9px] font-bold text-slate-600 uppercase">
+              Exercices :{" "}
+            </strong>
             <span>{exercices}</span>
           </p>
         )}
@@ -393,11 +406,13 @@ function CelluleMultiMatiereInSitu({
             {estVerrouille && progression && (
               <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
                 <Lock size={10} />
-                <span>Hors quota ({numeroCours}/{quota})</span>
+                <span>
+                  Hors quota ({numeroCours}/{quota})
+                </span>
               </span>
             )}
             {statutSauvegarde === "saving" && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-brand-orange">
+              <span className="text-brand-orange inline-flex items-center gap-1 text-[10px] font-bold">
                 <Loader2 size={11} className="animate-spin" />
                 <span>Sauvegarde...</span>
               </span>
@@ -413,7 +428,7 @@ function CelluleMultiMatiereInSitu({
                 type="button"
                 onClick={sauvegarder}
                 disabled={creerMutation.isPending || modifierMutation.isPending}
-                className="inline-flex items-center gap-1 rounded-lg bg-brand-orange px-2 py-0.5 text-[11px] font-bold text-white shadow-2xs hover:bg-brand-orange/90 transition-all cursor-pointer"
+                className="bg-brand-orange hover:bg-brand-orange/90 inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] font-bold text-white shadow-2xs transition-all"
                 title="Raccourci : Ctrl + Entrée"
               >
                 <Save size={10} />
@@ -427,7 +442,7 @@ function CelluleMultiMatiereInSitu({
               <button
                 type="button"
                 onClick={() => onTransferer(progression)}
-                className="no-print p-1 text-slate-400 hover:text-brand-orange hover:bg-orange-50 rounded transition-colors cursor-pointer"
+                className="no-print hover:text-brand-orange cursor-pointer rounded p-1 text-slate-400 transition-colors hover:bg-orange-50"
                 title="Transférer / Reporter ce cours (Rattrapage)"
               >
                 <ArrowRightLeft size={13} />
@@ -437,7 +452,7 @@ function CelluleMultiMatiereInSitu({
               <button
                 type="button"
                 onClick={() => onSupprimer?.(progression)}
-                className="p-1 text-slate-300 hover:text-rose-600 rounded transition-colors cursor-pointer"
+                className="cursor-pointer rounded p-1 text-slate-300 transition-colors hover:text-rose-600"
                 title="Supprimer ce cours"
               >
                 <Trash2 size={13} />
@@ -446,7 +461,7 @@ function CelluleMultiMatiereInSitu({
               <button
                 type="button"
                 onClick={annulerNouveau}
-                className="p-1 text-[10px] font-bold text-slate-400 hover:text-slate-600 rounded cursor-pointer"
+                className="cursor-pointer rounded p-1 text-[10px] font-bold text-slate-400 hover:text-slate-600"
                 title="Annuler la saisie"
               >
                 <X size={13} />
@@ -458,7 +473,7 @@ function CelluleMultiMatiereInSitu({
         {/* Badge Rattrapage si applicable */}
         {progression?.theme?.toUpperCase().includes("RATTRAPAGE") && (
           <div className="flex items-center gap-1">
-            <span className="inline-flex items-center gap-1 rounded-md bg-purple-100 text-purple-800 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider border border-purple-200 shadow-2xs">
+            <span className="inline-flex items-center gap-1 rounded-md border border-purple-200 bg-purple-100 px-2 py-0.5 text-[10px] font-black tracking-wider text-purple-800 uppercase shadow-2xs">
               <Sparkles size={10} className="text-purple-600" />
               <span>Rattrapage</span>
             </span>
@@ -474,7 +489,7 @@ function CelluleMultiMatiereInSitu({
         {/* 1. SÉLECTEUR THEME / TD & TITRE */}
         <div className="flex items-center gap-1.5 border-b border-slate-100 pb-1.5">
           {/* Sélecteur THEME ou TD */}
-          <div className="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200/80 shrink-0 select-none shadow-2xs">
+          <div className="inline-flex shrink-0 rounded-lg border border-slate-200/80 bg-slate-100 p-0.5 shadow-2xs select-none">
             <button
               type="button"
               onClick={() => {
@@ -483,9 +498,9 @@ function CelluleMultiMatiereInSitu({
                   setStatutSauvegarde("dirty");
                 }
               }}
-              className={`px-1.5 py-1 text-[10px] font-black tracking-wider rounded-md transition-all cursor-pointer ${
+              className={`cursor-pointer rounded-md px-1.5 py-1 text-[10px] font-black tracking-wider transition-all ${
                 typeProgression === "THEME"
-                  ? "bg-white text-brand-orange shadow-xs ring-1 ring-slate-200/70"
+                  ? "text-brand-orange bg-white shadow-xs ring-1 ring-slate-200/70"
                   : "text-slate-500 hover:text-slate-800"
               }`}
               title="Cours magistral / Thème théorique"
@@ -500,7 +515,7 @@ function CelluleMultiMatiereInSitu({
                   setStatutSauvegarde("dirty");
                 }
               }}
-              className={`px-1.5 py-1 text-[10px] font-black tracking-wider rounded-md transition-all cursor-pointer ${
+              className={`cursor-pointer rounded-md px-1.5 py-1 text-[10px] font-black tracking-wider transition-all ${
                 typeProgression === "TD"
                   ? "bg-brand-orange text-white shadow-xs"
                   : "text-slate-500 hover:text-slate-800"
@@ -517,28 +532,26 @@ function CelluleMultiMatiereInSitu({
             type="text"
             value={titreTheme}
             placeholder={
-              typeProgression === "TD"
-                ? "Titre du TD..."
-                : "Titre du thème..."
+              typeProgression === "TD" ? "Titre du TD..." : "Titre du thème..."
             }
             onChange={(e) => {
               setTitreTheme(e.target.value);
               setStatutSauvegarde("dirty");
             }}
-            className="flex-1 min-w-[120px] text-center font-black text-slate-900 uppercase tracking-wide text-xs py-1.5 px-2 bg-slate-50/60 hover:bg-slate-100/60 focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-orange/40 rounded-lg transition-all placeholder:text-slate-400 placeholder:normal-case placeholder:font-normal"
+            className="focus:ring-brand-orange/40 min-w-[120px] flex-1 rounded-lg bg-slate-50/60 px-2 py-1.5 text-center text-xs font-black tracking-wide text-slate-900 uppercase transition-all placeholder:font-normal placeholder:text-slate-400 placeholder:normal-case hover:bg-slate-100/60 focus:bg-white focus:ring-1 focus:outline-none"
           />
         </div>
 
         {/* 2. CONTENU LIGNE PAR LIGNE */}
         <div className="space-y-1 py-0.5">
-          <span className="text-[10px] font-black text-slate-700 tracking-wider uppercase block">
+          <span className="block text-[10px] font-black tracking-wider text-slate-700 uppercase">
             CONTENU :
           </span>
 
           <div className="space-y-1">
             {lines.map((line, idx) => (
               <div key={idx} className="group/line flex items-center gap-1.5">
-                <span className="select-none font-bold text-slate-400 text-xs shrink-0">
+                <span className="shrink-0 text-xs font-bold text-slate-400 select-none">
                   -
                 </span>
                 <input
@@ -548,18 +561,20 @@ function CelluleMultiMatiereInSitu({
                   type="text"
                   value={line}
                   placeholder={
-                    idx === 0 ? "Ex: Définition et propriétés..." : "Autre point..."
+                    idx === 0
+                      ? "Ex: Définition et propriétés..."
+                      : "Autre point..."
                   }
                   onChange={(e) => handleLineChange(idx, e.target.value)}
                   onKeyDown={(e) => handleLineKeyDown(idx, e)}
                   onPaste={(e) => handleLinePaste(idx, e)}
-                  className="flex-1 rounded border border-transparent hover:border-slate-200 focus:border-brand-orange bg-transparent focus:bg-white px-2 py-0.5 text-xs text-slate-800 focus:outline-none transition-all"
+                  className="focus:border-brand-orange flex-1 rounded border border-transparent bg-transparent px-2 py-0.5 text-xs text-slate-800 transition-all hover:border-slate-200 focus:bg-white focus:outline-none"
                 />
                 {lines.length > 1 && (
                   <button
                     type="button"
                     onClick={() => handleRemoveLine(idx)}
-                    className="opacity-0 group-hover/line:opacity-100 p-0.5 text-slate-400 hover:text-rose-600 rounded cursor-pointer transition-opacity"
+                    className="cursor-pointer rounded p-0.5 text-slate-400 opacity-0 transition-opacity group-hover/line:opacity-100 hover:text-rose-600"
                     title="Supprimer cette ligne"
                   >
                     <X size={11} />
@@ -572,7 +587,7 @@ function CelluleMultiMatiereInSitu({
           <button
             type="button"
             onClick={handleAddLine}
-            className="inline-flex items-center gap-1 text-[10px] font-bold text-brand-orange hover:text-brand-orange/80 cursor-pointer pt-0.5"
+            className="text-brand-orange hover:text-brand-orange/80 inline-flex cursor-pointer items-center gap-1 pt-0.5 text-[10px] font-bold"
           >
             <Plus size={10} />
             <span>Ajouter une ligne</span>
@@ -581,7 +596,7 @@ function CelluleMultiMatiereInSitu({
 
         {/* 3. EXERCICES */}
         <div className="flex items-center gap-1.5 border-t border-slate-100 pt-1.5 text-xs">
-          <span className="text-[10px] font-black text-slate-700 tracking-wider uppercase shrink-0">
+          <span className="shrink-0 text-[10px] font-black tracking-wider text-slate-700 uppercase">
             EXERCICES :
           </span>
           <input
@@ -592,7 +607,7 @@ function CelluleMultiMatiereInSitu({
               setExercices(e.target.value);
               setStatutSauvegarde("dirty");
             }}
-            className="flex-1 rounded border border-transparent hover:border-slate-200 focus:border-brand-orange bg-transparent focus:bg-white px-1.5 py-0.5 font-semibold text-slate-800 text-xs focus:outline-none transition-all placeholder:font-normal placeholder:text-slate-400"
+            className="focus:border-brand-orange flex-1 rounded border border-transparent bg-transparent px-1.5 py-0.5 text-xs font-semibold text-slate-800 transition-all placeholder:font-normal placeholder:text-slate-400 hover:border-slate-200 focus:bg-white focus:outline-none"
           />
         </div>
       </div>
@@ -651,7 +666,7 @@ export function SyllabusMultiMatieresView({
     authSession?.user?.role === "DIRECTEUR_ACADEMIQUE" ||
     authSession?.user?.role === "DIRECTEUR";
 
-  const { getQuota, setQuota } = useProgressionQuotas(formationId);
+  const { getQuota, setQuota } = useProgressionQuotas(formationId, sessionId);
   const { data: allFormations = [] } = useFormations();
   const [showExportModal, setShowExportModal] = useState(false);
 
@@ -676,9 +691,9 @@ export function SyllabusMultiMatieresView({
   }, [progressions, affectations, semainesSupprimees]);
 
   // Semaine active (soit contrôlée par le parent, soit état local)
-  const [internalSemaine, setInternalSemaine] = useState<
-    number | "TOUTES"
-  >(() => propSemaineSelectionnee ?? "TOUTES");
+  const [internalSemaine, setInternalSemaine] = useState<number | "TOUTES">(
+    () => propSemaineSelectionnee ?? "TOUTES",
+  );
 
   const semaineSelectionnee =
     propSemaineSelectionnee !== undefined
@@ -687,8 +702,9 @@ export function SyllabusMultiMatieresView({
   const setSemaineSelectionnee = onChangerSemaine ?? setInternalSemaine;
 
   // État du cours en cours de transfert (Rattrapage / Report)
-  const [coursATransferer, setCoursATransferer] =
-    useState<Progression | null>(null);
+  const [coursATransferer, setCoursATransferer] = useState<Progression | null>(
+    null,
+  );
 
   // Semaines à afficher selon le filtre
   const semainesAffichees = useMemo(() => {
@@ -747,9 +763,7 @@ export function SyllabusMultiMatieresView({
 
   function handleAjouterNouvelleSemaine() {
     const maxSemaine =
-      semainesDisponibles.length > 0
-        ? Math.max(...semainesDisponibles)
-        : 1;
+      semainesDisponibles.length > 0 ? Math.max(...semainesDisponibles) : 1;
     const nouvelle = maxSemaine + 1;
     setSemaineSelectionnee(nouvelle);
     ajouterLigneCours(nouvelle, 1);
@@ -766,7 +780,9 @@ export function SyllabusMultiMatieresView({
 
   async function handleSupprimerSemaine(semaine: number) {
     if (!estDirecteur) {
-      alert("Seul le Directeur Académique est habilité à supprimer un tableau complet de progression. Vous pouvez supprimer individuellement vos entrées de cours.");
+      alert(
+        "Seul le Directeur Académique est habilité à supprimer un tableau complet de progression. Vous pouvez supprimer individuellement vos entrées de cours.",
+      );
       return;
     }
 
@@ -807,44 +823,55 @@ export function SyllabusMultiMatieresView({
   return (
     <div className="space-y-5">
       {/* ── Cartouche Officiel EXCELIS pour impression / Export PDF (masqué à l'écran, visible au print) ── */}
-      <div className="hidden print:block mb-4 p-4 border-2 border-brand-orange rounded-xl bg-orange-50/20">
-        <div className="flex items-center justify-between border-b border-orange-200 pb-2 mb-2">
+      <div className="border-brand-orange mb-4 hidden rounded-xl border-2 bg-orange-50/20 p-4 print:block">
+        <div className="mb-2 flex items-center justify-between border-b border-orange-200 pb-2">
           <div>
             <h1 className="text-xl font-black tracking-tight text-slate-900 uppercase">
               EXCELIS PRÉPAS — FICHE PÉDAGOGIQUE OFFICIELLE
             </h1>
-            <p className="text-xs font-bold text-brand-orange uppercase">
+            <p className="text-brand-orange text-xs font-bold uppercase">
               Syllabus de progression multi-disciplinaire
             </p>
           </div>
           <div className="text-right text-xs">
             <p className="font-bold text-slate-800">SESSION {sessionAnnee}</p>
-            <p className="text-slate-500">Date d&rsquo;impression : {new Date().toLocaleDateString("fr-FR")}</p>
+            <p className="text-slate-500">
+              Date d&rsquo;impression : {new Date().toLocaleDateString("fr-FR")}
+            </p>
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-between text-xs font-semibold text-slate-700">
-          <span>FORMATION : <strong className="text-slate-900">{formationNom}</strong></span>
-          <span>DISCIPLINES : <strong className="text-slate-900">{matieres.map((m) => m.nom).join(" · ")}</strong></span>
+          <span>
+            FORMATION :{" "}
+            <strong className="text-slate-900">{formationNom}</strong>
+          </span>
+          <span>
+            DISCIPLINES :{" "}
+            <strong className="text-slate-900">
+              {matieres.map((m) => m.nom).join(" · ")}
+            </strong>
+          </span>
         </div>
       </div>
 
       {/* ── En-tête de la Fiche Style Papier Excelis Prépas (Écran uniquement) ── */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs no-print print:hidden">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-slate-100 pb-5">
+      <div className="no-print rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs print:hidden">
+        <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
-            <span className="text-[11px] font-black tracking-widest text-brand-orange uppercase">
+            <span className="text-brand-orange text-[11px] font-black tracking-widest uppercase">
               Coordination Pédagogique
             </span>
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 uppercase">
-              Fiche de Progression  {sessionAnnee}
+            <h2 className="text-xl font-black tracking-tight text-slate-900 uppercase sm:text-2xl">
+              Fiche de Progression {sessionAnnee}
             </h2>
-            <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-slate-500 font-medium">
+            <div className="flex flex-wrap items-center gap-2 pt-1 text-xs font-medium text-slate-500">
               <span className="font-bold text-slate-800">
                 FORMATION : {formationNom}
               </span>
               <span>·</span>
               <span>
-                {matieres.length} matière{matieres.length > 1 ? "s" : ""} au programme
+                {matieres.length} matière{matieres.length > 1 ? "s" : ""} au
+                programme
               </span>
             </div>
           </div>
@@ -854,7 +881,7 @@ export function SyllabusMultiMatieresView({
             <button
               type="button"
               onClick={() => setShowExportModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 hover:border-brand-orange hover:text-brand-orange transition-all cursor-pointer"
+              className="hover:border-brand-orange hover:text-brand-orange inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs transition-all hover:bg-slate-50"
               title="Exporter ou imprimer le syllabus en PDF A4 Paysage"
             >
               <Printer size={14} className="text-brand-orange" />
@@ -865,7 +892,7 @@ export function SyllabusMultiMatieresView({
               <button
                 type="button"
                 onClick={() => onOuvrirSaisieLot()}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 hover:border-brand-orange hover:text-brand-orange transition-all cursor-pointer"
+                className="hover:border-brand-orange hover:text-brand-orange inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs transition-all hover:bg-slate-50"
                 title="Saisir ou importer plusieurs thèmes en lot"
               >
                 <Sparkles size={14} className="text-brand-orange" />
@@ -877,7 +904,7 @@ export function SyllabusMultiMatieresView({
               <button
                 type="button"
                 onClick={onOuvrirDuplication}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition-all cursor-pointer"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs transition-all hover:bg-slate-50"
                 title="Copier le programme d'une filière vers une autre"
               >
                 <Copy size={14} className="text-slate-500" />
@@ -889,7 +916,7 @@ export function SyllabusMultiMatieresView({
               <button
                 type="button"
                 onClick={onOuvrirAjout}
-                className="bg-brand-orange hover:bg-brand-orange/90 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold text-white shadow-xs transition-all hover:shadow-md cursor-pointer"
+                className="bg-brand-orange hover:bg-brand-orange/90 inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:shadow-md sm:text-sm"
               >
                 <Plus size={16} />
                 <span>Nouvelle progression</span>
@@ -902,45 +929,18 @@ export function SyllabusMultiMatieresView({
         {propSemaineSelectionnee === undefined && (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <label
-                htmlFor="select-semaine-multi"
-                className="text-xs font-bold uppercase tracking-wider text-slate-500 shrink-0"
-              >
-                Semaine :
-              </label>
-              <select
-                id="select-semaine-multi"
+              <SelecteurSemaine
+                semaines={semainesDisponibles}
                 value={semaineSelectionnee}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setSemaineSelectionnee(
-                    val === "TOUTES" ? "TOUTES" : Number(val),
-                  );
-                }}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 shadow-2xs focus:border-brand-orange focus:outline-hidden focus:ring-1 focus:ring-brand-orange/20 cursor-pointer"
-              >
-                <option value="TOUTES">
-                  Toutes les semaines (S1 à S
-                  {semainesDisponibles[semainesDisponibles.length - 1] || 1}) ·{" "}
-                  {progressions.length} cours
-                </option>
-                {semainesDisponibles.map((sem) => {
-                  const nbProgsSemaine = progressions.filter(
-                    (p) => p.semaine === sem,
-                  ).length;
-                  return (
-                    <option key={sem} value={sem}>
-                      Semaine {sem} ({nbProgsSemaine} cours)
-                    </option>
-                  );
-                })}
-              </select>
+                onChange={setSemaineSelectionnee}
+                toutes
+              />
             </div>
 
             <button
               type="button"
               onClick={handleAjouterNouvelleSemaine}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-brand-orange/30 bg-orange-50/60 px-3 py-1.5 text-xs font-bold text-brand-orange hover:bg-orange-100/70 transition-all cursor-pointer shrink-0"
+              className="border-brand-orange/30 text-brand-orange inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border bg-orange-50/60 px-3 py-1.5 text-xs font-bold transition-all hover:bg-orange-100/70"
             >
               <Plus size={13} />
               <span>+ Nouvelle Semaine</span>
@@ -988,32 +988,36 @@ export function SyllabusMultiMatieresView({
         return (
           <div
             key={semaine}
-            className="semaine-card overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs space-y-0"
+            className="semaine-card space-y-0 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs"
           >
             {/* Sous-titre de la semaine (Semaine X) - Fond doux et lumineux */}
-            <div className="flex items-center justify-between bg-slate-100/90 border-b border-slate-200/90 px-5 py-2.5 text-slate-800">
+            <div className="flex items-center justify-between border-b border-slate-200/90 bg-slate-100/90 px-5 py-2.5 text-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-orange text-[11px] font-black text-white shadow-2xs">
+                <div className="bg-brand-orange flex h-6 w-6 items-center justify-center rounded-md text-[11px] font-black text-white shadow-2xs">
                   S{semaine}
                 </div>
-                <span className="font-black tracking-wide uppercase text-xs sm:text-sm text-slate-900">
+                <span className="text-xs font-black tracking-wide text-slate-900 uppercase sm:text-sm">
                   SEMAINE {semaine} · {formationNom}
                 </span>
               </div>
 
               <div className="flex items-center gap-3">
                 <span className="text-[11px] font-bold text-slate-500">
-                  {progressionsSemaine.length} cours documenté{progressionsSemaine.length > 1 ? "s" : ""}
+                  {progressionsSemaine.length} cours documenté
+                  {progressionsSemaine.length > 1 ? "s" : ""}
                 </span>
 
                 {estDirecteur && (
                   <button
                     type="button"
                     onClick={() => handleSupprimerSemaine(semaine)}
-                    className="no-print inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700 transition-all cursor-pointer shadow-2xs"
+                    className="no-print inline-flex cursor-pointer items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-600 shadow-2xs transition-all hover:border-red-300 hover:bg-red-50 hover:text-red-700"
                     title={`Supprimer le tableau complet de la Semaine ${semaine}`}
                   >
-                    <Trash2 size={12} className="text-slate-400 group-hover:text-red-600" />
+                    <Trash2
+                      size={12}
+                      className="text-slate-400 group-hover:text-red-600"
+                    />
                     <span>Supprimer Semaine {semaine}</span>
                   </button>
                 )}
@@ -1027,7 +1031,7 @@ export function SyllabusMultiMatieresView({
                 <thead>
                   <tr className="bg-brand-orange text-white">
                     {/* Colonne COURS fixe / sticky à gauche */}
-                    <th className="sticky left-0 z-20 w-28 bg-brand-orange p-3.5 text-center font-black uppercase tracking-wider text-xs border-r border-orange-600/40">
+                    <th className="bg-brand-orange sticky left-0 z-20 w-28 border-r border-orange-600/40 p-3.5 text-center text-xs font-black tracking-wider uppercase">
                       COURS
                     </th>
 
@@ -1048,7 +1052,7 @@ export function SyllabusMultiMatieresView({
                       return (
                         <th
                           key={m.id}
-                          className="min-w-[280px] max-w-[340px] p-3 text-center font-black uppercase tracking-wider text-xs border-r border-orange-600/40 last:border-r-0"
+                          className="max-w-[340px] min-w-[280px] border-r border-orange-600/40 p-3 text-center text-xs font-black tracking-wider uppercase last:border-r-0"
                         >
                           <div className="flex flex-col items-center justify-center gap-1.5">
                             <div className="flex items-center gap-1.5">
@@ -1061,30 +1065,38 @@ export function SyllabusMultiMatieresView({
                             {/* Quota : Stepper bien designé pour le Directeur Académique / Statut pour les autres */}
                             {estDirecteur ? (
                               <div className="no-print flex flex-col items-center gap-1">
-                                <div className="inline-flex items-center gap-1.5 rounded-full bg-black/25 backdrop-blur-xs border border-white/20 px-2 py-0.5 shadow-xs">
+                                <div className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/25 px-2 py-0.5 shadow-xs backdrop-blur-xs">
                                   <button
                                     type="button"
                                     onClick={() =>
-                                      setQuota(semaine, m.id, Math.max(0, quota - 1))
+                                      setQuota(
+                                        semaine,
+                                        m.id,
+                                        Math.max(0, quota - 1),
+                                      )
                                     }
                                     disabled={quota <= 0}
-                                    className="h-5 w-5 rounded-full bg-white/10 hover:bg-white/30 active:scale-90 text-white flex items-center justify-center transition-all disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer"
+                                    className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition-all hover:bg-white/30 active:scale-90 disabled:cursor-not-allowed disabled:opacity-20"
                                     title="Diminuer le quota hebdomadaire"
                                   >
                                     <Minus size={11} strokeWidth={3} />
                                   </button>
 
-                                  <span className="font-mono font-black text-xs min-w-[28px] text-center text-white">
+                                  <span className="min-w-[28px] text-center font-mono text-xs font-black text-white">
                                     {quota === 0 ? "0" : `${quota}`}
                                   </span>
 
                                   <button
                                     type="button"
                                     onClick={() =>
-                                      setQuota(semaine, m.id, Math.min(10, quota + 1))
+                                      setQuota(
+                                        semaine,
+                                        m.id,
+                                        Math.min(10, quota + 1),
+                                      )
                                     }
                                     disabled={quota >= 10}
-                                    className="h-5 w-5 rounded-full bg-white/10 hover:bg-white/30 active:scale-90 text-white flex items-center justify-center transition-all disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer"
+                                    className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition-all hover:bg-white/30 active:scale-90 disabled:cursor-not-allowed disabled:opacity-20"
                                     title="Augmenter le quota hebdomadaire"
                                   >
                                     <Plus size={11} strokeWidth={3} />
@@ -1098,7 +1110,7 @@ export function SyllabusMultiMatieresView({
                                 </span>
                               </div>
                             ) : (
-                              <div className="no-print inline-flex items-center gap-1 rounded-full bg-black/20 border border-white/10 px-2.5 py-0.5 text-[10px] font-bold text-white">
+                              <div className="no-print inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/20 px-2.5 py-0.5 text-[10px] font-bold text-white">
                                 <span>
                                   {quota === 0
                                     ? "Dispensé · 0 cours"
@@ -1119,15 +1131,16 @@ export function SyllabusMultiMatieresView({
                     <tr>
                       <td
                         colSpan={matieres.length + 1}
-                        className="p-8 text-center bg-slate-50/50 text-slate-500"
+                        className="bg-slate-50/50 p-8 text-center text-slate-500"
                       >
-                        <p className="font-semibold text-xs text-slate-700">
-                          Toutes les lignes de cours ont été retirées pour la Semaine {semaine}.
+                        <p className="text-xs font-semibold text-slate-700">
+                          Toutes les lignes de cours ont été retirées pour la
+                          Semaine {semaine}.
                         </p>
                         <button
                           type="button"
                           onClick={() => ajouterLigneCours(semaine, 1)}
-                          className="mt-2.5 inline-flex items-center gap-1.5 rounded-xl bg-brand-orange px-3.5 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-brand-orange/90 transition-all cursor-pointer"
+                          className="bg-brand-orange hover:bg-brand-orange/90 mt-2.5 inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold text-white shadow-2xs transition-all"
                         >
                           <Plus size={13} />
                           <span>Ajouter le 1er Cours</span>
@@ -1138,12 +1151,12 @@ export function SyllabusMultiMatieresView({
                     numerosCours.map((numCours) => (
                       <tr
                         key={numCours}
-                        className="hover:bg-slate-50/40 transition-colors group/row"
+                        className="group/row transition-colors hover:bg-slate-50/40"
                       >
                         {/* Colonne 1 : Numéro du cours (Sticky gauche) avec bouton de suppression de la ligne */}
                         <td className="sticky left-0 z-10 w-28 border-r border-b border-slate-200 bg-slate-50/95 p-3 text-center align-middle shadow-xs">
                           <div className="flex flex-col items-center justify-center gap-1">
-                            <span className="font-black text-slate-900 tracking-tight text-xs uppercase">
+                            <span className="text-xs font-black tracking-tight text-slate-900 uppercase">
                               {labelNumeroCours(numCours)}
                             </span>
                             <span className="text-[10px] font-bold text-slate-400">
@@ -1151,8 +1164,10 @@ export function SyllabusMultiMatieresView({
                             </span>
                             <button
                               type="button"
-                              onClick={() => handleSupprimerLigne(semaine, numCours)}
-                              className="no-print mt-1 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold text-slate-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-all cursor-pointer"
+                              onClick={() =>
+                                handleSupprimerLigne(semaine, numCours)
+                              }
+                              className="no-print mt-1 inline-flex cursor-pointer items-center gap-1 rounded-md border border-transparent px-1.5 py-0.5 text-[10px] font-bold text-slate-400 transition-all hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                               title={`Supprimer la ligne du ${labelNumeroCours(numCours)}`}
                             >
                               <Trash2 size={10} />
@@ -1165,7 +1180,8 @@ export function SyllabusMultiMatieresView({
                         {matieres.map((m) => {
                           const progMatiere = progressionsSemaine.find(
                             (p) =>
-                              p.matiereId === m.id && p.numeroCours === numCours,
+                              p.matiereId === m.id &&
+                              p.numeroCours === numCours,
                           );
                           const nbSeances = affectationsSemaine.filter(
                             (a) => a.matiereId === m.id,
@@ -1212,13 +1228,17 @@ export function SyllabusMultiMatieresView({
                       numerosCours.length > 0 ? Math.max(...numerosCours) : 0;
                     ajouterLigneCours(semaine, maxActuel + 1);
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 hover:border-brand-orange bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:text-brand-orange shadow-2xs transition-all cursor-pointer"
+                  className="hover:border-brand-orange hover:text-brand-orange inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs transition-all"
                 >
                   <Plus size={13} />
                   <span>
-                    + Ajouter une ligne de cours ({labelNumeroCours(
-                      (numerosCours.length > 0 ? Math.max(...numerosCours) : 0) + 1,
-                    )})
+                    + Ajouter une ligne de cours (
+                    {labelNumeroCours(
+                      (numerosCours.length > 0
+                        ? Math.max(...numerosCours)
+                        : 0) + 1,
+                    )}
+                    )
                   </span>
                 </button>
 
@@ -1230,19 +1250,24 @@ export function SyllabusMultiMatieresView({
                       const dernierNumero = Math.max(...numerosCours);
                       handleSupprimerLigne(semaine, dernierNumero);
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 px-3 py-2 text-xs font-bold text-red-700 transition-all cursor-pointer shadow-2xs"
+                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 shadow-2xs transition-all hover:bg-red-100"
                     title="Supprimer la dernière ligne du tableau"
                   >
                     <Minus size={13} />
                     <span>
-                      Retirer la ligne ({labelNumeroCours(Math.max(...numerosCours))})
+                      Retirer la ligne (
+                      {labelNumeroCours(Math.max(...numerosCours))})
                     </span>
                   </button>
                 )}
               </div>
 
               <span className="text-[11px] font-medium text-slate-400">
-                Raccourci clavier : <kbd className="font-mono font-bold text-slate-600 bg-slate-200/80 px-1 py-0.5 rounded">Ctrl + Entrée</kbd> pour enregistrer
+                Raccourci clavier :{" "}
+                <kbd className="rounded bg-slate-200/80 px-1 py-0.5 font-mono font-bold text-slate-600">
+                  Ctrl + Entrée
+                </kbd>{" "}
+                pour enregistrer
               </span>
             </div>
           </div>
@@ -1256,7 +1281,9 @@ export function SyllabusMultiMatieresView({
           onClose={() => setCoursATransferer(null)}
           progression={coursATransferer}
           formationNom={formationNom}
-          matiereNom={matieres.find((m) => m.id === coursATransferer.matiereId)?.nom}
+          matiereNom={
+            matieres.find((m) => m.id === coursATransferer.matiereId)?.nom
+          }
           semainesDisponibles={semainesDisponibles}
           toutesProgressions={progressions}
         />
@@ -1268,7 +1295,7 @@ export function SyllabusMultiMatieresView({
           isOpen={showExportModal}
           onClose={() => setShowExportModal(false)}
           formations={
-            (propAllFormations && propAllFormations.length > 0)
+            propAllFormations && propAllFormations.length > 0
               ? propAllFormations
               : allFormations.length > 0
                 ? allFormations
@@ -1290,4 +1317,3 @@ export function SyllabusMultiMatieresView({
     </div>
   );
 }
-

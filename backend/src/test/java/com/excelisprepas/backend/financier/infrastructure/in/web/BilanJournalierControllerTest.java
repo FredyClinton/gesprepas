@@ -12,6 +12,9 @@ import com.excelisprepas.backend.shared.exception.BilanJournalierIntrouvableExce
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import com.excelisprepas.backend.shared.testsupport.TokenPortTestConfig;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -28,6 +31,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+@AutoConfigureMockMvc(addFilters = false)
+@Import(TokenPortTestConfig.class)
 @WebMvcTest(BilanJournalierController.class)
 @DisplayName("BilanJournalierController")
 class BilanJournalierControllerTest {

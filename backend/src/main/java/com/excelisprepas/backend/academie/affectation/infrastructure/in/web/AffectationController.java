@@ -18,6 +18,7 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -95,6 +96,7 @@ public class AffectationController {
             @ApiResponse(responseCode = "409", description = "Enseignant indisponible sur ce créneau", content = @Content)
     })
     @PatchMapping("/{id}/assigner-enseignant")
+        @PreAuthorize("hasAuthority('ACADEMIE_ASSIGNER_ENSEIGNANT')")
     public ResponseEntity<AffectationResponse> assignerEnseignant(
             @Parameter(description = "Identifiant du créneau") @PathVariable UUID id,
             @Valid @RequestBody AssignerEnseignantRequest request) {
@@ -115,6 +117,7 @@ public class AffectationController {
             @ApiResponse(responseCode = "409", description = "Salle déjà occupée sur ce créneau, session clôturée, ou formation incohérente avec la session", content = @Content)
     })
     @PostMapping
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_PLANIFICATION')")
     public ResponseEntity<AffectationResponse> creerCreneau(@Valid @RequestBody CreerCreneauRequest request) {
         Affectation affectation = creerCreneauUseCase.creerCreneau(
                 request.centreId(), request.sessionId(), request.formationId(), request.salleId(), request.matiereId(),
@@ -135,6 +138,7 @@ public class AffectationController {
             @ApiResponse(responseCode = "409", description = "Créneau déjà effectué ou annulé", content = @Content)
     })
     @PatchMapping("/{id}/modifier-matiere")
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_PLANIFICATION')")
     public ResponseEntity<AffectationResponse> modifierMatiere(
             @Parameter(description = "Identifiant du créneau") @PathVariable UUID id,
             @Valid @RequestBody ModifierMatiereRequest request) {
@@ -151,6 +155,7 @@ public class AffectationController {
             @ApiResponse(responseCode = "409", description = "Transition d'état invalide", content = @Content)
     })
     @PatchMapping("/{id}/marquer-effectuee")
+        @PreAuthorize("hasAuthority('ACADEMIE_MARQUER_EFFECTUEE')")
     public ResponseEntity<AffectationResponse> marquerEffectuee(
             @Parameter(description = "Identifiant du créneau") @PathVariable UUID id) {
         Affectation affectation = marquerEffectueeUseCase.marquerEffectuee(id);
@@ -166,6 +171,7 @@ public class AffectationController {
             @ApiResponse(responseCode = "409", description = "Transition d'état invalide", content = @Content)
     })
     @PatchMapping("/{id}/annuler-effectuee")
+        @PreAuthorize("hasAuthority('ACADEMIE_MARQUER_EFFECTUEE')")
     public ResponseEntity<AffectationResponse> annulerEffectuee(
             @Parameter(description = "Identifiant du créneau") @PathVariable UUID id) {
         Affectation affectation = annulerEffectueeUseCase.annulerEffectuee(id);
@@ -181,6 +187,7 @@ public class AffectationController {
             @ApiResponse(responseCode = "409", description = "Transition d'état invalide", content = @Content)
     })
     @PatchMapping("/{id}/annuler")
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_PLANIFICATION')")
     public ResponseEntity<AffectationResponse> annulerAffectation(
             @Parameter(description = "Identifiant du créneau") @PathVariable UUID id) {
         Affectation affectation = annulerAffectationUseCase.annulerAffectation(id);
@@ -194,6 +201,7 @@ public class AffectationController {
             @ApiResponse(responseCode = "404", description = "Créneau introuvable", content = @Content)
     })
     @DeleteMapping("/{id}")
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_PLANIFICATION')")
     public ResponseEntity<Void> supprimerAffectation(
             @Parameter(description = "Identifiant du créneau") @PathVariable UUID id) {
         supprimerAffectationUseCase.supprimerAffectation(id);

@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -60,6 +61,7 @@ public class ProgressionController {
             @ApiResponse(responseCode = "404", description = "Formation, session ou matière introuvable", content = @Content)
     })
     @PostMapping
+        @PreAuthorize("hasAuthority('PROGRESSION_GERER_CONTENU')")
     public ResponseEntity<ProgressionResponse> creerProgression(@Valid @RequestBody CreerProgressionRequest request) {
         Progression progression = creerProgressionUseCase.creerProgression(
                 request.formationId(), request.sessionId(), request.phaseId(), request.matiereId(), request.semaine(), request.numeroCours(),
@@ -99,6 +101,7 @@ public class ProgressionController {
             @ApiResponse(responseCode = "404", description = "Progression introuvable", content = @Content)
     })
     @PatchMapping("/{id}/contenu")
+        @PreAuthorize("hasAuthority('PROGRESSION_GERER_CONTENU')")
     public ResponseEntity<ProgressionResponse> mettreAJourContenu(
             @Parameter(description = "Identifiant de la progression") @PathVariable UUID id,
             @Valid @RequestBody MettreAJourContenuRequest request) {
@@ -113,6 +116,7 @@ public class ProgressionController {
             @ApiResponse(responseCode = "404", description = "Progression introuvable", content = @Content)
     })
     @DeleteMapping("/{id}")
+        @PreAuthorize("hasAuthority('PROGRESSION_GERER_CONTENU')")
     public ResponseEntity<Void> supprimerProgression(
             @Parameter(description = "Identifiant de la progression") @PathVariable UUID id) {
         supprimerProgressionUseCase.supprimerProgression(id);

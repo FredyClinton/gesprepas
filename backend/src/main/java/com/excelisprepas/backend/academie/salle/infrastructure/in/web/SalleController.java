@@ -17,6 +17,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -61,6 +62,7 @@ public class SalleController {
             @ApiResponse(responseCode = "404", description = "Centre, session ou formation introuvable", content = @Content)
     })
     @PostMapping
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_SALLES')")
     public ResponseEntity<SalleResponse> creerSalle(@Valid @RequestBody CreerSalleRequest request) {
         Salle salle = creerSalleUseCase.creerSalle(
                 request.nom(), request.centreId(), request.sessionId(), request.formationId(), request.phaseId());
@@ -101,6 +103,7 @@ public class SalleController {
             @ApiResponse(responseCode = "404", description = "Salle introuvable", content = @Content)
     })
     @PatchMapping("/{id}/renommer")
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_SALLES')")
     public ResponseEntity<SalleResponse> renommerSalle(
             @Parameter(description = "Identifiant de la salle") @PathVariable UUID id,
             @Valid @RequestBody RenommerSalleRequest request) {
@@ -116,6 +119,7 @@ public class SalleController {
             @ApiResponse(responseCode = "404", description = "Salle ou formation introuvable", content = @Content)
     })
     @PatchMapping("/{id}/reaffecter-formation")
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_SALLES')")
     public ResponseEntity<SalleResponse> reaffecterFormation(
             @Parameter(description = "Identifiant de la salle") @PathVariable UUID id,
             @Valid @RequestBody ReaffecterFormationRequest request) {
@@ -130,6 +134,7 @@ public class SalleController {
             @ApiResponse(responseCode = "409", description = "Salle encore référencée par des affectations", content = @Content)
     })
     @DeleteMapping("/{id}")
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_SALLES')")
     public ResponseEntity<Void> supprimerSalle(
             @Parameter(description = "Identifiant de la salle") @PathVariable UUID id) {
         supprimerSalleUseCase.supprimerSalle(id);

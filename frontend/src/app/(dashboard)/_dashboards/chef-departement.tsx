@@ -33,7 +33,11 @@ import {
   type Affectation,
 } from "@/modules/affectation";
 import { useEnseignants, type Enseignant } from "@/modules/personnel";
-import { useCentres, useSessionActive } from "@/modules/centres-sessions";
+import {
+  useCentres,
+  useSessionActive,
+  useSemaines,
+} from "@/modules/centres-sessions";
 import { useSalles } from "@/modules/salle";
 import { useFormations } from "@/modules/academique";
 import {
@@ -61,6 +65,7 @@ type Props = {
 export function ChefDepartementDashboard({ departementId, chefId }: Props) {
   const { data: sessionActive } = useSessionActive();
   const sessionId = sessionActive?.id;
+  const { data: semainesPersistantes = [] } = useSemaines(sessionId);
 
   const { data: departements = [], isLoading: chargementDepartements } =
     useDepartements();
@@ -114,9 +119,14 @@ export function ChefDepartementDashboard({ departementId, chefId }: Props) {
   const semaineCourante = sessionActive
     ? semaineCouranteDepuis(sessionActive.dateDebut, sessionActive.dateFin)
     : 1;
-  const semaineTotale = sessionActive
+  const semaineTotaleCalculee = sessionActive
     ? semaineTotaleSession(sessionActive.dateDebut, sessionActive.dateFin)
     : 1;
+  const semaineTotale = Math.max(
+    semaineTotaleCalculee,
+    ...semainesPersistantes,
+    1,
+  );
 
   const [semaineChoisie, setSemaineChoisie] = useState<number | null>(null);
   const semaine = semaineChoisie ?? semaineCourante;

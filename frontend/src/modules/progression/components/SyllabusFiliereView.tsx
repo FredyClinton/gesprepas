@@ -35,6 +35,7 @@ import { ExporterProgressionModal } from "./ExporterProgressionModal";
 import { useFormations, type Formation } from "@/modules/academique";
 import { useMatieres, type Matiere } from "@/modules/matieres";
 import type { Affectation } from "@/modules/affectation";
+import { SelecteurSemaine } from "@/modules/centres-sessions";
 
 // ── Utilitaires de conversion Lignes <-> Contenu texte ──
 
@@ -279,7 +280,7 @@ function LigneCoursExcelis({
       {/* ── COLONNE 1 : COURS (1er COURS, 2e COURS...) ── */}
       <td className="w-28 border-r border-slate-200 bg-slate-50/60 p-4 text-center align-middle">
         <div className="flex flex-col items-center justify-center gap-1">
-          <span className="font-extrabold text-slate-900 tracking-tight text-xs uppercase">
+          <span className="text-xs font-extrabold tracking-tight text-slate-900 uppercase">
             {labelNumeroCours(numeroCours)}
           </span>
           <span className="text-[10px] font-semibold text-slate-400">
@@ -291,16 +292,16 @@ function LigneCoursExcelis({
       {/* ── COLONNE 2 : FICHE PÉDAGOGIQUE (THEME CENTRÉ, CONTENU LIGNE PAR LIGNE, EXERCICES) ── */}
       <td className="p-4 align-top">
         {/* ── Vue Impression Haute Fidélité (Pure lecture, sans champs ni boutons) ── */}
-        <div className="hidden print:block space-y-2 text-left">
+        <div className="hidden space-y-2 text-left print:block">
           <div className="flex items-center gap-2 border-b border-slate-300 pb-1">
-            <span className="font-black text-[11px] uppercase px-1.5 py-0.5 border border-slate-800 rounded bg-slate-100">
+            <span className="rounded border border-slate-800 bg-slate-100 px-1.5 py-0.5 text-[11px] font-black uppercase">
               {typeProgression}
             </span>
-            <span className="font-extrabold text-xs uppercase tracking-wide text-slate-900">
+            <span className="text-xs font-extrabold tracking-wide text-slate-900 uppercase">
               {titreTheme || progression?.theme || "Sans titre"}
             </span>
             {progression?.theme?.toUpperCase().includes("RATTRAPAGE") && (
-              <span className="text-[10px] font-black uppercase px-1.5 py-0.5 border border-purple-400 bg-purple-50 text-purple-900 rounded">
+              <span className="rounded border border-purple-400 bg-purple-50 px-1.5 py-0.5 text-[10px] font-black text-purple-900 uppercase">
                 [RATTRAPAGE]
               </span>
             )}
@@ -308,22 +309,24 @@ function LigneCoursExcelis({
 
           {lines.filter((l) => l.trim().length > 0).length > 0 && (
             <div className="py-0.5">
-              <span className="text-[10px] font-bold uppercase text-slate-700 tracking-wider">
+              <span className="text-[10px] font-bold tracking-wider text-slate-700 uppercase">
                 Contenu abordé :
               </span>
-              <ul className="list-disc list-inside mt-0.5 space-y-0.5 text-xs text-slate-800">
+              <ul className="mt-0.5 list-inside list-disc space-y-0.5 text-xs text-slate-800">
                 {lines
                   .filter((l) => l.trim().length > 0)
                   .map((line, idx) => (
-                    <li key={idx} className="leading-snug">{line}</li>
+                    <li key={idx} className="leading-snug">
+                      {line}
+                    </li>
                   ))}
               </ul>
             </div>
           )}
 
           {exercices.trim() && (
-            <div className="pt-1 text-xs text-slate-800 border-t border-slate-200">
-              <span className="font-bold text-[10px] uppercase text-slate-700 tracking-wider">
+            <div className="border-t border-slate-200 pt-1 text-xs text-slate-800">
+              <span className="text-[10px] font-bold tracking-wider text-slate-700 uppercase">
                 Exercices traités :{" "}
               </span>
               <span className="font-medium">{exercices}</span>
@@ -342,7 +345,7 @@ function LigneCoursExcelis({
           {/* Badge Rattrapage si applicable */}
           {progression?.theme?.toUpperCase().includes("RATTRAPAGE") && (
             <div className="flex items-center gap-1">
-              <span className="inline-flex items-center gap-1 rounded-md bg-purple-100 text-purple-800 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider border border-purple-200 shadow-2xs">
+              <span className="inline-flex items-center gap-1 rounded-md border border-purple-200 bg-purple-100 px-2 py-0.5 text-[10px] font-black tracking-wider text-purple-800 uppercase shadow-2xs">
                 <Sparkles size={10} className="text-purple-600" />
                 <span>Rattrapage</span>
               </span>
@@ -350,9 +353,9 @@ function LigneCoursExcelis({
           )}
 
           {/* 1. SÉLECTEUR THEME / TD & TITRE DU THÈME */}
-          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 border-b border-slate-200 pb-2">
+          <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2 sm:flex-nowrap">
             {/* Sélecteur THEME ou TD */}
-            <div className="inline-flex rounded-xl bg-slate-100 p-0.5 border border-slate-200/80 shrink-0 select-none shadow-2xs">
+            <div className="inline-flex shrink-0 rounded-xl border border-slate-200/80 bg-slate-100 p-0.5 shadow-2xs select-none">
               <button
                 type="button"
                 onClick={() => {
@@ -361,9 +364,9 @@ function LigneCoursExcelis({
                     setStatutSauvegarde("dirty");
                   }
                 }}
-                className={`px-3 py-1.5 text-xs font-black tracking-wider rounded-lg transition-all cursor-pointer ${
+                className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-black tracking-wider transition-all ${
                   typeProgression === "THEME"
-                    ? "bg-white text-brand-orange shadow-xs ring-1 ring-slate-200/70"
+                    ? "text-brand-orange bg-white shadow-xs ring-1 ring-slate-200/70"
                     : "text-slate-500 hover:text-slate-800"
                 }`}
                 title="Cours magistral / Thème théorique"
@@ -378,7 +381,7 @@ function LigneCoursExcelis({
                     setStatutSauvegarde("dirty");
                   }
                 }}
-                className={`px-3 py-1.5 text-xs font-black tracking-wider rounded-lg transition-all cursor-pointer ${
+                className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-black tracking-wider transition-all ${
                   typeProgression === "TD"
                     ? "bg-brand-orange text-white shadow-xs"
                     : "text-slate-500 hover:text-slate-800"
@@ -403,20 +406,20 @@ function LigneCoursExcelis({
                 setTitreTheme(e.target.value);
                 setStatutSauvegarde("dirty");
               }}
-              className="flex-1 min-w-[200px] text-center font-black text-slate-900 uppercase tracking-wide text-xs sm:text-sm py-2 px-3 bg-slate-50/50 hover:bg-slate-100/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-orange/30 rounded-xl transition-all placeholder:text-slate-400 placeholder:font-normal placeholder:normal-case"
+              className="focus:ring-brand-orange/30 min-w-[200px] flex-1 rounded-xl bg-slate-50/50 px-3 py-2 text-center text-xs font-black tracking-wide text-slate-900 uppercase transition-all placeholder:font-normal placeholder:text-slate-400 placeholder:normal-case hover:bg-slate-100/50 focus:bg-white focus:ring-2 focus:outline-none sm:text-sm"
             />
           </div>
 
           {/* 2. CONTENU LIGNE PAR LIGNE */}
           <div className="space-y-1.5 py-1">
-            <span className="text-[11px] font-black text-slate-700 tracking-wider uppercase block">
+            <span className="block text-[11px] font-black tracking-wider text-slate-700 uppercase">
               CONTENU :
             </span>
 
             <div className="space-y-1.5">
               {lines.map((line, idx) => (
                 <div key={idx} className="group/line flex items-center gap-2">
-                  <span className="select-none font-bold text-slate-400 text-xs shrink-0">
+                  <span className="shrink-0 text-xs font-bold text-slate-400 select-none">
                     -
                   </span>
                   <input
@@ -433,13 +436,13 @@ function LigneCoursExcelis({
                     onChange={(e) => handleLineChange(idx, e.target.value)}
                     onKeyDown={(e) => handleLineKeyDown(idx, e)}
                     onPaste={(e) => handleLinePaste(idx, e)}
-                    className="flex-1 rounded-lg border border-transparent hover:border-slate-200 focus:border-brand-orange bg-transparent focus:bg-white px-2.5 py-1 text-xs text-slate-800 focus:outline-none transition-all"
+                    className="focus:border-brand-orange flex-1 rounded-lg border border-transparent bg-transparent px-2.5 py-1 text-xs text-slate-800 transition-all hover:border-slate-200 focus:bg-white focus:outline-none"
                   />
                   {lines.length > 1 && (
                     <button
                       type="button"
                       onClick={() => handleRemoveLine(idx)}
-                      className="opacity-0 group-hover/line:opacity-100 p-1 text-slate-400 hover:text-rose-600 rounded cursor-pointer transition-opacity"
+                      className="cursor-pointer rounded p-1 text-slate-400 opacity-0 transition-opacity group-hover/line:opacity-100 hover:text-rose-600"
                       title="Supprimer cette ligne"
                     >
                       <X size={13} />
@@ -452,7 +455,7 @@ function LigneCoursExcelis({
             <button
               type="button"
               onClick={handleAddLine}
-              className="inline-flex items-center gap-1 pt-1 text-[11px] font-semibold text-brand-orange hover:text-brand-orange/80 cursor-pointer"
+              className="text-brand-orange hover:text-brand-orange/80 inline-flex cursor-pointer items-center gap-1 pt-1 text-[11px] font-semibold"
             >
               <Plus size={12} />
               <span>Ajouter une ligne (ou appuyez sur Entrée)</span>
@@ -461,7 +464,7 @@ function LigneCoursExcelis({
 
           {/* 3. EXERCICES */}
           <div className="flex items-center gap-2 border-t border-slate-200 pt-2.5 text-xs">
-            <span className="text-[11px] font-black text-slate-700 tracking-wider uppercase shrink-0">
+            <span className="shrink-0 text-[11px] font-black tracking-wider text-slate-700 uppercase">
               EXERCICES :
             </span>
             <input
@@ -472,17 +475,17 @@ function LigneCoursExcelis({
                 setExercices(e.target.value);
                 setStatutSauvegarde("dirty");
               }}
-              className="flex-1 rounded-lg border border-transparent hover:border-slate-200 focus:border-brand-orange bg-transparent focus:bg-white px-2.5 py-1 font-semibold text-slate-800 text-xs focus:outline-none transition-all"
+              className="focus:border-brand-orange flex-1 rounded-lg border border-transparent bg-transparent px-2.5 py-1 text-xs font-semibold text-slate-800 transition-all hover:border-slate-200 focus:bg-white focus:outline-none"
             />
           </div>
         </div>
       </td>
 
       {/* ── COLONNE 3 : ACTIONS & STATUT (Masquée à l'export/impression) ── */}
-      <td className="w-28 border-l border-slate-200 p-4 text-center align-middle no-print print:hidden">
+      <td className="no-print w-28 border-l border-slate-200 p-4 text-center align-middle print:hidden">
         <div className="flex flex-col items-center justify-center gap-2">
           {statutSauvegarde === "saving" && (
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-orange">
+            <span className="text-brand-orange inline-flex items-center gap-1 text-[11px] font-bold">
               <Loader2 size={12} className="animate-spin" />
               <span>Sauvegarde...</span>
             </span>
@@ -500,7 +503,7 @@ function LigneCoursExcelis({
               type="button"
               onClick={sauvegarder}
               disabled={creerMutation.isPending || modifierMutation.isPending}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-brand-orange px-3 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-brand-orange/90 transition-all cursor-pointer"
+              className="bg-brand-orange hover:bg-brand-orange/90 inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-white shadow-2xs transition-all"
               title="Raccourci : Ctrl + Entrée"
             >
               <Save size={12} />
@@ -513,7 +516,7 @@ function LigneCoursExcelis({
               <button
                 type="button"
                 onClick={() => onTransferer(progression)}
-                className="p-1.5 text-slate-400 hover:bg-orange-50 hover:text-brand-orange rounded-lg transition-colors cursor-pointer"
+                className="hover:text-brand-orange cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-orange-50"
                 title="Transférer / Reporter ce cours (Rattrapage)"
               >
                 <ArrowRightLeft size={14} />
@@ -524,7 +527,7 @@ function LigneCoursExcelis({
               <button
                 type="button"
                 onClick={() => onSupprimer?.(progression)}
-                className="p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
+                className="cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
                 title="Supprimer ce cours"
               >
                 <Trash2 size={14} />
@@ -533,7 +536,7 @@ function LigneCoursExcelis({
               <button
                 type="button"
                 onClick={onAnnulerDraft}
-                className="p-1 text-[11px] font-medium text-slate-400 hover:text-slate-600 rounded cursor-pointer"
+                className="cursor-pointer rounded p-1 text-[11px] font-medium text-slate-400 hover:text-slate-600"
               >
                 Annuler
               </button>
@@ -602,11 +605,13 @@ export function SyllabusFiliereView({
   const droitSupprimerSemaine =
     peutSupprimerSemaine !== undefined ? peutSupprimerSemaine : estDirecteur;
 
-  const { getQuota, setQuota } = useProgressionQuotas(formationId);
+  const { getQuota, setQuota } = useProgressionQuotas(formationId, sessionId);
   const { data: allFormations = [] } = useFormations();
   const { data: allMatieres = [] } = useMatieres();
   const [showExportModal, setShowExportModal] = useState(false);
-  const [coursATransferer, setCoursATransferer] = useState<Progression | null>(null);
+  const [coursATransferer, setCoursATransferer] = useState<Progression | null>(
+    null,
+  );
 
   // Semaines explicitement supprimées / masquées par l'utilisateur
   const [semainesSupprimees, setSemainesSupprimees] = useState<Set<number>>(
@@ -694,9 +699,7 @@ export function SyllabusFiliereView({
 
   function handleAjouterNouvelleSemaine() {
     const maxSemaine =
-      semainesDisponibles.length > 0
-        ? Math.max(...semainesDisponibles)
-        : 1;
+      semainesDisponibles.length > 0 ? Math.max(...semainesDisponibles) : 1;
     const nouvelleSemaine = maxSemaine + 1;
     setSemaineSelectionnee(nouvelleSemaine);
     setDraftsParSemaine((prev) => ({ ...prev, [nouvelleSemaine]: true }));
@@ -741,68 +744,51 @@ export function SyllabusFiliereView({
   return (
     <div className="space-y-5">
       {/* ── Cartouche Officiel EXCELIS pour impression / Export PDF (masqué à l'écran, visible au print) ── */}
-      <div className="hidden print:block mb-4 p-4 border-2 border-brand-orange rounded-xl bg-orange-50/20">
-        <div className="flex items-center justify-between border-b border-orange-200 pb-2 mb-2">
+      <div className="border-brand-orange mb-4 hidden rounded-xl border-2 bg-orange-50/20 p-4 print:block">
+        <div className="mb-2 flex items-center justify-between border-b border-orange-200 pb-2">
           <div>
             <h1 className="text-xl font-black tracking-tight text-slate-900 uppercase">
               EXCELIS PRÉPAS — FICHE PÉDAGOGIQUE OFFICIELLE
             </h1>
-            <p className="text-xs font-bold text-brand-orange uppercase">
+            <p className="text-brand-orange text-xs font-bold uppercase">
               Syllabus de progression par filière & discipline
             </p>
           </div>
           <div className="text-right text-xs">
             <p className="font-bold text-slate-800">SESSION {sessionAnnee}</p>
-            <p className="text-slate-500">Date d&rsquo;impression : {new Date().toLocaleDateString("fr-FR")}</p>
+            <p className="text-slate-500">
+              Date d&rsquo;impression : {new Date().toLocaleDateString("fr-FR")}
+            </p>
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-between text-xs font-semibold text-slate-700">
-          <span>FORMATION : <strong className="text-slate-900">{formationNom}</strong></span>
-          <span>DISCIPLINE : <strong className="text-slate-900">{matiereNom}</strong></span>
+          <span>
+            FORMATION :{" "}
+            <strong className="text-slate-900">{formationNom}</strong>
+          </span>
+          <span>
+            DISCIPLINE :{" "}
+            <strong className="text-slate-900">{matiereNom}</strong>
+          </span>
         </div>
       </div>
 
       {/* ── SÉLECTION DES SEMAINES (affichée uniquement si non gérée par la navigation parente) ── */}
       {propSemaineSelectionnee === undefined && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-2xs no-print print:hidden">
+        <div className="no-print flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-2xs print:hidden">
           <div className="flex items-center gap-2">
-            <label
-              htmlFor="select-semaine-filiere"
-              className="text-xs font-bold uppercase tracking-wider text-slate-500 shrink-0"
-            >
-              Semaine :
-            </label>
-            <select
-              id="select-semaine-filiere"
+            <SelecteurSemaine
+              semaines={semainesDisponibles}
               value={semaineSelectionnee}
-              onChange={(e) => {
-                const val = e.target.value;
-                setSemaineSelectionnee(
-                  val === "TOUTES" ? "TOUTES" : Number(val),
-                );
-              }}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 shadow-2xs focus:border-brand-orange focus:outline-hidden focus:ring-1 focus:ring-brand-orange/20 cursor-pointer"
-            >
-              <option value="TOUTES">
-                Toutes les semaines (S1 à S
-                {semainesDisponibles[semainesDisponibles.length - 1] || 1}) ·{" "}
-                {progressions.length} cours
-              </option>
-              {semainesDisponibles.map((s) => {
-                const count = progressionsParSemaine.get(s)?.length ?? 0;
-                return (
-                  <option key={s} value={s}>
-                    Semaine {s} ({count} cours)
-                  </option>
-                );
-              })}
-            </select>
+              onChange={setSemaineSelectionnee}
+              toutes
+            />
           </div>
 
           <button
             type="button"
             onClick={handleAjouterNouvelleSemaine}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:border-brand-orange hover:text-brand-orange transition-colors cursor-pointer shrink-0"
+            className="hover:border-brand-orange hover:text-brand-orange inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors"
           >
             <Plus size={13} />
             <span>+ Nouvelle Semaine</span>
@@ -825,37 +811,45 @@ export function SyllabusFiliereView({
               className="semaine-card overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs"
             >
               {/* Titre de la semaine au-dessus du tableau */}
-              <div className="bg-slate-100/90 px-4 py-2.5 text-xs font-black uppercase text-slate-800 flex items-center justify-between border-b border-slate-200/90">
+              <div className="flex items-center justify-between border-b border-slate-200/90 bg-slate-100/90 px-4 py-2.5 text-xs font-black text-slate-800 uppercase">
                 <div className="flex items-center gap-2">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-md bg-brand-orange text-[10px] font-black text-white shadow-2xs">
+                  <span className="bg-brand-orange flex h-5 w-5 items-center justify-center rounded-md text-[10px] font-black text-white shadow-2xs">
                     S{semaine}
                   </span>
                   <span>Semaine {semaine}</span>
 
                   {/* Stepper Quota : modifiable UNIQUEMENT par le Directeur Académique / Directeur, lecture seule pour les chefs de département */}
                   {estDirecteur ? (
-                    <div className="ml-2 inline-flex items-center gap-2 rounded-full bg-white border border-slate-200/90 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs no-print">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    <div className="no-print ml-2 inline-flex items-center gap-2 rounded-full border border-slate-200/90 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs">
+                      <span className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">
                         Quota :
                       </span>
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
-                          onClick={() => setQuota(semaine, matiereId, Math.max(0, quota - 1))}
+                          onClick={() =>
+                            setQuota(semaine, matiereId, Math.max(0, quota - 1))
+                          }
                           disabled={quota <= 0}
-                          className="h-5 w-5 rounded-full bg-slate-100 hover:bg-brand-orange hover:text-white text-slate-600 flex items-center justify-center transition-all cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed active:scale-95"
+                          className="hover:bg-brand-orange flex h-5 w-5 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-slate-600 transition-all hover:text-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-20"
                           title="Diminuer le quota hebdomadaire"
                         >
                           <Minus size={11} strokeWidth={3} />
                         </button>
-                        <span className="font-mono font-black text-xs text-brand-orange min-w-[18px] text-center">
+                        <span className="text-brand-orange min-w-[18px] text-center font-mono text-xs font-black">
                           {quota}
                         </span>
                         <button
                           type="button"
-                          onClick={() => setQuota(semaine, matiereId, Math.min(10, quota + 1))}
+                          onClick={() =>
+                            setQuota(
+                              semaine,
+                              matiereId,
+                              Math.min(10, quota + 1),
+                            )
+                          }
                           disabled={quota >= 10}
-                          className="h-5 w-5 rounded-full bg-slate-100 hover:bg-brand-orange hover:text-white text-slate-600 flex items-center justify-center transition-all cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed active:scale-95"
+                          className="hover:bg-brand-orange flex h-5 w-5 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-slate-600 transition-all hover:text-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-20"
                           title="Augmenter le quota hebdomadaire"
                         >
                           <Plus size={11} strokeWidth={3} />
@@ -871,11 +865,11 @@ export function SyllabusFiliereView({
                       </span>
                     </div>
                   ) : (
-                    <div className="ml-2 inline-flex items-center gap-2 rounded-full bg-slate-50 border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs no-print">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    <div className="no-print ml-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs">
+                      <span className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">
                         Quota fixé :
                       </span>
-                      <span className="font-mono font-black text-xs text-brand-orange">
+                      <span className="text-brand-orange font-mono text-xs font-black">
                         ({String(quota).padStart(2, "0")})
                       </span>
                       <span className="text-slate-300">|</span>
@@ -888,24 +882,28 @@ export function SyllabusFiliereView({
                   )}
 
                   {/* Information compacte visible uniquement à l'impression */}
-                  <span className="hidden print:inline text-[11px] font-bold text-slate-700 ml-2 normal-case">
+                  <span className="ml-2 hidden text-[11px] font-bold text-slate-700 normal-case print:inline">
                     ({coursList.length} cours)
                   </span>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <span className="text-[11px] font-semibold text-slate-500 no-print">
-                    {coursList.length} cours rédigé{coursList.length > 1 ? "s" : ""}
+                  <span className="no-print text-[11px] font-semibold text-slate-500">
+                    {coursList.length} cours rédigé
+                    {coursList.length > 1 ? "s" : ""}
                   </span>
 
                   {droitSupprimerSemaine && (
                     <button
                       type="button"
                       onClick={() => handleSupprimerSemaine(semaine)}
-                      className="no-print inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700 transition-all cursor-pointer shadow-2xs"
+                      className="no-print inline-flex cursor-pointer items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 shadow-2xs transition-all hover:border-red-300 hover:bg-red-50 hover:text-red-700"
                       title={`Supprimer le tableau de la Semaine ${semaine}`}
                     >
-                      <Trash2 size={11} className="text-slate-400 group-hover:text-red-600" />
+                      <Trash2
+                        size={11}
+                        className="text-slate-400 group-hover:text-red-600"
+                      />
                       <span>Supprimer Semaine {semaine}</span>
                     </button>
                   )}
@@ -915,14 +913,15 @@ export function SyllabusFiliereView({
               <table className="w-full border-collapse text-left">
                 {/* ── EN-TÊTE ORANGE FIDÈLE AU PAPIER EXCELIS ── */}
                 <thead>
-                  <tr className="bg-brand-orange text-white text-xs font-bold tracking-wider uppercase">
-                    <th className="w-28 p-3 text-center border-r border-orange-600/40">
+                  <tr className="bg-brand-orange text-xs font-bold tracking-wider text-white uppercase">
+                    <th className="w-28 border-r border-orange-600/40 p-3 text-center">
                       COURS
                     </th>
-                    <th className="p-3 text-center border-r border-orange-600/40">
-                      {matiereNom.toUpperCase()} ({String(quota).padStart(2, "0")})
+                    <th className="border-r border-orange-600/40 p-3 text-center">
+                      {matiereNom.toUpperCase()} (
+                      {String(quota).padStart(2, "0")})
                     </th>
-                    <th className="w-28 p-3 text-center no-print print:hidden">
+                    <th className="no-print w-28 p-3 text-center print:hidden">
                       ACTIONS
                     </th>
                   </tr>
@@ -933,47 +932,58 @@ export function SyllabusFiliereView({
                   {/* Si aucun cours et pas de brouillon */}
                   {coursList.length === 0 && !aBrouillon ? (
                     <tr>
-                      <td colSpan={3} className="p-8 text-center bg-slate-50/40">
+                      <td
+                        colSpan={3}
+                        className="bg-slate-50/40 p-8 text-center"
+                      >
                         {quota === 0 ? (
-                          <div className="max-w-md mx-auto space-y-2 py-2">
+                          <div className="mx-auto max-w-md space-y-2 py-2">
                             <div className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-200/70 text-slate-500">
                               <Lock size={16} />
                             </div>
-                            <p className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                            <p className="text-xs font-bold tracking-wide text-slate-800 uppercase">
                               Aucun cours prévu en Semaine {semaine} (Quota : 0)
                             </p>
-                            <p className="text-[11px] text-slate-500 font-medium no-print">
-                              La Direction Académique a fixé le quota de cette discipline à 0 pour cette semaine (matière non dispensée ou semaine libérée).
+                            <p className="no-print text-[11px] font-medium text-slate-500">
+                              La Direction Académique a fixé le quota de cette
+                              discipline à 0 pour cette semaine (matière non
+                              dispensée ou semaine libérée).
                             </p>
-                            <p className="hidden print:block text-xs italic text-slate-600">
+                            <p className="hidden text-xs text-slate-600 italic print:block">
                               Matière non programmée sur cette semaine.
                             </p>
                           </div>
                         ) : (
                           <>
-                            <BookOpen className="mx-auto h-8 w-8 text-slate-300 mb-2 no-print" />
+                            <BookOpen className="no-print mx-auto mb-2 h-8 w-8 text-slate-300" />
                             <p className="text-xs font-bold text-slate-700">
                               Aucun cours renseigné pour la Semaine {semaine}
                             </p>
-                            <p className="text-[11px] text-slate-400 mt-0.5 mb-3 no-print">
-                              Commencez à remplir directement la progression dans le tableau ci-dessous.
+                            <p className="no-print mt-0.5 mb-3 text-[11px] text-slate-400">
+                              Commencez à remplir directement la progression
+                              dans le tableau ci-dessous.
                             </p>
-                            <p className="hidden print:block text-xs italic text-slate-500">
+                            <p className="hidden text-xs text-slate-500 italic print:block">
                               Aucun cours documenté pour cette semaine.
                             </p>
                             {quotaAtteint ? (
-                              <div className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-bold text-slate-500 shadow-2xs no-print">
+                              <div className="no-print inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-bold text-slate-500 shadow-2xs">
                                 <Lock size={13} className="text-slate-400" />
-                                <span>Quota hebdomadaire atteint ({quota}/{quota} cours max)</span>
+                                <span>
+                                  Quota hebdomadaire atteint ({quota}/{quota}{" "}
+                                  cours max)
+                                </span>
                               </div>
                             ) : (
                               <button
                                 type="button"
                                 onClick={() => handleCreerBrouillon(semaine)}
-                                className="inline-flex items-center gap-1.5 rounded-xl bg-brand-orange px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-brand-orange/90 transition-all cursor-pointer no-print"
+                                className="bg-brand-orange hover:bg-brand-orange/90 no-print inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-xs transition-all"
                               >
                                 <Plus size={14} />
-                                <span>Remplir le 1er Cours de la Semaine {semaine}</span>
+                                <span>
+                                  Remplir le 1er Cours de la Semaine {semaine}
+                                </span>
                               </button>
                             )}
                           </>
@@ -1014,27 +1024,35 @@ export function SyllabusFiliereView({
 
                   {/* Bouton pour ajouter un cours suivant directement dans la table */}
                   {!aBrouillon && coursList.length > 0 && (
-                    <tr className="bg-slate-50/50 hover:bg-orange-50/30 transition-colors no-print">
+                    <tr className="no-print bg-slate-50/50 transition-colors hover:bg-orange-50/30">
                       <td colSpan={3} className="p-3 text-center">
                         {quota === 0 ? (
                           <div className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-bold text-slate-500 shadow-2xs select-none">
                             <Lock size={13} className="text-slate-400" />
-                            <span>Quota fixé à 0 cours par la Direction (matière dispensée cette semaine)</span>
+                            <span>
+                              Quota fixé à 0 cours par la Direction (matière
+                              dispensée cette semaine)
+                            </span>
                           </div>
                         ) : quotaAtteint ? (
                           <div className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-bold text-slate-500 shadow-2xs select-none">
                             <Lock size={13} className="text-slate-400" />
-                            <span>Quota hebdomadaire atteint ({quota}/{quota} cours max autorisés par la Direction)</span>
+                            <span>
+                              Quota hebdomadaire atteint ({quota}/{quota} cours
+                              max autorisés par la Direction)
+                            </span>
                           </div>
                         ) : (
                           <button
                             type="button"
                             onClick={() => handleCreerBrouillon(semaine)}
-                            className="inline-flex items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:border-brand-orange hover:text-brand-orange transition-all cursor-pointer"
+                            className="hover:border-brand-orange hover:text-brand-orange inline-flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-2xs transition-all"
                           >
                             <Plus size={14} className="text-brand-orange" />
                             <span>
-                              + Ajouter un cours ({labelNumeroCours(prochainNumero)}) à la Semaine {semaine}
+                              + Ajouter un cours (
+                              {labelNumeroCours(prochainNumero)}) à la Semaine{" "}
+                              {semaine}
                             </span>
                           </button>
                         )}
@@ -1067,7 +1085,7 @@ export function SyllabusFiliereView({
           isOpen={showExportModal}
           onClose={() => setShowExportModal(false)}
           formations={
-            (propAllFormations && propAllFormations.length > 0)
+            propAllFormations && propAllFormations.length > 0
               ? propAllFormations
               : allFormations.length > 0
                 ? allFormations
@@ -1091,4 +1109,3 @@ export function SyllabusFiliereView({
     </div>
   );
 }
-

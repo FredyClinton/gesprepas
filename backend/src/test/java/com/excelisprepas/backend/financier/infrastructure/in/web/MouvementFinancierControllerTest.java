@@ -10,6 +10,9 @@ import com.excelisprepas.backend.shared.exception.SessionNonUtilisableException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import com.excelisprepas.backend.shared.testsupport.TokenPortTestConfig;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -26,6 +29,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+@AutoConfigureMockMvc(addFilters = false)
+@Import(TokenPortTestConfig.class)
 @WebMvcTest(MouvementFinancierController.class)
 @DisplayName("MouvementFinancierController")
 class MouvementFinancierControllerTest {
@@ -48,6 +53,10 @@ class MouvementFinancierControllerTest {
     private ListerMouvementsUseCase listerMouvementsUseCase;
     @MockitoBean
     private ListerVersementsApprenantUseCase listerVersementsApprenantUseCase;
+    @MockitoBean
+    private ModifierEntreeUseCase modifierEntreeUseCase;
+    @MockitoBean
+    private SupprimerEntreeUseCase supprimerEntreeUseCase;
 
     @Test
     @DisplayName("POST /api/entrees avec des données valides retourne 201")

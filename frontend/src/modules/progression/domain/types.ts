@@ -29,6 +29,27 @@ export interface MettreAJourContenuPayload {
   exercices?: string | null;
 }
 
+// Nombre maximum de cours qu'un Chef de Département peut saisir pour une
+// matière, une semaine, une formation et une session données - fixé par le
+// Directeur Académique. Un couple (semaine, matiereId) sans entrée reste libre
+// (voir useProgressionQuotas).
+export interface QuotaHebdomadaire {
+  id: string;
+  formationId: string;
+  sessionId: string;
+  matiereId: string;
+  semaine: number;
+  quota: number;
+}
+
+export interface DefinirQuotaPayload {
+  formationId: string;
+  sessionId: string;
+  matiereId: string;
+  semaine: number;
+  quota: number;
+}
+
 export type TypeProgression = "THEME" | "TD";
 
 /**
@@ -74,10 +95,7 @@ export function decomposerTheme(rawTheme?: string | null): {
 export function recomposerTheme(type: TypeProgression, titre: string): string {
   let clean = titre.trim();
   clean = clean
-    .replace(
-      /^(?:\[(?:TD|TH[ÈE]ME)\]|(?:TD|TH[ÈE]ME|COURS))\s*[:\-–]\s*/i,
-      "",
-    )
+    .replace(/^(?:\[(?:TD|TH[ÈE]ME)\]|(?:TD|TH[ÈE]ME|COURS))\s*[:\-–]\s*/i, "")
     .trim();
   if (!clean) return "";
   return `${type === "TD" ? "TD" : "THÈME"} : ${clean}`;

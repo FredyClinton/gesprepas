@@ -12,14 +12,21 @@ declare module "next-auth" {
       centreId: string | null;
       departementId: string | null;
     } & DefaultSession["user"];
+    // Access token JWT du backend, exposé au client pour que apiFetch (voir
+    // shared/lib/api-client.ts) puisse l'attacher en Authorization: Bearer ...
+    // Le refresh token, lui, ne quitte jamais le serveur (voir JWT ci-dessous).
+    accessToken: string;
+    // Présent seulement si le rafraîchissement automatique (callback jwt()) a
+    // échoué - le composant qui lit la session doit alors forcer une déconnexion.
+    error?: "RefreshAccessTokenError";
   }
 
   interface User {
     role: Role;
     centreId: string | null;
     departementId: string | null;
-    //
-    backendToken: string;
+    accessToken: string;
+    refreshToken: string;
   }
 }
 
@@ -28,6 +35,12 @@ declare module "next-auth/jwt" {
     role: Role;
     centreId: string | null;
     departementId: string | null;
-    backendToken: string;
+    accessToken: string;
+    refreshToken: string;
+    // Timestamp (ms epoch) d'expiration de l'access token, calculé à la connexion
+    // et à chaque rafraîchissement - permet au callback jwt() de savoir quand
+    // rafraîchir sans décoder le JWT lui-même.
+    accessTokenExpires: number;
+    error?: "RefreshAccessTokenError";
   }
 }

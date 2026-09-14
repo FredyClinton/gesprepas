@@ -7,6 +7,8 @@ import {
   listCentres,
   listLocalisations,
   listSessions,
+  listSemaines,
+  ajouterSemaine,
   rejoindreSession,
   relocaliserCentre,
   rouvrirCentre,
@@ -36,6 +38,25 @@ export function useSessions() {
   return useQuery({
     queryKey: ["sessions"],
     queryFn: listSessions,
+  });
+}
+
+export function useSemaines(sessionId?: string) {
+  return useQuery({
+    queryKey: ["semaines", sessionId],
+    queryFn: () => listSemaines(sessionId!),
+    enabled: Boolean(sessionId),
+    select: (semaines) => semaines.map((s) => s.numero).sort((a, b) => a - b),
+  });
+}
+
+export function useAjouterSemaine(sessionId?: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (numero: number) => ajouterSemaine(sessionId!, numero),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["semaines", sessionId] });
+    },
   });
 }
 

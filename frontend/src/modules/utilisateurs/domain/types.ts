@@ -18,6 +18,19 @@ export type LoginRequest = {
 };
 
 export type LoginResponse = {
-  token: string;
+  accessToken: string;
+  refreshToken: string;
   utilisateur: Utilisateur;
+};
+
+export type RefreshRequest = {
+  refreshToken: string;
+};
+
+// Même forme que LoginResponse côté backend (rotation : un nouveau couple de
+// tokens est renvoyé à chaque rafraîchissement).
+export type RefreshResponse = LoginResponse;
+
+export type LogoutRequest = {
+  refreshToken: string;
 };

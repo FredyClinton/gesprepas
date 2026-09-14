@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -38,6 +39,7 @@ public class ValidationMouvementController {
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "404", description = "Mouvement financier ou utilisateur introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('FINANCIER_VALIDER_BILAN_CONTROLEUR')")
     @PatchMapping("/api/mouvements-financiers/{id}/valider")
     public ResponseEntity<ValidationMouvementResponse> validerMouvement(
             @Parameter(description = "Identifiant du mouvement financier") @PathVariable UUID id,

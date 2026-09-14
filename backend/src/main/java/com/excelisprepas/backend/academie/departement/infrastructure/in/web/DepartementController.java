@@ -17,6 +17,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -60,6 +61,7 @@ public class DepartementController {
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content)
     })
     @PostMapping
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_DEPARTEMENTS')")
     public ResponseEntity<DepartementResponse> creerDepartement(@Valid @RequestBody CreerDepartementRequest request) {
         Departement departement = creerDepartementUseCase.creerDepartement(
                 request.nomDepartement(), request.nomMatiere(), request.couleur());
@@ -97,6 +99,7 @@ public class DepartementController {
             @ApiResponse(responseCode = "404", description = "Département introuvable", content = @Content)
     })
     @PatchMapping("/{id}/renommer")
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_DEPARTEMENTS')")
     public ResponseEntity<DepartementResponse> renommerDepartement(
             @Parameter(description = "Identifiant du département") @PathVariable UUID id,
             @Valid @RequestBody RenommerDepartementRequest request) {
@@ -111,6 +114,7 @@ public class DepartementController {
             @ApiResponse(responseCode = "404", description = "Département introuvable", content = @Content)
     })
     @PutMapping("/{id}/chef")
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_DEPARTEMENTS')")
     public ResponseEntity<Void> assignerChef(
             @Parameter(description = "Identifiant du département") @PathVariable UUID id,
             @RequestBody AssignerChefRequest request) {
@@ -125,6 +129,7 @@ public class DepartementController {
             @ApiResponse(responseCode = "409", description = "Département utilisé (enseignants dans le roster ou cours planifiés)", content = @Content)
     })
     @DeleteMapping("/{id}")
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_DEPARTEMENTS')")
     public ResponseEntity<Void> supprimerDepartement(
             @Parameter(description = "Identifiant du département") @PathVariable UUID id) {
         supprimerDepartementUseCase.supprimerDepartement(id);

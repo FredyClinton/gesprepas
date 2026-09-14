@@ -2,27 +2,21 @@
 
 import { useMemo, useState } from "react";
 import {
-  TrendingUp,
-  Layers,
   Plus,
-  AlertTriangle,
-  BookOpen,
-  GraduationCap,
   Building2,
   Calendar,
-  CalendarRange,
-  ChevronRight,
   Sparkles,
   Copy,
-  FileText,
-  CheckCircle2,
-  Palette,
   Printer,
   Columns,
 } from "lucide-react";
 
-import { Card } from "@/shared/ui";
-import { useSessionActive } from "@/modules/centres-sessions";
+import {
+  SelecteurSemaine,
+  useAjouterSemaine,
+  useSemaines,
+  useSessionActive,
+} from "@/modules/centres-sessions";
 import { useDepartement, useDepartements } from "@/modules/departement";
 import {
   useAffectations,
@@ -42,7 +36,6 @@ import {
   ExporterProgressionModal,
   OrganiserColonnesModal,
   useOrdreColonnes,
-  construireMappingAffectationsProgressions,
   type Progression,
   type PrefillProgression,
 } from "@/modules/progression";
@@ -79,6 +72,7 @@ function ProgressionChefDepartement({
 }) {
   const { data: sessionActive } = useSessionActive();
   const sessionId = sessionActive?.id;
+  const { data: semainesPersistantes = [] } = useSemaines(sessionId);
   const { data: departements = [] } = useDepartements();
   const { data: formations = [] } = useFormations();
   const { data: salles = [] } = useSalles(sessionId);
@@ -275,6 +269,9 @@ function ProgressionChefDepartement({
     affectationsFiliereActive.forEach((a) => {
       if (a.semaine > max) max = a.semaine;
     });
+    semainesPersistantes.forEach((s) => {
+      if (s > max) max = s;
+    });
     if (typeof semaineSelectionnee === "number" && semaineSelectionnee > max) {
       max = semaineSelectionnee;
     }
@@ -283,6 +280,7 @@ function ProgressionChefDepartement({
     semaineCourante,
     progressionsFiliereActive,
     affectationsFiliereActive,
+    semainesPersistantes,
     semaineSelectionnee,
   ]);
 
@@ -291,8 +289,11 @@ function ProgressionChefDepartement({
     return Array.from({ length: maxSemaine }, (_, i) => i + 1);
   }, [maxSemaine]);
 
-  function handleAjouterNouvelleSemaine() {
+  const ajouterSemaineMutation = useAjouterSemaine(sessionId);
+
+  async function handleAjouterNouvelleSemaine() {
     const next = maxSemaine + 1;
+    await ajouterSemaineMutation.mutateAsync(next);
     setSemaineSelectionnee(next);
   }
 
@@ -362,16 +363,15 @@ function ProgressionChefDepartement({
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">
               Progression Pédagogique
             </h1>
-            {sessionActive && (
+            {/* {sessionActive && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
                 <CalendarRange size={12} className="text-slate-400" />
                 Session {sessionActive.annee}
               </span>
-            )}
+            )} */}
           </div>
           <p className="text-sm text-slate-500">
-            Suivi du syllabus, validation des leçons dispensées et archivage des
-            exercices traités.
+            Contenus des cours, thèmes et compétences dispensés par formation cette semaine.
           </p>
         </div>
 
@@ -497,44 +497,29 @@ function ProgressionChefDepartement({
         {/* Sélecteur de semaine en liste déroulante */}
         <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
           <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs">
-            <Calendar size={15} className="text-brand-orange shrink-0" />
+            {/* <Calendar size={15} className="text-brand-orange shrink-0" />
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider hidden sm:inline">
               Semaine :
-            </span>
-            <select
-              value={semaineSelectionnee === "TOUTES" ? "TOUTES" : String(semaineSelectionnee)}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (val === "TOUTES") {
-                  setSemaineSelectionnee("TOUTES");
-                } else {
-                  setSemaineSelectionnee(Number(val));
-                }
-              }}
-              className="cursor-pointer bg-transparent text-xs sm:text-sm font-bold text-slate-800 outline-none pr-1"
-            >
-              <option value="TOUTES" className="bg-white text-slate-800">
-                Toutes les semaines (S1 à S{maxSemaine})
-              </option>
-              <optgroup label="Semaines du cursus (Début → Présent)">
-                {semainesDisponibles.map((s) => (
-                  <option key={s} value={String(s)} className="bg-white text-slate-800 font-bold">
-                    Semaine {s} {s === semaineCourante ? "• (Semaine en cours)" : s > semaineCourante ? "(À venir)" : ""}
-                  </option>
-                ))}
-              </optgroup>
-            </select>
+            </span> */}
+            <SelecteurSemaine
+              semaines={semainesDisponibles}
+              value={semaineSelectionnee}
+              semaineCourante={semaineCourante}
+              onChange={setSemaineSelectionnee}
+              toutes
+            />
           </div>
 
-          <button
+          {/* <button
             type="button"
-            onClick={handleAjouterNouvelleSemaine}
+            onClick={() => void handleAjouterNouvelleSemaine()}
+            disabled={ajouterSemaineMutation.isPending}
             title="Ajouter une nouvelle semaine au syllabus"
             className="inline-flex items-center gap-1 rounded-xl border border-dashed border-slate-300 bg-white px-2.5 py-1.5 text-xs sm:text-sm font-bold text-slate-700 shadow-2xs hover:border-brand-orange hover:bg-orange-50 hover:text-brand-orange transition-colors cursor-pointer shrink-0"
           >
             <Plus size={13} className="text-brand-orange" />
             <span>+ Semaine</span>
-          </button>
+          </button> */}
         </div>
       </div>
 
@@ -642,6 +627,7 @@ function ProgressionChefDepartement({
 function ProgressionDirecteurAcademique() {
   const { data: sessionActive } = useSessionActive();
   const sessionId = sessionActive?.id;
+  const { data: semainesPersistantes = [] } = useSemaines(sessionId);
   const { data: departements = [] } = useDepartements();
   const { data: formations = [] } = useFormations();
   const { data: matieres = [] } = useMatieres();
@@ -829,6 +815,9 @@ function ProgressionDirecteurAcademique() {
     affectationsFiliereActive.forEach((a) => {
       if (a.semaine > max) max = a.semaine;
     });
+    semainesPersistantes.forEach((s) => {
+      if (s > max) max = s;
+    });
     if (typeof semaineSelectionnee === "number" && semaineSelectionnee > max) {
       max = semaineSelectionnee;
     }
@@ -837,6 +826,7 @@ function ProgressionDirecteurAcademique() {
     semaineCourante,
     progressionsFiliereActive,
     affectationsFiliereActive,
+    semainesPersistantes,
     semaineSelectionnee,
   ]);
 
@@ -844,8 +834,11 @@ function ProgressionDirecteurAcademique() {
     return Array.from({ length: maxSemaine }, (_, i) => i + 1);
   }, [maxSemaine]);
 
-  function handleAjouterNouvelleSemaine() {
+  const ajouterSemaineMutation = useAjouterSemaine(sessionId);
+
+  async function handleAjouterNouvelleSemaine() {
     const next = maxSemaine + 1;
+    await ajouterSemaineMutation.mutateAsync(next);
     setSemaineSelectionnee(next);
   }
 
@@ -934,34 +927,19 @@ function ProgressionDirecteurAcademique() {
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider hidden sm:inline">
                 Semaine :
               </span>
-              <select
-                value={semaineSelectionnee === "TOUTES" ? "TOUTES" : String(semaineSelectionnee)}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === "TOUTES") {
-                    setSemaineSelectionnee("TOUTES");
-                  } else {
-                    setSemaineSelectionnee(Number(val));
-                  }
-                }}
-                className="cursor-pointer bg-transparent text-xs sm:text-sm font-bold text-slate-800 outline-none pr-1"
-              >
-                <option value="TOUTES" className="bg-white text-slate-800">
-                  Toutes les semaines (S1 à S{maxSemaine})
-                </option>
-                <optgroup label="Semaines du cursus (Début → Présent)">
-                  {semainesDisponibles.map((s) => (
-                    <option key={s} value={String(s)} className="bg-white text-slate-800 font-bold">
-                      Semaine {s} {s === semaineCourante ? "• (en cours)" : s > semaineCourante ? "(À venir)" : ""}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
+              <SelecteurSemaine
+                semaines={semainesDisponibles}
+                value={semaineSelectionnee}
+                semaineCourante={semaineCourante}
+                onChange={setSemaineSelectionnee}
+                toutes
+              />
             </div>
 
             <button
               type="button"
-              onClick={handleAjouterNouvelleSemaine}
+              onClick={() => void handleAjouterNouvelleSemaine()}
+              disabled={ajouterSemaineMutation.isPending}
               title="Ajouter une nouvelle semaine au syllabus"
               className="inline-flex items-center gap-1 rounded-xl border border-dashed border-slate-300 bg-white px-2.5 py-1.5 text-xs sm:text-sm font-bold text-slate-700 shadow-2xs hover:border-brand-orange hover:bg-orange-50 hover:text-brand-orange transition-colors cursor-pointer shrink-0"
             >

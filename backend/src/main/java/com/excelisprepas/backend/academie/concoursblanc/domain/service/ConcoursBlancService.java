@@ -5,7 +5,7 @@ import com.excelisprepas.backend.academie.concoursblanc.domain.model.*;
 import com.excelisprepas.backend.academie.concoursblanc.domain.port.out.ConcoursBlancRepositoryPort;
 import com.excelisprepas.backend.academie.concoursblanc.domain.port.out.EpreuveConcoursBlancRepositoryPort;
 import com.excelisprepas.backend.academie.concoursblanc.domain.port.out.ResultatCandidatRepositoryPort;
-import lombok.RequiredArgsConstructor;
+
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

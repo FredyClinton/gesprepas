@@ -17,6 +17,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -59,6 +60,7 @@ public class MatiereController {
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content)
     })
     @PostMapping
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_MATIERES')")
     public ResponseEntity<MatiereResponse> creerMatiere(@Valid @RequestBody CreerMatiereRequest request) {
         Matiere matiere = creerMatiereUseCase.creerMatiere(request.nom(), request.couleur());
         return ResponseEntity.status(HttpStatus.CREATED).body(versReponse(matiere));
@@ -95,6 +97,7 @@ public class MatiereController {
             @ApiResponse(responseCode = "404", description = "Matière introuvable", content = @Content)
     })
     @PatchMapping("/{id}/renommer")
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_MATIERES')")
     public ResponseEntity<MatiereResponse> renommerMatiere(
             @Parameter(description = "Identifiant de la matière") @PathVariable UUID id,
             @Valid @RequestBody RenommerMatiereRequest request) {
@@ -108,6 +111,7 @@ public class MatiereController {
             @ApiResponse(responseCode = "404", description = "Matière introuvable", content = @Content)
     })
     @PatchMapping("/{id}")
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_MATIERES')")
     public ResponseEntity<MatiereResponse> modifierMatiere(
             @Parameter(description = "Identifiant de la matière") @PathVariable UUID id,
             @RequestBody ModifierMatiereRequest request) {
@@ -121,6 +125,7 @@ public class MatiereController {
             @ApiResponse(responseCode = "404", description = "Matière introuvable", content = @Content)
     })
     @PatchMapping("/{id}/couleur")
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_MATIERES')")
     public ResponseEntity<MatiereResponse> changerCouleur(
             @Parameter(description = "Identifiant de la matière") @PathVariable UUID id,
             @RequestBody ModifierMatiereRequest request) {
@@ -134,6 +139,7 @@ public class MatiereController {
             @ApiResponse(responseCode = "409", description = "Matière encore référencée par d'autres entités", content = @Content)
     })
     @DeleteMapping("/{id}")
+        @PreAuthorize("hasAuthority('ACADEMIE_GERER_MATIERES')")
     public ResponseEntity<Void> supprimerMatiere(
             @Parameter(description = "Identifiant de la matière") @PathVariable UUID id) {
         supprimerMatiereUseCase.supprimerMatiere(id);

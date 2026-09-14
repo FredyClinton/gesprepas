@@ -46,6 +46,11 @@ public class ProgressionExceptionHandler {
         return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
+    @ExceptionHandler(QuotaHebdomadaireDepasseException.class)
+    public ResponseEntity<ApiErrorResponse> gererQuotaHebdomadaireDepasse(QuotaHebdomadaireDepasseException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiErrorResponse> gererArgumentInvalide(IllegalArgumentException ex) {
         return construireReponse(HttpStatus.BAD_REQUEST, ex.getMessage());
