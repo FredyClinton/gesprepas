@@ -33,17 +33,77 @@ public class BilanJournalierController {
     private final ValiderBilanControleurUseCase validerBilanControleurUseCase;
     private final ConsulterBilanDuJourUseCase consulterBilanDuJourUseCase;
     private final ConsulterRepartitionParFormationUseCase consulterRepartitionParFormationUseCase;
+    private final ConsulterBilanConsolideDuJourUseCase consulterBilanConsolideDuJourUseCase;
 
     public BilanJournalierController(SoumettreBilanCaissierUseCase soumettreBilanCaissierUseCase,
                                      ValiderBilanChefCentreUseCase validerBilanChefCentreUseCase,
                                      ValiderBilanControleurUseCase validerBilanControleurUseCase,
                                      ConsulterBilanDuJourUseCase consulterBilanDuJourUseCase,
-                                     ConsulterRepartitionParFormationUseCase consulterRepartitionParFormationUseCase) {
+                                     ConsulterRepartitionParFormationUseCase consulterRepartitionParFormationUseCase,
+                                     ConsulterBilanConsolideDuJourUseCase consulterBilanConsolideDuJourUseCase) {
         this.soumettreBilanCaissierUseCase = soumettreBilanCaissierUseCase;
         this.validerBilanChefCentreUseCase = validerBilanChefCentreUseCase;
         this.validerBilanControleurUseCase = validerBilanControleurUseCase;
         this.consulterBilanDuJourUseCase = consulterBilanDuJourUseCase;
         this.consulterRepartitionParFormationUseCase = consulterRepartitionParFormationUseCase;
+        this.consulterBilanConsolideDuJourUseCase = consulterBilanConsolideDuJourUseCase;
+    }
+
+    private static BilanConsolideResponse versReponseConsolidee(com.excelisprepas.backend.financier.domain.model.BilanConsolideNational national) {
+        List<BilanCentreResumeResponse> centresResp = national.centres().stream()
+                .map(BilanJournalierController::versReponseCentre)
+                .toList();
+
+        List<LigneEntreeResumeResponse> entreesNatResp = national.entreesNationalesDetaillees().stream()
+                .map(e -> new LigneEntreeResumeResponse(e.categorie(), e.formationId(), e.libelle(), e.montant(), e.nombreOperations()))
+                .toList();
+
+        List<LigneSortieResumeResponse> sortiesNatResp = national.sortiesNationalesDetaillees().stream()
+                .map(s -> new LigneSortieResumeResponse(s.motifId(), s.libelleMotif(), s.montant(), s.nombreOperations()))
+                .toList();
+
+        List<EffectifFormationResumeResponse> effectifsNatResp = national.effectifsNationauxParFormation().stream()
+                .map(eff -> new EffectifFormationResumeResponse(eff.formationId(), eff.formationNom(), eff.nouveauxElevesJour(), eff.effectifTotal()))
+                .toList();
+
+        return new BilanConsolideResponse(
+                national.date(),
+                national.sessionId(),
+                national.totalEntreesNational(),
+                national.totalSortiesNational(),
+                national.netAVerserNational(),
+                national.totalNouveauxElevesNational(),
+                national.totalEffectifNational(),
+                national.centresCloturesCount(),
+                national.centresTotalCount(),
+                centresResp,
+                entreesNatResp,
+                sortiesNatResp,
+                effectifsNatResp
+        );
+    }
+
+    private static BilanCentreResumeResponse versReponseCentre(com.excelisprepas.backend.financier.domain.model.BilanCentreResume c) {
+        List<LigneEntreeResumeResponse> entrees = c.entreesDetaillees().stream()
+                .map(e -> new LigneEntreeResumeResponse(e.categorie(), e.formationId(), e.libelle(), e.montant(), e.nombreOperations()))
+                .toList();
+        List<LigneSortieResumeResponse> sorties = c.sortiesDetaillees().stream()
+                .map(s -> new LigneSortieResumeResponse(s.motifId(), s.libelleMotif(), s.montant(), s.nombreOperations()))
+                .toList();
+        List<EffectifFormationResumeResponse> effectifs = c.effectifsParFormation().stream()
+                .map(eff -> new EffectifFormationResumeResponse(eff.formationId(), eff.formationNom(), eff.nouveauxElevesJour(), eff.effectifTotal()))
+                .toList();
+
+        return new BilanCentreResumeResponse(
+                c.centreId(), c.centreNom(), c.centreVille(), c.statut(),
+                c.totalEntrees(), c.totalSorties(), c.netAVerser(),
+                c.effectifNouveauxElevesTotal(), c.effectifTotalCentre(),
+                c.nombreSalles(), c.nombreCours(),
+                c.nomCaissier(), c.dateVisaCaissier(),
+                c.nomChefCentre(), c.dateValidationChefCentre(),
+                c.nomControleur(), c.dateValidationControleur(),
+                entrees, sorties, effectifs
+        );
     }
 
     private static BilanJournalierResponse versReponse(BilanJournalier bilan) {
@@ -80,7 +140,7 @@ public class BilanJournalierController {
     @Operation(summary = "Valider un bilan journalier (chef de centre)",
             description = "Valide le bilan journalier d'un centre, pour une session et une date données, côté chef de centre.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Bilan validé par le chef de centre",
+            @ApiResponse(responseCode = "201", description = "Bilan validé par le chef de centre",
                     content = @Content(schema = @Schema(implementation = BilanJournalierResponse.class))),
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "404", description = "Centre, session ou utilisateur introuvable", content = @Content),
@@ -92,7 +152,7 @@ public class BilanJournalierController {
             @Valid @RequestBody ValiderBilanChefCentreRequest request) {
         BilanJournalier bilan = validerBilanChefCentreUseCase.validerBilanChefCentre(
                 request.centreId(), request.sessionId(), request.date(), request.validateurUtilisateurId());
-        return ResponseEntity.ok(versReponse(bilan));
+        return ResponseEntity.status(HttpStatus.CREATED).body(versReponse(bilan));
     }
 
     @Operation(summary = "Valider et clôturer un bilan journalier (contrôleur / comptable)",
@@ -153,5 +213,23 @@ public class BilanJournalierController {
                 .map(ligne -> new RepartitionFormationResponse(ligne.formationId(), ligne.montant()))
                 .toList();
         return ResponseEntity.ok(reponses);
+    }
+
+    @Operation(summary = "Consulter le bilan consolidé national du jour (Directeur)",
+            description = "Retourne la synthèse nationale consolidée des bilans de caisse de tous les centres pour une session et une date données.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Synthèse nationale consolidée",
+                    content = @Content(schema = @Schema(implementation = BilanConsolideResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Session introuvable", content = @Content)
+    })
+    @PreAuthorize("hasAuthority('FINANCIER_CONSULTER')")
+    @GetMapping("/consolide-du-jour")
+    public ResponseEntity<BilanConsolideResponse> consulterBilanConsolideDuJour(
+            @Parameter(description = "Identifiant de la session") @RequestParam UUID sessionId,
+            @Parameter(description = "Date du bilan (ISO-8601)")
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        com.excelisprepas.backend.financier.domain.model.BilanConsolideNational consolide =
+                consulterBilanConsolideDuJourUseCase.consulterBilanConsolide(sessionId, date);
+        return ResponseEntity.ok(versReponseConsolidee(consolide));
     }
 }

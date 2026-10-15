@@ -3,8 +3,10 @@ package com.excelisprepas.backend.financier.infrastructure.in.web;
 import com.excelisprepas.backend.financier.domain.model.BilanJournalier;
 import com.excelisprepas.backend.financier.domain.model.BilanJournalierApercu;
 import com.excelisprepas.backend.financier.domain.model.RepartitionFormationLigne;
+import com.excelisprepas.backend.financier.domain.port.in.ConsulterBilanConsolideDuJourUseCase;
 import com.excelisprepas.backend.financier.domain.port.in.ConsulterBilanDuJourUseCase;
 import com.excelisprepas.backend.financier.domain.port.in.ConsulterRepartitionParFormationUseCase;
+import com.excelisprepas.backend.financier.domain.port.in.SoumettreBilanCaissierUseCase;
 import com.excelisprepas.backend.financier.domain.port.in.ValiderBilanChefCentreUseCase;
 import com.excelisprepas.backend.financier.domain.port.in.ValiderBilanControleurUseCase;
 import com.excelisprepas.backend.shared.exception.BilanJournalierDejaExistantException;
@@ -46,6 +48,8 @@ class BilanJournalierControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
+    private SoumettreBilanCaissierUseCase soumettreBilanCaissierUseCase;
+    @MockitoBean
     private ValiderBilanChefCentreUseCase validerBilanChefCentreUseCase;
     @MockitoBean
     private ValiderBilanControleurUseCase validerBilanControleurUseCase;
@@ -53,6 +57,8 @@ class BilanJournalierControllerTest {
     private ConsulterBilanDuJourUseCase consulterBilanDuJourUseCase;
     @MockitoBean
     private ConsulterRepartitionParFormationUseCase consulterRepartitionParFormationUseCase;
+    @MockitoBean
+    private ConsulterBilanConsolideDuJourUseCase consulterBilanConsolideDuJourUseCase;
 
     private BilanJournalier unBilanEnAttente() {
         return new BilanJournalier(UUID.randomUUID(), CENTRE_ID, SESSION_ID, DATE, LocalDateTime.now(), UTILISATEUR_ID);
@@ -189,5 +195,52 @@ class BilanJournalierControllerTest {
 
         mockMvc.perform(get("/api/bilans-journaliers/" + bilanId + "/repartition-formations"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("GET /api/bilans-journaliers/consolide-du-jour retourne 200 avec la synthèse nationale")
+    void consulterBilanConsolideDuJour_retourne200() throws Exception {
+        UUID centreId = UUID.randomUUID();
+        com.excelisprepas.backend.financier.domain.model.BilanCentreResume centreResume =
+                new com.excelisprepas.backend.financier.domain.model.BilanCentreResume(
+                centreId, "Centre Yaoundé", "Yaoundé",
+                com.excelisprepas.backend.financier.domain.model.StatutBilan.OUVERT,
+                new BigDecimal("125000"), new BigDecimal("15000"), new BigDecimal("110000"),
+                1, 50, 4, 6,
+                null, null, null, null, null, null,
+                List.of(new com.excelisprepas.backend.financier.domain.model.LigneEntreeResume(
+                        "FORMATION", UUID.randomUUID(), "Prépa Ingénieurs", new BigDecimal("100000"), 1)),
+                List.of(new com.excelisprepas.backend.financier.domain.model.LigneSortieResume(
+                        UUID.randomUUID(), "Transport", new BigDecimal("15000"), 1)),
+                List.of(new com.excelisprepas.backend.financier.domain.model.EffectifFormationResume(
+                        UUID.randomUUID(), "Prépa Ingénieurs", 1, 50))
+        );
+
+        com.excelisprepas.backend.financier.domain.model.BilanConsolideNational consolide =
+                new com.excelisprepas.backend.financier.domain.model.BilanConsolideNational(
+                DATE, SESSION_ID,
+                new BigDecimal("125000"), new BigDecimal("15000"), new BigDecimal("110000"),
+                1, 50, 0, 1,
+                List.of(centreResume),
+                List.of(new com.excelisprepas.backend.financier.domain.model.LigneEntreeResume(
+                        "FORMATION", UUID.randomUUID(), "Prépa Ingénieurs", new BigDecimal("100000"), 1)),
+                List.of(new com.excelisprepas.backend.financier.domain.model.LigneSortieResume(
+                        UUID.randomUUID(), "Transport", new BigDecimal("15000"), 1)),
+                List.of(new com.excelisprepas.backend.financier.domain.model.EffectifFormationResume(
+                        UUID.randomUUID(), "Prépa Ingénieurs", 1, 50))
+        );
+
+        when(consulterBilanConsolideDuJourUseCase.consulterBilanConsolide(SESSION_ID, DATE)).thenReturn(consolide);
+
+        mockMvc.perform(get("/api/bilans-journaliers/consolide-du-jour")
+                        .param("sessionId", SESSION_ID.toString())
+                        .param("date", "2026-09-15"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalEntreesNational").value(125000))
+                .andExpect(jsonPath("$.netAVerserNational").value(110000))
+                .andExpect(jsonPath("$.centres.length()").value(1))
+                .andExpect(jsonPath("$.centres[0].centreNom").value("Centre Yaoundé"))
+                .andExpect(jsonPath("$.centres[0].entreesDetaillees.length()").value(1))
+                .andExpect(jsonPath("$.entreesNationalesDetaillees.length()").value(1));
     }
 }
