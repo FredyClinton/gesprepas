@@ -1,6 +1,6 @@
 # Spécification Technique & Fonctionnelle : Vue des Bilans Journaliers pour le Directeur
 
-Ce document spécifie la conception et l'implémentation de la **vue consolidée des bilans journaliers de caisse dédiée au Directeur** (et aux rôles de supervision financière nationale) pour la plateforme **GESPREPAS (Excelis Prépa)**.
+Ce document spécifie la conception et l'implémentation de la **vue consolidée des bilans journaliers de caisse dédiée au Directeur** (et aux rôles de supervision financière nationale) pour la plateforme **GESPREPAS (Excelis Prépa)**, incluant la ventilation financière détaillée par formation.
 
 ---
 
@@ -12,16 +12,17 @@ Pour un **Chef de Centre**, cette vue unitaire centrée sur son établissement p
 En revanche, le **Directeur Général** et les contrôleurs nationaux ont besoin d'une vision d'ensemble consolidée pour suivre instantanément :
 1. Les encaissements et décaissements de l'ensemble des centres pour la journée choisie.
 2. Le statut de clôture de caisse de chaque centre (centres encore ouverts, soumis ou déjà visés/clôturés).
-3. Les effectifs d'apprenants (nouveaux inscrits du jour et effectifs globaux par centre).
-4. La capacité d'imprimer une **Fiche Récapitulative Nationale Officielle** (format A4) certifiant l'état global des caisses du réseau.
-5. La possibilité d'accéder sans rupture de contexte au détail opérationnel d'un centre particulier pour y opérer des vérifications ou apposer un visa.
+3. **La ventilation des recettes par formation (filière)** : montant total national et répartition croisée par centre (ex. Ingénierie, Médecine & Santé, Commerce/Gestion, Tronc commun).
+4. Les effectifs d'apprenants (nouveaux inscrits du jour et effectifs globaux par centre).
+5. La capacité d'imprimer une **Fiche Récapitulative Nationale Officielle** (format A4) certifiant l'état global des caisses du réseau et la ventilation nationale par filière.
+6. La possibilité d'accéder sans rupture de contexte au détail opérationnel d'un centre particulier pour y opérer des vérifications ou apposer un visa.
 
 ### 1.2 Objectifs
-- Fournir un endpoint backend Spring Boot consolidé `GET /api/bilans-journaliers/consolide-du-jour` respectant l'architecture hexagonale.
+- Fournir un endpoint backend Spring Boot consolidé `GET /api/bilans-journaliers/consolide-du-jour` respectant l'architecture hexagonale et intégrant la ventilation par formation (nationale et par centre).
 - Offrir une interface utilisateur fluide sur `/bilan-journalier` avec deux onglets pour les utilisateurs à profil national (Directeur, Comptable) :
-  - **Onglet 1 : « Synthèse nationale »** : Cartes KPIs globales, tableau comparatif multi-centres et bouton d'impression consolidée.
+  - **Onglet 1 : « Synthèse nationale »** : Cartes KPIs globales, ventilation des recettes par formation, tableau comparatif multi-centres et bouton d'impression consolidée.
   - **Onglet 2 : « Détail par centre »** : Réutilisation directe de la vue opérationnelle existante (sans modification pour les chefs de centre).
-- Implémenter une modale d'impression officielle haute fidélité `FicheSyntheseNationalePrintModal` au format A4 avec conversion des totaux en lettres et blocs d'émargement officiels.
+- Implémenter une modale d'impression officielle haute fidélité `FicheSyntheseNationalePrintModal` au format A4 avec récapitulatif des centres, ventilation des formations, conversion des totaux en lettres et blocs d'émargement officiels.
 
 ---
 
@@ -29,6 +30,12 @@ En revanche, le **Directeur Général** et les contrôleurs nationaux ont besoin
 
 ### 2.1 Modèle de domaine
 Fichiers dans `backend/src/main/java/com/excelisprepas/backend/financier/domain/model/` :
+
+- `RepartitionFormationResume.java` (record ou classe domaine) :
+  - `UUID formationId` (nullable pour tronc commun / versements non ventilés)
+  - `String formationNom`
+  - `BigDecimal montant`
+
 - `BilanConsolideNational.java` :
   - `LocalDate date`
   - `UUID sessionId`
@@ -40,6 +47,8 @@ Fichiers dans `backend/src/main/java/com/excelisprepas/backend/financier/domain/
   - `int centresCloturesCount`
   - `int centresTotalCount`
   - `List<BilanCentreResume> centres`
+  - `List<RepartitionFormationResume> repartitionFormationsNational` *(agrégation nationale par filière)*
+
 - `BilanCentreResume.java` :
   - `UUID centreId`
   - `String centreNom`
@@ -55,6 +64,7 @@ Fichiers dans `backend/src/main/java/com/excelisprepas/backend/financier/domain/
   - `String nomCaissier`, `LocalDateTime dateVisaCaissier`
   - `String nomChefCentre`, `LocalDateTime dateValidationChefCentre`
   - `String nomControleur`, `LocalDateTime dateValidationControleur`
+  - `List<RepartitionFormationResume> repartitionFormations` *(ventilation spécifique au centre)*
 
 ### 2.2 Port d'entrée (Use Case)
 Fichier `backend/src/main/java/com/excelisprepas/backend/financier/domain/port/in/ConsulterBilanConsolideDuJourUseCase.java` :
@@ -77,8 +87,10 @@ Fichier `backend/src/main/java/com/excelisprepas/backend/financier/domain/servic
   1. Valider la session active via `verifierSessionUtilisable(sessionId)`.
   2. Récupérer tous les centres existants via `centreRepository.findAll()`.
   3. Pour chaque centre :
-     - Appeler la méthode interne `consulterBilanDuJour(centre.getId(), sessionId, date)`.
-     - Construire un `BilanCentreResume` enrichi du nom et de la ville du centre.
+     - Appeler `consulterBilanDuJour(centre.getId(), sessionId, date)`.
+     - Récupérer les entrées du jour pour ce centre (`entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(...)`).
+     - Grouper les montants par `formationId` pour constituer la `List<RepartitionFormationResume>` du centre.
+     - Construire le `BilanCentreResume`.
   4. Cumuler les indicateurs nationaux :
      - `totalEntreesNational = sum(totalEntrees)`
      - `totalSortiesNational = sum(totalSorties)`
@@ -87,12 +99,14 @@ Fichier `backend/src/main/java/com/excelisprepas/backend/financier/domain/servic
      - `totalEffectifNational = sum(effectifTotalCentre)`
      - `centresCloturesCount = count(statut == CLOTURE)`
      - `centresTotalCount = centres.size()`
+     - Agréger nationalement les montants par formation pour constituer `repartitionFormationsNational`.
   5. Retourner l'instance `BilanConsolideNational`.
 
 ### 2.4 DTOs Web & Contrôleur REST
 Fichiers dans `backend/src/main/java/com/excelisprepas/backend/financier/infrastructure/in/web/` :
-- `dto/BilanCentreResumeResponse.java` (record)
-- `dto/BilanConsolideResponse.java` (record)
+- `dto/RepartitionFormationResumeResponse.java` (record : `UUID formationId`, `String formationNom`, `BigDecimal montant`)
+- `dto/BilanCentreResumeResponse.java` (record avec liste de répartition par formation)
+- `dto/BilanConsolideResponse.java` (record avec `centres` et `repartitionFormationsNational`)
 - `BilanJournalierController.java` :
   - Endpoint : `GET /api/bilans-journaliers/consolide-du-jour`
   - Paramètres : `@RequestParam UUID sessionId`, `@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date`
@@ -105,6 +119,7 @@ Fichiers dans `backend/src/main/java/com/excelisprepas/backend/financier/infrast
 
 ### 3.1 Contrats de données & Client API
 - **Types (`frontend/src/modules/financier/domain/types.ts`)** :
+  - `RepartitionFormationResume`
   - `BilanCentreResume`
   - `BilanConsolideNational`
 - **Client HTTP (`frontend/src/modules/financier/data/client.ts`)** :
@@ -128,15 +143,19 @@ Fichier : `frontend/src/app/(dashboard)/bilan-journalier/BilanJournalierView.tsx
      - *Solde Net National* (Net en caisse)
      - *Clôtures Réseau* (Ratio ex: `3 / 3 clôturés`, badge couleur, total élèves)
    - **Bouton d'action supérieur** : « Imprimer la synthèse nationale » (ouvre la modale d'impression officielle).
-   - **Tableau comparatif des centres** :
-     - Colonnes : Centre, Ville, Statut (badge visuel), Entrées, Sorties, Net à verser, Activité (salles/cours/nouveaux), Dernier visa, Action.
+   - **Section Ventilation Nationale par Formation** :
+     - Tableau et jauges de progression présentant les recettes par filière (Ingénieurs, Médecine, Commerce, Tronc commun), la part en pourcentage des encaissements du jour et le montant en FCFA.
+   - **Tableau Comparatif & Matrice des Centres** :
+     - Colonnes : Centre, Ville, Statut (badge visuel), Entrées, Sorties, Net à verser, Activité, Dernier visa, Action.
+     - Lignes déroulables / détail permettant d'afficher la sous-répartition par formation pour chaque centre spécifique.
      - Ligne de pied de tableau avec les totaux consolidés.
      - Bouton d'action **« Consulter / Gérer »** : bascule directement vers l'onglet « Détail par centre » avec l'ID du centre présélectionné.
 
 ### 3.3 Fiche d'Impression Officielle A4 (`FicheSyntheseNationalePrintModal.tsx`)
 Composant dédié à l'impression haute fidélité (`@media print`) :
 - En-tête officiel EXCELIS PREPAS avec logo, titre officiel, date et référence nationale (`NAT/JJ/MM/AAAA`).
-- Tableau récapitulatif formel des centres avec ventilation Entrées, Sorties, Net et signataires.
+- **Tableau 1 : Récapitulatif National des Caisses par Centre** (Entrées, Sorties, Net, Statuts, Signataires).
+- **Tableau 2 : Ventilation Nationale des Recettes par Formation** (Liste des filières, montants consolidés, pourcentage du chiffre d'affaires journalier).
 - Ligne des totaux généraux en chiffres.
 - Formulation formelle du total net arrêté en toutes lettres via `nombreEnLettres(netNational)`.
 - Deux cadres d'émargement officiels : *Visa Contrôle / Comptabilité Générale* et *Visa Direction Générale*.
@@ -145,7 +164,7 @@ Composant dédié à l'impression haute fidélité (`@media print`) :
 
 ## 4. Sécurité & Droits d'Accès
 
-| Rôle | Accès Synthèse Nationale | Accès Détail Centre | Saisie Mouvements | Visa Chef de Centre | Clôture Comptable |
+| Rôle | Accès Synthèse Nationale & Formations | Accès Détail Centre | Saisie Mouvements | Visa Chef de Centre | Clôture Comptable |
 |---|:---:|:---:|:---:|:---:|:---:|
 | `DIRECTEUR` | **Oui** | **Oui (tous les centres)** | Non | Oui (supervision) | Oui (supervision) |
 | `COMPTABLE` | **Oui** | **Oui (tous les centres)** | Non | Non | **Oui (définitif)** |
@@ -159,7 +178,8 @@ Composant dédié à l'impression haute fidélité (`@media print`) :
 ### 5.1 Tests Automatisés Backend
 - **Test unitaire de service (`BilanJournalierServiceTest.java`)** :
   - Vérifier l'agrégation de 3 centres avec des montants d'entrées et de sorties variés.
-  - Vérifier le calcul exact du nombre de centres clôturés vs ouverts.
+  - Vérifier le calcul exact de la ventilation nationale par formation (`repartitionFormationsNational`) et par centre.
+  - Vérifier le calcul du ratio de centres clôturés vs ouverts.
   - Vérifier la gestion gracieuse en cas de centre sans aucun mouvement.
 - **Test d'intégration Web (`BilanJournalierControllerTest.java`)** :
   - Vérifier l'appel à `GET /api/bilans-journaliers/consolide-du-jour` avec authentification valide (`FINANCIER_CONSULTER`).
@@ -171,6 +191,7 @@ Composant dédié à l'impression haute fidélité (`@media print`) :
 
 ### 5.3 Validation Manuelle Visuelle
 - Se connecter en tant que Directeur : vérifier la présence des 2 onglets.
-- Naviguer entre les dates : s'assurer du rechargement réactif des totaux nationaux.
+- Vérifier la section de ventilation par formation (montants et pourcentages corrects).
+- Dérouler un centre pour observer la répartition par formation propre à ce centre.
 - Cliquer sur « Consulter » sur un centre du tableau : vérifier la bascule immédiate sur l'onglet de détail avec ce centre activé.
-- Lancer l'impression de la fiche nationale : vérifier dans l'aperçu avant impression le respect strict du gabarit A4 et la conversion du montant en lettres.
+- Lancer l'impression de la fiche nationale : vérifier dans l'aperçu avant impression la présence du tableau des centres ET du tableau de ventilation des filières, ainsi que le montant en toutes lettres.
