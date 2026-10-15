@@ -222,7 +222,7 @@ public class BilanJournalierController {
                     content = @Content(schema = @Schema(implementation = BilanConsolideResponse.class))),
             @ApiResponse(responseCode = "404", description = "Session introuvable", content = @Content)
     })
-    @PreAuthorize("hasAuthority('FINANCIER_CONSULTER')")
+    @PreAuthorize("hasAuthority('FINANCIER_CLOTURER_BILAN')")
     @GetMapping("/consolide-du-jour")
     public ResponseEntity<BilanConsolideResponse> consulterBilanConsolideDuJour(
             @Parameter(description = "Identifiant de la session") @RequestParam UUID sessionId,
