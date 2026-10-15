@@ -8,6 +8,11 @@ export type {
   StatutMouvement,
   Motif,
   TypeMotif,
+  LigneEntreeResume,
+  LigneSortieResume,
+  EffectifFormationResume,
+  BilanCentreResume,
+  BilanConsolideNational,
 } from "./domain/types";
 
 export type {
@@ -20,6 +25,7 @@ export type {
 
 export {
   useBilanDuJour,
+  useBilanConsolideDuJour,
   useRepartitionFormations,
   useVersementsApprenant,
   useMotifs,
@@ -37,4 +43,5 @@ export { EnregistrerVersementModal } from "./components/EnregistrerVersementModa
 export { ModifierVersementModal } from "./components/ModifierVersementModal";
 export { SaisirSortieModal } from "./components/SaisirSortieModal";
 export { FicheBilanPrintModal } from "./components/FicheBilanPrintModal";
+export { FicheSyntheseNationalePrintModal } from "./components/FicheSyntheseNationalePrintModal";
 export type { VersementItem } from "./components/ModifierVersementModal";
