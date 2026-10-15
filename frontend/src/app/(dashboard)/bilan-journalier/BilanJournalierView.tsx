@@ -11,11 +11,8 @@ import {
   Coins,
   CheckCircle2,
   Clock,
-  ShieldCheck,
   Building2,
-  GraduationCap,
   Lock,
-  ArrowDownLeft,
   ArrowUpRight,
   Wallet,
   FileSpreadsheet,
@@ -35,6 +32,7 @@ import {
 import { EnregistrerVersementModal } from "@/modules/financier/components/EnregistrerVersementModal";
 import { SaisirSortieModal } from "@/modules/financier/components/SaisirSortieModal";
 import { FicheBilanPrintModal } from "@/modules/financier/components/FicheBilanPrintModal";
+import { SyntheseNationaleView } from "./SyntheseNationaleView";
 
 interface SessionUserExtended {
   id?: string;
@@ -68,6 +66,13 @@ export function BilanJournalierView() {
     rawUserId &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawUserId);
   const currentUserId = isUUID ? rawUserId : "00000000-0000-0000-0000-000000000000";
+
+  const estDirecteurOuControleur =
+    user?.role === "DIRECTEUR" ||
+    user?.role === "COMPTABLE" ||
+    user?.role === "ADMIN";
+
+  const [vueDirecteur, setVueDirecteur] = useState<"synthese" | "detail">("synthese");
 
   // Navigation Date (par défaut aujourd'hui)
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -190,8 +195,50 @@ export function BilanJournalierView() {
 
   return (
     <div className="space-y-6 pb-12">
-      {/* En-tête principal de la page */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-slate-200 pb-5">
+      {/* Navigation par onglets pour le Directeur / Comptable */}
+      {estDirecteurOuControleur && (
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+          <button
+            type="button"
+            onClick={() => setVueDirecteur("synthese")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              vueDirecteur === "synthese"
+                ? "bg-slate-900 text-white shadow-xs"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+            }`}
+          >
+            <Building2 className="h-4 w-4 text-brand-orange" />
+            <span>Synthèse Nationale (Tous les centres)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setVueDirecteur("detail")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              vueDirecteur === "detail"
+                ? "bg-slate-900 text-white shadow-xs"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+            }`}
+          >
+            <FileSpreadsheet className="h-4 w-4 text-brand-orange" />
+            <span>Détail par centre ({centreActif?.nom || "Centre"})</span>
+          </button>
+        </div>
+      )}
+
+      {estDirecteurOuControleur && vueDirecteur === "synthese" ? (
+        <SyntheseNationaleView
+          date={date}
+          onChangerDate={setDate}
+          onChangerJour={changerJour}
+          onSelectCentre={(id) => {
+            setCentreSelectionneId(id);
+            setVueDirecteur("detail");
+          }}
+        />
+      ) : (
+        <>
+          {/* En-tête principal de la page */}
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-slate-200 pb-5">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
             Bilan journalier de caisse
@@ -735,6 +782,8 @@ export function BilanJournalierView() {
             })}
           </div>
         </Card>
+      )}
+        </>
       )}
 
       {/* Modales */}
