@@ -6,6 +6,8 @@ import com.excelisprepas.backend.apprenant.domain.service.ApprenantService;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import com.excelisprepas.backend.academie.etablissement.domain.port.out.EtablissementRepositoryPort;
+import com.excelisprepas.backend.shared.audit.application.AuditEventHelper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -16,8 +18,9 @@ public class ApprenantBeanConfiguration {
     public ApprenantService apprenantService(ApprenantRepositoryPort apprenantRepository,
                                              CentreRepositoryPort centreRepository,
                                              SessionAcademiqueRepositoryPort sessionRepository,
-                                             EtablissementRepositoryPort etablissementRepository) {
-        return new ApprenantService(apprenantRepository, centreRepository, sessionRepository, etablissementRepository);
+                                             EtablissementRepositoryPort etablissementRepository,
+                                             @Autowired(required = false) AuditEventHelper auditEventHelper) {
+        return new ApprenantService(apprenantRepository, centreRepository, sessionRepository, etablissementRepository, auditEventHelper);
     }
 
     @Bean
@@ -55,12 +58,14 @@ public class ApprenantBeanConfiguration {
             ApprenantRepositoryPort apprenantRepository,
             com.excelisprepas.backend.apprenant.domain.port.out.ContratApprenantRepositoryPort contratApprenantRepository,
             com.excelisprepas.backend.apprenant.domain.port.out.InscriptionPhaseFormationRepositoryPort inscriptionPhaseFormationRepository,
-            com.excelisprepas.backend.academie.phase.domain.port.out.PhaseRepositoryPort phaseRepository) {
+            com.excelisprepas.backend.academie.phase.domain.port.out.PhaseRepositoryPort phaseRepository,
+            @Autowired(required = false) AuditEventHelper auditEventHelper) {
         return new com.excelisprepas.backend.apprenant.domain.service.CursusApprenantService(
                 apprenantRepository,
                 contratApprenantRepository,
                 inscriptionPhaseFormationRepository,
-                phaseRepository
+                phaseRepository,
+                auditEventHelper
         );
     }
 

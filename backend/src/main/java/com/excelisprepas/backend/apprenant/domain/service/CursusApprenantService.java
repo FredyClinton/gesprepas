@@ -29,21 +29,31 @@ public class CursusApprenantService implements CreerContratPhaseUseCase, Changer
     private final ContratApprenantRepositoryPort contratApprenantRepositoryPort;
     private final InscriptionPhaseFormationRepositoryPort inscriptionPhaseFormationRepositoryPort;
     private final PhaseRepositoryPort phaseRepositoryPort;
+    private final com.excelisprepas.backend.shared.audit.application.AuditEventHelper auditEventHelper;
 
     public CursusApprenantService(ApprenantRepositoryPort apprenantRepositoryPort,
                                   ContratApprenantRepositoryPort contratApprenantRepositoryPort,
                                   InscriptionPhaseFormationRepositoryPort inscriptionPhaseFormationRepositoryPort) {
-        this(apprenantRepositoryPort, contratApprenantRepositoryPort, inscriptionPhaseFormationRepositoryPort, null);
+        this(apprenantRepositoryPort, contratApprenantRepositoryPort, inscriptionPhaseFormationRepositoryPort, null, null);
     }
 
     public CursusApprenantService(ApprenantRepositoryPort apprenantRepositoryPort,
                                   ContratApprenantRepositoryPort contratApprenantRepositoryPort,
                                   InscriptionPhaseFormationRepositoryPort inscriptionPhaseFormationRepositoryPort,
                                   PhaseRepositoryPort phaseRepositoryPort) {
+        this(apprenantRepositoryPort, contratApprenantRepositoryPort, inscriptionPhaseFormationRepositoryPort, phaseRepositoryPort, null);
+    }
+
+    public CursusApprenantService(ApprenantRepositoryPort apprenantRepositoryPort,
+                                  ContratApprenantRepositoryPort contratApprenantRepositoryPort,
+                                  InscriptionPhaseFormationRepositoryPort inscriptionPhaseFormationRepositoryPort,
+                                  PhaseRepositoryPort phaseRepositoryPort,
+                                  com.excelisprepas.backend.shared.audit.application.AuditEventHelper auditEventHelper) {
         this.apprenantRepositoryPort = apprenantRepositoryPort;
         this.contratApprenantRepositoryPort = contratApprenantRepositoryPort;
         this.inscriptionPhaseFormationRepositoryPort = inscriptionPhaseFormationRepositoryPort;
         this.phaseRepositoryPort = phaseRepositoryPort;
+        this.auditEventHelper = auditEventHelper;
     }
 
     @Override
@@ -111,6 +121,25 @@ public class CursusApprenantService implements CreerContratPhaseUseCase, Changer
         apprenant.modifierMontantContrat(montantActuel.add(montantContrat));
         apprenantRepositoryPort.save(apprenant);
 
+        if (auditEventHelper != null) {
+            auditEventHelper.audit(
+                    com.excelisprepas.backend.shared.audit.domain.event.AuditModule.INSCRIPTION,
+                    "CREATION_CONTRAT",
+                    "Nouveau contrat " + contratEnregistre.getReference() + " pour l'apprenant " + apprenant.getNom() + " " + apprenant.getPrenom() + " (montant: " + montantContrat + ")",
+                    "ContratApprenant",
+                    contratEnregistre.getId().toString(),
+                    java.util.Map.of(
+                            "contratId", contratEnregistre.getId().toString(),
+                            "reference", contratEnregistre.getReference(),
+                            "apprenantId", apprenantId.toString(),
+                            "phaseId", phaseId.toString(),
+                            "formationId", formationId.toString(),
+                            "montant", montantContrat.toString()
+                    ),
+                    apprenant.getCentreId()
+            );
+        }
+
         return new ResultatContratPhase(contrat, inscription);
     }
 
@@ -135,6 +164,23 @@ public class CursusApprenantService implements CreerContratPhaseUseCase, Changer
 
         log.info("Changement de formation effectué : apprenantId={}, phaseId={}, ancienneFormation={}, nouvelleFormation={}",
                 apprenantId, phaseId, inscription.getFormationPrecedenteId(), nouvelleFormationId);
+
+        if (auditEventHelper != null) {
+            auditEventHelper.audit(
+                    com.excelisprepas.backend.shared.audit.domain.event.AuditModule.INSCRIPTION,
+                    "CHANGEMENT_FORMATION",
+                    "Changement de formation pour l'apprenant " + apprenant.getNom() + " " + apprenant.getPrenom() + " vers formation " + nouvelleFormationId,
+                    "InscriptionPhaseFormation",
+                    inscription.getId().toString(),
+                    java.util.Map.of(
+                            "apprenantId", apprenantId.toString(),
+                            "phaseId", phaseId.toString(),
+                            "ancienneFormationId", inscription.getFormationPrecedenteId() != null ? inscription.getFormationPrecedenteId().toString() : "",
+                            "nouvelleFormationId", nouvelleFormationId.toString()
+                    ),
+                    apprenant.getCentreId()
+            );
+        }
 
         return inscription;
     }

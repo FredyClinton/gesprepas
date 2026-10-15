@@ -21,21 +21,31 @@ public class ApprenantService implements CreerApprenantUseCase, RecupererApprena
     private final CentreRepositoryPort centreRepository;
     private final SessionAcademiqueRepositoryPort sessionRepository;
     private final com.excelisprepas.backend.academie.etablissement.domain.port.out.EtablissementRepositoryPort etablissementRepository;
+    private final com.excelisprepas.backend.shared.audit.application.AuditEventHelper auditEventHelper;
 
     public ApprenantService(ApprenantRepositoryPort apprenantRepository,
                             CentreRepositoryPort centreRepository,
                             SessionAcademiqueRepositoryPort sessionRepository) {
-        this(apprenantRepository, centreRepository, sessionRepository, null);
+        this(apprenantRepository, centreRepository, sessionRepository, null, null);
     }
 
     public ApprenantService(ApprenantRepositoryPort apprenantRepository,
                             CentreRepositoryPort centreRepository,
                             SessionAcademiqueRepositoryPort sessionRepository,
                             com.excelisprepas.backend.academie.etablissement.domain.port.out.EtablissementRepositoryPort etablissementRepository) {
+        this(apprenantRepository, centreRepository, sessionRepository, etablissementRepository, null);
+    }
+
+    public ApprenantService(ApprenantRepositoryPort apprenantRepository,
+                            CentreRepositoryPort centreRepository,
+                            SessionAcademiqueRepositoryPort sessionRepository,
+                            com.excelisprepas.backend.academie.etablissement.domain.port.out.EtablissementRepositoryPort etablissementRepository,
+                            com.excelisprepas.backend.shared.audit.application.AuditEventHelper auditEventHelper) {
         this.apprenantRepository = apprenantRepository;
         this.centreRepository = centreRepository;
         this.sessionRepository = sessionRepository;
         this.etablissementRepository = etablissementRepository;
+        this.auditEventHelper = auditEventHelper;
     }
 
     @Override
@@ -81,6 +91,25 @@ public class ApprenantService implements CreerApprenantUseCase, RecupererApprena
 
         log.info("Apprenant créé : id={}, nom={} {}, centreId={}, formationId={}, montantContrat={}",
                 apprenant.getId(), nom, prenom, centreId, formationId, montantContrat);
+
+        if (auditEventHelper != null) {
+            auditEventHelper.audit(
+                    com.excelisprepas.backend.shared.audit.domain.event.AuditModule.INSCRIPTION,
+                    "CREATION_APPRENANT",
+                    "Création de la fiche apprenant " + nom + " " + prenom + " au centre " + centreId,
+                    "Apprenant",
+                    apprenant.getId().toString(),
+                    java.util.Map.of(
+                            "apprenantId", apprenant.getId().toString(),
+                            "nom", nom,
+                            "prenom", prenom,
+                            "centreId", centreId.toString(),
+                            "sessionId", sessionId.toString()
+                    ),
+                    centreId
+            );
+        }
+
         return apprenant;
     }
 
@@ -104,6 +133,22 @@ public class ApprenantService implements CreerApprenantUseCase, RecupererApprena
         apprenant.changerCentre(nouveauCentreId);
         apprenant = apprenantRepository.save(apprenant);
         log.info("Apprenant transféré de centre : id={}, nouveauCentreId={}", apprenantId, nouveauCentreId);
+
+        if (auditEventHelper != null) {
+            auditEventHelper.audit(
+                    com.excelisprepas.backend.shared.audit.domain.event.AuditModule.INSCRIPTION,
+                    "TRANSFERT_CENTRE",
+                    "Transféré vers le centre " + nouveauCentreId + " pour l'apprenant " + apprenant.getNom() + " " + apprenant.getPrenom(),
+                    "Apprenant",
+                    apprenant.getId().toString(),
+                    java.util.Map.of(
+                            "apprenantId", apprenant.getId().toString(),
+                            "nouveauCentreId", nouveauCentreId.toString()
+                    ),
+                    nouveauCentreId
+            );
+        }
+
         return apprenant;
     }
 
@@ -129,6 +174,19 @@ public class ApprenantService implements CreerApprenantUseCase, RecupererApprena
         }
 
         log.info("Apprenant modifié : id={}, nom={} {}", id, nom, prenom);
+
+        if (auditEventHelper != null) {
+            auditEventHelper.audit(
+                    com.excelisprepas.backend.shared.audit.domain.event.AuditModule.INSCRIPTION,
+                    "MODIFICATION_APPRENANT",
+                    "Modification de l'apprenant " + nom + " " + prenom,
+                    "Apprenant",
+                    apprenant.getId().toString(),
+                    java.util.Map.of("apprenantId", apprenant.getId().toString(), "nom", nom, "prenom", prenom),
+                    apprenant.getCentreId()
+            );
+        }
+
         return apprenant;
     }
 
@@ -139,5 +197,17 @@ public class ApprenantService implements CreerApprenantUseCase, RecupererApprena
         }
         apprenantRepository.deleteById(id);
         log.info("Apprenant supprimé : id={}", id);
+
+        if (auditEventHelper != null) {
+            auditEventHelper.audit(
+                    com.excelisprepas.backend.shared.audit.domain.event.AuditModule.INSCRIPTION,
+                    "SUPPRESSION_APPRENANT",
+                    "Suppression de l'apprenant id=" + id,
+                    "Apprenant",
+                    id.toString(),
+                    java.util.Map.of("apprenantId", id.toString()),
+                    null
+            );
+        }
     }
 }
