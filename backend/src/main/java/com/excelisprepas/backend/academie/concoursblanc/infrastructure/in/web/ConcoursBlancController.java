@@ -107,9 +107,21 @@ public class ConcoursBlancController {
     }
 
     private boolean estUtilisateurDirection(String userRole) {
-        if (userRole == null) return false;
-        String r = userRole.trim().toUpperCase();
-        return "DIRECTEUR".equals(r) || "DIRECTEUR_ACADEMIQUE".equals(r);
+        if (userRole != null && !userRole.isBlank()) {
+            String r = userRole.trim().toUpperCase();
+            if ("DIRECTEUR".equals(r) || "DIRECTEUR_ACADEMIQUE".equals(r)) {
+                return true;
+            }
+        }
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof com.excelisprepas.backend.auth.domain.model.ClaimsAccessToken claims) {
+            var role = claims.role();
+            if (role != null) {
+                String nomRole = role.name().toUpperCase();
+                return "DIRECTEUR".equals(nomRole) || "DIRECTEUR_ACADEMIQUE".equals(nomRole);
+            }
+        }
+        return false;
     }
 
     private void verifierAccesCentre(ConcoursBlanc cb, String userRole, String centreIdHeader) {
@@ -230,7 +242,7 @@ public class ConcoursBlancController {
                     HttpStatus.FORBIDDEN, "Seule la direction académique peut déclencher la compilation des résultats.");
         }
         concoursBlancService.compilerResultats(id);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/resultats")

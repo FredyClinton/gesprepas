@@ -126,4 +126,50 @@ class SessionAcademiqueTest {
             assertThatThrownBy(demarrage).isInstanceOf(IllegalStateException.class);
         }
     }
+
+    @Nested
+    @DisplayName("Modification")
+    class Modification {
+
+        @Test
+        @DisplayName("modifier() met à jour annee, dateDebut et dateFin d'une session PLANIFIEE ou EN_COURS")
+        void modifieSessionPlanifieeOuEnCours() {
+            // Given
+            SessionAcademique session = new SessionAcademique(
+                    unId(), "2026-2027", LocalDate.of(2026, 9, 1), LocalDate.of(2027, 6, 30));
+
+            // When
+            session.modifier("2026-2027", LocalDate.of(2026, 10, 13), LocalDate.of(2027, 1, 13));
+
+            // Then
+            assertThat(session.getDateDebut()).isEqualTo(LocalDate.of(2026, 10, 13));
+            assertThat(session.getDateFin()).isEqualTo(LocalDate.of(2027, 1, 13));
+        }
+
+        @Test
+        @DisplayName("modifier() une session CLOTUREE lève une IllegalStateException")
+        void modifierSessionClotureeLeveException() {
+            // Given
+            SessionAcademique session = new SessionAcademique(
+                    unId(), "2026-2027", LocalDate.of(2026, 9, 1), LocalDate.of(2027, 6, 30));
+            session.demarrer();
+            session.cloturer();
+
+            // When / Then
+            assertThatThrownBy(() -> session.modifier("2026-2027", LocalDate.of(2026, 10, 13), LocalDate.of(2027, 1, 13)))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("modifier() avec dateFin antérieure à dateDebut lève une IllegalArgumentException")
+        void modifierAvecDateFinAnterieureLeveException() {
+            // Given
+            SessionAcademique session = new SessionAcademique(
+                    unId(), "2026-2027", LocalDate.of(2026, 9, 1), LocalDate.of(2027, 6, 30));
+
+            // When / Then
+            assertThatThrownBy(() -> session.modifier("2026-2027", LocalDate.of(2027, 1, 13), LocalDate.of(2026, 10, 13)))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
 }

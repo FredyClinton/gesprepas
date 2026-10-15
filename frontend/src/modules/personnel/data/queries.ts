@@ -12,6 +12,9 @@ import {
   getPersonnel,
   listEnseignants,
   listPersonnel,
+  listAccesPersonnel,
+  getAccesPersonnel,
+  gererAccesPersonnel,
   modifierCoutParSeance,
   reactiverEnseignant,
   renommerEnseignant,
@@ -181,6 +184,49 @@ export function useDefinirSalairePersonnel() {
           variables.personnelId,
           variables.sessionId,
         ],
+      });
+    },
+  });
+}
+
+export function useAccesPersonnelList(
+  sessionId: string | undefined,
+  phaseId?: string | null,
+) {
+  return useQuery({
+    queryKey: ["acces-personnel-list", sessionId, phaseId],
+    queryFn: () => listAccesPersonnel(sessionId!, phaseId),
+    enabled: Boolean(sessionId),
+  });
+}
+
+export function useAccesPersonnelMembre(
+  personnelId: string | undefined,
+  sessionId?: string,
+) {
+  return useQuery({
+    queryKey: ["acces-personnel", personnelId, sessionId],
+    queryFn: () => getAccesPersonnel(personnelId!, sessionId),
+    enabled: Boolean(personnelId),
+  });
+}
+
+export function useGererAccesPersonnel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      personnelId,
+      input,
+    }: {
+      personnelId: string;
+      input: import("../domain/types").GererAccesInput;
+    }) => gererAccesPersonnel(personnelId, input),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["acces-personnel-list"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["acces-personnel", variables.personnelId],
       });
     },
   });

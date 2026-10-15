@@ -5,6 +5,7 @@ import type {
   BordereauPaieEnseignantDetail,
   FichePaieDetail,
   ValiderBordereauEnseignantPayload,
+  ValiderBordereauPersonnelPayload,
 } from "../domain/types";
 
 export function listFichesPaieEnseignant(
@@ -26,6 +27,45 @@ export function listBordereauxPaiePersonnel(
     `/api/remuneration/personnel/sessions/${sessionId}/bordereaux`,
   );
 }
+
+export function preparerBordereauPersonnel(
+  sessionId: string,
+  datePaiement?: string,
+  intitule?: string,
+  saisiPar?: string,
+): Promise<BordereauPaiePersonnel> {
+  const params = new URLSearchParams();
+  if (datePaiement) params.set("datePaiement", datePaiement);
+  if (intitule) params.set("intitule", intitule);
+  if (saisiPar) params.set("saisiPar", saisiPar);
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return apiFetch<BordereauPaiePersonnel>(
+    `/api/remuneration/personnel/sessions/${sessionId}/preparer${query}`,
+    { method: "POST" },
+  );
+}
+
+export function validerBordereauPersonnel(
+  sessionId: string,
+  payload: ValiderBordereauPersonnelPayload,
+): Promise<BordereauPaiePersonnel> {
+  return apiFetch<BordereauPaiePersonnel>(
+    `/api/remuneration/personnel/sessions/${sessionId}/valider`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function getBordereauPersonnel(
+  bordereauId: string,
+): Promise<BordereauPaiePersonnel> {
+  return apiFetch<BordereauPaiePersonnel>(
+    `/api/remuneration/personnel/bordereaux/${bordereauId}`,
+  );
+}
+
 
 export function preparerBordereauEnseignant(
   sessionId: string,

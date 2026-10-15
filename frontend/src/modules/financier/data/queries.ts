@@ -8,18 +8,26 @@ import {
   listMotifs,
   listVersementsApprenant,
   saisirEntree,
+  saisirSortie,
+  soumettreBilanCaissier,
+  validerBilanChefCentre,
+  validerBilanControleur,
   listMouvementsFinanciers,
   modifierEntree,
   supprimerEntree,
   type ModifierEntreeInput,
+  type SaisirSortieInput,
+  type SoumettreBilanCaissierInput,
+  type ValiderBilanChefCentreInput,
 } from "./client";
 import type { TypeMotif } from "../domain/types";
 
 export function useBilanDuJour(
   centreId: string | undefined,
   sessionId: string | undefined,
+  dateSelectionnee?: string,
 ) {
-  const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD, format ISO attendu par le backend
+  const date = dateSelectionnee || new Date().toISOString().slice(0, 10); // YYYY-MM-DD
   return useQuery({
     queryKey: ["bilan-du-jour", centreId, sessionId, date],
     queryFn: () => getBilanDuJour(centreId!, sessionId!, date),
@@ -70,6 +78,17 @@ export function useSaisirEntree() {
   });
 }
 
+export function useSaisirSortie() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: SaisirSortieInput) => saisirSortie(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
+      queryClient.invalidateQueries({ queryKey: ["mouvements-financiers"] });
+    },
+  });
+}
+
 export function useModifierEntree() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -105,6 +124,38 @@ export function useSupprimerEntree() {
   });
 }
 
+export function useSoumettreBilanCaissier() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: SoumettreBilanCaissierInput) => soumettreBilanCaissier(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
+    },
+  });
+}
+
+export function useValiderBilanChefCentre() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ValiderBilanChefCentreInput) => validerBilanChefCentre(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
+    },
+  });
+}
+
+export function useValiderBilanControleur() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ bilanId, validateurUtilisateurId }: { bilanId: string; validateurUtilisateurId: string }) =>
+      validerBilanControleur(bilanId, validateurUtilisateurId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
+      queryClient.invalidateQueries({ queryKey: ["mouvements-financiers"] });
+    },
+  });
+}
+
 export function useMouvementsFinanciers(
   sessionId: string | undefined,
   centreId?: string | undefined,
@@ -115,4 +166,3 @@ export function useMouvementsFinanciers(
     enabled: Boolean(sessionId),
   });
 }
-

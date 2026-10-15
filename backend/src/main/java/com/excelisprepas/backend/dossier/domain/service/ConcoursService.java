@@ -14,6 +14,7 @@ import com.excelisprepas.backend.shared.exception.*;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -59,6 +60,9 @@ public class ConcoursService implements CreerConcoursUseCase, RecupererConcoursU
 
     @Override
     public List<Concours> listerConcours(UUID sessionId) {
+        if (sessionId == null) {
+            return concoursRepository.findAll();
+        }
         return concoursRepository.findBySessionId(sessionId);
     }
 
@@ -100,6 +104,7 @@ public class ConcoursService implements CreerConcoursUseCase, RecupererConcoursU
         return associationRepository.findByConcoursId(concoursId).stream()
                 .map(association -> pieceRequiseRepository.findById(association.getPieceRequiseId())
                         .orElseThrow(() -> new PieceRequiseIntrouvableException(association.getPieceRequiseId())))
+                .sorted(Comparator.comparing(PieceRequise::getNom, String.CASE_INSENSITIVE_ORDER))
                 .toList();
     }
 }

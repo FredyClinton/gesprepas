@@ -93,7 +93,7 @@ public class ConcoursController {
             content = @Content(array = @ArraySchema(schema = @Schema(implementation = ConcoursResponse.class))))
     @GetMapping
     public ResponseEntity<List<ConcoursResponse>> lister(
-            @Parameter(description = "Identifiant de la session") @RequestParam UUID sessionId) {
+            @Parameter(description = "Identifiant de la session (optionnel)") @RequestParam(required = false) UUID sessionId) {
         List<ConcoursResponse> reponses = listerConcoursUseCase.listerConcours(sessionId).stream()
                 .map(ConcoursController::versReponse)
                 .toList();

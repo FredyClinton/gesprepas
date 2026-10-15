@@ -13,6 +13,7 @@ import {
   Trash2,
   AlertCircle,
   Building2,
+  Globe,
 } from "lucide-react";
 import type { Formation } from "@/modules/academique";
 import type { Matiere } from "@/modules/matieres";
@@ -446,7 +447,7 @@ export function ProgrammerConcoursBlancModal({
                     tousLesCentres ? "bg-brand-orange text-white" : "bg-slate-100 text-slate-500"
                   }`}
                 >
-                  🌐
+                  <Globe size={16} />
                 </div>
                 <div>
                   <div className="text-xs font-bold text-slate-900">Tous les centres</div>
@@ -475,7 +476,7 @@ export function ProgrammerConcoursBlancModal({
                     !tousLesCentres ? "bg-brand-orange text-white" : "bg-slate-100 text-slate-500"
                   }`}
                 >
-                  🏛️
+                  <Building2 size={16} />
                 </div>
                 <div>
                   <div className="text-xs font-bold text-slate-900">Sélectionner les centres</div>

@@ -129,9 +129,12 @@ export function SaisieNotesPageView({
   const apprenantsCentre = useMemo(() => {
     if (!centreId) return [];
     return apprenants.filter(
-      (a) => a.centreId === centreId && (!formationId || a.formationId === formationId),
+      (a) =>
+        a.centreId === centreId &&
+        (!formationId || a.formationId === formationId) &&
+        (!concoursBlanc?.sessionId || a.sessionId === concoursBlanc.sessionId),
     );
-  }, [apprenants, centreId, formationId]);
+  }, [apprenants, centreId, formationId, concoursBlanc?.sessionId]);
 
   // Initialisation des lignes
   useEffect(() => {
@@ -158,14 +161,15 @@ export function SaisieNotesPageView({
           }),
         };
       });
+      initLignes.sort((a, b) => a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" }));
       setLignes(initLignes);
       setEstModifie(false);
     } else {
-      // Préremplissage avec les apprenants du centre inscrits dans cette formation
+      // Préremplissage avec les apprenants du centre inscrits dans cette formation triés alphabétiquement
       const initLignes: CandidatNotesInput[] = apprenantsCentre.map((a) => ({
         formationId: a.formationId || formationId,
         apprenantId: a.id,
-        nomComplet: `${a.nom} ${a.prenom}`,
+        nomComplet: `${a.nom} ${a.prenom}`.trim(),
         etablissementOrigine: a.etablissementOrigine || "",
         horsListe: false,
         notes: epreuves.map((ep) => ({
@@ -174,6 +178,7 @@ export function SaisieNotesPageView({
           statut: "NOTE" as StatutNote,
         })),
       }));
+      initLignes.sort((a, b) => a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" }));
       setLignes(initLignes);
       setEstModifie(false);
     }
@@ -196,21 +201,25 @@ export function SaisieNotesPageView({
   }, [rechercheApprenant, lignes, apprenants]);
 
   const ajouterApprenant = (a: Apprenant) => {
-    setLignes((prev) => [
-      ...prev,
-      {
-        formationId: a.formationId || formationId,
-        apprenantId: a.id,
-        nomComplet: `${a.nom} ${a.prenom}`,
-        etablissementOrigine: a.etablissementOrigine || "",
-        horsListe: false,
-        notes: epreuves.map((ep) => ({
-          epreuveId: ep.id,
-          note: null,
-          statut: "NOTE" as StatutNote,
-        })),
-      },
-    ]);
+    setLignes((prev) => {
+      const next = [
+        ...prev,
+        {
+          formationId: a.formationId || formationId,
+          apprenantId: a.id,
+          nomComplet: `${a.nom} ${a.prenom}`.trim(),
+          etablissementOrigine: a.etablissementOrigine || "",
+          horsListe: false,
+          notes: epreuves.map((ep) => ({
+            epreuveId: ep.id,
+            note: null,
+            statut: "NOTE" as StatutNote,
+          })),
+        },
+      ];
+      next.sort((x, y) => x.nomComplet.localeCompare(y.nomComplet, "fr", { sensitivity: "base" }));
+      return next;
+    });
     setRechercheApprenant("");
     setEstModifie(true);
   };
@@ -219,20 +228,24 @@ export function SaisieNotesPageView({
     const nom = nouveauNomHorsListe.trim();
     if (!nom) return;
 
-    setLignes((prev) => [
-      ...prev,
-      {
-        formationId: formationId,
-        nomComplet: nom,
-        etablissementOrigine: etablissementHorsListe.trim() || undefined,
-        horsListe: true,
-        notes: epreuves.map((ep) => ({
-          epreuveId: ep.id,
-          note: null,
-          statut: "NOTE" as StatutNote,
-        })),
-      },
-    ]);
+    setLignes((prev) => {
+      const next = [
+        ...prev,
+        {
+          formationId: formationId,
+          nomComplet: nom,
+          etablissementOrigine: etablissementHorsListe.trim() || undefined,
+          horsListe: true,
+          notes: epreuves.map((ep) => ({
+            epreuveId: ep.id,
+            note: null,
+            statut: "NOTE" as StatutNote,
+          })),
+        },
+      ];
+      next.sort((x, y) => x.nomComplet.localeCompare(y.nomComplet, "fr", { sensitivity: "base" }));
+      return next;
+    });
     setNouveauNomHorsListe("");
     setEtablissementHorsListe("");
     setEstModifie(true);
@@ -240,6 +253,22 @@ export function SaisieNotesPageView({
 
   const supprimerLigne = (idxASupprimer: number) => {
     setLignes((prev) => prev.filter((_, idx) => idx !== idxASupprimer));
+    setEstModifie(true);
+  };
+
+  const basculerTousAbsents = (candidatIdx: number) => {
+    setLignes((prev) => {
+      const next = [...prev];
+      const c = { ...next[candidatIdx] };
+      const estDejaTousAbs = c.notes.length > 0 && c.notes.every((n) => n.statut === "ABS");
+      c.notes = c.notes.map((n) => ({
+        ...n,
+        statut: estDejaTousAbs ? "NOTE" : "ABS",
+        note: null,
+      }));
+      next[candidatIdx] = c;
+      return next;
+    });
     setEstModifie(true);
   };
 
@@ -322,12 +351,17 @@ export function SaisieNotesPageView({
     const totalCandidats = lignes.length;
     let totalNotesSaisies = 0;
     const totalNotesAttendues = totalCandidats * epreuves.length;
-    let totalAbsents = 0;
+    let totalCandidatsAbsents = 0;
 
     for (const lig of lignes) {
+      const estToutAbsent =
+        lig.notes.length > 0 &&
+        lig.notes.every((n) => n.statut === "ABS");
+      if (estToutAbsent) {
+        totalCandidatsAbsents += 1;
+      }
       for (const n of lig.notes) {
         if (n.statut === "ABS") {
-          totalAbsents += 1;
           totalNotesSaisies += 1;
         } else if (n.statut === "NOTE" && n.note !== null && n.note !== undefined) {
           totalNotesSaisies += 1;
@@ -335,12 +369,20 @@ export function SaisieNotesPageView({
       }
     }
 
+    const totalCandidatsPresents = totalCandidats - totalCandidatsAbsents;
     const pourcentage =
       totalNotesAttendues > 0
         ? Math.round((totalNotesSaisies / totalNotesAttendues) * 100)
         : 0;
 
-    return { totalCandidats, totalNotesSaisies, totalNotesAttendues, totalAbsents, pourcentage };
+    return {
+      totalCandidats,
+      totalCandidatsPresents,
+      totalCandidatsAbsents,
+      totalNotesSaisies,
+      totalNotesAttendues,
+      pourcentage,
+    };
   }, [lignes, epreuves]);
 
   // Filtrage des lignes pour l'affichage
@@ -356,7 +398,7 @@ export function SaisieNotesPageView({
         }
 
         if (filtreTableau === "ABSENTS") {
-          return lig.notes.some((n) => n.statut === "ABS");
+          return lig.notes.length > 0 && lig.notes.every((n) => n.statut === "ABS");
         }
 
         if (filtreTableau === "INCOMPLETS") {
@@ -718,7 +760,7 @@ export function SaisieNotesPageView({
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  Absents ({stats.totalAbsents})
+                  Absents ({stats.totalCandidatsAbsents})
                 </button>
               </div>
             </div>
@@ -794,11 +836,16 @@ export function SaisieNotesPageView({
                   ) : (
                     lignesFiltrees.map((candidat) => {
                       const idxOriginal = candidat.idxOriginal;
+                      const estToutAbsent =
+                        candidat.notes.length > 0 &&
+                        candidat.notes.every((n) => n.statut === "ABS");
 
                       return (
                         <tr
                           key={candidat.apprenantId || `hl-${idxOriginal}`}
-                          className="hover:bg-amber-50/50 transition-colors group"
+                          className={`transition-colors group ${
+                            estToutAbsent ? "bg-rose-50/20 hover:bg-rose-50/35" : "hover:bg-amber-50/50"
+                          }`}
                         >
                           {/* 1. N° */}
                           <td className="sticky left-0 z-10 bg-white group-hover:bg-amber-50/90 py-2.5 px-3 text-center font-mono font-bold text-slate-400 border-r border-slate-100">
@@ -807,13 +854,37 @@ export function SaisieNotesPageView({
 
                           {/* 2. Nom & Prénom */}
                           <td className="sticky left-12 z-10 bg-white group-hover:bg-amber-50/90 py-2.5 px-4 font-bold text-slate-900 border-r border-slate-100 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
-                            <div className="flex items-center gap-2">
-                              {candidat.horsListe && (
-                                <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-black text-amber-800 uppercase shrink-0">
-                                  Hors-liste
-                                </span>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                {candidat.horsListe && (
+                                  <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-black text-amber-800 uppercase shrink-0">
+                                    Hors-liste
+                                  </span>
+                                )}
+                                <span className="truncate">{candidat.nomComplet}</span>
+                                {estToutAbsent && (
+                                  <span
+                                    className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[9px] font-black text-rose-700 uppercase shrink-0"
+                                    title="Absent(e) à la totalité des épreuves"
+                                  >
+                                    ABS
+                                  </span>
+                                )}
+                              </div>
+                              {!estVerrouille && (
+                                <button
+                                  type="button"
+                                  onClick={() => basculerTousAbsents(idxOriginal)}
+                                  title={estToutAbsent ? "Repasser en mode Note" : "Marquer absent à toutes les épreuves"}
+                                  className={`rounded px-1.5 py-0.5 text-[10px] font-bold transition-all cursor-pointer shrink-0 ${
+                                    estToutAbsent
+                                      ? "bg-rose-100 text-rose-700 hover:bg-rose-200"
+                                      : "border border-slate-200 text-slate-400 hover:border-rose-300 hover:text-rose-700 hover:bg-rose-50"
+                                  }`}
+                                >
+                                  {estToutAbsent ? "Annuler ABS" : "ABS"}
+                                </button>
                               )}
-                              <span className="truncate">{candidat.nomComplet}</span>
                             </div>
                           </td>
 
@@ -950,7 +1021,7 @@ export function SaisieNotesPageView({
               <span>·</span>
               <span>
                 Absents :{" "}
-                <strong className="text-red-700">{stats.totalAbsents}</strong>
+                <strong className="text-red-700">{stats.totalCandidatsAbsents}</strong>
               </span>
               <span>·</span>
               <span>

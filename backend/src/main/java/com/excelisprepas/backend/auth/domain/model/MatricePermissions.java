@@ -40,45 +40,84 @@ public final class MatricePermissions {
         matrice.put(COMPTABLE, EnumSet.of(
                 FINANCIER_CONSULTER,
                 FINANCIER_GERER_MOTIF,
-                FINANCIER_VALIDER_BILAN_CONTROLEUR));
+                FINANCIER_GERER_PAIE,
+                FINANCIER_CLOTURER_BILAN,
+                FINANCIER_CONSULTER_ARCHIVES,
+                FINANCIER_VALIDER_BILAN_CONTROLEUR,
+                RAPPORT_CONSULTER,
+                RAPPORT_EXPORTER
+        ));
 
         matrice.put(CAISSIER, EnumSet.of(
                 FINANCIER_SAISIR_MOUVEMENT,
                 FINANCIER_MODIFIER_MOUVEMENT,
-                FINANCIER_CONSULTER));
+                FINANCIER_CONSULTER,
+                FINANCIER_VALIDER_BILAN_CHEF_CENTRE
+        ));
 
         matrice.put(CHARGE_DOSSIER, EnumSet.of(
-                FINANCIER_CONSULTER));
+                FINANCIER_CONSULTER,
+                APPRENANT_CONSULTER
+        ));
 
         matrice.put(SUPERVISEUR_DOSSIERS, EnumSet.of(
-                FINANCIER_CONSULTER));
+                FINANCIER_CONSULTER,
+                APPRENANT_CONSULTER
+        ));
 
         matrice.put(DIRECTEUR_ACADEMIQUE, EnumSet.of(
                 PROGRESSION_GERER_QUOTA,
                 PROGRESSION_GERER_SEMAINES,
                 PROGRESSION_CONSULTER,
                 PROGRESSION_GERER_CONTENU,
+                PROGRESSION_GERER_NOTES,
+                PROGRESSION_VALIDER,
+                ACADEMIE_GERER_SESSIONS,
+                ACADEMIE_GERER_CENTRES,
                 ACADEMIE_GERER_FORMATIONS,
                 ACADEMIE_GERER_MATIERES,
                 ACADEMIE_GERER_DEPARTEMENTS,
                 ACADEMIE_GERER_SALLES,
+                ACADEMIE_GERER_PERSONNEL,
                 ACADEMIE_GERER_PLANIFICATION,
                 ACADEMIE_ASSIGNER_ENSEIGNANT,
-                ACADEMIE_MARQUER_EFFECTUEE));
+                ACADEMIE_MARQUER_EFFECTUEE,
+                FINANCIER_CONSULTER,
+                FINANCIER_GERER_LIVRES,
+                INSCRIPTION_GERER,
+                APPRENANT_GERER,
+                APPRENANT_CONSULTER,
+                RAPPORT_CONSULTER,
+                RAPPORT_EXPORTER,
+                PERSONNEL_GERER,
+                PERSONNEL_AFFECTER_ROLE,
+                UTILISATEUR_CONSULTER
+        ));
 
         matrice.put(CHEF_DEPARTEMENT, EnumSet.of(
                 PROGRESSION_CONSULTER,
                 PROGRESSION_GERER_CONTENU,
-                ACADEMIE_ASSIGNER_ENSEIGNANT));
+                PROGRESSION_GERER_NOTES,
+                ACADEMIE_ASSIGNER_ENSEIGNANT,
+                APPRENANT_CONSULTER,
+                PERSONNEL_GERER,
+                RAPPORT_CONSULTER,
+                UTILISATEUR_CONSULTER
+        ));
 
         matrice.put(CHEF_CENTRE, EnumSet.of(
+                FINANCIER_SAISIR_MOUVEMENT,
+                FINANCIER_MODIFIER_MOUVEMENT,
                 FINANCIER_CONSULTER,
+                FINANCIER_GERER_LIVRES,
                 FINANCIER_VALIDER_BILAN_CHEF_CENTRE,
-                ACADEMIE_MARQUER_EFFECTUEE));
-
-        // Le Chef de Département peut saisir le contenu et affecter les enseignants
-        // de son périmètre; le contrôle centre/département reste à appliquer dans
-        // les services métier.
+                INSCRIPTION_GERER,
+                APPRENANT_GERER,
+                APPRENANT_CONSULTER,
+                ACADEMIE_MARQUER_EFFECTUEE,
+                RAPPORT_CONSULTER,
+                UTILISATEUR_CONSULTER
+        ));
 
         return Map.copyOf(matrice);
     }

@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Slf4j
-public class SessionAcademiqueService implements CreerSessionAcademiqueUseCase, RecupererSessionUseCase,
+public class SessionAcademiqueService implements CreerSessionAcademiqueUseCase, ModifierSessionUseCase, RecupererSessionUseCase,
         ListerSessionsUseCase, DemarrerSessionUseCase, CloturerSessionUseCase, SupprimerSessionUseCase {
 
     private final SessionAcademiqueRepositoryPort repository;
@@ -30,6 +30,15 @@ public class SessionAcademiqueService implements CreerSessionAcademiqueUseCase, 
         SessionAcademique session = new SessionAcademique(UUID.randomUUID(), annee, dateDebut, dateFin);
         session = repository.save(session);
         log.info("Session académique créée : id={}, annee={}", session.getId(), annee);
+        return session;
+    }
+
+    @Override
+    public SessionAcademique modifierSession(UUID id, String annee, LocalDate dateDebut, LocalDate dateFin) {
+        SessionAcademique session = recupererSession(id);
+        session.modifier(annee, dateDebut, dateFin);
+        session = repository.save(session);
+        log.info("Session académique modifiée : id={}, annee={}, dateDebut={}, dateFin={}", id, annee, dateDebut, dateFin);
         return session;
     }
 

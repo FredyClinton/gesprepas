@@ -66,6 +66,9 @@ export function useAbonnerCentreFormation() {
         queryKey: ["centres-abonnes", variables.formationId],
       });
       queryClient.invalidateQueries({
+        queryKey: ["abonnements-session"],
+      });
+      queryClient.invalidateQueries({
         queryKey: ["centres"],
       });
     },
@@ -90,6 +93,9 @@ export function useDesabonnerCentreFormation() {
       });
       queryClient.invalidateQueries({
         queryKey: ["centres-abonnes", variables.formationId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["abonnements-session"],
       });
       queryClient.invalidateQueries({
         queryKey: ["centres"],

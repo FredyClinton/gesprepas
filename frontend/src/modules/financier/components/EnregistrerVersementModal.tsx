@@ -19,6 +19,7 @@ import {
   Plus,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
+import { messageErreurApi } from "@/shared/lib/api-client";
 
 const FCFA = new Intl.NumberFormat("fr-FR");
 
@@ -56,10 +57,14 @@ export function EnregistrerVersementModal({
   const { data: mouvements = [] } = useMouvementsFinanciers(sessionId, centreId);
   const { data: livres = [] } = useLivres(true);
 
-  const apprenantsDuCentre = useMemo(
-    () => allApprenants.filter((a) => a.centreId === centreId),
-    [allApprenants, centreId],
-  );
+  const apprenantsDuCentre = useMemo(() => {
+    if (!sessionId) {
+      return allApprenants.filter((a) => a.centreId === centreId);
+    }
+    return allApprenants.filter(
+      (a) => a.centreId === centreId && a.sessionId === sessionId,
+    );
+  }, [allApprenants, centreId, sessionId]);
 
   const [selectedApprenantId, setSelectedApprenantId] = useState<string>("");
 
@@ -229,11 +234,12 @@ export function EnregistrerVersementModal({
           onClose();
         }, 800);
       } catch (err: unknown) {
-        const msg =
-          err instanceof Error
-            ? err.message
-            : "Erreur lors de l'enregistrement de la vente de livres.";
-        setErreur(msg);
+        setErreur(
+          messageErreurApi(
+            err,
+            "Erreur lors de l'enregistrement de la vente de livres.",
+          ),
+        );
       }
       return;
     }
@@ -280,11 +286,9 @@ export function EnregistrerVersementModal({
         onClose();
       }, 800);
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "Erreur lors de l'enregistrement du versement.";
-      setErreur(msg);
+      setErreur(
+        messageErreurApi(err, "Erreur lors de l'enregistrement du versement."),
+      );
     }
   }
 

@@ -59,6 +59,10 @@ function rafraichirToken(token: JWT): Promise<JWT> {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Nécessaire pour accéder au dev server depuis un autre appareil sur le réseau
+  // local (ex: téléphone via l'IP LAN) - Auth.js rejette sinon toute requête dont
+  // le header Host ne correspond pas à "localhost" (erreur UntrustedHost).
+  trustHost: true,
   session: { strategy: "jwt" },
   //  page de connexion
   pages: { signIn: "/login" },

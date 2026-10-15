@@ -179,17 +179,44 @@ public class ConcoursBlancService {
     }
 
     public List<ResultatCandidat> recupererResultats(UUID concoursBlancId, UUID centreId, UUID formationId) {
+        List<ResultatCandidat> list;
         if (centreId != null) {
-            List<ResultatCandidat> list = resultatRepository.findByConcoursBlancIdAndCentreId(concoursBlancId, centreId);
+            List<ResultatCandidat> brut = resultatRepository.findByConcoursBlancIdAndCentreId(concoursBlancId, centreId);
             if (formationId != null) {
-                return list.stream().filter(r -> r.getFormationId().equals(formationId)).collect(Collectors.toList());
+                list = brut.stream().filter(r -> formationId.equals(r.getFormationId())).collect(Collectors.toList());
+            } else {
+                list = new ArrayList<>(brut);
             }
-            return list;
         } else if (formationId != null) {
-            return resultatRepository.findByConcoursBlancIdAndFormationId(concoursBlancId, formationId);
+            list = new ArrayList<>(resultatRepository.findByConcoursBlancIdAndFormationId(concoursBlancId, formationId));
         } else {
-            return resultatRepository.findByConcoursBlancId(concoursBlancId);
+            list = new ArrayList<>(resultatRepository.findByConcoursBlancId(concoursBlancId));
         }
+
+        // Tri systématique par rang pour assurer un classement ordonné à l'affichage
+        list.sort((a, b) -> {
+            Integer rA = centreId != null ? a.getRangCentre() : a.getRang();
+            Integer rB = centreId != null ? b.getRangCentre() : b.getRang();
+            if (rA != null && rB != null) {
+                int cmp = rA.compareTo(rB);
+                if (cmp != 0) return cmp;
+            } else if (rA != null) {
+                return -1;
+            } else if (rB != null) {
+                return 1;
+            }
+
+            BigDecimal tA = a.getTotalPondere() != null ? a.getTotalPondere() : BigDecimal.ZERO;
+            BigDecimal tB = b.getTotalPondere() != null ? b.getTotalPondere() : BigDecimal.ZERO;
+            int cmpT = tB.compareTo(tA);
+            if (cmpT != 0) return cmpT;
+
+            String nomA = a.getNomComplet() != null ? a.getNomComplet() : "";
+            String nomB = b.getNomComplet() != null ? b.getNomComplet() : "";
+            return nomA.compareToIgnoreCase(nomB);
+        });
+
+        return list;
     }
 
     public List<ResultatCandidat> enregistrerNotes(UUID concoursBlancId, UUID centreId,
@@ -248,10 +275,8 @@ public class ConcoursBlancService {
 
         List<ResultatCandidat> saved = resultatRepository.saveAll(aSauvegarder);
 
-        // Si le concours blanc est déjà publié, recalculer le classement
-        if (cb.getStatut() == StatutConcoursBlanc.PUBLIE) {
-            compilerResultats(concoursBlancId);
-        }
+        // Mise à jour directe et systématique du classement (général et par centre)
+        compilerResultats(concoursBlancId);
 
         return saved;
     }
@@ -261,90 +286,160 @@ public class ConcoursBlancService {
                 .orElseThrow(() -> new IllegalArgumentException("Concours blanc non trouvé: " + concoursBlancId));
 
         List<EpreuveConcoursBlanc> epreuves = epreuveRepository.findByConcoursBlancId(concoursBlancId);
-        Map<UUID, EpreuveConcoursBlanc> epreuvesMap = epreuves.stream()
-                .collect(Collectors.toMap(EpreuveConcoursBlanc::getId, e -> e));
-
         List<ResultatCandidat> tousLesResultats = resultatRepository.findByConcoursBlancId(concoursBlancId);
+        if (tousLesResultats.isEmpty()) {
+            return;
+        }
 
         // Recherche du concours précédent dans la même session pour calculer le delta de progression
         Optional<ConcoursBlanc> cbPrecedentOpt = concoursBlancRepository.findPreviousConcours(cb.getSessionId(), cb.getNumero());
         Map<UUID, Integer> rangsPrecedentsParApprenant = new HashMap<>();
+        Map<String, Integer> rangsPrecedentsParNom = new HashMap<>();
         if (cbPrecedentOpt.isPresent()) {
             List<ResultatCandidat> resultatsPrecedents = resultatRepository.findByConcoursBlancId(cbPrecedentOpt.get().getId());
             for (ResultatCandidat rp : resultatsPrecedents) {
-                if (rp.getApprenantId() != null && rp.getRang() != null) {
-                    rangsPrecedentsParApprenant.put(rp.getApprenantId(), rp.getRang());
+                if (rp.getRang() != null) {
+                    if (rp.getApprenantId() != null) {
+                        rangsPrecedentsParApprenant.put(rp.getApprenantId(), rp.getRang());
+                    }
+                    if (rp.getNomComplet() != null) {
+                        rangsPrecedentsParNom.put(rp.getNomComplet().trim().toLowerCase(), rp.getRang());
+                    }
                 }
             }
         }
 
         // Regrouper par formation pour classer au sein de chaque formation
         Map<UUID, List<ResultatCandidat>> parFormation = tousLesResultats.stream()
+                .filter(r -> r.getFormationId() != null)
                 .collect(Collectors.groupingBy(ResultatCandidat::getFormationId));
 
         for (Map.Entry<UUID, List<ResultatCandidat>> entry : parFormation.entrySet()) {
+            UUID formationId = entry.getKey();
             List<ResultatCandidat> listeFormation = entry.getValue();
 
-            // 1. Calcul des totaux et moyennes
+            // Épreuves et coefficient total de la formation
+            List<EpreuveConcoursBlanc> epreuvesFormation = epreuves.stream()
+                    .filter(e -> formationId.equals(e.getFormationId()))
+                    .collect(Collectors.toList());
+
+            BigDecimal coefTotalFormation = BigDecimal.ZERO;
+            for (EpreuveConcoursBlanc ep : epreuvesFormation) {
+                BigDecimal coef = ep.getCoefficient() != null && ep.getCoefficient().signum() > 0
+                        ? ep.getCoefficient() : BigDecimal.ONE;
+                coefTotalFormation = coefTotalFormation.add(coef);
+            }
+
+            Map<UUID, EpreuveConcoursBlanc> mapEpreuvesFormation = epreuvesFormation.stream()
+                    .collect(Collectors.toMap(EpreuveConcoursBlanc::getId, e -> e));
+
+            // 1. Calcul des totaux et moyennes : les personnes ayant manqué la totalité des épreuves sont considérées comme ABSENTES
             for (ResultatCandidat r : listeFormation) {
-                BigDecimal total = BigDecimal.ZERO;
-                BigDecimal coefTotal = BigDecimal.ZERO;
+                if (aManqueTotaliteEpreuves(r, epreuvesFormation)) {
+                    r.setTotalPondere(null);
+                    r.setMoyennePonderee(null);
+                    r.setRang(null);
+                    r.setRangCentre(null);
+                    r.setDeltaRang(null);
+                } else {
+                    BigDecimal total = BigDecimal.ZERO;
 
-                for (NoteEpreuve ne : r.getNotes()) {
-                    EpreuveConcoursBlanc ep = epreuvesMap.get(ne.epreuveId());
-                    if (ep != null) {
-                        BigDecimal coef = ep.getCoefficient() != null && ep.getCoefficient().signum() > 0
-                                ? ep.getCoefficient() : BigDecimal.ONE;
-                        coefTotal = coefTotal.add(coef);
+                    if (r.getNotes() != null) {
+                        for (NoteEpreuve ne : r.getNotes()) {
+                            EpreuveConcoursBlanc ep = mapEpreuvesFormation.get(ne.epreuveId());
+                            if (ep != null) {
+                                BigDecimal coef = ep.getCoefficient() != null && ep.getCoefficient().signum() > 0
+                                        ? ep.getCoefficient() : BigDecimal.ONE;
 
-                        if (ne.statut() == StatutNote.NOTE && ne.note() != null) {
-                            total = total.add(ne.note().multiply(coef));
+                                if (ne.statut() == StatutNote.NOTE && ne.note() != null) {
+                                    total = total.add(ne.note().multiply(coef));
+                                }
+                            }
                         }
                     }
-                }
 
-                r.setTotalPondere(total.setScale(2, RoundingMode.HALF_UP));
-                if (coefTotal.signum() > 0) {
-                    r.setMoyennePonderee(total.divide(coefTotal, 2, RoundingMode.HALF_UP));
-                } else {
-                    r.setMoyennePonderee(BigDecimal.ZERO);
+                    r.setTotalPondere(total.setScale(2, RoundingMode.HALF_UP));
+                    if (coefTotalFormation.signum() > 0) {
+                        r.setMoyennePonderee(total.divide(coefTotalFormation, 2, RoundingMode.HALF_UP));
+                    } else {
+                        r.setMoyennePonderee(BigDecimal.ZERO);
+                    }
                 }
             }
 
-            // 2. Tri par Total Pondéré décroissant
-            listeFormation.sort((a, b) -> {
+            // 2. Classement des candidats présents uniquement (ayant composé à au moins une épreuve)
+            List<ResultatCandidat> presents = listeFormation.stream()
+                    .filter(r -> !aManqueTotaliteEpreuves(r, epreuvesFormation))
+                    .collect(Collectors.toList());
+
+            // Tri par Total Pondéré décroissant, puis alphabétique pour stabilité
+            presents.sort((a, b) -> {
                 BigDecimal tA = a.getTotalPondere() != null ? a.getTotalPondere() : BigDecimal.ZERO;
                 BigDecimal tB = b.getTotalPondere() != null ? b.getTotalPondere() : BigDecimal.ZERO;
-                return tB.compareTo(tA);
+                int cmp = tB.compareTo(tA);
+                if (cmp != 0) return cmp;
+                String nomA = a.getNomComplet() != null ? a.getNomComplet() : "";
+                String nomB = b.getNomComplet() != null ? b.getNomComplet() : "";
+                return nomA.compareToIgnoreCase(nomB);
             });
 
-            // 3. Attribution des rangs et calcul du delta progression
-            int rang = 1;
-            for (ResultatCandidat r : listeFormation) {
-                r.setRang(rang++);
+            // 3. Attribution des rangs généraux avec gestion des ex-aequo (aux présents uniquement)
+            int index = 0;
+            BigDecimal dernierTotal = null;
+            int dernierRang = 0;
+
+            for (ResultatCandidat r : presents) {
+                index++;
+                BigDecimal currentTotal = r.getTotalPondere() != null ? r.getTotalPondere() : BigDecimal.ZERO;
+                if (dernierTotal != null && currentTotal.compareTo(dernierTotal) == 0) {
+                    r.setRang(dernierRang);
+                } else {
+                    r.setRang(index);
+                    dernierRang = index;
+                    dernierTotal = currentTotal;
+                }
 
                 if (r.getApprenantId() != null && rangsPrecedentsParApprenant.containsKey(r.getApprenantId())) {
                     int ancienRang = rangsPrecedentsParApprenant.get(r.getApprenantId());
-                    // Ancien rang 5 - Nouveau rang 2 = +3 (progression de 3 places)
+                    r.setDeltaRang(ancienRang - r.getRang());
+                } else if (r.getNomComplet() != null && rangsPrecedentsParNom.containsKey(r.getNomComplet().trim().toLowerCase())) {
+                    int ancienRang = rangsPrecedentsParNom.get(r.getNomComplet().trim().toLowerCase());
                     r.setDeltaRang(ancienRang - r.getRang());
                 } else {
                     r.setDeltaRang(null);
                 }
             }
 
-            // 4. Attribution du Rang Centre (classement au sein du centre de chaque candidat)
-            Map<UUID, List<ResultatCandidat>> parCentre = listeFormation.stream()
+            // 4. Attribution du Rang Centre aux présents uniquement (au sein de chaque centre)
+            Map<UUID, List<ResultatCandidat>> parCentre = presents.stream()
+                    .filter(rc -> rc.getCentreId() != null)
                     .collect(Collectors.groupingBy(ResultatCandidat::getCentreId));
 
             for (List<ResultatCandidat> listeCentre : parCentre.values()) {
                 listeCentre.sort((a, b) -> {
                     BigDecimal tA = a.getTotalPondere() != null ? a.getTotalPondere() : BigDecimal.ZERO;
                     BigDecimal tB = b.getTotalPondere() != null ? b.getTotalPondere() : BigDecimal.ZERO;
-                    return tB.compareTo(tA);
+                    int cmp = tB.compareTo(tA);
+                    if (cmp != 0) return cmp;
+                    String nomA = a.getNomComplet() != null ? a.getNomComplet() : "";
+                    String nomB = b.getNomComplet() != null ? b.getNomComplet() : "";
+                    return nomA.compareToIgnoreCase(nomB);
                 });
-                int rangCentre = 1;
+
+                int cIndex = 0;
+                BigDecimal cDernierTotal = null;
+                int cDernierRang = 0;
+
                 for (ResultatCandidat rc : listeCentre) {
-                    rc.setRangCentre(rangCentre++);
+                    cIndex++;
+                    BigDecimal currentTotal = rc.getTotalPondere() != null ? rc.getTotalPondere() : BigDecimal.ZERO;
+                    if (cDernierTotal != null && currentTotal.compareTo(cDernierTotal) == 0) {
+                        rc.setRangCentre(cDernierRang);
+                    } else {
+                        rc.setRangCentre(cIndex);
+                        cDernierRang = cIndex;
+                        cDernierTotal = currentTotal;
+                    }
                 }
             }
         }
@@ -352,9 +447,36 @@ public class ConcoursBlancService {
         resultatRepository.saveAll(tousLesResultats);
     }
 
+    private boolean aManqueTotaliteEpreuves(ResultatCandidat r, List<EpreuveConcoursBlanc> epreuvesFormation) {
+        if (epreuvesFormation == null || epreuvesFormation.isEmpty()) {
+            return false;
+        }
+        if (r.getNotes() == null || r.getNotes().isEmpty()) {
+            return true;
+        }
+        // Le candidat est considéré absent s'il n'a composé à AUCUNE épreuve (aucune note avec statut NOTE et note != null)
+        long nbEpreuvesComposees = r.getNotes().stream()
+                .filter(ne -> ne.statut() == StatutNote.NOTE && ne.note() != null)
+                .count();
+        return nbEpreuvesComposees == 0;
+    }
+
     private void calculerTotauxIndividuels(ResultatCandidat r, UUID cbId) {
         List<EpreuveConcoursBlanc> epreuves = epreuveRepository.findByConcoursBlancId(cbId);
-        Map<UUID, EpreuveConcoursBlanc> epreuvesMap = epreuves.stream()
+        List<EpreuveConcoursBlanc> epreuvesFormation = epreuves.stream()
+                .filter(e -> r.getFormationId() != null && r.getFormationId().equals(e.getFormationId()))
+                .collect(Collectors.toList());
+
+        if (aManqueTotaliteEpreuves(r, epreuvesFormation)) {
+            r.setTotalPondere(null);
+            r.setMoyennePonderee(null);
+            r.setRang(null);
+            r.setRangCentre(null);
+            r.setDeltaRang(null);
+            return;
+        }
+
+        Map<UUID, EpreuveConcoursBlanc> epreuvesMap = epreuvesFormation.stream()
                 .collect(Collectors.toMap(EpreuveConcoursBlanc::getId, e -> e));
 
         BigDecimal total = BigDecimal.ZERO;

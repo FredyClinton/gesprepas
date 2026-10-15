@@ -112,6 +112,12 @@ public class AffectationRepositoryAdapter implements AffectationRepositoryPort {
     }
 
     @Override
+    public List<Affectation> findByCentreIdAndSessionId(UUID centreId, UUID sessionId) {
+        return jpaRepository.findByCentreIdAndSessionId(centreId, sessionId).stream()
+                .map(mapper::toDomain).toList();
+    }
+
+    @Override
     public List<Affectation> findByEnseignantIdAndStatut(UUID enseignantId, StatutAffectation statut) {
         return jpaRepository.findByEnseignantIdAndStatut(enseignantId, statut).stream()
                 .map(mapper::toDomain).toList();

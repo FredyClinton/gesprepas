@@ -26,9 +26,10 @@ import {
   useEnregistrerNotesConcoursBlanc,
 } from "../hooks/useConcoursBlancs";
 import {
+  SelecteurEtablissement,
   useEtablissements,
   useEnregistrerEtablissement,
-} from "@/modules/academique/data/etablissements";
+} from "@/modules/academique";
 
 interface SaisieNotesCentreModalProps {
   isOpen: boolean;
@@ -101,34 +102,34 @@ export function SaisieNotesCentreModal({
     if (!isOpen) return;
 
     if (resultatsExistants.length > 0) {
-      setLignes(
-        resultatsExistants.map((r) => {
-          const app = poolApprenants.find((a) => a.id === r.apprenantId);
-          const etablissement =
-            r.etablissementOrigine && r.etablissementOrigine.trim() !== ""
-              ? r.etablissementOrigine
-              : app?.etablissementOrigine || "";
+      const initLignes = resultatsExistants.map((r) => {
+        const app = poolApprenants.find((a) => a.id === r.apprenantId);
+        const etablissement =
+          r.etablissementOrigine && r.etablissementOrigine.trim() !== ""
+            ? r.etablissementOrigine
+            : app?.etablissementOrigine || "";
 
-          return {
-            id: r.id, // Conservation essentielle de l'ID pour mise à jour in-place
-            formationId,
-            apprenantId: r.apprenantId,
-            nomComplet: r.nomComplet,
-            etablissementOrigine: etablissement,
-            horsListe: r.horsListe,
-            notes: epreuves.map((ep) => {
-              const n = r.notes.find((note) => note.epreuveId === ep.id);
-              return {
-                epreuveId: ep.id,
-                note: n?.note ?? null,
-                statut: n?.statut ?? "NOTE",
-              };
-            }),
-          };
-        }),
-      );
+        return {
+          id: r.id, // Conservation essentielle de l'ID pour mise à jour in-place
+          formationId,
+          apprenantId: r.apprenantId,
+          nomComplet: r.nomComplet,
+          etablissementOrigine: etablissement,
+          horsListe: r.horsListe,
+          notes: epreuves.map((ep) => {
+            const n = r.notes.find((note) => note.epreuveId === ep.id);
+            return {
+              epreuveId: ep.id,
+              note: n?.note ?? null,
+              statut: n?.statut ?? "NOTE",
+            };
+          }),
+        };
+      });
+      initLignes.sort((a, b) => a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" }));
+      setLignes(initLignes);
     } else {
-      // Pré-remplissage avec les apprenants du centre
+      // Pré-remplissage avec les apprenants du centre triés par ordre alphabétique
       const candidatsInit: CandidatNotesInput[] = tousLesApprenantsCentre.map((a) => ({
         formationId,
         apprenantId: a.id,
@@ -141,6 +142,7 @@ export function SaisieNotesCentreModal({
           statut: "NOTE",
         })),
       }));
+      candidatsInit.sort((a, b) => a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" }));
       setLignes(candidatsInit);
     }
   }, [isOpen, resultatsExistants, tousLesApprenantsCentre, poolApprenants, formationId, epreuves]);
@@ -170,7 +172,11 @@ export function SaisieNotesCentreModal({
         statut: "NOTE",
       })),
     };
-    setLignes((prev) => [nouvelleLigne, ...prev]);
+    setLignes((prev) => {
+      const next = [...prev, nouvelleLigne];
+      next.sort((a, b) => a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" }));
+      return next;
+    });
     setRechercheApprenant("");
   };
 
@@ -193,7 +199,11 @@ export function SaisieNotesCentreModal({
         statut: "NOTE",
       })),
     };
-    setLignes((prev) => [...prev, nouvelleLigne]);
+    setLignes((prev) => {
+      const next = [...prev, nouvelleLigne];
+      next.sort((a, b) => a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" }));
+      return next;
+    });
     setNouveauNomHorsListe("");
     setEtablissementHorsListe("");
   };
@@ -219,6 +229,21 @@ export function SaisieNotesCentreModal({
           note: isNaN(numVal as number) ? null : numVal,
         };
       });
+      copy[indexCandidat] = c;
+      return copy;
+    });
+  };
+
+  const basculerTousAbsents = (indexCandidat: number) => {
+    setLignes((prev) => {
+      const copy = [...prev];
+      const c = { ...copy[indexCandidat] };
+      const estDejaTousAbs = c.notes.length > 0 && c.notes.every((n) => n.statut === "ABS");
+      c.notes = c.notes.map((n) => ({
+        ...n,
+        statut: estDejaTousAbs ? "NOTE" : "ABS",
+        note: null,
+      }));
       copy[indexCandidat] = c;
       return copy;
     });
@@ -382,14 +407,14 @@ export function SaisieNotesCentreModal({
                 placeholder="Nom et prénom candidat libre..."
                 className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 outline-none w-48"
               />
-              <input
-                type="text"
-                list="liste-etablissements-saisie"
-                value={etablissementHorsListe}
-                onChange={(e) => setEtablissementHorsListe(e.target.value)}
-                placeholder="Établissement / Lycée..."
-                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 outline-none w-36"
-              />
+              <div className="w-52">
+                <SelecteurEtablissement
+                  value={etablissementHorsListe}
+                  onChange={setEtablissementHorsListe}
+                  placeholder="Établissement / Lycée..."
+                  variant="compact"
+                />
+              </div>
               <button
                 type="button"
                 onClick={ajouterCandidatHorsListe}
@@ -402,15 +427,6 @@ export function SaisieNotesCentreModal({
             </div>
           </div>
         )}
-
-        {/* Datalist pour auto-complétion intelligente des établissements */}
-        <datalist id="liste-etablissements-saisie">
-          {etablissementsCatalogue.map((e) => (
-            <option key={e.id} value={e.nom}>
-              {e.ville ? `${e.nom} (${e.ville})` : e.nom}
-            </option>
-          ))}
-        </datalist>
 
         {/* Grille de saisie des notes */}
         <div className="flex-1 overflow-auto -mx-6 px-6 py-2">
@@ -436,37 +452,70 @@ export function SaisieNotesCentreModal({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {lignes.map((candidat, idx) => (
-                  <tr key={candidat.apprenantId || `hl-${idx}`} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-2 px-3 text-center font-mono font-bold text-slate-400">
-                      {idx + 1}
-                    </td>
-                    <td className="py-2 px-3 font-bold text-slate-900">
-                      <div className="flex items-center gap-2">
-                        {candidat.horsListe && (
-                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-black text-amber-800 uppercase">
-                            Hors-liste
-                          </span>
-                        )}
-                        <span>{candidat.nomComplet}</span>
-                      </div>
-                    </td>
-                    <td className="py-2 px-3 text-xs">
-                      <input
-                        type="text"
-                        list="liste-etablissements-saisie"
-                        disabled={estVerrouille}
+                {lignes.map((candidat, idx) => {
+                  const estToutAbsent =
+                    candidat.notes.length > 0 &&
+                    candidat.notes.every((n) => n.statut === "ABS");
+
+                  return (
+                    <tr
+                      key={candidat.apprenantId || `hl-${idx}`}
+                      className={`transition-colors ${
+                        estToutAbsent ? "bg-rose-50/20 hover:bg-rose-50/30" : "hover:bg-slate-50/70"
+                      }`}
+                    >
+                      <td className="py-2 px-3 text-center font-mono font-bold text-slate-400">
+                        {idx + 1}
+                      </td>
+                      <td className="py-2 px-3 font-bold text-slate-900">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            {candidat.horsListe && (
+                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-black text-amber-800 uppercase">
+                                Hors-liste
+                              </span>
+                            )}
+                            <span>{candidat.nomComplet}</span>
+                            {estToutAbsent && (
+                              <span
+                                className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[9px] font-black text-rose-700 uppercase"
+                                title="Absent(e) à la totalité des épreuves"
+                              >
+                                ABS
+                              </span>
+                            )}
+                          </div>
+                          {!estVerrouille && (
+                            <button
+                              type="button"
+                              onClick={() => basculerTousAbsents(idx)}
+                              title={estToutAbsent ? "Repasser en mode Note" : "Marquer absent à toutes les épreuves"}
+                              className={`rounded px-1.5 py-0.5 text-[10px] font-bold transition-all cursor-pointer ${
+                                estToutAbsent
+                                  ? "bg-rose-100 text-rose-700 hover:bg-rose-200"
+                                  : "border border-slate-200 text-slate-400 hover:border-rose-300 hover:text-rose-700 hover:bg-rose-50"
+                              }`}
+                            >
+                              {estToutAbsent ? "Annuler ABS" : "ABS"}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    <td className="py-2 px-3 text-xs min-w-[160px]">
+                      <SelecteurEtablissement
                         value={candidat.etablissementOrigine || ""}
-                        onChange={(e) => {
-                          const val = e.target.value;
+                        disabled={estVerrouille}
+                        onChange={(nouvelEtab) => {
                           setLignes((prev) =>
                             prev.map((lig, lIdx) =>
-                              lIdx === idx ? { ...lig, etablissementOrigine: val } : lig,
+                              lIdx === idx
+                                ? { ...lig, etablissementOrigine: nouvelEtab }
+                                : lig,
                             ),
                           );
                         }}
+                        variant="compact"
                         placeholder="Lycée / Établissement"
-                        className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800 placeholder:text-slate-400 focus:border-brand-orange focus:outline-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
                       />
                     </td>
 
@@ -519,7 +568,8 @@ export function SaisieNotesCentreModal({
                       );
                     })}
                   </tr>
-                ))}
+                );
+              })}
               </tbody>
             </table>
           )}

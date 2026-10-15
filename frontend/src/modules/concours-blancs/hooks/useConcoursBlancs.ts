@@ -152,6 +152,7 @@ export function useEnregistrerNotesConcoursBlanc() {
     }) => enregistrerNotesConcoursBlanc(id, payload, role, userCentreId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [CONCOURS_BLANCS_QUERY_KEY] });
+      queryClient.refetchQueries({ queryKey: [CONCOURS_BLANCS_QUERY_KEY] });
     },
   });
 }
@@ -170,6 +171,7 @@ export function useVerrouillerSaisieCentres() {
     }) => verrouillerSaisieCentres(id, bloquer, role),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [CONCOURS_BLANCS_QUERY_KEY] });
+      queryClient.refetchQueries({ queryKey: [CONCOURS_BLANCS_QUERY_KEY] });
     },
   });
 }
@@ -186,6 +188,7 @@ export function useCompilerResultatsConcoursBlanc() {
     }) => compilerResultatsConcoursBlanc(id, role),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [CONCOURS_BLANCS_QUERY_KEY] });
+      queryClient.refetchQueries({ queryKey: [CONCOURS_BLANCS_QUERY_KEY] });
     },
   });
 }

@@ -600,5 +600,72 @@ class DossierServiceTest {
 
             assertThatThrownBy(action).isInstanceOf(IllegalStateException.class);
         }
+
+        @Test
+        @DisplayName("rouvrirDossier rouvre un dossier clôturé et le sauvegarde")
+        void rouvrirDossierReussit() {
+            Dossier dossier = unDossierOuvert();
+            dossier.marquerComplet();
+            dossier.cloturer(LocalDate.now());
+            when(dossierRepository.findById(dossier.getId())).thenReturn(Optional.of(dossier));
+            when(dossierRepository.save(any(Dossier.class))).thenAnswer(i -> i.getArgument(0));
+
+            Dossier resultat = service.rouvrirDossier(dossier.getId());
+
+            assertThat(resultat.getStatut()).isEqualTo(StatutDossier.OUVERT);
+            assertThat(resultat.getDateCloture()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("rouvrirDossier propage l'exception si le dossier est déjà Ouvert")
+        void rouvrirDossierPropageExceptionSiDejaOuvert() {
+            Dossier dossier = unDossierOuvert();
+            when(dossierRepository.findById(dossier.getId())).thenReturn(Optional.of(dossier));
+
+            ThrowingCallable action = () -> service.rouvrirDossier(dossier.getId());
+
+            assertThatThrownBy(action).isInstanceOf(IllegalStateException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("Listage global des dossiers")
+    class ListageDossiers {
+
+        @Test
+        @DisplayName("listerDossiers filtre par session et centre si fournis")
+        void listerParSessionEtCentre() {
+            Dossier d = unDossierOuvert();
+            when(dossierRepository.findBySessionIdAndCentreId(sessionId, centreId)).thenReturn(List.of(d));
+
+            List<Dossier> resultats = service.listerDossiers(sessionId, centreId);
+
+            assertThat(resultats).containsExactly(d);
+            verify(dossierRepository).findBySessionIdAndCentreId(sessionId, centreId);
+        }
+
+        @Test
+        @DisplayName("listerDossiers filtre par session si centre non fourni")
+        void listerParSession() {
+            Dossier d = unDossierOuvert();
+            when(dossierRepository.findBySessionId(sessionId)).thenReturn(List.of(d));
+
+            List<Dossier> resultats = service.listerDossiers(sessionId, null);
+
+            assertThat(resultats).containsExactly(d);
+            verify(dossierRepository).findBySessionId(sessionId);
+        }
+
+        @Test
+        @DisplayName("listerDossiers retourne tous les dossiers si aucun filtre")
+        void listerTous() {
+            Dossier d = unDossierOuvert();
+            when(dossierRepository.findAll()).thenReturn(List.of(d));
+
+            List<Dossier> resultats = service.listerDossiers(null, null);
+
+            assertThat(resultats).containsExactly(d);
+            verify(dossierRepository).findAll();
+        }
     }
 }

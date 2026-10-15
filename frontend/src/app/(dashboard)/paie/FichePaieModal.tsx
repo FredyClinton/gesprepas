@@ -335,9 +335,10 @@ export function FichePaieModal({ ficheId, onClose }: FichePaieModalProps) {
                                     <button
                                       type="button"
                                       onClick={() => setSeanceEnEditionId(null)}
-                                      className="rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] text-slate-500 hover:bg-slate-100 cursor-pointer"
+                                      className="rounded border border-slate-200 bg-white px-1.5 py-1 text-slate-500 hover:bg-slate-100 cursor-pointer flex items-center justify-center"
+                                      title="Annuler"
                                     >
-                                      ✕
+                                      <X size={12} />
                                     </button>
                                   </div>
                                 ) : (

@@ -22,6 +22,11 @@ public class SessionBeanConfiguration {
     }
 
     @Bean
+    public ModifierSessionUseCase modifierSessionUseCase(SessionAcademiqueService sessionAcademiqueService) {
+        return sessionAcademiqueService;
+    }
+
+    @Bean
     public RecupererSessionUseCase recupererSessionUseCase(SessionAcademiqueService sessionAcademiqueService) {
         return sessionAcademiqueService;
     }

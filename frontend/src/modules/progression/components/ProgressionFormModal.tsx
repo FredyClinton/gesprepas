@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { AlertCircle, Sparkles } from "lucide-react";
+import { AlertCircle, Sparkles, CheckCircle2 } from "lucide-react";
 
 import { Modal, Button } from "@/shared/ui";
 import { messageErreurApi } from "@/shared/lib/api-client";
@@ -297,7 +297,8 @@ function ProgressionForm({
     <form onSubmit={soumettre} onKeyDown={handleKeyDown} className="flex flex-col gap-4">
       {succesInfo && (
         <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold text-emerald-800 animate-fadeIn">
-          <span>✓ {succesInfo}</span>
+          <CheckCircle2 size={15} className="shrink-0 text-emerald-600" />
+          <span>{succesInfo}</span>
         </div>
       )}
 

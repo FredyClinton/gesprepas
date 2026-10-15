@@ -35,6 +35,7 @@ interface EnregistrerVenteLivreModalProps {
   userRole?: string;
   initialApprenantId?: string;
   initialNomApprenant?: string;
+  initialLivreId?: string;
 }
 
 export function EnregistrerVenteLivreModal({
@@ -46,6 +47,7 @@ export function EnregistrerVenteLivreModal({
   userRole,
   initialApprenantId,
   initialNomApprenant,
+  initialLivreId,
 }: EnregistrerVenteLivreModalProps) {
   const { data: authSession } = useSession();
   const rawUserId = authSession?.user?.id;
@@ -94,6 +96,16 @@ export function EnregistrerVenteLivreModal({
       setEstExterne(false);
     }
   }, [initialApprenantId]);
+
+  useEffect(() => {
+    if (isOpen && initialLivreId) {
+      setQuantitesParLivre({ [initialLivreId]: 1 });
+    } else if (!isOpen) {
+      setQuantitesParLivre({});
+      setErreur(null);
+      setSucces(false);
+    }
+  }, [isOpen, initialLivreId]);
 
   const apprenantsDisponibles = useMemo(() => {
     if (!centreId) return allApprenants;
@@ -259,7 +271,10 @@ export function EnregistrerVenteLivreModal({
             ) : (
               <select
                 value={centreId}
-                onChange={(e) => setCentreId(e.target.value)}
+                onChange={(e) => {
+                  setCentreId(e.target.value);
+                  setSelectedApprenantId("");
+                }}
                 required
                 className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20 cursor-pointer"
               >
@@ -304,7 +319,7 @@ export function EnregistrerVenteLivreModal({
                     : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
                 }`}
               >
-                Élève du centre
+                Élève du centre ({apprenantsDisponibles.length})
               </button>
               <button
                 type="button"
@@ -326,8 +341,20 @@ export function EnregistrerVenteLivreModal({
                 apprenants={apprenantsDisponibles}
                 selectedId={selectedApprenantId}
                 onSelect={(apprenant) => setSelectedApprenantId(apprenant?.id || "")}
-                placeholder="Rechercher par nom, prénom ou matricule..."
+                placeholder={
+                  apprenantsDisponibles.length > 0
+                    ? `Rechercher parmi les ${apprenantsDisponibles.length} élève(s) du centre...`
+                    : "Aucun élève inscrit dans ce centre..."
+                }
               />
+              {apprenantsDisponibles.length === 0 && (
+                <p className="text-[11px] text-amber-600 mt-1.5 flex items-center gap-1">
+                  <AlertCircle size={12} />
+                  <span>
+                    Aucun élève n&apos;est actuellement inscrit dans ce centre. Vous pouvez changer de centre vendeur ou choisir « Acheteur externe ».
+                  </span>
+                </p>
+              )}
             </div>
           ) : (
             <div>

@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import { Card, Button, Modal } from "@/shared/ui";
 import type { Apprenant, CursusApprenant, ContratApprenant } from "@/modules/apprenants";
 import { usePhases, useFormations, type Phase, type Formation } from "@/modules/academique";
+import { useSessionActive } from "@/modules/centres-sessions";
 import {
   useMotifs,
   useBilanDuJour,
@@ -85,6 +86,7 @@ export function ContratEtPaiementsTab({
 }) {
   const { data: phases = [] } = usePhases();
   const { data: formations = [] } = useFormations();
+  const { data: sessionActive } = useSessionActive();
   const { data: motifs } = useMotifs("ENTREE");
   const { data: bilanDuJour } = useBilanDuJour(apprenant.centreId, apprenant.sessionId);
 
@@ -790,7 +792,7 @@ export function ContratEtPaiementsTab({
           apprenantId={apprenant.id}
           nomApprenant={`${apprenant.prenom} ${apprenant.nom}`}
           centreId={apprenant.centreId}
-          sessionId={apprenant.sessionId}
+          sessionId={sessionActive?.id || apprenant.sessionId}
           formationId={apprenant.formationId}
           soldeRestant={soldeRestantCalcul}
         />

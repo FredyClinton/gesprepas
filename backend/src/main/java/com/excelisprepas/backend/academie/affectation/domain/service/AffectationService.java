@@ -36,7 +36,8 @@ import java.util.UUID;
 @Slf4j
 public class AffectationService implements CreerCreneauUseCase, AssignerEnseignantUseCase,
         AnnulerAffectationUseCase, MarquerEffectueeUseCase, AnnulerEffectueeUseCase, ListerAffectationUseCase,
-        ModifierMatiereUseCase, SupprimerAffectationUseCase, ListerAffectationsParEnseignantUseCase {
+        ModifierMatiereUseCase, SupprimerAffectationUseCase, ListerAffectationsParEnseignantUseCase,
+        ListerAffectationsParCentreUseCase {
 
     private final AffectationRepositoryPort affectationRepository;
     private final CentreRepositoryPort centreRepository;
@@ -260,5 +261,10 @@ public class AffectationService implements CreerCreneauUseCase, AssignerEnseigna
     @Override
     public List<Affectation> listerParEnseignant(UUID enseignantId, UUID sessionId) {
         return affectationRepository.findByEnseignantIdAndSessionId(enseignantId, sessionId);
+    }
+
+    @Override
+    public List<Affectation> listerParCentre(UUID centreId, UUID sessionId) {
+        return affectationRepository.findByCentreIdAndSessionId(centreId, sessionId);
     }
 }

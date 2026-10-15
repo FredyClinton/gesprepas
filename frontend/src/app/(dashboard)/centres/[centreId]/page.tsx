@@ -26,8 +26,10 @@ export default async function CentreDetailPage({
       centreId={centreId}
       // Seul le Directeur Académique gère les formations/salles (voir consigne du
       // 29/08/2026) ; le Directeur voit la fiche du centre sans ces sections pour
-      // l'instant - création/gestion du centre lui-même pas encore construite ici.
-      peutGererAcademique={utilisateur.role === "DIRECTEUR_ACADEMIQUE"}
+      peutGererAcademique={
+        utilisateur.role === "DIRECTEUR_ACADEMIQUE" ||
+        utilisateur.role === "DIRECTEUR"
+      }
       // Relocaliser le centre : réservé au Directeur et au Chef de Centre, pas
       // au Directeur Académique.
       peutRelocaliser={utilisateur.role === "DIRECTEUR"}

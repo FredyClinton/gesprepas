@@ -5,6 +5,7 @@ import com.excelisprepas.backend.inscription.domain.port.in.CreerDossierInscript
 import com.excelisprepas.backend.inscription.domain.port.in.RecupererDossierInscriptionUseCase;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -38,6 +39,7 @@ public class InscriptionController {
             List<UUID> concoursCibles
     ) {}
 
+    @PreAuthorize("hasAuthority('INSCRIPTION_GERER')")
     @PostMapping
     public ResponseEntity<DossierInscription> creerDossier(@RequestBody CreerDossierRequest request) {
         DossierInscription dossier = creerDossierInscriptionUseCase.creerDossierInscription(
@@ -55,6 +57,7 @@ public class InscriptionController {
         return ResponseEntity.status(HttpStatus.CREATED).body(dossier);
     }
 
+    @PreAuthorize("hasAuthority('INSCRIPTION_GERER')")
     @GetMapping("/{id}")
     public ResponseEntity<DossierInscription> recupererDossier(@PathVariable UUID id) {
         return ResponseEntity.ok(recupererDossierInscriptionUseCase.recupererDossierInscription(id));

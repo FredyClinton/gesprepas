@@ -306,13 +306,13 @@ function PlanningPublicContenu() {
                   <tr>
                     <th
                       rowSpan={3}
-                      className="sticky left-0 z-30 min-w-[90px] w-[90px] border-b border-b-slate-300 border-r border-r-slate-300 bg-slate-100 p-2.5 text-center align-middle text-xs font-bold uppercase tracking-wider text-slate-700 shadow-[1px_0_0_0_#e2e8f0]"
+                      className="sticky left-0 z-30 min-w-[80px] w-[80px] border-b border-b-slate-200 border-r border-r-slate-200 bg-slate-100 p-2 text-center align-middle text-xs font-bold uppercase tracking-wider text-slate-700"
                     >
                       Jour
                     </th>
                     <th
                       rowSpan={3}
-                      className="sticky left-[90px] z-30 min-w-[50px] w-[50px] border-b border-b-slate-300 border-r border-r-slate-300 bg-slate-100 p-2.5 text-center align-middle text-xs font-bold uppercase tracking-wider text-slate-700 shadow-[1px_0_0_0_#e2e8f0]"
+                      className="sticky left-[80px] z-30 min-w-[46px] w-[46px] border-b border-b-slate-200 border-r-2 border-r-slate-300 bg-slate-100 p-2 text-center align-middle text-xs font-bold uppercase tracking-wider text-slate-700"
                     >
                       Séance
                     </th>
@@ -321,7 +321,7 @@ function PlanningPublicContenu() {
                         key={groupe.centre.id}
                         colSpan={groupe.formations.reduce((t, f) => t + f.salles.length, 0)}
                         className={`border-b border-r p-2.5 text-center text-xs font-bold tracking-wider text-white uppercase ${
-                          index % 2 === 0 ? "bg-slate-700" : "bg-slate-600"
+                          index % 2 === 0 ? "bg-brand-anthracite" : "bg-brand-gray"
                         } ${index > 0 ? "border-l-2 border-l-slate-400" : ""}`}
                       >
                         {groupe.centre.nom}
@@ -390,21 +390,21 @@ function PlanningPublicContenu() {
                         {ligne === 0 && (
                           <td
                             rowSpan={hauteur}
-                            className={`sticky left-0 z-20 w-[90px] min-w-[90px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-50/95 backdrop-blur-xs p-2 text-center align-middle shadow-[1px_0_0_0_#e2e8f0] ${
+                            className={`sticky left-0 z-20 w-[80px] min-w-[80px] border-r border-r-slate-200 border-b border-b-slate-200 bg-slate-50/90 backdrop-blur-xs p-1.5 text-center align-middle ${
                               jourIndex > 0 ? BORDURE_JOUR : ""
                             }`}
                           >
-                            <span className="inline-block rounded-lg bg-brand-anthracite px-2.5 py-1.5 text-xs font-bold text-white uppercase tracking-wider shadow-xs">
+                            <span className="inline-block rounded-md bg-white border border-slate-200/90 px-2 py-1 text-xs font-bold text-slate-800 uppercase tracking-wider shadow-2xs">
                               {LABELS_JOUR[jour]}
                             </span>
                           </td>
                         )}
                         <td
-                          className={`sticky left-[90px] z-20 w-[50px] min-w-[50px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-50/95 backdrop-blur-xs p-2 text-center align-middle shadow-[1px_0_0_0_#e2e8f0] ${
+                          className={`sticky left-[80px] z-20 w-[46px] min-w-[46px] border-r-2 border-r-slate-300 border-b border-b-slate-200 bg-slate-50/90 backdrop-blur-xs p-1.5 text-center align-middle ${
                             ligne === 0 && jourIndex > 0 ? BORDURE_JOUR : ""
                           }`}
                         >
-                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white border border-slate-200 text-xs font-black text-slate-700 shadow-2xs">
+                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white border border-slate-200/90 text-xs font-bold text-slate-700 shadow-2xs">
                             S{ligne + 1}
                           </span>
                         </td>
@@ -510,8 +510,9 @@ function PlanningPublicContenu() {
                                           }
                                           style={{
                                             borderColor: hex,
+                                            backgroundColor: hex ? `${hex}14` : undefined,
                                           }}
-                                          className={`group/cell cursor-pointer rounded-xl bg-white border-2 p-2.5 text-left transition-all shadow-2xs hover:shadow-md hover:bg-slate-50/60 ${
+                                          className={`group/cell cursor-pointer rounded-xl border-2 p-2.5 text-left transition-all shadow-2xs hover:shadow-md ${
                                             attenue ? "opacity-20" : ""
                                           }`}
                                         >
@@ -590,8 +591,8 @@ function PlanningPublicContenu() {
             )}
           </div>
 
-          {/* Légende */}
-          <div className="w-full xl:w-52 shrink-0 max-h-48 xl:max-h-none overflow-y-auto rounded-xl border border-brand-orange/20 bg-brand-orange/5 p-4 shadow-xs">
+          {/* Légende - masquée sur mobile/tablette, visible à partir de xl. */}
+          <div className="hidden w-full shrink-0 rounded-xl border border-brand-orange/20 bg-brand-orange/5 p-4 shadow-xs xl:block xl:w-52">
             <div className="mb-3 flex items-center gap-2">
               <Palette size={15} className="text-brand-orange" />
               <h2 className="text-xs font-bold uppercase tracking-wider text-brand-anthracite">
@@ -800,8 +801,9 @@ function ModalProgressionPublic({
               </h3>
             </div>
             {progression ? (
-              <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-800">
-                ✓ Contenu disponible
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-800">
+                <CheckCircle2 size={12} className="text-emerald-700" />
+                Contenu disponible
               </span>
             ) : (
               <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-800">

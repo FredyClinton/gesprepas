@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -42,6 +43,7 @@ public class PersonnelController {
     }
 
     @Operation(summary = "Créer un membre du personnel")
+    @PreAuthorize("hasAuthority('PERSONNEL_GERER')")
     @PostMapping
     public ResponseEntity<PersonnelResponse> creer(@Valid @RequestBody CreerPersonnelRequest request) {
         Personnel personnel = creerPersonnelUseCase.creerPersonnel(
@@ -50,6 +52,7 @@ public class PersonnelController {
     }
 
     @Operation(summary = "Récupérer un membre du personnel par son identifiant")
+    @PreAuthorize("hasAuthority('PERSONNEL_GERER')")
     @GetMapping("/{id}")
     public ResponseEntity<PersonnelResponse> recuperer(@PathVariable UUID id) {
         Personnel personnel = recupererPersonnelUseCase.recupererPersonnel(id);
@@ -57,6 +60,7 @@ public class PersonnelController {
     }
 
     @Operation(summary = "Lister tous les membres du personnel")
+    @PreAuthorize("hasAuthority('PERSONNEL_GERER')")
     @GetMapping
     public ResponseEntity<List<PersonnelResponse>> listerTous() {
         List<PersonnelResponse> list = listerPersonnelUseCase.listerTous().stream()
@@ -66,6 +70,7 @@ public class PersonnelController {
     }
 
     @Operation(summary = "Définir ou réviser le salaire d'un personnel pour une session")
+    @PreAuthorize("hasAuthority('PERSONNEL_GERER')")
     @PostMapping("/{personnelId}/sessions/{sessionId}/salaire")
     public ResponseEntity<HistoriqueSalaireResponse> definirSalaire(
             @PathVariable UUID personnelId,
@@ -77,6 +82,7 @@ public class PersonnelController {
     }
 
     @Operation(summary = "Consulter l'historique des salaires d'un personnel pour une session")
+    @PreAuthorize("hasAuthority('PERSONNEL_GERER')")
     @GetMapping("/{personnelId}/sessions/{sessionId}/salaire-historique")
     public ResponseEntity<List<HistoriqueSalaireResponse>> consulterHistorique(
             @PathVariable UUID personnelId,

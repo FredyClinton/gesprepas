@@ -16,6 +16,7 @@ import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -58,6 +59,7 @@ public class VenteLivreController {
 
     @Operation(summary = "Enregistrer une vente de livres",
                description = "Enregistre la vente d'ouvrages, décrémente les stocks et génère l'entrée en caisse pour le centre.")
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_LIVRES')")
     @PostMapping
     public ResponseEntity<List<VenteLivreResponse>> enregistrerVente(
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
@@ -90,6 +92,7 @@ public class VenteLivreController {
 
     @Operation(summary = "Lister les ventes de livres",
                description = "Historique détaillé des ventes. Le Chef de Centre ne voit que les ventes de son centre.")
+    @PreAuthorize("hasAuthority('FINANCIER_CONSULTER')")
     @GetMapping
     public ResponseEntity<List<VenteLivreResponse>> listerVentes(
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
@@ -112,6 +115,7 @@ public class VenteLivreController {
 
     @Operation(summary = "Statistiques et ventilations des ventes",
                description = "Retourne le total, la ventilation par livre et la ventilation par centre pour les bilans.")
+    @PreAuthorize("hasAuthority('FINANCIER_CONSULTER')")
     @GetMapping("/stats")
     public ResponseEntity<StatsVentesLivresResponse> getStats(
             @RequestHeader(value = "X-User-Role", required = false) String userRole,

@@ -69,6 +69,9 @@ class AffectationControllerTest {
     @MockitoBean
     private ListerAffectationsParEnseignantUseCase listerAffectationsParEnseignantUseCase;
 
+    @MockitoBean
+    private ListerAffectationsParCentreUseCase listerAffectationsParCentreUseCase;
+
     private String jsonRequest() {
         return """
                 {
@@ -410,6 +413,23 @@ class AffectationControllerTest {
 
         // When / Then
         mockMvc.perform(get("/api/affectations/enseignant/" + enseignantId).param("sessionId", SESSION_ID.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
+    @DisplayName("GET /api/affectations/centre/{id}?sessionId= retourne la liste des séances du centre")
+    void listerParCentre_retourneLaListe() throws Exception {
+        // Given
+        UUID enseignantId = UUID.randomUUID();
+        when(listerAffectationsParCentreUseCase.listerParCentre(CENTRE_ID, SESSION_ID)).thenReturn(List.of(
+                new Affectation(UUID.randomUUID(), CENTRE_ID, SESSION_ID, FORMATION_ID, SALLE_ID, MATIERE_ID,
+                        null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE),
+                new Affectation(UUID.randomUUID(), CENTRE_ID, SESSION_ID, FORMATION_ID, SALLE_ID, MATIERE_ID,
+                        enseignantId, Jour.MARDI, 1, 2, StatutAffectation.ASSIGNEE)));
+
+        // When / Then
+        mockMvc.perform(get("/api/affectations/centre/" + CENTRE_ID).param("sessionId", SESSION_ID.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2));
     }

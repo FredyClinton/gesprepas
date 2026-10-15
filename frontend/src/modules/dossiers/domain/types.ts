@@ -63,3 +63,40 @@ export type SoldeDossierConcours = {
   montantPaye: number;
   soldeRestant: number;
 };
+
+export type CreerConcoursInput = {
+  nom: string;
+  sessionId: string;
+  formationId?: string;
+  phaseId?: string;
+  dateLimiteDepot: string;
+  dateLimiteRecevabiliteCentre: string;
+};
+
+export type SelectionPieceInput = {
+  pieceRequiseId: string;
+  quantite: number;
+};
+
+export type AjouterConcoursAuDossierInput = {
+  concoursId: string;
+  selections: SelectionPieceInput[];
+};
+
+export type EnregistrerPaiementDossierInput = {
+  motifId: string;
+  montant: number;
+  date: string;
+  saisiParUtilisateurId: string;
+};
+
+export type CreerPieceRequiseInput = {
+  nom: string;
+  montant: number;
+};
+
+export type ModifierPieceRequiseInput = {
+  nom: string;
+  montant: number;
+};
+

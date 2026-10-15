@@ -26,6 +26,7 @@ export function SelecteurEtablissement({
 }: SelecteurEtablissementProps) {
   const [ouvert, setOuvert] = useState(false);
   const [recherche, setRecherche] = useState(value || "");
+  const [estEnFiltre, setEstEnFiltre] = useState(false);
   const [indexSurvol, setIndexSurvol] = useState<number>(-1);
 
   const conteneurRef = useRef<HTMLDivElement>(null);
@@ -37,6 +38,7 @@ export function SelecteurEtablissement({
   // Synchroniser la recherche si la valeur externe change
   useEffect(() => {
     setRecherche(value || "");
+    setEstEnFiltre(false);
   }, [value]);
 
   // Fermer le menu lors d'un clic en dehors
@@ -47,41 +49,56 @@ export function SelecteurEtablissement({
         !conteneurRef.current.contains(event.target as Node)
       ) {
         setOuvert(false);
+        setEstEnFiltre(false);
       }
     }
     document.addEventListener("mousedown", handleClickDehors);
     return () => document.removeEventListener("mousedown", handleClickDehors);
   }, []);
 
-  // Filtrage des établissements
+  // Liste complète enrichie avec la valeur actuelle si absente du catalogue officiel
+  const etablissementsComplets = useMemo(() => {
+    const valNettoyee = (value || "").trim();
+    if (!valNettoyee) return etablissements;
+    const existe = etablissements.some(
+      (e) => e.nom.trim().toLowerCase() === valNettoyee.toLowerCase(),
+    );
+    if (!existe) {
+      return [{ id: `val-${valNettoyee}`, nom: valNettoyee, ville: null }, ...etablissements];
+    }
+    return etablissements;
+  }, [etablissements, value]);
+
+  // Suggestions filtrées : si l'utilisateur n'est pas en cours de frappe, on affiche la liste complète
   const suggestions = useMemo(() => {
+    if (!estEnFiltre) {
+      return etablissementsComplets;
+    }
     const q = recherche.trim().toLowerCase();
-    if (!q) return etablissements.slice(0, 8);
-    return etablissements
-      .filter(
-        (e) =>
-          e.nom.toLowerCase().includes(q) ||
-          (e.ville && e.ville.toLowerCase().includes(q)),
-      )
-      .slice(0, 10);
-  }, [etablissements, recherche]);
+    if (!q) return etablissementsComplets;
+    return etablissementsComplets.filter(
+      (e) =>
+        e.nom.toLowerCase().includes(q) ||
+        (e.ville && e.ville.toLowerCase().includes(q)),
+    );
+  }, [etablissementsComplets, recherche, estEnFiltre]);
 
   // Vérifier si la saisie exacte existe déjà
   const correspondanceExacte = useMemo(() => {
     const q = recherche.trim().toLowerCase();
     if (!q) return true;
-    return etablissements.some(
+    return etablissementsComplets.some(
       (e) => e.nom.trim().toLowerCase() === q,
     );
-  }, [etablissements, recherche]);
+  }, [etablissementsComplets, recherche]);
 
   const peutCreer = Boolean(recherche.trim()) && !correspondanceExacte;
-
   const totalOptions = suggestions.length + (peutCreer ? 1 : 0);
 
   const selectionner = (etabNom: string) => {
     onChange(etabNom);
     setRecherche(etabNom);
+    setEstEnFiltre(false);
     setOuvert(false);
   };
 
@@ -106,6 +123,7 @@ export function SelecteurEtablissement({
     if (!ouvert) {
       if (e.key === "ArrowDown" || e.key === "Enter") {
         setOuvert(true);
+        setEstEnFiltre(false);
         e.preventDefault();
       }
       return;
@@ -132,13 +150,17 @@ export function SelecteurEtablissement({
       }
     } else if (e.key === "Escape") {
       setOuvert(false);
+      setEstEnFiltre(false);
     }
   };
 
   const estCompact = variant === "compact";
 
   return (
-    <div ref={conteneurRef} className={`relative w-full text-left ${className}`}>
+    <div
+      ref={conteneurRef}
+      className={`relative w-full text-left ${ouvert ? "z-40" : "z-0"} ${className}`}
+    >
       <div
         className={`flex items-center gap-1.5 rounded-xl border transition-all duration-150 ${
           disabled
@@ -162,12 +184,17 @@ export function SelecteurEtablissement({
           value={recherche}
           onChange={(e) => {
             setRecherche(e.target.value);
+            setEstEnFiltre(true);
             onChange(e.target.value);
             setOuvert(true);
             setIndexSurvol(-1);
           }}
           onFocus={() => {
-            if (!disabled) setOuvert(true);
+            if (!disabled) {
+              setOuvert(true);
+              setEstEnFiltre(false);
+              inputRef.current?.select();
+            }
           }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
@@ -184,12 +211,16 @@ export function SelecteurEtablissement({
           <button
             type="button"
             tabIndex={-1}
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               setRecherche("");
+              setEstEnFiltre(false);
               onChange("");
+              setOuvert(true);
               inputRef.current?.focus();
             }}
             className="p-0.5 text-slate-300 hover:text-slate-600 rounded-md transition-colors cursor-pointer"
+            title="Effacer"
           >
             <X size={12} />
           </button>
@@ -199,13 +230,21 @@ export function SelecteurEtablissement({
           type="button"
           tabIndex={-1}
           disabled={disabled}
-          onClick={() => {
+          onClick={(e) => {
+            e.stopPropagation();
             if (!disabled) {
-              setOuvert((prev) => !prev);
+              setOuvert((prev) => {
+                const prochain = !prev;
+                if (prochain) {
+                  setEstEnFiltre(false);
+                }
+                return prochain;
+              });
               inputRef.current?.focus();
             }
           }}
           className="p-0.5 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+          title="Afficher la liste des établissements"
         >
           <ChevronsUpDown size={estCompact ? 12 : 14} />
         </button>
@@ -214,12 +253,12 @@ export function SelecteurEtablissement({
       {/* Menu déroulant Popover */}
       {ouvert && !disabled && (
         <div
-          className={`absolute left-0 top-full mt-1 w-full min-w-[260px] max-w-[420px] rounded-xl border border-slate-200 bg-white p-1 shadow-xl z-50 animate-in fade-in slide-in-from-top-1 duration-100 ${
+          className={`absolute left-0 top-full mt-1 w-full min-w-[280px] max-w-[420px] rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl z-50 animate-in fade-in slide-in-from-top-1 duration-100 ${
             estCompact ? "text-xs" : "text-xs"
           }`}
         >
           {/* Liste des correspondances */}
-          <div className="max-h-56 overflow-y-auto space-y-0.5">
+          <div className="max-h-60 overflow-y-auto space-y-0.5">
             {isLoading ? (
               <div className="flex items-center justify-center py-4 text-xs text-slate-400 gap-2">
                 <Loader2 size={14} className="animate-spin text-brand-orange" />
@@ -232,7 +271,7 @@ export function SelecteurEtablissement({
             ) : (
               suggestions.map((etab, idx) => {
                 const estSelectionne =
-                  recherche.trim().toLowerCase() === etab.nom.toLowerCase();
+                  (value || "").trim().toLowerCase() === etab.nom.toLowerCase();
                 const estSurvole = indexSurvol === idx;
 
                 return (
@@ -243,9 +282,9 @@ export function SelecteurEtablissement({
                     onMouseEnter={() => setIndexSurvol(idx)}
                     className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-left transition-colors cursor-pointer ${
                       estSurvole
-                        ? "bg-orange-50 text-brand-orange"
+                        ? "bg-brand-orange/10 text-brand-orange"
                         : estSelectionne
-                        ? "bg-slate-50 font-bold text-slate-900"
+                        ? "bg-slate-100 font-bold text-slate-900"
                         : "text-slate-700 hover:bg-slate-50"
                     }`}
                   >
@@ -286,11 +325,11 @@ export function SelecteurEtablissement({
                   disabled={enregistrerMutation.isPending}
                   className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer ${
                     indexSurvol === suggestions.length
-                      ? "bg-emerald-100 text-emerald-900"
-                      : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                      ? "bg-brand-orange/15 text-brand-orange"
+                      : "bg-brand-orange/10 text-brand-orange hover:bg-brand-orange/15"
                   }`}
                 >
-                  <div className="h-5 w-5 rounded-md bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                  <div className="h-5 w-5 rounded-md bg-brand-orange text-white flex items-center justify-center shrink-0 shadow-2xs">
                     {enregistrerMutation.isPending ? (
                       <Loader2 size={12} className="animate-spin" />
                     ) : (
@@ -299,9 +338,9 @@ export function SelecteurEtablissement({
                   </div>
                   <div className="truncate">
                     <span className="text-[11px] font-bold block leading-tight">
-                      Enregistrer au catalogue
+                      Enregistrer et sélectionner
                     </span>
-                    <span className="text-[10px] text-emerald-700 font-medium block truncate">
+                    <span className="text-[10px] text-brand-orange/80 font-medium block truncate">
                       « {recherche.trim()} »
                     </span>
                   </div>
@@ -314,4 +353,3 @@ export function SelecteurEtablissement({
     </div>
   );
 }
-

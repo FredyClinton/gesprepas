@@ -21,9 +21,14 @@ import {
   Briefcase,
   Banknote,
   ShieldCheck,
+  ShieldAlert,
+  Lock,
+  Unlock,
+  Layers,
 } from "lucide-react";
 
 import { Card, Modal } from "@/shared/ui";
+import { messageErreurApi } from "@/shared/lib/api-client";
 import { useCentres, useSessionActive } from "@/modules/centres-sessions";
 import {
   useUtilisateur,
@@ -36,8 +41,12 @@ import {
   useAncienneteEnseignant,
   useHistoriqueSalairePersonnel,
   useDefinirSalairePersonnel,
+  useAccesPersonnelMembre,
+  useGererAccesPersonnel,
   type Enseignant,
+  type StatutAcces,
 } from "@/modules/personnel";
+import { usePhases } from "@/modules/academique";
 import { useDepartements } from "@/modules/departement";
 import { useRostersDepartements } from "@/modules/affectation-departementale";
 import {
@@ -234,6 +243,24 @@ export function PersonnelDetailView({ personnelId }: { personnelId: string }) {
   const [modalSalaireOuvert, setModalSalaireOuvert] = useState(false);
   const [nouveauSalaire, setNouveauSalaire] = useState<number | "">("");
   const definirSalaire = useDefinirSalairePersonnel();
+
+  // Gestion des accès Session & Phase (Directeur)
+  const estDirecteur = roleConnecte === "DIRECTEUR";
+  const { data: phases = [] } = usePhases();
+  const { data: accesListMembre = [] } = useAccesPersonnelMembre(personnelId, sessionId);
+  const gererAccesMutation = useGererAccesPersonnel();
+
+  const [modalAccesOuvert, setModalAccesOuvert] = useState(false);
+  const [phaseSelectionneeAcces, setPhaseSelectionneeAcces] = useState<string>("TOUTES");
+  const [statutAccesCible, setStatutAccesCible] = useState<StatutAcces>("ACCORDE");
+  const [motifAcces, setMotifAcces] = useState("");
+  const [erreurAcces, setErreurAcces] = useState<string | null>(null);
+
+  const accesSessionCourante = useMemo(() => {
+    return accesListMembre.find((a) => !a.phaseId);
+  }, [accesListMembre]);
+
+  const estBloqueSessionCourante = accesSessionCourante?.statut === "BLOQUE";
 
   // Départements de l'enseignant
   const departementsDeCetEnseignant = useMemo(() => {
@@ -509,6 +536,43 @@ export function PersonnelDetailView({ personnelId }: { personnelId: string }) {
                 <Banknote size={15} className="text-slate-500" />
                 {salaireReferenceActuel ? "Réviser salaire" : "Définir salaire"}
               </button>
+            )}
+
+            {estDirecteur && sessionId && utilisateur && utilisateur.role !== "DIRECTEUR" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPhaseSelectionneeAcces("TOUTES");
+                  setStatutAccesCible(estBloqueSessionCourante ? "ACCORDE" : "BLOQUE");
+                  setMotifAcces(accesSessionCourante?.motif ?? "");
+                  setErreurAcces(null);
+                  setModalAccesOuvert(true);
+                }}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl border transition-colors ${
+                  estBloqueSessionCourante
+                    ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100/80"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                {estBloqueSessionCourante ? (
+                  <>
+                    <ShieldAlert size={15} className="text-rose-600" />
+                    <span>Accès Bloqué (Modifier)</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck size={15} className="text-emerald-600" />
+                    <span>Contrôle d'accès</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {estDirecteur && utilisateur && utilisateur.role === "DIRECTEUR" && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-amber-50 text-amber-700 border border-amber-200">
+                <ShieldCheck size={14} className="text-amber-600" />
+                <span>Compte Directeur (Protégé)</span>
+              </span>
             )}
           </div>
         </div>
@@ -1599,6 +1663,151 @@ export function PersonnelDetailView({ personnelId }: { personnelId: string }) {
                 className="px-4 py-2 text-xs font-bold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
               >
                 Fermer
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal Contrôle d'accès Session & Phase (Directeur) */}
+      {modalAccesOuvert && (
+        <Modal
+          isOpen={modalAccesOuvert}
+          onClose={() => setModalAccesOuvert(false)}
+          title="Contrôle des Accès — Session & Phase"
+        >
+          <div className="space-y-4 pt-1">
+            <div
+              className={`p-3.5 rounded-xl border flex items-start gap-3 ${
+                statutAccesCible === "BLOQUE"
+                  ? "bg-rose-50 border-rose-200 text-rose-900"
+                  : "bg-emerald-50 border-emerald-200 text-emerald-900"
+              }`}
+            >
+              {statutAccesCible === "BLOQUE" ? (
+                <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              ) : (
+                <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+              )}
+              <div className="text-sm">
+                <p className="font-semibold">
+                  {statutAccesCible === "BLOQUE" ? "Bloquer l'accès" : "Accorder / Débloquer l'accès"}
+                </p>
+                <p className="text-xs mt-0.5 opacity-90">
+                  Collaborateur : <strong>{membre.prenom} {membre.nom}</strong>
+                </p>
+              </div>
+            </div>
+
+            {erreurAcces && (
+              <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200">
+                {erreurAcces}
+              </div>
+            )}
+
+            {/* Choix de la Phase */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Phase d'application :
+              </label>
+              <select
+                value={phaseSelectionneeAcces}
+                onChange={(e) => setPhaseSelectionneeAcces(e.target.value)}
+                className="w-full text-xs font-medium bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="TOUTES">Toute la session académique</option>
+                {phases.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.code} - {p.libelle}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Statut désiré */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Action à appliquer :
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStatutAccesCible("ACCORDE")}
+                  className={`py-2 px-3 text-xs font-semibold rounded-xl border flex items-center justify-center gap-1.5 transition-all ${
+                    statutAccesCible === "ACCORDE"
+                      ? "bg-emerald-500 text-white border-emerald-600 shadow-2xs"
+                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  <Unlock className="w-3.5 h-3.5" />
+                  <span>Accorder l'accès</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatutAccesCible("BLOQUE")}
+                  className={`py-2 px-3 text-xs font-semibold rounded-xl border flex items-center justify-center gap-1.5 transition-all ${
+                    statutAccesCible === "BLOQUE"
+                      ? "bg-rose-600 text-white border-rose-700 shadow-2xs"
+                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Bloquer l'accès</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Motif */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Motif de la décision (optionnel) :
+              </label>
+              <textarea
+                value={motifAcces}
+                onChange={(e) => setMotifAcces(e.target.value)}
+                placeholder="Précisez la raison administrative du blocage ou de l'autorisation..."
+                rows={3}
+                className="w-full text-xs rounded-xl border border-slate-300 p-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setModalAccesOuvert(false)}
+                className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
+                disabled={gererAccesMutation.isPending}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!sessionId) return;
+                  setErreurAcces(null);
+                  try {
+                    await gererAccesMutation.mutateAsync({
+                      personnelId,
+                      input: {
+                        sessionId,
+                        phaseId: phaseSelectionneeAcces === "TOUTES" ? null : phaseSelectionneeAcces,
+                        statut: statutAccesCible,
+                        motif: motifAcces.trim() || undefined,
+                      },
+                    });
+                    setModalAccesOuvert(false);
+                  } catch (err) {
+                    setErreurAcces(messageErreurApi(err));
+                  }
+                }}
+                disabled={gererAccesMutation.isPending}
+                className={`px-4 py-2 text-xs font-bold rounded-xl text-white shadow-2xs transition-all ${
+                  statutAccesCible === "BLOQUE"
+                    ? "bg-rose-600 hover:bg-rose-700"
+                    : "bg-emerald-600 hover:bg-emerald-700"
+                }`}
+              >
+                {gererAccesMutation.isPending ? "Enregistrement..." : "Appliquer"}
               </button>
             </div>
           </div>

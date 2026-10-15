@@ -13,4 +13,12 @@ public interface DossierRepositoryPort {
     Optional<Dossier> findByApprenantId(UUID apprenantId);
 
     boolean existsByApprenantId(UUID apprenantId);
+
+    java.util.List<Dossier> findBySessionId(UUID sessionId);
+
+    java.util.List<Dossier> findBySessionIdAndCentreId(UUID sessionId, UUID centreId);
+
+    java.util.List<Dossier> findByCentreId(UUID centreId);
+
+    java.util.List<Dossier> findAll();
 }

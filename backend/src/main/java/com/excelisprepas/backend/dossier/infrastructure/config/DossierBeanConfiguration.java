@@ -152,6 +152,16 @@ public class DossierBeanConfiguration {
     }
 
     @Bean
+    public RouvrirDossierUseCase rouvrirDossierUseCase(DossierService dossierService) {
+        return dossierService;
+    }
+
+    @Bean
+    public ListerDossiersUseCase listerDossiersUseCase(DossierService dossierService) {
+        return dossierService;
+    }
+
+    @Bean
     public DossierFinancierService dossierFinancierService(DossierConcoursRepositoryPort dossierConcoursRepository,
                                                            DossierRepositoryPort dossierRepository,
                                                            ConcoursRepositoryPort concoursRepository,

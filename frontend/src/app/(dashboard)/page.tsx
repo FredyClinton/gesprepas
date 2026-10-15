@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { DirecteurDashboard } from "./_dashboards/directeur";
 import { ChefCentreDashboard } from "./_dashboards/chef-centre";
@@ -25,6 +26,9 @@ export default async function DashboardPage() {
           chefId={utilisateur.id}
         />
       );
+    case "CHARGE_DOSSIER":
+    case "SUPERVISEUR_DOSSIERS":
+      redirect("/dossiers");
     default:
       // Rôles sans maquette confirmée - même logique que la nav par défaut
       // (shared/layout/nav-items.ts) : pas de contenu inventé.

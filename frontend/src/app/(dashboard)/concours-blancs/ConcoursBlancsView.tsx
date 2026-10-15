@@ -21,6 +21,8 @@ import {
   RefreshCw,
   Pencil,
   Trash2,
+  AlertTriangle,
+  Star,
 } from "lucide-react";
 import { useSessionActive, useCentres } from "@/modules/centres-sessions";
 import { useFormations } from "@/modules/academique";
@@ -40,6 +42,7 @@ import {
   BordereauResultatsView,
   ExporterBordereauModal,
 } from "@/modules/concours-blancs";
+import { messageErreurApi } from "@/shared/lib/api-client";
 
 interface ConcoursBlancsViewProps {
   userRole: string;
@@ -138,12 +141,20 @@ export function ConcoursBlancsView({
 
   const [modalExportOuvert, setModalExportOuvert] = useState(false);
   const [formationExportId, setFormationExportId] = useState<string>("");
+  const [toastCompilation, setToastCompilation] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   // Apprenants du centre actif pour la saisie des notes
   const apprenantsCentre = useMemo(() => {
     if (!centreSaisieId) return [];
-    return apprenants.filter((a) => a.centreId === centreSaisieId);
-  }, [apprenants, centreSaisieId]);
+    return apprenants.filter(
+      (a) =>
+        a.centreId === centreSaisieId &&
+        (!sessionActive?.id || a.sessionId === sessionActive.id),
+    );
+  }, [apprenants, centreSaisieId, sessionActive]);
 
   const ouvrirSaisieNotes = (cbId: string, fId: string, cId?: string) => {
     if (estChefDept) return; // Protection absolue : les chefs de département ne remplissent pas les notes
@@ -201,43 +212,65 @@ export function ConcoursBlancsView({
         )}
       </div>
 
-      {/* ── Sélecteur Épuré des Concours Blancs (Pills horizontaux) ── */}
+      {/* ── Sélecteur Visuel & Chronologique des Concours Blancs ── */}
       {concoursBlancs.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <div className="flex items-stretch gap-3 overflow-x-auto pb-1.5 scrollbar-thin">
           {concoursBlancs.map((cb) => {
             const actif = (concoursActif?.id ?? "") === cb.id;
+            const dateStr = new Date(cb.dateEpreuve).toLocaleDateString("fr-FR", {
+              day: "numeric",
+              month: "short",
+            });
+
             return (
               <button
                 key={cb.id}
                 type="button"
                 onClick={() => setConcoursActifId(cb.id)}
-                className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-2 text-left transition-all cursor-pointer shrink-0 ${
+                className={`group flex min-w-[240px] flex-col justify-between rounded-2xl border p-3.5 text-left transition-all cursor-pointer shrink-0 ${
                   actif
-                    ? "border-brand-orange bg-white shadow-xs ring-2 ring-brand-orange/20 text-slate-900"
-                    : "border-slate-200 bg-white/70 hover:bg-white text-slate-600 hover:text-slate-900"
+                    ? "border-brand-orange bg-white shadow-xs ring-2 ring-brand-orange/20"
+                    : "border-slate-200/90 bg-white/75 hover:bg-white hover:border-slate-300 shadow-2xs"
                 }`}
               >
-                <span
-                  className={`flex h-6 w-6 items-center justify-center rounded-lg text-xs font-black ${
-                    actif ? "bg-brand-orange text-white" : "bg-slate-100 text-slate-700"
-                  }`}
-                >
-                  {cb.numero}
-                </span>
-                <span className="text-xs font-bold">{cb.titre}</span>
-                <span
-                  className={`rounded-full px-2 py-0.2 text-[9px] font-black uppercase ${
-                    cb.statut === "PUBLIE"
-                      ? "bg-emerald-100 text-emerald-800"
-                      : cb.statut === "EN_COURS"
-                        ? "bg-amber-100 text-amber-800"
-                        : cb.statut === "CLOTURE"
-                          ? "bg-slate-200 text-slate-800"
-                          : "bg-blue-100 text-blue-800"
-                  }`}
-                >
-                  {cb.statut === "CLOTURE" ? "CLÔTURÉ" : cb.statut}
-                </span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs font-black tabular-nums ${
+                        actif
+                          ? "bg-brand-orange text-white shadow-xs"
+                          : "bg-slate-100 text-slate-700 group-hover:bg-slate-200/70"
+                      }`}
+                    >
+                      N°{cb.numero}
+                    </span>
+                    <span className="text-xs font-bold text-slate-900 line-clamp-1">{cb.titre}</span>
+                  </div>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                      cb.statut === "PUBLIE"
+                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200/60"
+                        : cb.statut === "EN_COURS"
+                          ? "bg-amber-50 text-amber-800 border border-amber-200/60"
+                          : cb.statut === "CLOTURE"
+                            ? "bg-slate-100 text-slate-700 border border-slate-200"
+                            : "bg-blue-50 text-blue-800 border border-blue-200/60"
+                    }`}
+                  >
+                    {cb.statut === "CLOTURE" ? "CLÔTURÉ" : cb.statut.replace("_", " ")}
+                  </span>
+                </div>
+
+                <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100">
+                  <span className="flex items-center gap-1">
+                    <Calendar size={12} className={actif ? "text-brand-orange" : "text-slate-400"} />
+                    <span className="font-medium text-slate-700">{dateStr}</span>
+                    <span className="text-slate-400">· Sem. {cb.semaine}</span>
+                  </span>
+                  <span className="text-slate-500 font-semibold">
+                    {cb.epreuves?.length || 0} épr.
+                  </span>
+                </div>
               </button>
             );
           })}
@@ -269,84 +302,73 @@ export function ConcoursBlancsView({
         </div>
       ) : (
         <div className="space-y-4">
-          {/* ── Barre Contextuelle & Actions Unifiées (Zéro Redondance) ── */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
-            {/* Détails résumés du concours actif */}
-            <div className="flex flex-wrap items-center gap-2.5 text-xs">
-              <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-black uppercase ${
-                  concoursActif.statut === "PUBLIE"
-                    ? "bg-emerald-100 text-emerald-800"
-                    : concoursActif.statut === "EN_COURS"
-                      ? "bg-amber-100 text-amber-800"
-                      : concoursActif.statut === "CLOTURE"
-                        ? "bg-slate-200 text-slate-800"
-                        : "bg-blue-100 text-blue-800"
-                }`}
-              >
-                {concoursActif.statut === "CLOTURE" ? "CLÔTURÉ" : concoursActif.statut}
-              </span>
+          {/* ── Cockpit de Session & Stepper de Cycle de Vie ERP ── */}
+          <div className="flex flex-col gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
+            {/* Ligne 1 : Méta-données & Stepper visuel d'état */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                  <Calendar size={14} className="text-brand-orange" />
+                  <span>
+                    {new Date(concoursActif.dateEpreuve).toLocaleDateString("fr-FR", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </span>
+                </div>
 
-              <span className="font-bold text-slate-800 flex items-center gap-1">
-                <Calendar size={13} className="text-brand-orange" />
-                <span>
-                  {new Date(concoursActif.dateEpreuve).toLocaleDateString("fr-FR", {
-                    weekday: "short",
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
+                <span className="text-slate-300 hidden sm:inline">|</span>
+
+                <span className="text-slate-500 font-medium">
+                  Semaine {concoursActif.semaine} (Séances S{concoursActif.seanceDebut} à S{concoursActif.seanceFin})
                 </span>
-                <span className="text-slate-400 font-normal">
-                  (Semaine {concoursActif.semaine} · S{concoursActif.seanceDebut} à S{concoursActif.seanceFin})
+
+                <span className="text-slate-300 hidden sm:inline">|</span>
+
+                <span className="inline-flex items-center gap-1 font-semibold text-slate-700 bg-slate-50 border border-slate-200/80 px-2 py-0.5 rounded-lg text-[11px]">
+                  <Building2 size={12} className="text-brand-orange" />
+                  {concoursActif.tousLesCentres
+                    ? "Tous les centres"
+                    : `${concoursActif.centreIds?.length || 0} centre(s)`}
                 </span>
-              </span>
 
-              <span className="text-slate-300">•</span>
+                {concoursActif.saisieNotesBloqueeCentre ? (
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-rose-50 border border-rose-200 px-2.5 py-0.5 text-[11px] font-bold text-rose-800">
+                    <Lock size={12} />
+                    Saisie centres verrouillée
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
+                    <Unlock size={12} />
+                    Saisie centres active
+                  </span>
+                )}
+              </div>
 
-              <span className="inline-flex items-center gap-1 font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md text-[11px]">
-                <Building2 size={12} className="text-brand-orange" />
-                {concoursActif.tousLesCentres
-                  ? "Tous les centres"
-                  : `${concoursActif.centreIds?.length || 0} centre(s)`}
-              </span>
-
-              {concoursActif.saisieNotesBloqueeCentre ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-800">
-                  <Lock size={11} />
-                  Saisie centres verrouillée
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                  <Unlock size={11} />
-                  Saisie centres ouverte
-                </span>
-              )}
-            </div>
-
-            {/* Action d'administration DA (zéro bouton superflu pour les autres rôles) */}
-            <div className="flex items-center gap-2">
-              {/* Menu d'Administration Réservé au DA */}
-              {estDA && (
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setMenuAdminOuvert(!menuAdminOuvert)}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shadow-2xs"
-                  >
-                    <span>Gérer le concours</span>
-                    <ChevronRight
-                      size={13}
-                      className={`transition-transform duration-200 ${menuAdminOuvert ? "rotate-90" : ""}`}
-                    />
-                  </button>
-
-                  {/* Dropdown Menu compact */}
-                  {menuAdminOuvert && (
-                    <div
-                      className="absolute right-0 top-full mt-1.5 z-30 w-64 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg space-y-0.5 text-xs"
-                      onMouseLeave={() => setMenuAdminOuvert(false)}
+              {/* Action d'administration DA */}
+              <div className="flex items-center gap-2 self-start lg:self-auto">
+                {estDA && (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setMenuAdminOuvert(!menuAdminOuvert)}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shadow-2xs"
                     >
+                      <span>Pilotage session</span>
+                      <ChevronRight
+                        size={13}
+                        className={`transition-transform duration-200 ${menuAdminOuvert ? "rotate-90" : ""}`}
+                      />
+                    </button>
+
+                    {/* Dropdown Menu compact */}
+                    {menuAdminOuvert && (
+                      <div
+                        className="absolute right-0 top-full mt-1.5 z-30 w-64 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg space-y-0.5 text-xs"
+                        onMouseLeave={() => setMenuAdminOuvert(false)}
+                      >
                       <button
                         type="button"
                         onClick={() => {
@@ -390,10 +412,29 @@ export function ConcoursBlancsView({
                         type="button"
                         disabled={compilerMutation.isPending}
                         onClick={() => {
-                          compilerMutation.mutate({
-                            id: concoursActif.id,
-                            role: userRole,
-                          });
+                          setToastCompilation(null);
+                          compilerMutation.mutate(
+                            {
+                              id: concoursActif.id,
+                              role: userRole,
+                            },
+                            {
+                              onSuccess: () => {
+                                setToastCompilation({
+                                  type: "success",
+                                  text: "Classements recalculés et mis à jour avec succès !",
+                                });
+                                setTimeout(() => setToastCompilation(null), 5000);
+                              },
+                              onError: (err) => {
+                                setToastCompilation({
+                                  type: "error",
+                                  text: messageErreurApi(err, "Erreur lors du recalcul des classements."),
+                                });
+                                setTimeout(() => setToastCompilation(null), 5000);
+                              },
+                            },
+                          );
                           setMenuAdminOuvert(false);
                         }}
                         className="w-full flex items-center gap-2 p-2 rounded-lg text-brand-orange hover:bg-orange-50 font-bold text-left cursor-pointer"
@@ -502,6 +543,84 @@ export function ConcoursBlancsView({
             </div>
           </div>
 
+          {/* Stepper horizontal de cycle de vie académique */}
+          <div className="pt-3 border-t border-slate-100 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2 text-xs">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 shrink-0">
+              Cycle de vie :
+            </span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-1">
+              {[
+                {
+                  label: "1. Épreuves",
+                  desc: "Passation écrite",
+                  atteint: true,
+                  actif: concoursActif.statut === "PROGRAMME" || concoursActif.statut === "EN_COURS",
+                },
+                {
+                  label: "2. Saisie Copies",
+                  desc: concoursActif.saisieNotesBloqueeCentre ? "Verrouillée" : "Centres actifs",
+                  atteint: concoursActif.statut !== "PROGRAMME",
+                  actif: concoursActif.statut === "EN_COURS" && !concoursActif.saisieNotesBloqueeCentre,
+                },
+                {
+                  label: "3. Compilation",
+                  desc: "Pondération & Rangs",
+                  atteint: concoursActif.statut === "PUBLIE" || concoursActif.statut === "CLOTURE",
+                  actif: concoursActif.saisieNotesBloqueeCentre && concoursActif.statut !== "PUBLIE" && concoursActif.statut !== "CLOTURE",
+                },
+                {
+                  label: "4. Palmarès Publié",
+                  desc: concoursActif.statut === "CLOTURE" ? "Session archivée" : "Officiel",
+                  atteint: concoursActif.statut === "PUBLIE" || concoursActif.statut === "CLOTURE",
+                  actif: concoursActif.statut === "PUBLIE",
+                },
+              ].map((step, idx) => (
+                <div
+                  key={idx}
+                  className={`flex flex-col p-2.5 rounded-xl border transition-all ${
+                    step.actif
+                      ? "border-brand-orange bg-orange-50/50 shadow-2xs"
+                      : step.atteint
+                        ? "border-emerald-200 bg-emerald-50/40 text-slate-700"
+                        : "border-slate-100 bg-slate-50/50 text-slate-600"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`font-bold text-[11px] ${step.actif ? "text-brand-orange" : step.atteint ? "text-emerald-800" : "text-slate-600"}`}>
+                      {step.label}
+                    </span>
+                    {step.atteint && !step.actif && (
+                      <CheckCircle2 size={12} className="text-emerald-700" />
+                    )}
+                    {step.actif && (
+                      <span className="flex h-2 w-2 rounded-full bg-brand-orange animate-pulse" />
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-600 mt-0.5">{step.desc}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+          {/* Bannière de confirmation de recompilation */}
+          {toastCompilation && (
+            <div
+              className={`flex items-center gap-2 rounded-xl p-3 text-xs font-bold ${
+                toastCompilation.type === "success"
+                  ? "border border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : "border border-red-200 bg-red-50 text-red-800"
+              }`}
+            >
+              {toastCompilation.type === "success" ? (
+                <CheckCircle2 size={16} className="shrink-0 text-emerald-600" />
+              ) : (
+                <AlertTriangle size={16} className="shrink-0 text-red-600" />
+              )}
+              <span>{toastCompilation.text}</span>
+            </div>
+          )}
+
           {/* ── Deux Onglets Clairs : Résultats vs Épreuves ── */}
           <div className="flex items-center gap-1 border-b border-slate-200 text-xs font-bold">
             <button
@@ -580,22 +699,39 @@ export function ConcoursBlancsView({
                     );
                     if (epreuvesFiliere.length === 0) return null;
 
+                    const totalCoef = epreuvesFiliere.reduce((acc, ep) => acc + (ep.coefficient || 1), 0);
+                    const totalMinutes = epreuvesFiliere.reduce((acc, ep) => acc + (ep.dureeMinutes || 0), 0);
+                    const heuresTotal = Math.floor(totalMinutes / 60);
+                    const minutesReste = totalMinutes % 60;
+                    const sujetsPrets = epreuvesFiliere.filter((ep) => Boolean(ep.contenuEvaluation)).length;
+
                     return (
                       <div
                         key={f.id}
-                        className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3 shadow-2xs"
+                        className="rounded-2xl border border-slate-200/90 bg-white p-4 space-y-3.5 shadow-2xs hover:shadow-xs transition-shadow"
                       >
-                        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                          <span className="font-black text-xs text-slate-900 uppercase">
-                            {f.nom}
-                          </span>
-                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
-                            {epreuvesFiliere.length} matière{epreuvesFiliere.length > 1 ? "s" : ""}
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                          <div>
+                            <span className="font-black text-xs text-slate-900 uppercase tracking-wide block">
+                              {f.nom}
+                            </span>
+                            <span className="text-[11px] text-slate-500 font-medium">
+                              {heuresTotal > 0 ? `${heuresTotal}h${minutesReste > 0 ? `${minutesReste}m` : ""}` : `${minutesReste}m`} d&rsquo;épreuves · Coef Total {totalCoef}
+                            </span>
+                          </div>
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                              sujetsPrets === epreuvesFiliere.length
+                                ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                : "bg-amber-50 text-amber-800 border border-amber-200"
+                            }`}
+                          >
+                            {sujetsPrets}/{epreuvesFiliere.length} sujets prêts
                           </span>
                         </div>
 
                         {/* Liste des épreuves */}
-                        <div className="space-y-1.5">
+                        <div className="space-y-2">
                           {epreuvesFiliere.map((ep) => {
                             const aContenu = Boolean(ep.contenuEvaluation);
                             const estMaMatiere = estChefDept && mesMatiereIds.has(ep.matiereId);
@@ -607,47 +743,48 @@ export function ConcoursBlancsView({
                                 key={ep.id}
                                 type="button"
                                 onClick={() => ouvrirContenuEpreuve(ep)}
-                                className={`w-full text-left p-2 rounded-xl border transition-all flex items-center justify-between group cursor-pointer ${
+                                className={`w-full text-left p-2.5 rounded-xl border transition-all flex items-center justify-between group cursor-pointer ${
                                   estMaMatiere
-                                    ? "bg-amber-50/70 hover:bg-amber-100/80 border-amber-300 ring-1 ring-amber-200"
-                                    : "bg-slate-50 hover:bg-orange-50/80 border-slate-200/60 hover:border-brand-orange/40"
+                                    ? "bg-amber-50/70 hover:bg-amber-100/80 border-amber-300 ring-1 ring-amber-200 shadow-2xs"
+                                    : "bg-slate-50/70 hover:bg-white border-slate-200/70 hover:border-brand-orange/40 shadow-2xs"
                                 }`}
                               >
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2.5 min-w-0 pr-2">
                                   {peutEditer ? (
-                                    <BookOpen size={13} className="text-brand-orange shrink-0" />
+                                    <BookOpen size={14} className="text-brand-orange shrink-0" />
                                   ) : (
                                     <Lock size={13} className="text-slate-400 shrink-0" />
                                   )}
-                                  <div>
-                                    <span className="font-bold text-xs text-slate-800 group-hover:text-brand-orange block">
+                                  <div className="min-w-0">
+                                    <span className="font-bold text-xs text-slate-900 group-hover:text-brand-orange block truncate">
                                       {ep.intitule}
                                     </span>
                                     {estChefDept && estMaMatiere && (
-                                      <span className="text-[9px] font-bold text-amber-700 block">
-                                        ★ Mon département
+                                      <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-800 block">
+                                        <Star size={10} className="fill-amber-600 text-amber-600 shrink-0" />
+                                        Mon département
                                       </span>
                                     )}
                                     {estChefDept && !estMaMatiere && depAssocie && (
-                                      <span className="text-[9px] text-slate-400 block font-medium">
+                                      <span className="text-[10px] text-slate-400 block font-medium truncate">
                                         Dép. {depAssocie.nom}
                                       </span>
                                     )}
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[10px] text-slate-500 font-semibold">
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="text-[11px] text-slate-500 font-mono tabular-nums font-semibold">
                                     {ep.dureeMinutes}m · coef {ep.coefficient}
                                   </span>
                                   <span
-                                    className={`rounded-md px-1.5 py-0.2 text-[9px] font-black ${
+                                    className={`rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${
                                       aContenu
-                                        ? "bg-emerald-100 text-emerald-800"
-                                        : "bg-amber-100 text-amber-800"
+                                        ? "bg-emerald-100 text-emerald-800 border border-emerald-200/60"
+                                        : "bg-amber-100 text-amber-800 border border-amber-200/60"
                                     }`}
                                   >
-                                    {aContenu ? "Sujet défini" : "À définir"}
+                                    {aContenu ? "Sujet OK" : "À définir"}
                                   </span>
                                 </div>
                               </button>

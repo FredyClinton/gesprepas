@@ -44,3 +44,5 @@ backup_*.sql
 *.backup*
 scratch/
 backend/scratch/
+graphify-out/
+

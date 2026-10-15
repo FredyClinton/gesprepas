@@ -18,8 +18,8 @@ export default async function MonCentrePage() {
   return (
     <CentreDetailView
       centreId={utilisateur.centreId}
-      peutGererAcademique
-      peutRelocaliser
+      peutGererAcademique={false}
+      peutRelocaliser={false}
       masquerRetour
     />
   );

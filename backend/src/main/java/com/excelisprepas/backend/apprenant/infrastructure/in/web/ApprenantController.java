@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -62,6 +63,7 @@ public class ApprenantController {
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "404", description = "Centre, session ou formation introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('INSCRIPTION_GERER')")
     @PostMapping
     public ResponseEntity<ApprenantResponse> creerApprenant(@Valid @RequestBody CreerApprenantRequest request) {
         Apprenant apprenant = creerApprenantUseCase.creerApprenant(
@@ -79,6 +81,7 @@ public class ApprenantController {
                     content = @Content(schema = @Schema(implementation = ApprenantResponse.class))),
             @ApiResponse(responseCode = "404", description = "Apprenant introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('APPRENANT_CONSULTER')")
     @GetMapping("/{id}")
     public ResponseEntity<ApprenantResponse> recupererApprenant(
             @Parameter(description = "Identifiant de l'apprenant") @PathVariable UUID id) {
@@ -88,6 +91,7 @@ public class ApprenantController {
     @Operation(summary = "Lister les apprenants", description = "Retourne la liste complète des apprenants.")
     @ApiResponse(responseCode = "200", description = "Liste des apprenants",
             content = @Content(array = @ArraySchema(schema = @Schema(implementation = ApprenantResponse.class))))
+    @PreAuthorize("hasAuthority('APPRENANT_CONSULTER')")
     @GetMapping
     public ResponseEntity<List<ApprenantResponse>> listerApprenants() {
         List<ApprenantResponse> reponses = listerApprenantsUseCase.listerApprenants().stream()
@@ -104,6 +108,7 @@ public class ApprenantController {
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "404", description = "Apprenant introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('APPRENANT_GERER')")
     @PatchMapping("/{id}")
     public ResponseEntity<ApprenantResponse> modifierApprenant(
             @Parameter(description = "Identifiant de l'apprenant") @PathVariable UUID id,
@@ -122,6 +127,7 @@ public class ApprenantController {
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "404", description = "Apprenant ou centre introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('APPRENANT_GERER')")
     @PatchMapping("/{id}/transferer-centre")
     public ResponseEntity<ApprenantResponse> transfererCentre(
             @Parameter(description = "Identifiant de l'apprenant") @PathVariable UUID id,
@@ -134,6 +140,7 @@ public class ApprenantController {
             @ApiResponse(responseCode = "204", description = "Apprenant supprimé", content = @Content),
             @ApiResponse(responseCode = "404", description = "Apprenant introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('APPRENANT_GERER')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> supprimerApprenant(
             @Parameter(description = "Identifiant de l'apprenant") @PathVariable UUID id) {

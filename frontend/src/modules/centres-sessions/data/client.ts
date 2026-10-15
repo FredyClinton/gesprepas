@@ -54,6 +54,76 @@ export function rouvrirCentre(id: string): Promise<Centre> {
   return apiFetch<Centre>(`/api/centres/${id}/rouvrir`, { method: "PATCH" });
 }
 
+export function creerCentre(input: {
+  nom: string;
+  adresseInitiale: string;
+  villeInitiale: string;
+}): Promise<Centre> {
+  return apiFetch<Centre>("/api/centres", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function renommerCentre(
+  id: string,
+  input: { nom: string },
+): Promise<Centre> {
+  return apiFetch<Centre>(`/api/centres/${id}/renommer`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function supprimerCentre(id: string): Promise<void> {
+  return apiFetch<void>(`/api/centres/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export function creerSession(input: {
+  annee: string;
+  dateDebut: string;
+  dateFin: string;
+}): Promise<SessionAcademique> {
+  return apiFetch<SessionAcademique>("/api/sessions", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function modifierSession(
+  id: string,
+  input: {
+    annee: string;
+    dateDebut: string;
+    dateFin: string;
+  },
+): Promise<SessionAcademique> {
+  return apiFetch<SessionAcademique>(`/api/sessions/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export function demarrerSession(id: string): Promise<SessionAcademique> {
+  return apiFetch<SessionAcademique>(`/api/sessions/${id}/demarrer`, {
+    method: "PATCH",
+  });
+}
+
+export function cloturerSession(id: string): Promise<SessionAcademique> {
+  return apiFetch<SessionAcademique>(`/api/sessions/${id}/cloturer`, {
+    method: "PATCH",
+  });
+}
+
+export function supprimerSession(id: string): Promise<void> {
+  return apiFetch<void>(`/api/sessions/${id}`, {
+    method: "DELETE",
+  });
+}
+
 export function rejoindreSession(
   id: string,
   sessionId: string,
@@ -63,3 +133,4 @@ export function rejoindreSession(
     body: JSON.stringify({ sessionId }),
   });
 }
+

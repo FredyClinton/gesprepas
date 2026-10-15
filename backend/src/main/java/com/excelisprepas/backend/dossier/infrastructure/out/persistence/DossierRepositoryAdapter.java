@@ -37,4 +37,24 @@ public class DossierRepositoryAdapter implements DossierRepositoryPort {
     public boolean existsByApprenantId(UUID apprenantId) {
         return jpaRepository.existsByApprenantId(apprenantId);
     }
+
+    @Override
+    public java.util.List<Dossier> findBySessionId(UUID sessionId) {
+        return jpaRepository.findBySessionId(sessionId).stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public java.util.List<Dossier> findBySessionIdAndCentreId(UUID sessionId, UUID centreId) {
+        return jpaRepository.findBySessionIdAndCentreId(sessionId, centreId).stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public java.util.List<Dossier> findByCentreId(UUID centreId) {
+        return jpaRepository.findByCentreId(centreId).stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public java.util.List<Dossier> findAll() {
+        return jpaRepository.findAll().stream().map(mapper::toDomain).toList();
+    }
 }

@@ -56,3 +56,22 @@ export type FicheAncienneteEnseignant = {
   historiqueSessions: ResumeSessionEnseignant[];
 };
 
+export type StatutAcces = "ACCORDE" | "BLOQUE";
+
+export type AccesPersonnel = {
+  id: string;
+  personnelId: string;
+  sessionId: string;
+  phaseId?: string | null;
+  statut: StatutAcces;
+  motif?: string | null;
+  dateModification: string;
+};
+
+export type GererAccesInput = {
+  sessionId: string;
+  phaseId?: string | null;
+  statut: StatutAcces;
+  motif?: string | null;
+};
+

@@ -3,6 +3,7 @@ package com.excelisprepas.backend.session.infrastructure.in.web;
 import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.port.in.*;
 import com.excelisprepas.backend.session.infrastructure.in.web.dto.CreerSessionRequest;
+import com.excelisprepas.backend.session.infrastructure.in.web.dto.ModifierSessionRequest;
 import com.excelisprepas.backend.session.infrastructure.in.web.dto.SessionResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -15,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,6 +28,7 @@ import java.util.UUID;
 public class SessionController {
 
     private final CreerSessionAcademiqueUseCase creerSessionAcademiqueUseCase;
+    private final ModifierSessionUseCase modifierSessionUseCase;
     private final RecupererSessionUseCase recupererSessionUseCase;
     private final ListerSessionsUseCase listerSessionsUseCase;
     private final DemarrerSessionUseCase demarrerSessionUseCase;
@@ -33,12 +36,14 @@ public class SessionController {
     private final SupprimerSessionUseCase supprimerSessionUseCase;
 
     public SessionController(CreerSessionAcademiqueUseCase creerSessionAcademiqueUseCase,
+                             ModifierSessionUseCase modifierSessionUseCase,
                              RecupererSessionUseCase recupererSessionUseCase,
                              ListerSessionsUseCase listerSessionsUseCase,
                              DemarrerSessionUseCase demarrerSessionUseCase,
                              CloturerSessionUseCase cloturerSessionUseCase,
                              SupprimerSessionUseCase supprimerSessionUseCase) {
         this.creerSessionAcademiqueUseCase = creerSessionAcademiqueUseCase;
+        this.modifierSessionUseCase = modifierSessionUseCase;
         this.recupererSessionUseCase = recupererSessionUseCase;
         this.listerSessionsUseCase = listerSessionsUseCase;
         this.demarrerSessionUseCase = demarrerSessionUseCase;
@@ -58,11 +63,30 @@ public class SessionController {
                     content = @Content(schema = @Schema(implementation = SessionResponse.class))),
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content)
     })
+    @PreAuthorize("hasAuthority('ACADEMIE_GERER_SESSIONS')")
     @PostMapping
     public ResponseEntity<SessionResponse> creerSession(@Valid @RequestBody CreerSessionRequest request) {
         SessionAcademique session = creerSessionAcademiqueUseCase.creerSession(
                 request.annee(), request.dateDebut(), request.dateFin());
         return ResponseEntity.status(HttpStatus.CREATED).body(versReponse(session));
+    }
+
+    @Operation(summary = "Modifier une session académique", description = "Met à jour l'année et les dates d'une session.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Session modifiée",
+                    content = @Content(schema = @Schema(implementation = SessionResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Session introuvable", content = @Content),
+            @ApiResponse(responseCode = "409", description = "Session clôturée non modifiable", content = @Content)
+    })
+    @PreAuthorize("hasAuthority('ACADEMIE_GERER_SESSIONS')")
+    @PutMapping("/{id}")
+    public ResponseEntity<SessionResponse> modifierSession(
+            @Parameter(description = "Identifiant de la session") @PathVariable UUID id,
+            @Valid @RequestBody ModifierSessionRequest request) {
+        SessionAcademique session = modifierSessionUseCase.modifierSession(
+                id, request.annee(), request.dateDebut(), request.dateFin());
+        return ResponseEntity.ok(versReponse(session));
     }
 
     @Operation(summary = "Récupérer une session académique", description = "Retourne une session académique par son identifiant.")
@@ -95,6 +119,7 @@ public class SessionController {
             @ApiResponse(responseCode = "404", description = "Session introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Transition d'état invalide", content = @Content)
     })
+    @PreAuthorize("hasAuthority('ACADEMIE_GERER_SESSIONS')")
     @PatchMapping("/{id}/demarrer")
     public ResponseEntity<SessionResponse> demarrerSession(
             @Parameter(description = "Identifiant de la session") @PathVariable UUID id) {
@@ -108,6 +133,7 @@ public class SessionController {
             @ApiResponse(responseCode = "404", description = "Session introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Transition d'état invalide", content = @Content)
     })
+    @PreAuthorize("hasAuthority('ACADEMIE_GERER_SESSIONS')")
     @PatchMapping("/{id}/cloturer")
     public ResponseEntity<SessionResponse> cloturerSession(
             @Parameter(description = "Identifiant de la session") @PathVariable UUID id) {
@@ -120,6 +146,7 @@ public class SessionController {
             @ApiResponse(responseCode = "404", description = "Session introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Session encore référencée par des formations", content = @Content)
     })
+    @PreAuthorize("hasAuthority('ACADEMIE_GERER_SESSIONS')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> supprimerSession(
             @Parameter(description = "Identifiant de la session") @PathVariable UUID id) {

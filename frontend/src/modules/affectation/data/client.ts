@@ -96,3 +96,13 @@ export function listAffectationsParEnseignant(
     `/api/affectations/enseignant/${enseignantId}?${params}`,
   );
 }
+
+export function listAffectationsParCentre(
+  centreId: string,
+  sessionId: string,
+): Promise<Affectation[]> {
+  const params = new URLSearchParams({ sessionId });
+  return apiFetch<Affectation[]>(
+    `/api/affectations/centre/${centreId}?${params}`,
+  );
+}

@@ -17,7 +17,7 @@ import java.util.UUID;
 public class DossierService implements OuvrirDossierUseCase, RecupererDossierUseCase, RecupererDossierParApprenantUseCase,
         ModifierObservationUseCase, AjouterConcoursAuDossierUseCase, AjouterPieceADossierConcoursUseCase,
         ListerDossierConcoursUseCase, ListerPiecesDossierUseCase, ValiderPieceDeposeeUseCase,
-        SignalerDossierCompletUseCase, CloturerDossierUseCase {
+        SignalerDossierCompletUseCase, CloturerDossierUseCase, RouvrirDossierUseCase, ListerDossiersUseCase {
 
     private final DossierRepositoryPort dossierRepository;
     private final DossierConcoursRepositoryPort dossierConcoursRepository;
@@ -237,5 +237,26 @@ public class DossierService implements OuvrirDossierUseCase, RecupererDossierUse
         dossier = dossierRepository.save(dossier);
         log.info("Dossier clôturé : id={}", dossierId);
         return dossier;
+    }
+
+    @Override
+    public Dossier rouvrirDossier(UUID dossierId) {
+        Dossier dossier = recupererDossier(dossierId);
+        dossier.rouvrir();
+        dossier = dossierRepository.save(dossier);
+        log.info("Dossier rouvert : id={}", dossierId);
+        return dossier;
+    }
+
+    @Override
+    public List<Dossier> listerDossiers(UUID sessionId, UUID centreId) {
+        if (sessionId != null && centreId != null) {
+            return dossierRepository.findBySessionIdAndCentreId(sessionId, centreId);
+        } else if (sessionId != null) {
+            return dossierRepository.findBySessionId(sessionId);
+        } else if (centreId != null) {
+            return dossierRepository.findByCentreId(centreId);
+        }
+        return dossierRepository.findAll();
     }
 }

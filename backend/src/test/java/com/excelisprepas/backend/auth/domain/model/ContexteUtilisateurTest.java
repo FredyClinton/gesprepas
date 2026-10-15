@@ -93,4 +93,19 @@ class ContexteUtilisateurTest {
         assertThat(contexte.possede(Permission.FINANCIER_VALIDER_BILAN_CONTROLEUR)).isTrue();
         assertThat(contexte.possedePourCentre(Permission.FINANCIER_VALIDER_BILAN_CONTROLEUR, UUID.randomUUID())).isTrue();
     }
+
+    @Test
+    @DisplayName("les rôles académiques et de centre reçoivent les permissions de leur domaine")
+    void rolesMetierAccordentPermissionsDeDomaine() {
+        ContexteUtilisateur contexteDirecteur = ContexteUtilisateur.depuis(
+                UUID.randomUUID(), RoleUtilisateur.DIRECTEUR, null, List.of());
+        ContexteUtilisateur contexteChefCentre = ContexteUtilisateur.depuis(
+                UUID.randomUUID(), RoleUtilisateur.CHEF_CENTRE, UUID.randomUUID(), List.of());
+        ContexteUtilisateur contexteChefDepartement = ContexteUtilisateur.depuis(
+                UUID.randomUUID(), RoleUtilisateur.CHEF_DEPARTEMENT, null, List.of());
+
+        assertThat(contexteDirecteur.possede(Permission.ACADEMIE_GERER_SESSIONS)).isTrue();
+        assertThat(contexteChefCentre.possedePourCentre(Permission.INSCRIPTION_GERER, UUID.randomUUID())).isFalse();
+        assertThat(contexteChefDepartement.possede(Permission.PROGRESSION_GERER_NOTES)).isTrue();
+    }
 }

@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -68,6 +69,7 @@ public class CentreController {
                     content = @Content(schema = @Schema(implementation = CentreResponse.class))),
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content)
     })
+    @PreAuthorize("hasAuthority('ACADEMIE_GERER_CENTRES')")
     @PostMapping
     public ResponseEntity<CentreResponse> creerCentre(@Valid @RequestBody CreerCentreRequest request) {
         Centre centre = creerCentreUseCase.creerCentre(
@@ -105,6 +107,7 @@ public class CentreController {
             @ApiResponse(responseCode = "404", description = "Centre introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Transition d'état invalide", content = @Content)
     })
+    @PreAuthorize("hasAuthority('ACADEMIE_GERER_CENTRES')")
     @PatchMapping("/{id}/fermer")
     public ResponseEntity<CentreResponse> fermerCentre(
             @Parameter(description = "Identifiant du centre") @PathVariable UUID id) {
@@ -118,6 +121,7 @@ public class CentreController {
             @ApiResponse(responseCode = "404", description = "Centre introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Transition d'état invalide", content = @Content)
     })
+    @PreAuthorize("hasAuthority('ACADEMIE_GERER_CENTRES')")
     @PatchMapping("/{id}/rouvrir")
     public ResponseEntity<CentreResponse> rouvrirCentre(
             @Parameter(description = "Identifiant du centre") @PathVariable UUID id) {
@@ -131,6 +135,7 @@ public class CentreController {
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "404", description = "Centre introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('ACADEMIE_GERER_CENTRES')")
     @PatchMapping("/{id}/renommer")
     public ResponseEntity<CentreResponse> renommerCentre(
             @Parameter(description = "Identifiant du centre") @PathVariable UUID id,
@@ -145,6 +150,7 @@ public class CentreController {
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "404", description = "Centre introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('ACADEMIE_GERER_CENTRES')")
     @PatchMapping("/{id}/relocaliser")
     public ResponseEntity<CentreResponse> relocaliserCentre(
             @Parameter(description = "Identifiant du centre") @PathVariable UUID id,
@@ -162,6 +168,7 @@ public class CentreController {
             @ApiResponse(responseCode = "404", description = "Centre ou session introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Centre déjà rattaché à cette session", content = @Content)
     })
+    @PreAuthorize("hasAuthority('ACADEMIE_GERER_CENTRES')")
     @PatchMapping("/{id}/rejoindre-session")
     public ResponseEntity<CentreResponse> rejoindreSession(
             @Parameter(description = "Identifiant du centre") @PathVariable UUID id,
@@ -177,6 +184,7 @@ public class CentreController {
                     content = @Content(array = @ArraySchema(schema = @Schema(implementation = LocalisationCentreResponse.class)))),
             @ApiResponse(responseCode = "404", description = "Centre introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('ACADEMIE_GERER_CENTRES')")
     @GetMapping("/{id}/localisations")
     public ResponseEntity<List<LocalisationCentreResponse>> listerHistoriqueLocalisations(
             @Parameter(description = "Identifiant du centre") @PathVariable UUID id) {
@@ -195,6 +203,7 @@ public class CentreController {
             @ApiResponse(responseCode = "404", description = "Centre introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Centre encore référencé par d'autres entités", content = @Content)
     })
+    @PreAuthorize("hasAuthority('ACADEMIE_GERER_CENTRES')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> supprimerCentre(
             @Parameter(description = "Identifiant du centre") @PathVariable UUID id) {

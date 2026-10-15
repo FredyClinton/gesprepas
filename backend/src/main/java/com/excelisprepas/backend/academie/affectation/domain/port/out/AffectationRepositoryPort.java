@@ -37,6 +37,8 @@ public interface AffectationRepositoryPort {
 
     List<Affectation> findByEnseignantIdAndSessionId(UUID enseignantId, UUID sessionId);
 
+    List<Affectation> findByCentreIdAndSessionId(UUID centreId, UUID sessionId);
+
     List<Affectation> findByEnseignantIdAndStatut(UUID enseignantId, StatutAffectation statut);
 
     List<Affectation> findByEnseignantId(UUID enseignantId);

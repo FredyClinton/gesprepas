@@ -15,6 +15,7 @@ import {
   Building2,
   Check,
   ArrowRight,
+  CalendarRange,
 } from "lucide-react";
 import {
   useFormations,
@@ -32,7 +33,13 @@ import {
   getCouleurBadgeStyle,
   type Matiere,
 } from "@/modules/matieres";
-import { useCentres, useSessionActive, type Centre, type SessionAcademique } from "@/modules/centres-sessions";
+import {
+  useCentres,
+  useSessionActive,
+  useRejoindreSession,
+  type Centre,
+  type SessionAcademique,
+} from "@/modules/centres-sessions";
 import {
   useCentresAbonnesFormation,
   useAbonnerCentreFormation,
@@ -952,6 +959,7 @@ function ModalGestionCentres({
 
   const abonnerCentre = useAbonnerCentreFormation();
   const desabonnerCentre = useDesabonnerCentreFormation();
+  const rejoindreMutation = useRejoindreSession();
 
   const [erreur, setErreur] = useState<string | null>(null);
   const [rechercheCentre, setRechercheCentre] = useState("");
@@ -1098,12 +1106,32 @@ function ModalGestionCentres({
 
                   <div>
                     {!aRejoint ? (
-                      <span
-                        className="text-xs text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-100 font-medium"
-                        title="Le centre doit d'abord rejoindre la session active"
+                      <button
+                        type="button"
+                        disabled={rejoindreMutation.isPending}
+                        onClick={async () => {
+                          if (!sessionActive) return;
+                          setErreur(null);
+                          try {
+                            await rejoindreMutation.mutateAsync({
+                              id: centre.id,
+                              sessionId: sessionActive.id,
+                            });
+                          } catch (err) {
+                            setErreur(
+                              nettoyerMessageErreur(
+                                err,
+                                "Impossible de rattacher le centre à la session active.",
+                              ),
+                            );
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200 transition-all disabled:opacity-50"
+                        title="Rattacher le centre à la session active pour pouvoir l'abonner"
                       >
-                        N&rsquo;a pas rejoint la session
-                      </span>
+                        <CalendarRange className="h-3.5 w-3.5 text-amber-600" />
+                        Rattacher à la session
+                      </button>
                     ) : estAbonne ? (
                       <button
                         type="button"

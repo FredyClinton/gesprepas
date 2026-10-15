@@ -7,6 +7,7 @@ import com.excelisprepas.backend.auth.domain.port.in.SeConnecterUseCase;
 import com.excelisprepas.backend.auth.domain.port.in.SeDeconnecterUseCase;
 import com.excelisprepas.backend.auth.domain.port.out.RefreshTokenRepositoryPort;
 import com.excelisprepas.backend.auth.domain.port.out.TokenPort;
+import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
 import com.excelisprepas.backend.personnel.domain.model.Utilisateur;
 import com.excelisprepas.backend.personnel.domain.port.out.PasswordEncoderPort;
 import com.excelisprepas.backend.personnel.domain.port.out.UtilisateurRepositoryPort;
@@ -34,17 +35,53 @@ public class AuthentificationService implements SeConnecterUseCase, RafraichirTo
     private final RefreshTokenRepositoryPort refreshTokenRepository;
     private final Duration dureeDeVieRefreshToken;
     private final SecureRandom random = new SecureRandom();
+    private final com.excelisprepas.backend.personnel.domain.port.out.AccesPersonnelRepositoryPort accesPersonnelRepository;
+    private final com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort sessionAcademiqueRepository;
 
     public AuthentificationService(UtilisateurRepositoryPort utilisateurRepository,
                                    PasswordEncoderPort passwordEncoder,
                                    TokenPort tokenPort,
                                    RefreshTokenRepositoryPort refreshTokenRepository,
                                    Duration dureeDeVieRefreshToken) {
+        this(utilisateurRepository, passwordEncoder, tokenPort, refreshTokenRepository, dureeDeVieRefreshToken, null, null);
+    }
+
+    public AuthentificationService(UtilisateurRepositoryPort utilisateurRepository,
+                                   PasswordEncoderPort passwordEncoder,
+                                   TokenPort tokenPort,
+                                   RefreshTokenRepositoryPort refreshTokenRepository,
+                                   Duration dureeDeVieRefreshToken,
+                                   com.excelisprepas.backend.personnel.domain.port.out.AccesPersonnelRepositoryPort accesPersonnelRepository,
+                                   com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort sessionAcademiqueRepository) {
         this.utilisateurRepository = utilisateurRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenPort = tokenPort;
         this.refreshTokenRepository = refreshTokenRepository;
         this.dureeDeVieRefreshToken = dureeDeVieRefreshToken;
+        this.accesPersonnelRepository = accesPersonnelRepository;
+        this.sessionAcademiqueRepository = sessionAcademiqueRepository;
+    }
+
+    private void verifierAccesNonBloque(Utilisateur utilisateur) {
+        if (utilisateur.getRole() == RoleUtilisateur.DIRECTEUR) {
+            return;
+        }
+        if (accesPersonnelRepository != null && sessionAcademiqueRepository != null) {
+            sessionAcademiqueRepository.findEnCours().ifPresent(sessionActive -> {
+                var accesList = accesPersonnelRepository.findByPersonnelIdAndSessionId(utilisateur.getId(), sessionActive.getId());
+                for (var acces : accesList) {
+                    if (acces.getStatut() == com.excelisprepas.backend.personnel.domain.model.StatutAcces.BLOQUE) {
+                        log.warn("Connexion refusée : l'accès de l'utilisateur {} est bloqué pour la session {}",
+                                utilisateur.getId(), sessionActive.getId());
+                        String motif = acces.getMotif();
+                        String message = motif != null && !motif.isBlank()
+                                ? "Votre accès a été bloqué pour cette session par la direction. Motif : " + motif
+                                : "Votre accès a été bloqué pour cette session par la direction.";
+                        throw new com.excelisprepas.backend.shared.exception.AccesBloqueException(message);
+                    }
+                }
+            });
+        }
     }
 
     @Override
@@ -59,6 +96,8 @@ public class AuthentificationService implements SeConnecterUseCase, RafraichirTo
             log.warn("Connexion refusée : mot de passe incorrect pour l'utilisateur {}", utilisateur.getId());
             throw new AuthentificationEchoueeException();
         }
+
+        verifierAccesNonBloque(utilisateur);
 
         log.info("Utilisateur connecté : id={}, email={}", utilisateur.getId(), email);
         return genererResultatConnexion(utilisateur);
@@ -87,6 +126,8 @@ public class AuthentificationService implements SeConnecterUseCase, RafraichirTo
                     log.warn("Rafraîchissement refusé : utilisateur {} introuvable", refreshToken.getUtilisateurId());
                     return new TokenInvalideException();
                 });
+
+        verifierAccesNonBloque(utilisateur);
 
         log.info("Token rafraîchi : utilisateurId={}", utilisateur.getId());
         return genererResultatConnexion(utilisateur);

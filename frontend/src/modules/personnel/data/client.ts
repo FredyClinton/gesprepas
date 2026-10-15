@@ -147,3 +147,39 @@ export function definirSalairePersonnel(
     },
   );
 }
+
+export function listAccesPersonnel(
+  sessionId: string,
+  phaseId?: string | null,
+): Promise<import("../domain/types").AccesPersonnel[]> {
+  const params = new URLSearchParams({ sessionId });
+  if (phaseId) {
+    params.set("phaseId", phaseId);
+  }
+  return apiFetch<import("../domain/types").AccesPersonnel[]>(
+    `/api/personnel/acces?${params.toString()}`,
+  );
+}
+
+export function getAccesPersonnel(
+  personnelId: string,
+  sessionId?: string,
+): Promise<import("../domain/types").AccesPersonnel[]> {
+  const query = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : "";
+  return apiFetch<import("../domain/types").AccesPersonnel[]>(
+    `/api/personnel/${personnelId}/acces${query}`,
+  );
+}
+
+export function gererAccesPersonnel(
+  personnelId: string,
+  input: import("../domain/types").GererAccesInput,
+): Promise<import("../domain/types").AccesPersonnel> {
+  return apiFetch<import("../domain/types").AccesPersonnel>(
+    `/api/personnel/${personnelId}/acces`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
+}

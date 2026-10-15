@@ -22,9 +22,12 @@ public class AuthBeanConfiguration {
                                                             PasswordEncoderPort passwordEncoderPort,
                                                             TokenPort tokenPort,
                                                             RefreshTokenRepositoryPort refreshTokenRepositoryPort,
-                                                            @Value("${app.jwt.refresh-token-ttl-days}") long dureeDeVieJours) {
+                                                            @Value("${app.jwt.refresh-token-ttl-days}") long dureeDeVieJours,
+                                                            com.excelisprepas.backend.personnel.domain.port.out.AccesPersonnelRepositoryPort accesPersonnelRepositoryPort,
+                                                            com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort sessionAcademiqueRepositoryPort) {
         return new AuthentificationService(utilisateurRepositoryPort, passwordEncoderPort, tokenPort,
-                refreshTokenRepositoryPort, Duration.ofDays(dureeDeVieJours));
+                refreshTokenRepositoryPort, Duration.ofDays(dureeDeVieJours),
+                accesPersonnelRepositoryPort, sessionAcademiqueRepositoryPort);
     }
 
     @Bean

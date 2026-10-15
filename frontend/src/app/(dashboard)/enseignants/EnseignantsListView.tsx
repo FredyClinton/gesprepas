@@ -52,6 +52,7 @@ import {
   useRostersDepartements,
   useAjouterEnseignantRoster,
 } from "@/modules/affectation-departementale";
+import { useAffectationsParCentre } from "@/modules/affectation";
 import {
   useGelEnseignants,
   useModifierGelEnseignants,
@@ -62,6 +63,7 @@ import type { Role } from "@/types/roles";
 type Props = {
   role: Role;
   departementIdCDD: string | null;
+  centreIdCC: string | null;
 };
 
 const MAX_DEPARTEMENTS_A_LA_CREATION = 2;
@@ -193,9 +195,14 @@ function ActionsEnseignantMenu({
   );
 }
 
-export function EnseignantsListView({ role, departementIdCDD }: Props) {
+export function EnseignantsListView({
+  role,
+  departementIdCDD,
+  centreIdCC,
+}: Props) {
   const estDA = role === "DIRECTEUR_ACADEMIQUE";
   const estCDD = role === "CHEF_DEPARTEMENT";
+  const estCC = role === "CHEF_CENTRE";
 
   const { data: gel } = useGelEnseignants();
   // Le gel bloque uniquement le CDD ; tant que l'état n'est pas encore chargé, on
@@ -241,6 +248,21 @@ export function EnseignantsListView({ role, departementIdCDD }: Props) {
     departementIds,
     sessionId,
   );
+
+  // Chef de Centre : pas de rattachement département - le périmètre est déterminé
+  // par les créneaux effectivement planifiés dans son centre (l'enseignant n'a pas
+  // de lien direct avec un centre dans le modèle de données, seulement via ses
+  // affectations).
+  const { data: affectationsCentre, isLoading: chargementAffectationsCentre } =
+    useAffectationsParCentre(estCC ? (centreIdCC ?? undefined) : undefined, sessionId);
+  const idsEnseignantsDuCentre = useMemo(() => {
+    if (!affectationsCentre) return new Set<string>();
+    return new Set(
+      affectationsCentre
+        .map((a) => a.enseignantId)
+        .filter((id): id is string => Boolean(id)),
+    );
+  }, [affectationsCentre]);
 
   // Le roster n'a pas d'endpoint "par enseignant" - on combine ici les rosters
   // (déjà récupérés en parallèle par département) pour savoir à quels départements
@@ -358,14 +380,16 @@ export function EnseignantsListView({ role, departementIdCDD }: Props) {
     }
   });
 
-  // Chef de Département : ne voit que les enseignants de son roster (même logique
-  // de périmètre restreint que le reste de l'app pour ce rôle).
+  // Chef de Département : ne voit que les enseignants de son roster ; Chef de
+  // Centre : ne voit que les enseignants ayant au moins une séance planifiée dans
+  // son centre (même logique de périmètre restreint que le reste de l'app).
   const enseignantsVisibles = useMemo(() => {
     if (!enseignants) return undefined;
     if (estDA) return enseignants;
+    if (estCC) return enseignants.filter((e) => idsEnseignantsDuCentre.has(e.id));
     const ids = new Set(departementsParEnseignant.keys());
     return enseignants.filter((e) => ids.has(e.id));
-  }, [enseignants, estDA, departementsParEnseignant]);
+  }, [enseignants, estDA, estCC, idsEnseignantsDuCentre, departementsParEnseignant]);
 
   const enseignantsSansDepartement = useMemo(() => {
     if (!enseignants) return [];
@@ -446,7 +470,9 @@ export function EnseignantsListView({ role, departementIdCDD }: Props) {
 
   const departementCDD =
     mesDepartementsCDD[0] ?? departements?.find((d) => d.id === departementIdCDD);
-  const chargement = chargementEnseignants || chargementRosters || !roster;
+  const chargement =
+    chargementEnseignants ||
+    (estCC ? chargementAffectationsCentre : chargementRosters || !roster);
 
   async function toggleGel() {
     if (!gel) return;
@@ -463,22 +489,24 @@ export function EnseignantsListView({ role, departementIdCDD }: Props) {
       <div className="flex shrink-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-              Enseignants
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 uppercase">
+              Enseignants de 
               {estCDD && mesDepartementsCDD.length > 0
-                ? ` · ${mesDepartementsCDD.map((d) => d.nom).join(" & ")}`
+                ? `  ${mesDepartementsCDD.map((d) => d.nom).join(" & ")}`
                 : ""}
             </h1>
           </div>
           <p className="text-slate-500 mt-1 text-sm">
             {estDA
-              ? "Gestion du corps professoral, compétences et suivi des rémunérations."
-              : `Enseignants assignés à vos départements (${mesDepartementsCDD.map((d) => d.nom).join(", ") || "-"}).`}
+              ? "Gestion du corps professoral."
+              : estCC
+                ? "Enseignants intervenant dans votre centre."
+                : `Enseignants assignés à vos départements`}
           </p>
           {estCDD && gelEffectifPourCDD && (
             <p className="text-amber-600 mt-1.5 text-xs font-bold flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-amber-500 animate-ping" />
-              Période de gel active : assignations temporairement indisponibles.
+              Assignations temporairement indisponibles.
             </p>
           )}
         </div>
@@ -1019,12 +1047,12 @@ export function EnseignantsListView({ role, departementIdCDD }: Props) {
             </button>
           )}
 
-          <div className="hidden lg:flex items-center text-xs text-slate-500 font-medium px-2">
+          {/* <div className="hidden lg:flex items-center text-xs text-slate-500 font-medium px-2">
             <strong className="text-slate-800 font-bold mr-1">
               {enseignantsFiltres?.length ?? 0}
             </strong>{" "}
             enseignant(s)
-          </div>
+          </div> */}
         </div>
       </div>
 
@@ -1041,9 +1069,11 @@ export function EnseignantsListView({ role, departementIdCDD }: Props) {
                 <th className="px-4 py-3.5 text-xs font-bold tracking-wider uppercase">
                   Matricule
                 </th>
-                <th className="px-4 py-3.5 text-xs font-bold tracking-wider uppercase">
-                  Département(s)
-                </th>
+                {!estCC && (
+                  <th className="px-4 py-3.5 text-xs font-bold tracking-wider uppercase">
+                    Département(s)
+                  </th>
+                )}
                 <th className="px-4 py-3.5 text-xs font-bold tracking-wider uppercase">
                   Contrat
                 </th>
@@ -1058,7 +1088,7 @@ export function EnseignantsListView({ role, departementIdCDD }: Props) {
             <tbody className="divide-y divide-slate-100">
               {erreurEnseignants && (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-red-600">
+                  <td colSpan={estCC ? 5 : 6} className="p-8 text-center text-red-600">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <p className="text-sm font-semibold">
                         Impossible de charger les enseignants pour le moment.
@@ -1115,7 +1145,7 @@ export function EnseignantsListView({ role, departementIdCDD }: Props) {
                 !chargement &&
                 (!enseignantsFiltres || enseignantsFiltres.length === 0) && (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center">
+                    <td colSpan={estCC ? 5 : 6} className="py-12 text-center">
                       <div className="mx-auto max-w-sm flex flex-col items-center">
                         <div className="h-12 w-12 rounded-full bg-orange-50 text-brand-orange border border-orange-100 flex items-center justify-center mb-3">
                           <Search size={22} />
@@ -1152,9 +1182,9 @@ export function EnseignantsListView({ role, departementIdCDD }: Props) {
               {enseignantsPage?.map((e) => {
                 const deps = departementsParEnseignant.get(e.id) ?? [];
                 const roleAffichage =
-                  e.ecoleFonction ||
+                 (e.telephone ? `Tél : ${e.telephone}` : "Enseignant")    ||
                   e.niveauGrade ||
-                  (e.telephone ? `Tél : ${e.telephone}` : "Enseignant");
+                  e.ecoleFonction;
                 return (
                   <tr
                     key={e.id}
@@ -1189,39 +1219,43 @@ export function EnseignantsListView({ role, departementIdCDD }: Props) {
                       {e.matricule}
                     </td>
 
-                    {/* 3. Département(s) */}
-                    <td className="px-4 py-3.5">
-                      {deps.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5">
-                          {deps.map((d) => {
-                            const couleur = d.matiereId
-                              ? couleursMatieres.get(d.matiereId)
-                              : undefined;
-                            return (
-                              <span
-                                key={d.id}
-                                style={
-                                  couleur?.hex
-                                    ? getCouleurBadgeStyle(couleur.hex)
-                                    : undefined
-                                }
-                                className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border transition-all ${
-                                  couleur
-                                    ? couleur.badge
-                                    : "bg-orange-50 text-brand-orange border-orange-200/70"
-                                }`}
-                              >
-                                {d.nom}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-full">
-                          Sans département
-                        </span>
-                      )}
-                    </td>
+                    {/* 3. Département(s) - non pertinent pour le Chef de Centre
+                        (l'enseignant n'est pas rattaché à un centre dans le
+                        modèle de données, seulement à un département). */}
+                    {!estCC && (
+                      <td className="px-4 py-3.5">
+                        {deps.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {deps.map((d) => {
+                              const couleur = d.matiereId
+                                ? couleursMatieres.get(d.matiereId)
+                                : undefined;
+                              return (
+                                <span
+                                  key={d.id}
+                                  style={
+                                    couleur?.hex
+                                      ? getCouleurBadgeStyle(couleur.hex)
+                                      : undefined
+                                  }
+                                  className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border transition-all ${
+                                    couleur
+                                      ? couleur.badge
+                                      : "bg-orange-50 text-brand-orange border-orange-200/70"
+                                  }`}
+                                >
+                                  {d.nom}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-full">
+                            Sans département
+                          </span>
+                        )}
+                      </td>
+                    )}
 
                     {/* 4. Rémunération */}
                     <td className="px-4 py-3.5">

@@ -34,6 +34,8 @@ public class DossierController {
     private final ListerDossierConcoursUseCase listerDossierConcoursUseCase;
     private final SignalerDossierCompletUseCase signalerDossierCompletUseCase;
     private final CloturerDossierUseCase cloturerDossierUseCase;
+    private final RouvrirDossierUseCase rouvrirDossierUseCase;
+    private final ListerDossiersUseCase listerDossiersUseCase;
 
     public DossierController(OuvrirDossierUseCase ouvrirDossierUseCase,
                              RecupererDossierUseCase recupererDossierUseCase,
@@ -42,7 +44,9 @@ public class DossierController {
                              AjouterConcoursAuDossierUseCase ajouterConcoursAuDossierUseCase,
                              ListerDossierConcoursUseCase listerDossierConcoursUseCase,
                              SignalerDossierCompletUseCase signalerDossierCompletUseCase,
-                             CloturerDossierUseCase cloturerDossierUseCase) {
+                             CloturerDossierUseCase cloturerDossierUseCase,
+                             RouvrirDossierUseCase rouvrirDossierUseCase,
+                             ListerDossiersUseCase listerDossiersUseCase) {
         this.ouvrirDossierUseCase = ouvrirDossierUseCase;
         this.recupererDossierUseCase = recupererDossierUseCase;
         this.recupererDossierParApprenantUseCase = recupererDossierParApprenantUseCase;
@@ -51,6 +55,8 @@ public class DossierController {
         this.listerDossierConcoursUseCase = listerDossierConcoursUseCase;
         this.signalerDossierCompletUseCase = signalerDossierCompletUseCase;
         this.cloturerDossierUseCase = cloturerDossierUseCase;
+        this.rouvrirDossierUseCase = rouvrirDossierUseCase;
+        this.listerDossiersUseCase = listerDossiersUseCase;
     }
 
     private static DossierResponse versReponse(Dossier dossier) {
@@ -101,6 +107,19 @@ public class DossierController {
     public ResponseEntity<DossierResponse> recupererParApprenant(
             @Parameter(description = "Identifiant de l'apprenant") @RequestParam UUID apprenantId) {
         return ResponseEntity.ok(versReponse(recupererDossierParApprenantUseCase.recupererDossierParApprenant(apprenantId)));
+    }
+
+    @Operation(summary = "Lister les dossiers", description = "Retourne la liste des dossiers selon la session et/ou le centre.")
+    @ApiResponse(responseCode = "200", description = "Liste des dossiers",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = DossierResponse.class))))
+    @GetMapping("/liste")
+    public ResponseEntity<List<DossierResponse>> listerDossiers(
+            @Parameter(description = "Identifiant de la session") @RequestParam(required = false) UUID sessionId,
+            @Parameter(description = "Identifiant du centre") @RequestParam(required = false) UUID centreId) {
+        List<DossierResponse> reponses = listerDossiersUseCase.listerDossiers(sessionId, centreId).stream()
+                .map(DossierController::versReponse)
+                .toList();
+        return ResponseEntity.ok(reponses);
     }
 
     @Operation(summary = "Modifier l'observation d'un dossier", description = "Change le texte d'observation attaché au dossier.")
@@ -176,5 +195,18 @@ public class DossierController {
     public ResponseEntity<DossierResponse> cloturer(
             @Parameter(description = "Identifiant du dossier") @PathVariable UUID id) {
         return ResponseEntity.ok(versReponse(cloturerDossierUseCase.cloturerDossier(id)));
+    }
+
+    @Operation(summary = "Rouvrir un dossier", description = "Bascule un dossier clôturé ou complet au statut ouvert.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Dossier rouvert",
+                    content = @Content(schema = @Schema(implementation = DossierResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Dossier introuvable", content = @Content),
+            @ApiResponse(responseCode = "409", description = "Dossier déjà ouvert", content = @Content)
+    })
+    @PatchMapping("/{id}/rouvrir")
+    public ResponseEntity<DossierResponse> rouvrir(
+            @Parameter(description = "Identifiant du dossier") @PathVariable UUID id) {
+        return ResponseEntity.ok(versReponse(rouvrirDossierUseCase.rouvrirDossier(id)));
     }
 }

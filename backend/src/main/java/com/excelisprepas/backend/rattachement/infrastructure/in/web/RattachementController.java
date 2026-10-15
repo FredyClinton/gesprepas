@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -73,6 +74,7 @@ public class RattachementController {
             @ApiResponse(responseCode = "404", description = "Utilisateur, centre ou session introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Session non utilisable, centre non participant ou rattachement déjà existant", content = @Content)
     })
+    @PreAuthorize("hasAuthority('RATTACHEMENT_GERER')")
     @PostMapping
     public ResponseEntity<RattachementResponse> rattacher(@Valid @RequestBody RattacherRequest request) {
         RattachementCentre rattachement = rattacherUtilisateurUseCase.rattacher(
@@ -86,6 +88,7 @@ public class RattachementController {
                     content = @Content(schema = @Schema(implementation = RattachementResponse.class))),
             @ApiResponse(responseCode = "404", description = "Rattachement introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('RATTACHEMENT_GERER')")
     @GetMapping("/{id}")
     public ResponseEntity<RattachementResponse> recuperer(
             @Parameter(description = "Identifiant du rattachement") @PathVariable UUID id) {
@@ -96,6 +99,7 @@ public class RattachementController {
             description = "Retourne la liste des rattachements d'un centre pour une session donnée.")
     @ApiResponse(responseCode = "200", description = "Liste des rattachements",
             content = @Content(array = @ArraySchema(schema = @Schema(implementation = RattachementResponse.class))))
+    @PreAuthorize("hasAuthority('RATTACHEMENT_GERER')")
     @GetMapping
     public ResponseEntity<List<RattachementResponse>> lister(
             @Parameter(description = "Identifiant du centre") @RequestParam UUID centreId,
@@ -116,6 +120,7 @@ public class RattachementController {
             @ApiResponse(responseCode = "404", description = "Rattachement ou centre introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Centre non participant à la session", content = @Content)
     })
+    @PreAuthorize("hasAuthority('RATTACHEMENT_GERER')")
     @PatchMapping("/{id}/affecter")
     public ResponseEntity<RattachementResponse> affecter(
             @Parameter(description = "Identifiant du rattachement") @PathVariable UUID id,
@@ -130,6 +135,7 @@ public class RattachementController {
             @ApiResponse(responseCode = "204", description = "Rattachement supprimé", content = @Content),
             @ApiResponse(responseCode = "404", description = "Rattachement introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('RATTACHEMENT_GERER')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> supprimer(
             @Parameter(description = "Identifiant du rattachement") @PathVariable UUID id) {
@@ -146,6 +152,7 @@ public class RattachementController {
             @ApiResponse(responseCode = "404", description = "Utilisateur ou session introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Rôle nécessitant un rattachement centre ou déjà attribué", content = @Content)
     })
+    @PreAuthorize("hasAuthority('RATTACHEMENT_GERER')")
     @PostMapping("/roles")
     public ResponseEntity<AttributionRoleResponse> ajouterRole(@Valid @RequestBody AjouterRoleRequest request) {
         AttributionRole attribution = ajouterRoleUseCase.ajouterRole(
@@ -159,6 +166,7 @@ public class RattachementController {
             @ApiResponse(responseCode = "204", description = "Rôle retiré", content = @Content),
             @ApiResponse(responseCode = "404", description = "Attribution, utilisateur ou session introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('RATTACHEMENT_GERER')")
     @DeleteMapping("/roles")
     public ResponseEntity<Void> retirerRole(
             @Parameter(description = "Identifiant de l'utilisateur") @RequestParam UUID utilisateurId,
@@ -172,6 +180,7 @@ public class RattachementController {
             description = "Retourne la liste des rôles attribués à un utilisateur pour une session donnée.")
     @ApiResponse(responseCode = "200", description = "Liste des rôles",
             content = @Content(array = @ArraySchema(schema = @Schema(implementation = AttributionRoleResponse.class))))
+    @PreAuthorize("hasAuthority('RATTACHEMENT_GERER')")
     @GetMapping("/roles")
     public ResponseEntity<List<AttributionRoleResponse>> listerRoles(
             @Parameter(description = "Identifiant de l'utilisateur") @RequestParam UUID utilisateurId,

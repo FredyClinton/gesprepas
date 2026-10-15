@@ -13,4 +13,6 @@ public interface ConcoursRepositoryPort {
     Optional<Concours> findById(UUID id);
 
     List<Concours> findBySessionId(UUID sessionId);
+
+    List<Concours> findAll();
 }

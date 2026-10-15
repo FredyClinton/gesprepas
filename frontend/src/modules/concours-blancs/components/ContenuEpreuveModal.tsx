@@ -163,12 +163,12 @@ export function ContenuEpreuveModal({
             <div className="rounded-xl border border-amber-200 bg-amber-50/90 p-3.5 text-xs text-amber-900 flex items-start gap-2.5">
               <Lock size={16} className="text-amber-600 shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold text-amber-900">Mode consultation uniquement (Matière hors de votre département)</p>
-                <p className="text-[11px] text-amber-800/90 mt-0.5 leading-relaxed">
+                <p className="font-bold text-amber-900">Matière  est hors de votre département</p>
+                {/* <p className="text-[11px] text-amber-800/90 mt-0.5 leading-relaxed">
                   Cette épreuve relève du département {departementNom ? <strong>« {departementNom} »</strong> : "concerné"}.
                   En tant que chef de département, vous pouvez uniquement définir les contenus des matières rattachées à votre département.
                   Seul son chef de département ou la Direction Académique peut modifier ce contenu.
-                </p>
+                </p> */}
               </div>
             </div>
           )}
@@ -188,7 +188,7 @@ export function ContenuEpreuveModal({
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
               <FileText size={14} className="text-brand-orange" />
-              <span>Thèmes & Contenus évalués ({epreuveCourante.intitule})</span>
+              <span>Thèmes & Contenus évalués</span>
             </label>
             {peutEditerActuelle ? (
               <textarea
@@ -207,7 +207,7 @@ export function ContenuEpreuveModal({
 
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Consignes spécifiques ({epreuveCourante.intitule})
+              Consignes spécifiques
             </label>
             {peutEditerActuelle ? (
               <textarea

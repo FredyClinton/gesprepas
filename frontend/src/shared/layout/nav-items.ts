@@ -34,9 +34,16 @@ const NAV_DIRECTEUR: NavItem[] = [
   { href: "/sessions", label: "Sessions", icon: CalendarRange },
   { href: "/centres", label: "Centres", icon: MapPin },
   { href: "/departements", label: "Départements", icon: Building2 },
+  { href: "/personnel", label: "Personnel", icon: Users },
   { href: "/planification", label: "Planification", icon: CalendarClock },
   { href: "/concours-blancs", label: "Concours blancs", icon: ClipboardList },
+  { href: "/dossiers", label: "Dossiers", icon: FolderOpen },
   { href: "/finances", label: "Finances", icon: Wallet },
+  {
+    href: "/bilan-journalier",
+    label: "Bilan Journalier",
+    icon: ClipboardCheck,
+  },
   { href: "/livres", label: "Livres & Supports", icon: BookOpen },
   { href: "/paie", label: "Paie", icon: Banknote },
   { href: "/archive", label: "Archive", icon: Archive },
@@ -46,6 +53,14 @@ const NAV_DIRECTEUR: NavItem[] = [
 
 const NAV_PAR_DEFAUT: NavItem[] = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
+];
+
+const NAV_CHARGE_DOSSIER: NavItem[] = [
+  { href: "/dossiers", label: "Dossiers de concours", icon: FolderOpen },
+];
+
+const NAV_SUPERVISEUR_DOSSIERS: NavItem[] = [
+  { href: "/dossiers", label: "Dossiers de concours", icon: FolderOpen },
 ];
 
 const NAV_CHEF_CENTRE: NavItem[] = [
@@ -69,9 +84,11 @@ const NAV_CHEF_CENTRE: NavItem[] = [
 
 const NAV_DIRECTEUR_ACADEMIQUE: NavItem[] = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
+  { href: "/sessions", label: "Sessions", icon: CalendarRange },
   { href: "/centres", label: "Centres", icon: MapPin },
   { href: "/departements", label: "Départements", icon: Building2 },
   { href: "/formations", label: "Formations", icon: GraduationCap },
+  { href: "/personnel", label: "Personnel", icon: Users },
   { href: "/enseignants", label: "Enseignants", icon: UserRound },
   { href: "/planification", label: "Planification", icon: CalendarClock },
   { href: "/progression", label: "Progression", icon: TrendingUp },
@@ -111,7 +128,6 @@ const NAV_CAISSIER: NavItem[] = [
     label: "Bilan Journalier",
     icon: ClipboardCheck,
   },
-  { href: "/paie", label: "Paie", icon: Banknote },
 ];
 
 const NAV_ITEMS_BY_ROLE: Record<Role, NavItem[]> = {
@@ -119,8 +135,8 @@ const NAV_ITEMS_BY_ROLE: Record<Role, NavItem[]> = {
   DIRECTEUR_ACADEMIQUE: NAV_DIRECTEUR_ACADEMIQUE,
   CHEF_CENTRE: NAV_CHEF_CENTRE,
   CHEF_DEPARTEMENT: NAV_CHEF_DEPARTEMENT,
-  CHARGE_DOSSIER: NAV_PAR_DEFAUT,
-  SUPERVISEUR_DOSSIERS: NAV_PAR_DEFAUT,
+  CHARGE_DOSSIER: NAV_CHARGE_DOSSIER,
+  SUPERVISEUR_DOSSIERS: NAV_SUPERVISEUR_DOSSIERS,
   CAISSIER: NAV_CAISSIER,
   COMPTABLE: NAV_COMPTABLE,
 };

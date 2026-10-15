@@ -415,12 +415,12 @@ function DupliquerSyllabusForm({
       setErreur("Veuillez sélectionner la filière source et la filière cible.");
       return;
     }
-    if (sourceSessionId === sessionId && sourceFormationId === cibleFormationId) {
-      setErreur(
-        "La filière source et la filière cible doivent être différentes au sein de la même session. Choisissez une filière différente ou une session d'origine antérieure.",
-      );
-      return;
-    }
+    // if (sourceSessionId === sessionId && sourceFormationId === cibleFormationId) {
+    //   setErreur(
+    //     "La filière source et la filière cible doivent être différentes au sein de la même session. Choisissez une filière différente ou une session d'origine antérieure.",
+    //   );
+    //   return;
+    // }
     if (itemsSelectionnes.length === 0) {
       setErreur("Veuillez cocher au moins un cours à dupliquer.");
       return;
@@ -546,17 +546,18 @@ function DupliquerSyllabusForm({
 
       {/* Badge de rôle & sécurité */}
       {estChefDepartement ? (
-        <div className="flex items-center gap-2 rounded-xl bg-amber-50/90 border border-amber-200/80 px-3.5 py-2 text-xs text-amber-900 shrink-0 shadow-2xs">
-          <ShieldCheck size={16} className="text-amber-600 shrink-0" />
-          <span>
-            <strong>Périmètre Chef de département :</strong> Duplication sécurisée et restreinte à vos matières d'attribution. La matière de destination est obligatoirement identique à la source.
-          </span>
-        </div>
+        // <div className="flex items-center gap-2 rounded-xl bg-amber-50/90 border border-amber-200/80 px-3.5 py-2 text-xs text-amber-900 shrink-0 shadow-2xs">
+        //   {/* <ShieldCheck size={16} className="text-amber-600 shrink-0" />
+        //   <span>
+        //     <strong>Périmètre Chef de département :</strong> Duplication sécurisée et restreinte à vos matières d'attribution. La matière de destination est obligatoirement identique à la source.
+        //   </span> */}
+        // </div>
+        <p></p>
       ) : (
         <div className="flex items-center gap-2 rounded-xl bg-indigo-50/90 border border-indigo-200/80 px-3.5 py-2 text-xs text-indigo-900 shrink-0 shadow-2xs">
           <Sparkles size={16} className="text-indigo-600 shrink-0" />
           <span>
-            <strong>Mode Direction Académique :</strong> Accès multi-matières complet et duplication transversale inter-filières.
+            <strong> Direction Académique :</strong> Accès multi-matières complet et duplication transversale inter-filières.
           </span>
         </div>
       )}
@@ -992,9 +993,12 @@ function DupliquerSyllabusForm({
           <strong>{itemsSelectionnes.length}</strong> cours sélectionné
           {itemsSelectionnes.length > 1 ? "s" : ""}
           {collisionsInternes.size > 0 && (
-            <span className="text-rose-600 font-bold ml-2">
-              (⚠️ {collisionsInternes.size} collision
-              {collisionsInternes.size > 1 ? "s" : ""} à résoudre)
+            <span className="text-rose-600 font-bold ml-2 inline-flex items-center gap-1">
+              <AlertTriangle size={13} className="shrink-0 text-rose-600" />
+              <span>
+                ({collisionsInternes.size} collision
+                {collisionsInternes.size > 1 ? "s" : ""} à résoudre)
+              </span>
             </span>
           )}
         </div>

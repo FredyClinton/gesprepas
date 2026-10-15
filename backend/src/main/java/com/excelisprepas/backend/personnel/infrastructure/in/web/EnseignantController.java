@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -82,6 +83,7 @@ public class EnseignantController {
                     content = @Content(schema = @Schema(implementation = EnseignantResponse.class))),
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content)
     })
+    @PreAuthorize("hasAuthority('PERSONNEL_GERER')")
     @PostMapping
     public ResponseEntity<EnseignantResponse> creerEnseignant(
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
@@ -123,6 +125,7 @@ public class EnseignantController {
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "404", description = "Enseignant introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('PERSONNEL_GERER')")
     @PatchMapping("/{id}/renommer")
     public ResponseEntity<EnseignantResponse> renommerEnseignant(
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
@@ -141,6 +144,7 @@ public class EnseignantController {
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "404", description = "Enseignant introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('PERSONNEL_GERER')")
     @PatchMapping("/{id}/cout-par-seance")
     public ResponseEntity<EnseignantResponse> modifierCoutParSeance(
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
@@ -157,6 +161,7 @@ public class EnseignantController {
             @ApiResponse(responseCode = "404", description = "Enseignant introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Enseignant encore référencé par des affectations", content = @Content)
     })
+    @PreAuthorize("hasAuthority('PERSONNEL_GERER')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> supprimerEnseignant(
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
@@ -172,6 +177,7 @@ public class EnseignantController {
             @ApiResponse(responseCode = "404", description = "Enseignant introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Transition d'état invalide", content = @Content)
     })
+    @PreAuthorize("hasAuthority('PERSONNEL_GERER')")
     @PatchMapping("/{id}/suspendre")
     public ResponseEntity<EnseignantResponse> suspendreEnseignant(
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
@@ -186,6 +192,7 @@ public class EnseignantController {
             @ApiResponse(responseCode = "404", description = "Enseignant introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Transition d'état invalide", content = @Content)
     })
+    @PreAuthorize("hasAuthority('PERSONNEL_GERER')")
     @PatchMapping("/{id}/reactiver")
     public ResponseEntity<EnseignantResponse> reactiverEnseignant(
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
@@ -199,6 +206,7 @@ public class EnseignantController {
                     content = @Content(schema = @Schema(implementation = FicheAncienneteResponse.class))),
             @ApiResponse(responseCode = "404", description = "Enseignant introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('PERSONNEL_GERER')")
     @GetMapping("/{id}/anciennete")
     public ResponseEntity<FicheAncienneteResponse> consulterAnciennete(
             @Parameter(description = "Identifiant de l'enseignant") @PathVariable UUID id) {

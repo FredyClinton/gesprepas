@@ -743,5 +743,24 @@ class AffectationServiceTest {
             assertThat(resultat).isEqualTo(attendu);
             verify(affectationRepository).findByEnseignantIdAndSessionId(enseignantId, sessionId);
         }
+
+        @Test
+        @DisplayName("liste les affectations d'un centre pour une session donnée, toutes semaines confondues")
+        void listeParCentre() {
+            // Given
+            List<Affectation> attendu = List.of(
+                    new Affectation(UUID.randomUUID(), centreId, sessionId, formationId, salleId, matiereId,
+                            null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE),
+                    new Affectation(UUID.randomUUID(), centreId, sessionId, formationId, salleId, matiereId,
+                            UUID.randomUUID(), Jour.MARDI, 1, 2, StatutAffectation.ASSIGNEE));
+            when(affectationRepository.findByCentreIdAndSessionId(centreId, sessionId)).thenReturn(attendu);
+
+            // When
+            List<Affectation> resultat = service.listerParCentre(centreId, sessionId);
+
+            // Then
+            assertThat(resultat).isEqualTo(attendu);
+            verify(affectationRepository).findByCentreIdAndSessionId(centreId, sessionId);
+        }
     }
 }

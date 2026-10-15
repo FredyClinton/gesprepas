@@ -12,6 +12,14 @@ import {
   rejoindreSession,
   relocaliserCentre,
   rouvrirCentre,
+  creerCentre,
+  renommerCentre,
+  supprimerCentre,
+  creerSession,
+  modifierSession,
+  demarrerSession,
+  cloturerSession,
+  supprimerSession,
 } from "./client";
 
 export function useCentres() {
@@ -119,3 +127,103 @@ export function useRejoindreSession() {
     },
   });
 }
+
+export function useCreerCentre() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      nom: string;
+      adresseInitiale: string;
+      villeInitiale: string;
+    }) => creerCentre(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["centres"] });
+    },
+  });
+}
+
+export function useRenommerCentre() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, nom }: { id: string; nom: string }) =>
+      renommerCentre(id, { nom }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["centres"] });
+    },
+  });
+}
+
+export function useSupprimerCentre() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => supprimerCentre(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["centres"] });
+    },
+  });
+}
+
+export function useCreerSession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      annee: string;
+      dateDebut: string;
+      dateFin: string;
+    }) => creerSession(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+    },
+  });
+}
+
+export function useModifierSession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      input,
+    }: {
+      id: string;
+      input: {
+        annee: string;
+        dateDebut: string;
+        dateFin: string;
+      };
+    }) => modifierSession(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+    },
+  });
+}
+
+export function useDemarrerSession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => demarrerSession(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+    },
+  });
+}
+
+export function useCloturerSession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => cloturerSession(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+    },
+  });
+}
+
+export function useSupprimerSession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => supprimerSession(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+    },
+  });
+}
+

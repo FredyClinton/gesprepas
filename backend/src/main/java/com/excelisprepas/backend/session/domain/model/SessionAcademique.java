@@ -13,9 +13,9 @@ import java.util.UUID;
 public class SessionAcademique {
 
     private final UUID id;
-    private final String annee;
-    private final LocalDate dateDebut;
-    private final LocalDate dateFin;
+    private String annee;
+    private LocalDate dateDebut;
+    private LocalDate dateFin;
     private StatutSession statut;
 
     public SessionAcademique(UUID id, String annee, LocalDate dateDebut, LocalDate dateFin) {
@@ -49,6 +49,18 @@ public class SessionAcademique {
             throw new IllegalArgumentException(nomChamp + " ne peut pas être vide");
         }
         return valeur;
+    }
+
+    public void modifier(String annee, LocalDate dateDebut, LocalDate dateFin) {
+        if (this.statut == StatutSession.CLOTUREE) {
+            throw new IllegalStateException("Une session clôturée ne peut pas être modifiée");
+        }
+        this.annee = validerChampObligatoire(annee, "annee");
+        this.dateDebut = Objects.requireNonNull(dateDebut, "dateDebut ne peut pas être nulle");
+        this.dateFin = Objects.requireNonNull(dateFin, "dateFin ne peut pas être nulle");
+        if (!dateFin.isAfter(dateDebut)) {
+            throw new IllegalArgumentException("dateFin doit être postérieure à dateDebut");
+        }
     }
 
     public void demarrer() {

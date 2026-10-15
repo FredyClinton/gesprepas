@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -66,6 +67,7 @@ public class UtilisateurController {
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "409", description = "Email déjà utilisé", content = @Content)
     })
+    @PreAuthorize("hasAuthority('UTILISATEUR_GERER')")
     @PostMapping
     public ResponseEntity<UtilisateurResponse> creerUtilisateur(@Valid @RequestBody CreerUtilisateurRequest request) {
         Utilisateur utilisateur = creerUtilisateurUseCase.creerUtilisateur(
@@ -80,6 +82,7 @@ public class UtilisateurController {
                     content = @Content(schema = @Schema(implementation = UtilisateurResponse.class))),
             @ApiResponse(responseCode = "404", description = "Utilisateur introuvable", content = @Content)
     })
+    @PreAuthorize("hasAnyAuthority('UTILISATEUR_GERER', 'UTILISATEUR_CONSULTER')")
     @GetMapping("/{id}")
     public ResponseEntity<UtilisateurResponse> recupererUtilisateur(
             @Parameter(description = "Identifiant de l'utilisateur") @PathVariable UUID id) {
@@ -89,6 +92,7 @@ public class UtilisateurController {
     @Operation(summary = "Lister les utilisateurs", description = "Retourne la liste complète des utilisateurs.")
     @ApiResponse(responseCode = "200", description = "Liste des utilisateurs",
             content = @Content(array = @ArraySchema(schema = @Schema(implementation = UtilisateurResponse.class))))
+    @PreAuthorize("hasAnyAuthority('UTILISATEUR_GERER', 'UTILISATEUR_CONSULTER')")
     @GetMapping
     public ResponseEntity<List<UtilisateurResponse>> listerUtilisateurs() {
         List<UtilisateurResponse> reponses = listerUtilisateursUseCase.listerUtilisateurs().stream()
@@ -105,6 +109,7 @@ public class UtilisateurController {
             @ApiResponse(responseCode = "404", description = "Utilisateur introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Email déjà utilisé", content = @Content)
     })
+    @PreAuthorize("hasAuthority('UTILISATEUR_GERER')")
     @PatchMapping("/{id}/email")
     public ResponseEntity<UtilisateurResponse> changerEmail(
             @Parameter(description = "Identifiant de l'utilisateur") @PathVariable UUID id,
@@ -118,6 +123,7 @@ public class UtilisateurController {
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "404", description = "Utilisateur introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('UTILISATEUR_GERER')")
     @PatchMapping("/{id}/mot-de-passe")
     public ResponseEntity<Void> changerMotDePasse(
             @Parameter(description = "Identifiant de l'utilisateur") @PathVariable UUID id,
@@ -133,6 +139,7 @@ public class UtilisateurController {
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "404", description = "Utilisateur ou centre introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('UTILISATEUR_GERER')")
     @PatchMapping("/{id}/rattacher-centre")
     public ResponseEntity<UtilisateurResponse> rattacherCentre(
             @Parameter(description = "Identifiant de l'utilisateur") @PathVariable UUID id,
@@ -146,6 +153,7 @@ public class UtilisateurController {
                     content = @Content(schema = @Schema(implementation = UtilisateurResponse.class))),
             @ApiResponse(responseCode = "404", description = "Utilisateur introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('UTILISATEUR_GERER')")
     @PatchMapping("/{id}/detacher-centre")
     public ResponseEntity<UtilisateurResponse> detacherCentre(
             @Parameter(description = "Identifiant de l'utilisateur") @PathVariable UUID id) {
@@ -157,6 +165,7 @@ public class UtilisateurController {
             @ApiResponse(responseCode = "204", description = "Utilisateur supprimé", content = @Content),
             @ApiResponse(responseCode = "404", description = "Utilisateur introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('UTILISATEUR_GERER')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> supprimerUtilisateur(
             @Parameter(description = "Identifiant de l'utilisateur") @PathVariable UUID id) {

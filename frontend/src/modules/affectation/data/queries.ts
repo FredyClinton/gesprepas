@@ -17,6 +17,7 @@ import {
   modifierMatiere,
   supprimerCreneau,
   listAffectationsParEnseignant,
+  listAffectationsParCentre,
 } from "./client";
 
 type UseAffectationsParams = {
@@ -210,5 +211,18 @@ export function useAffectationsParEnseignant(
     queryKey: ["affectations-enseignant", enseignantId, sessionId],
     queryFn: () => listAffectationsParEnseignant(enseignantId!, sessionId!),
     enabled: Boolean(enseignantId && sessionId),
+  });
+}
+
+// Enseignants intervenant dans un centre (liste "Enseignants" du Chef de Centre) -
+// toutes semaines confondues, pour une session donnée.
+export function useAffectationsParCentre(
+  centreId: string | undefined,
+  sessionId: string | undefined,
+) {
+  return useQuery({
+    queryKey: ["affectations-centre", centreId, sessionId],
+    queryFn: () => listAffectationsParCentre(centreId!, sessionId!),
+    enabled: Boolean(centreId && sessionId),
   });
 }

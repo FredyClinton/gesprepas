@@ -6,12 +6,24 @@ public class PhasePersistenceMapper {
 
     public static Phase toDomain(PhaseEntity entity) {
         if (entity == null) return null;
-        return new Phase(entity.getId(), entity.getCode(), entity.getLibelle());
+        return new Phase(
+                entity.getId(),
+                entity.getCode(),
+                entity.getLibelle(),
+                entity.getDateDebut(),
+                entity.getDateFin()
+        );
     }
 
     public static PhaseEntity toEntity(Phase phase) {
         if (phase == null) return null;
-        return new PhaseEntity(phase.getId(), phase.getCode(), phase.getLibelle());
+        return new PhaseEntity(
+                phase.getId(),
+                phase.getCode(),
+                phase.getLibelle(),
+                phase.getDateDebut(),
+                phase.getDateFin()
+        );
     }
 }
 

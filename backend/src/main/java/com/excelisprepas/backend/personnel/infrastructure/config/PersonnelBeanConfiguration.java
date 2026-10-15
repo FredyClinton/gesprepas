@@ -156,4 +156,26 @@ public class PersonnelBeanConfiguration {
     public RecupererPersonnelUseCase recupererPersonnelUseCase(com.excelisprepas.backend.personnel.domain.service.PersonnelService personnelService) {
         return personnelService;
     }
+
+    @Bean
+    public com.excelisprepas.backend.personnel.domain.service.AccesPersonnelService accesPersonnelService(
+            com.excelisprepas.backend.personnel.domain.port.out.AccesPersonnelRepositoryPort accesPersonnelRepositoryPort,
+            com.excelisprepas.backend.personnel.domain.port.out.PersonnelRepositoryPort personnelRepositoryPort,
+            UtilisateurRepositoryPort utilisateurRepositoryPort,
+            com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort sessionAcademiqueRepositoryPort) {
+        return new com.excelisprepas.backend.personnel.domain.service.AccesPersonnelService(
+                accesPersonnelRepositoryPort, personnelRepositoryPort, utilisateurRepositoryPort, sessionAcademiqueRepositoryPort);
+    }
+
+    @Bean
+    public GererAccesPersonnelUseCase gererAccesPersonnelUseCase(
+            com.excelisprepas.backend.personnel.domain.service.AccesPersonnelService accesPersonnelService) {
+        return accesPersonnelService;
+    }
+
+    @Bean
+    public ListerAccesPersonnelUseCase listerAccesPersonnelUseCase(
+            com.excelisprepas.backend.personnel.domain.service.AccesPersonnelService accesPersonnelService) {
+        return accesPersonnelService;
+    }
 }

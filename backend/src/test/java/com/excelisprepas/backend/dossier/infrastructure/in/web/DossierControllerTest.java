@@ -56,6 +56,10 @@ class DossierControllerTest {
     private SignalerDossierCompletUseCase signalerDossierCompletUseCase;
     @MockitoBean
     private CloturerDossierUseCase cloturerDossierUseCase;
+    @MockitoBean
+    private RouvrirDossierUseCase rouvrirDossierUseCase;
+    @MockitoBean
+    private ListerDossiersUseCase listerDossiersUseCase;
 
     private Dossier unDossierOuvert() {
         return new Dossier(UUID.randomUUID(), APPRENANT_ID, CENTRE_ID, SESSION_ID, LocalDate.of(2027, 1, 10));
@@ -317,5 +321,42 @@ class DossierControllerTest {
 
         mockMvc.perform(patch("/api/dossiers/" + dossierId + "/cloturer"))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/dossiers/{id}/rouvrir retourne 200 avec le dossier rouvert")
+    void rouvrir_valide_retourne200() throws Exception {
+        Dossier dossier = unDossierOuvert();
+        when(rouvrirDossierUseCase.rouvrirDossier(dossier.getId())).thenReturn(dossier);
+
+        mockMvc.perform(patch("/api/dossiers/" + dossier.getId() + "/rouvrir"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(dossier.getId().toString()))
+                .andExpect(jsonPath("$.statut").value("OUVERT"));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/dossiers/{id}/rouvrir sur un dossier déjà ouvert retourne 409")
+    void rouvrir_dejaOuvert_retourne409() throws Exception {
+        UUID dossierId = UUID.randomUUID();
+        when(rouvrirDossierUseCase.rouvrirDossier(dossierId))
+                .thenThrow(new IllegalStateException("déjà ouvert"));
+
+        mockMvc.perform(patch("/api/dossiers/" + dossierId + "/rouvrir"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("GET /api/dossiers/liste retourne 200 et la liste des dossiers")
+    void listerDossiers_retourne200() throws Exception {
+        Dossier dossier = unDossierOuvert();
+        when(listerDossiersUseCase.listerDossiers(SESSION_ID, CENTRE_ID)).thenReturn(List.of(dossier));
+
+        mockMvc.perform(get("/api/dossiers/liste")
+                        .param("sessionId", SESSION_ID.toString())
+                        .param("centreId", CENTRE_ID.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(dossier.getId().toString()))
+                .andExpect(jsonPath("$[0].apprenantId").value(APPRENANT_ID.toString()));
     }
 }

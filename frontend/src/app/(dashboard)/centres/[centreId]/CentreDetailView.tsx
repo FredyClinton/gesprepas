@@ -27,7 +27,15 @@ import {
   AlertTriangle,
   Calendar,
   ChevronRight,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  Coins,
+  BarChart3,
+  CheckCircle2,
+  Clock,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 import { Button, Card, Input, Modal } from "@/shared/ui";
 import { messageErreurApi } from "@/shared/lib/api-client";
@@ -63,7 +71,14 @@ import {
 } from "@/modules/salle";
 import { useUtilisateurs } from "@/modules/utilisateurs";
 import { useEnseignants } from "@/modules/personnel";
+import { useApprenants } from "@/modules/apprenants";
+import {
+  listMouvementsFinanciers,
+  type MouvementFinancier,
+} from "@/modules/financier/data/client";
 import { ROLE_LABELS, type Role } from "@/types/roles";
+
+const FCFA = new Intl.NumberFormat("fr-FR");
 
 type Onglet = "informations" | "personnel" | "performances";
 
@@ -102,6 +117,8 @@ function getInitials(prenom: string, nom: string) {
 export function CentreDetailView({
   centreId,
   peutGererAcademique,
+  peutAbonnerFormations,
+  peutGererSalles,
   peutRelocaliser,
   peutFermerCentre = false,
   peutRejoindreSession = false,
@@ -109,11 +126,16 @@ export function CentreDetailView({
 }: {
   centreId: string;
   peutGererAcademique: boolean;
+  peutAbonnerFormations?: boolean;
+  peutGererSalles?: boolean;
   peutRelocaliser: boolean;
   peutFermerCentre?: boolean;
   peutRejoindreSession?: boolean;
   masquerRetour?: boolean;
 }) {
+  const droitAbonnerFormations = peutAbonnerFormations ?? peutGererAcademique;
+  const droitGererSalles = peutGererSalles ?? peutGererAcademique;
+
   const { data: centres, isLoading: chargementCentres } = useCentres();
   const { data: sessionActive } = useSessionActive();
   const { data: formationsDuCentre = [] } = useFormationsAbonneesCentre(
@@ -436,10 +458,7 @@ export function CentreDetailView({
           }`}
         >
           <LineChart size={16} />
-          Performances
-          <span className="text-[10px] uppercase font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-400">
-            Bientôt
-          </span>
+          Performances &amp; Évolution
         </button>
       </div>
 
@@ -463,6 +482,8 @@ export function CentreDetailView({
             sessionId={sessionActive?.id}
             rejointSessionActive={rejointSessionActive}
             peutGererAcademique={peutGererAcademique}
+            peutAbonnerFormations={droitAbonnerFormations}
+            peutGererSalles={droitGererSalles}
           />
         </div>
       )}
@@ -472,26 +493,570 @@ export function CentreDetailView({
       )}
 
       {onglet === "performances" && (
-        <OngletPlaceholder icone={<LineChart size={32} />} />
+        <PerformancesDuCentre
+          centre={centre}
+          sessionActiveId={sessionActive?.id}
+        />
       )}
     </div>
   );
 }
 
-// Onglet "Performances" : placeholder
-function OngletPlaceholder({ icone }: { icone: React.ReactNode }) {
+// ── Onglet Performances : Comparatif des tailles & finances inter-sessions ──
+function PerformancesDuCentre({
+  centre,
+  sessionActiveId,
+}: {
+  centre: Centre;
+  sessionActiveId?: string;
+}) {
+  const { data: allSessions = [], isLoading: chargementSessions } = useSessions();
+  const { data: allApprenants = [], isLoading: chargementApprenants } = useApprenants();
+  const { data: formations = [] } = useFormations();
+
+  // Mouvements financiers par session pour ce centre
+  const { data: mouvementsParSession = {}, isLoading: chargementMouvements } = useQuery({
+    queryKey: ["mouvements-toutes-sessions", centre.id, centre.sessionIds],
+    queryFn: async () => {
+      const map: Record<string, MouvementFinancier[]> = {};
+      await Promise.all(
+        centre.sessionIds.map(async (sId) => {
+          try {
+            const list = await listMouvementsFinanciers(sId, centre.id);
+            map[sId] = list;
+          } catch {
+            map[sId] = [];
+          }
+        }),
+      );
+      return map;
+    },
+    enabled: centre.sessionIds.length > 0,
+  });
+
+  // Sessions du centre triées par dateDebut décroissante (plus récente en premier)
+  const sessionsTriees = useMemo(() => {
+    return allSessions
+      .filter((s) => centre.sessionIds.includes(s.id))
+      .sort((a, b) => new Date(b.dateDebut).getTime() - new Date(a.dateDebut).getTime());
+  }, [allSessions, centre.sessionIds]);
+
+  // Agrégation des métriques par session pour ce centre
+  const statsParSession = useMemo(() => {
+    return sessionsTriees.map((s, index) => {
+      const apprenantsSession = allApprenants.filter(
+        (a) => a.centreId === centre.id && a.sessionId === s.id,
+      );
+      const effectifTotal = apprenantsSession.length;
+      const preInscrits = apprenantsSession.filter((a) => a.preInscrit).length;
+      const definitifs = effectifTotal - preInscrits;
+      const montantSouscrit = apprenantsSession.reduce(
+        (somme, a) => somme + (a.montantContrat || 0),
+        0,
+      );
+      const mouvements = mouvementsParSession[s.id] || [];
+      const montantEncaisse = mouvements
+        .filter((m) => m.type === "ENTREE" && m.statut !== "REJETE")
+        .reduce((somme, m) => somme + m.montant, 0);
+      const soldeRestant = Math.max(0, montantSouscrit - montantEncaisse);
+      const tauxRecouvrement =
+        montantSouscrit > 0
+          ? Math.min(100, Math.round((montantEncaisse / montantSouscrit) * 100))
+          : 0;
+
+      // Ventilation par filière
+      const parFormation = formations
+        .map((f) => {
+          const nb = apprenantsSession.filter((a) => a.formationId === f.id).length;
+          return { formation: f, effectif: nb };
+        })
+        .filter((item) => item.effectif > 0);
+
+      return {
+        session: s,
+        index,
+        effectifTotal,
+        definitifs,
+        preInscrits,
+        montantSouscrit,
+        montantEncaisse,
+        soldeRestant,
+        tauxRecouvrement,
+        parFormation,
+      };
+    });
+  }, [sessionsTriees, allApprenants, centre.id, mouvementsParSession, formations]);
+
+  // Comparatif Session la plus récente (N) vs précédente (N-1)
+  const sessionN = statsParSession[0];
+  const sessionNMoins1 = statsParSession[1];
+
+  const diffEffectif =
+    sessionN && sessionNMoins1
+      ? sessionN.effectifTotal - sessionNMoins1.effectifTotal
+      : null;
+  const pctDiffEffectif =
+    sessionNMoins1 && sessionNMoins1.effectifTotal > 0
+      ? Math.round((diffEffectif! / sessionNMoins1.effectifTotal) * 100)
+      : null;
+
+  const diffSouscrit =
+    sessionN && sessionNMoins1
+      ? sessionN.montantSouscrit - sessionNMoins1.montantSouscrit
+      : null;
+  const pctDiffSouscrit =
+    sessionNMoins1 && sessionNMoins1.montantSouscrit > 0
+      ? Math.round((diffSouscrit! / sessionNMoins1.montantSouscrit) * 100)
+      : null;
+
+  const diffEncaisse =
+    sessionN && sessionNMoins1
+      ? sessionN.montantEncaisse - sessionNMoins1.montantEncaisse
+      : null;
+  const pctDiffEncaisse =
+    sessionNMoins1 && sessionNMoins1.montantEncaisse > 0
+      ? Math.round((diffEncaisse! / sessionNMoins1.montantEncaisse) * 100)
+      : null;
+
+  const chargement = chargementSessions || chargementApprenants || chargementMouvements;
+
+  if (chargement) {
+    return (
+      <Card className="p-12 text-center rounded-2xl border border-slate-200/80">
+        <p className="text-sm font-semibold text-slate-400">
+          Chargement et consolidation des données inter-sessions...
+        </p>
+      </Card>
+    );
+  }
+
+  if (statsParSession.length === 0) {
+    return (
+      <Card className="p-12 text-center rounded-2xl border border-slate-200/80 space-y-3">
+        <div className="h-12 w-12 rounded-2xl bg-orange-50 text-brand-orange flex items-center justify-center mx-auto">
+          <LineChart size={24} />
+        </div>
+        <h3 className="text-base font-bold text-slate-900">
+          Aucune session historique trouvée
+        </h3>
+        <p className="text-xs text-slate-400 max-w-md mx-auto">
+          Ce centre n&rsquo;est rattaché à aucune session académique pour le moment.
+        </p>
+      </Card>
+    );
+  }
+
+  const maxEffectif = Math.max(1, ...statsParSession.map((s) => s.effectifTotal));
+  const maxSouscrit = Math.max(1, ...statsParSession.map((s) => s.montantSouscrit));
+
   return (
-    <Card className="flex flex-col items-center gap-3 p-16 text-center rounded-2xl border border-slate-200/80">
-      <div className="bg-slate-50 text-slate-400 rounded-2xl p-4 border border-slate-100">
-        {icone}
+    <div className="space-y-6">
+      {/* ── 1. Cartes Synthèse Comparative (Session N vs N-1) ── */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* KPI 1 : Effectif promotion */}
+        <Card className="p-4 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
+          <div className="flex items-start justify-between">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              Effectif Promotion ({sessionN?.session.annee})
+            </span>
+            <div className="h-9 w-9 rounded-xl bg-orange-50 text-brand-orange flex items-center justify-center shrink-0">
+              <Users size={18} />
+            </div>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-slate-900 tabular-nums">
+              {sessionN?.effectifTotal ?? 0}
+            </span>
+            <span className="text-xs text-slate-400 font-medium">élèves inscrits</span>
+          </div>
+          {diffEffectif !== null && (
+            <div className="mt-2.5 flex items-center gap-1.5 text-xs font-bold">
+              {diffEffectif >= 0 ? (
+                <span className="inline-flex items-center gap-0.5 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/70">
+                  <TrendingUp size={13} />
+                  +{diffEffectif} élève{diffEffectif > 1 ? "s" : ""} ({pctDiffEffectif! >= 0 ? `+${pctDiffEffectif}%` : `${pctDiffEffectif}%`})
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-0.5 text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200/70">
+                  <TrendingDown size={13} />
+                  {diffEffectif} élève{Math.abs(diffEffectif) > 1 ? "s" : ""} ({pctDiffEffectif}%)
+                </span>
+              )}
+              <span className="text-[11px] text-slate-400">vs {sessionNMoins1?.session.annee}</span>
+            </div>
+          )}
+        </Card>
+
+        {/* KPI 2 : Contrats souscrits */}
+        <Card className="p-4 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
+          <div className="flex items-start justify-between">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              Volume Souscrit ({sessionN?.session.annee})
+            </span>
+            <div className="h-9 w-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+              <Wallet size={18} />
+            </div>
+          </div>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-2xl font-black text-slate-900 tabular-nums">
+              {FCFA.format(sessionN?.montantSouscrit ?? 0)}
+            </span>
+            <span className="text-xs text-slate-400 font-bold">F</span>
+          </div>
+          {diffSouscrit !== null && (
+            <div className="mt-2.5 flex items-center gap-1.5 text-xs font-bold">
+              {diffSouscrit >= 0 ? (
+                <span className="inline-flex items-center gap-0.5 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/70">
+                  <TrendingUp size={13} />
+                  +{FCFA.format(diffSouscrit)} F
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-0.5 text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200/70">
+                  <TrendingDown size={13} />
+                  {FCFA.format(diffSouscrit)} F
+                </span>
+              )}
+              <span className="text-[11px] text-slate-400">vs {sessionNMoins1?.session.annee}</span>
+            </div>
+          )}
+        </Card>
+
+        {/* KPI 3 : Recouvrement encaissé */}
+        <Card className="p-4 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
+          <div className="flex items-start justify-between">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              Encaissé Réel ({sessionN?.session.annee})
+            </span>
+            <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+              <Coins size={18} />
+            </div>
+          </div>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-2xl font-black text-slate-900 tabular-nums">
+              {FCFA.format(sessionN?.montantEncaisse ?? 0)}
+            </span>
+            <span className="text-xs text-slate-400 font-bold">F</span>
+          </div>
+          <div className="mt-2.5 flex items-center justify-between text-xs font-bold">
+            <span className="text-emerald-700 font-black">
+              Taux : {sessionN?.tauxRecouvrement ?? 0}%
+            </span>
+            <span className="text-slate-400 font-medium">
+              Reste : {FCFA.format(sessionN?.soldeRestant ?? 0)} F
+            </span>
+          </div>
+        </Card>
+
+        {/* KPI 4 : Taux de Confirmation */}
+        <Card className="p-4 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
+          <div className="flex items-start justify-between">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              Inscriptions Définitives
+            </span>
+            <div className="h-9 w-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center shrink-0">
+              <CheckCircle2 size={18} />
+            </div>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-slate-900 tabular-nums">
+              {sessionN?.definitifs ?? 0}
+            </span>
+            <span className="text-xs text-slate-400 font-medium">
+              / {sessionN?.effectifTotal ?? 0} élèves
+            </span>
+          </div>
+          <div className="mt-2.5 flex items-center justify-between text-xs font-bold">
+            <span className="text-purple-700">
+              {sessionN?.effectifTotal
+                ? Math.round((sessionN.definitifs / sessionN.effectifTotal) * 100)
+                : 0}
+              % confirmés
+            </span>
+            <span className="text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200/60 text-[11px]">
+              {sessionN?.preInscrits ?? 0} pré-inscrits
+            </span>
+          </div>
+        </Card>
       </div>
-      <p className="text-slate-800 text-lg font-bold">
-        Tableau de bord des performances
-      </p>
-      <p className="text-slate-400 text-sm max-w-sm">
-        Les indicateurs de fréquentation, taux d&rsquo;occupation des salles et statistiques financières de ce centre seront consultables ici.
-      </p>
-    </Card>
+
+      {/* ── 2. Visualisation Graphique Comparatif Inter-Saisons ── */}
+      <Card className="rounded-2xl border border-slate-200/80 shadow-xs p-6 bg-white space-y-6">
+        <div>
+          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <BarChart3 size={18} className="text-brand-orange" />
+            <span>Comparatif Visuel des Saisons (Tailles &amp; Trésorerie)</span>
+          </h2>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Mise en perspective de l&rsquo;évolution des effectifs et du volume financier au fil des années académiques.
+          </p>
+        </div>
+
+        <div className="space-y-5">
+          {statsParSession.map((item) => {
+            const pctBarreEffectif = Math.round((item.effectifTotal / maxEffectif) * 100);
+            const pctBarreSouscrit = Math.round((item.montantSouscrit / maxSouscrit) * 100);
+            const estSessionActive = item.session.id === sessionActiveId;
+
+            return (
+              <div
+                key={item.session.id}
+                className={`p-4 rounded-xl border transition-all ${
+                  estSessionActive
+                    ? "bg-orange-50/30 border-brand-orange/30 shadow-2xs"
+                    : "bg-slate-50/50 border-slate-200/70"
+                }`}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200/50">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-slate-900">
+                      Session {item.session.annee}
+                    </span>
+                    {estSessionActive && (
+                      <span className="rounded-full bg-brand-orange text-white text-[10px] font-black px-2 py-0.5 uppercase tracking-wide">
+                        Active
+                      </span>
+                    )}
+                    <span
+                      className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                        item.session.statut === "EN_COURS"
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-slate-100 text-slate-600 border border-slate-200"
+                      }`}
+                    >
+                      {item.session.statut === "EN_COURS" ? "En cours" : "Clôturée"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-xs font-bold text-slate-600">
+                    <span>
+                      Effectif : <strong className="text-slate-900">{item.effectifTotal}</strong> élève{item.effectifTotal > 1 ? "s" : ""}
+                    </span>
+                    <span>·</span>
+                    <span>
+                      Souscrit : <strong className="text-slate-900">{FCFA.format(item.montantSouscrit)} F</strong>
+                    </span>
+                    <span>·</span>
+                    <span>
+                      Encaissé : <strong className="text-emerald-700">{FCFA.format(item.montantEncaisse)} F</strong>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-3 space-y-2.5">
+                  {/* Jauge Effectif */}
+                  <div>
+                    <div className="flex justify-between text-[11px] font-semibold text-slate-500 mb-1">
+                      <span>Progression Effectif ({item.effectifTotal} élèves)</span>
+                      <span>{pctBarreEffectif}% du pic historique</span>
+                    </div>
+                    <div className="h-2 w-full bg-slate-200/70 rounded-full overflow-hidden flex gap-0.5">
+                      <div
+                        className="h-full bg-brand-orange rounded-l-full transition-all duration-500"
+                        style={{
+                          width: `${item.effectifTotal > 0 ? (item.definitifs / item.effectifTotal) * pctBarreEffectif : 0}%`,
+                        }}
+                        title={`${item.definitifs} définitifs`}
+                      />
+                      <div
+                        className="h-full bg-amber-400 rounded-r-full transition-all duration-500"
+                        style={{
+                          width: `${item.effectifTotal > 0 ? (item.preInscrits / item.effectifTotal) * pctBarreEffectif : 0}%`,
+                        }}
+                        title={`${item.preInscrits} pré-inscrits`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Jauge Financière (Encaissé vs Souscrit) */}
+                  <div>
+                    <div className="flex justify-between text-[11px] font-semibold text-slate-500 mb-1">
+                      <span>
+                        Recouvrement Réel : {FCFA.format(item.montantEncaisse)} F / {FCFA.format(item.montantSouscrit)} F
+                      </span>
+                      <span className="font-bold text-emerald-700">{item.tauxRecouvrement}% recouvré</span>
+                    </div>
+                    <div className="h-2 w-full bg-slate-200/70 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                        style={{ width: `${item.tauxRecouvrement}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* ── 3. Tableau Analytique Détaillé Inter-Sessions ── */}
+      <Card className="rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden bg-white">
+        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+              <CalendarRange size={18} className="text-purple-600" />
+              <span>Historique Comparatif Détaillé</span>
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Toutes les données consolidées session par session pour ce centre
+            </p>
+          </div>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+            {statsParSession.length} session{statsParSession.length > 1 ? "s" : ""}
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="border-b border-slate-200 bg-slate-50 text-slate-700">
+              <tr>
+                <th className="p-3.5 font-bold uppercase tracking-wider">Session</th>
+                <th className="p-3.5 font-bold uppercase tracking-wider text-center">Statut</th>
+                <th className="p-3.5 font-bold uppercase tracking-wider text-center">Effectif Total</th>
+                <th className="p-3.5 font-bold uppercase tracking-wider text-center">Définitifs / Pré-inscrits</th>
+                <th className="p-3.5 font-bold uppercase tracking-wider text-right">Contrats Souscrits</th>
+                <th className="p-3.5 font-bold uppercase tracking-wider text-right">Encaissé Réel</th>
+                <th className="p-3.5 font-bold uppercase tracking-wider text-center">Taux Recouvrement</th>
+                <th className="p-3.5 font-bold uppercase tracking-wider text-center">Évolution Effectif</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {statsParSession.map((row, i) => {
+                const sessionPrecedente = statsParSession[i + 1];
+                const evol = sessionPrecedente
+                  ? row.effectifTotal - sessionPrecedente.effectifTotal
+                  : null;
+
+                return (
+                  <tr key={row.session.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="p-3.5 font-bold text-slate-900">
+                      <div className="flex items-center gap-2">
+                        <span>{row.session.annee}</span>
+                        {row.session.id === sessionActiveId && (
+                          <span className="rounded bg-brand-orange text-white text-[9px] font-black px-1.5 py-0.2 uppercase">
+                            Actuelle
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-3.5 text-center">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                          row.session.statut === "EN_COURS"
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            : "bg-slate-100 text-slate-600 border border-slate-200"
+                        }`}
+                      >
+                        {row.session.statut === "EN_COURS" ? "En cours" : "Clôturée"}
+                      </span>
+                    </td>
+                    <td className="p-3.5 text-center font-black text-slate-900 text-sm tabular-nums">
+                      {row.effectifTotal}
+                    </td>
+                    <td className="p-3.5 text-center text-[11px]">
+                      <span className="font-bold text-emerald-800">{row.definitifs} déf.</span>
+                      <span className="text-slate-300 mx-1">/</span>
+                      <span className="font-bold text-amber-800">{row.preInscrits} pré.</span>
+                    </td>
+                    <td className="p-3.5 text-right font-black text-slate-900 tabular-nums">
+                      {FCFA.format(row.montantSouscrit)} F
+                    </td>
+                    <td className="p-3.5 text-right font-black text-emerald-700 tabular-nums">
+                      {FCFA.format(row.montantEncaisse)} F
+                    </td>
+                    <td className="p-3.5 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <div className="h-1.5 w-12 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-emerald-500 rounded-full"
+                            style={{ width: `${row.tauxRecouvrement}%` }}
+                          />
+                        </div>
+                        <span className="font-bold text-slate-700 text-xs tabular-nums">
+                          {row.tauxRecouvrement}%
+                        </span>
+                      </div>
+                    </td>
+                    <td className="p-3.5 text-center">
+                      {evol === null ? (
+                        <span className="text-slate-400 text-xs font-medium">-</span>
+                      ) : evol >= 0 ? (
+                        <span className="inline-flex items-center gap-0.5 text-emerald-700 font-bold text-xs">
+                          <TrendingUp size={13} />
+                          +{evol}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-0.5 text-rose-700 font-bold text-xs">
+                          <TrendingDown size={13} />
+                          {evol}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* ── 4. Ventilation des Effectifs Actuels par Filière ── */}
+      {sessionN && sessionN.parFormation.length > 0 && (
+        <Card className="rounded-2xl border border-slate-200/80 shadow-xs p-5 bg-white space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                <GraduationCap size={18} className="text-brand-orange" />
+                <span>Répartition des Effectifs par Filière ({sessionN.session.annee})</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Ventilation des élèves inscrits dans ce centre pour la session active
+              </p>
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-orange-50 text-brand-orange border border-orange-200/60">
+              {sessionN.parFormation.length} filière{sessionN.parFormation.length > 1 ? "s" : ""} active{sessionN.parFormation.length > 1 ? "s" : ""}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {sessionN.parFormation.map(({ formation, effectif }) => {
+              const part =
+                sessionN.effectifTotal > 0
+                  ? Math.round((effectif / sessionN.effectifTotal) * 100)
+                  : 0;
+
+              return (
+                <div
+                  key={formation.id}
+                  className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:border-brand-orange/40 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-bold text-xs text-slate-900 truncate">
+                      {formation.nom}
+                    </p>
+                    <span className="text-xs font-black text-brand-orange tabular-nums">
+                      {effectif} élève{effectif > 1 ? "s" : ""}
+                    </span>
+                  </div>
+
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <div className="h-1.5 flex-1 bg-slate-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-brand-orange rounded-full"
+                        style={{ width: `${part}%` }}
+                      />
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-500 tabular-nums">
+                      {part}%
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+    </div>
   );
 }
 
@@ -950,16 +1515,24 @@ function FormationsEtSalles({
   sessionId,
   rejointSessionActive,
   peutGererAcademique,
+  peutAbonnerFormations,
+  peutGererSalles,
 }: {
   centreId: string;
   sessionId: string | undefined;
   rejointSessionActive: boolean;
   peutGererAcademique: boolean;
+  peutAbonnerFormations?: boolean;
+  peutGererSalles?: boolean;
 }) {
+  const droitAbonner = peutAbonnerFormations ?? peutGererAcademique;
+  const droitSalles = peutGererSalles ?? peutGererAcademique;
+
   const { data: formationsDuCentre = [], isLoading: chargementFormations } =
     useFormationsAbonneesCentre(centreId, sessionId);
   const { data: catalogueFormations = [] } = useFormations();
   const { data: salles = [] } = useSalles(sessionId);
+  const rejoindreSession = useRejoindreSession();
 
   const [modalAbonnementOuvert, setModalAbonnementOuvert] = useState(false);
 
@@ -1001,7 +1574,7 @@ function FormationsEtSalles({
             </div>
           </div>
 
-          {peutGererAcademique && rejointSessionActive && (
+          {droitAbonner && rejointSessionActive && (
             <Button
               type="button"
               className="text-xs h-8 px-3 font-semibold flex items-center gap-1.5"
@@ -1013,12 +1586,28 @@ function FormationsEtSalles({
           )}
         </div>
 
-        {peutGererAcademique && !rejointSessionActive && (
-          <div className="mt-4 p-3.5 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-800 text-xs flex items-start gap-2.5">
-            <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
-            <p>
-              Ce centre n&rsquo;a pas encore rejoint la session active. Veuillez d&rsquo;abord rattacher ce centre à la session active pour l&rsquo;abonner à des formations et aménager des salles.
-            </p>
+        {droitAbonner && !rejointSessionActive && (
+          <div className="mt-4 p-3.5 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-800 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+              <p>
+                Ce centre n&rsquo;a pas encore rejoint la session active. Veuillez d&rsquo;abord rattacher ce centre à la session active pour l&rsquo;abonner à des formations et aménager des salles.
+              </p>
+            </div>
+            {sessionId && (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={rejoindreSession.isPending}
+                onClick={async () => {
+                  await rejoindreSession.mutateAsync({ id: centreId, sessionId });
+                }}
+                className="shrink-0 text-xs font-semibold bg-amber-100 hover:bg-amber-200 border-amber-300 text-amber-900 h-8 px-3"
+              >
+                <CalendarRange size={13} className="mr-1.5" />
+                Rattacher à la session active
+              </Button>
+            )}
           </div>
         )}
 
@@ -1039,7 +1628,7 @@ function FormationsEtSalles({
                   ? "Abonnez ce centre aux formations du catalogue pour y rattacher des salles et des cours."
                   : "Rattachez d'abord ce centre à la session active pour pouvoir l'abonner."}
               </p>
-              {peutGererAcademique && rejointSessionActive && (
+              {droitAbonner && rejointSessionActive && (
                 <Button
                   type="button"
                   onClick={() => setModalAbonnementOuvert(true)}
@@ -1064,7 +1653,8 @@ function FormationsEtSalles({
               }
               centreId={centreId}
               sessionId={sessionId}
-              peutGerer={peutGererAcademique}
+              peutDesabonner={droitAbonner}
+              peutGererSalles={droitSalles}
             />
           ))}
         </div>
@@ -1216,14 +1806,16 @@ function CarteFormation({
   salles,
   centreId,
   sessionId,
-  peutGerer,
+  peutDesabonner = true,
+  peutGererSalles = true,
 }: {
   formation: Formation;
   autresFormationsDuCentre: Formation[];
   salles: Salle[];
   centreId: string;
   sessionId: string | undefined;
-  peutGerer: boolean;
+  peutDesabonner?: boolean;
+  peutGererSalles?: boolean;
 }) {
   const [ouvert, setOuvert] = useState(false);
   const [ajoutOuvert, setAjoutOuvert] = useState(false);
@@ -1306,7 +1898,7 @@ function CarteFormation({
             {salles.length} salle{salles.length > 1 ? "s" : ""}
           </span>
 
-          {peutGerer && (
+          {peutDesabonner && (
             <button
               type="button"
               onClick={() => {
@@ -1394,13 +1986,13 @@ function CarteFormation({
                   key={salle.id}
                   salle={salle}
                   autresFormationsDuCentre={autresFormationsDuCentre}
-                  peutGerer={peutGerer}
+                  peutGerer={peutGererSalles}
                 />
               ))}
             </ul>
           )}
 
-          {peutGerer &&
+          {peutGererSalles &&
             (ajoutOuvert ? (
               <form
                 onSubmit={onSubmit}

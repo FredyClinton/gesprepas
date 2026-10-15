@@ -79,4 +79,10 @@ public class AffectationBeanConfiguration {
             AffectationService affectationService) {
         return affectationService;
     }
+
+    @Bean
+    public ListerAffectationsParCentreUseCase listerAffectationsParCentreUseCase(
+            AffectationService affectationService) {
+        return affectationService;
+    }
 }

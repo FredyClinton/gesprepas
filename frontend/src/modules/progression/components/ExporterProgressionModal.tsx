@@ -335,7 +335,7 @@ export function ExporterProgressionModal({
                 className="focus:border-brand-orange w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none"
               >
                 <option value="TOUTES">
-                  🌟 Toutes les formations ({formations.length})
+                  Toutes les formations ({formations.length})
                 </option>
                 {formations.map((f) => (
                   <option key={f.id} value={f.id}>

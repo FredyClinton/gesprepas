@@ -93,7 +93,13 @@ function LoginForm() {
 
           <hr className="mb-6 border-gray-100" />
 
-          <form onSubmit={onSubmit} className="space-y-6" noValidate>
+          <form
+            method="post"
+            action="/login"
+            onSubmit={onSubmit}
+            className="space-y-6"
+            noValidate
+          >
             <Input
               label="Adresse e-mail"
               type="email"

@@ -17,5 +17,6 @@ export {
   useAnnulerEffectuee,
   useSupprimerCreneau,
   useAffectationsParEnseignant,
+  useAffectationsParCentre,
 } from "./data/queries";
 export type { CreerCreneauInput } from "./data/client";

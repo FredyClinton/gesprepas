@@ -33,4 +33,9 @@ public class ConcoursRepositoryAdapter implements ConcoursRepositoryPort {
     public List<Concours> findBySessionId(UUID sessionId) {
         return jpaRepository.findBySessionId(sessionId).stream().map(mapper::toDomain).toList();
     }
+
+    @Override
+    public List<Concours> findAll() {
+        return jpaRepository.findAll().stream().map(mapper::toDomain).toList();
+    }
 }

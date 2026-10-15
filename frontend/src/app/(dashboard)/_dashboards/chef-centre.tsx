@@ -6,8 +6,6 @@ import {
   Users,
   Wallet,
   Coins,
-  CheckCircle2,
-  Clock,
   ArrowUpRight,
   GraduationCap,
   Building2,
@@ -15,17 +13,15 @@ import {
   Layers,
   Award,
   AlertCircle,
-  FileText,
   UserPlus,
   ArrowRight,
   TrendingUp,
   School,
   DoorOpen,
-  CalendarCheck,
-  BookOpen,
   Pencil,
   Trash2,
   Lock,
+  Search,
 } from "lucide-react";
 
 import { Card, Button, Modal, Skeleton, SkeletonCard, SkeletonTable } from "@/shared/ui";
@@ -49,23 +45,32 @@ import { semaineCouranteDepuis } from "@/shared/lib/semaine";
 
 const FCFA = new Intl.NumberFormat("fr-FR");
 
+function getInitiales(prenom?: string, nom?: string) {
+  const p = prenom?.trim()?.[0] || "";
+  const n = nom?.trim()?.[0] || "";
+  return (p + n).toUpperCase() || "EP";
+}
+
 const STATUT_BILAN_CONFIG: Record<
   string,
-  { label: string; badgeClass: string; desc: string }
+  { label: string; dotClass: string; badgeClass: string; desc: string }
 > = {
   EN_ATTENTE_CONTROLEUR: {
     label: "À valider par le Contrôleur",
-    badgeClass: "bg-amber-100 text-amber-900 border border-amber-300",
+    dotClass: "bg-amber-500",
+    badgeClass: "bg-amber-50 text-amber-800 border border-amber-200/80",
     desc: "Bilan soumis, en attente de vérification et validation comptable.",
   },
   CLOTURE: {
     label: "Clôturé & Conforme",
-    badgeClass: "bg-emerald-100 text-emerald-900 border border-emerald-300",
+    dotClass: "bg-emerald-500",
+    badgeClass: "bg-emerald-50 text-emerald-800 border border-emerald-200/80",
     desc: "Journée comptabilisée et clôturée avec succès.",
   },
   OUVERT: {
     label: "Caisse Ouverte (En cours)",
-    badgeClass: "bg-blue-100 text-blue-900 border border-blue-300",
+    dotClass: "bg-blue-500",
+    badgeClass: "bg-blue-50 text-blue-800 border border-blue-200/80",
     desc: "Encaissements de la journée en cours d'enregistrement.",
   },
 };
@@ -87,6 +92,8 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
     date: string;
   } | null>(null);
   const [erreurActionVersement, setErreurActionVersement] = useState<string | null>(null);
+  const [rechercheTransaction, setRechercheTransaction] = useState("");
+  const [filtreStatutTransaction, setFiltreStatutTransaction] = useState<"TOUS" | "VALIDE" | "EN_COURS">("TOUS");
 
   const supprimerEntreeMutation = useSupprimerEntree();
 
@@ -99,7 +106,7 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
     centreId,
     sessionActive?.id,
   );
-  const { data: repartition } = useRepartitionFormations(bilan?.id);
+  const { data: repartition } = useRepartitionFormations(bilan?.id ?? undefined);
   const { data: mouvements = [], isLoading: chargementMouvements } =
     useMouvementsFinanciers(sessionActive?.id, centreId);
   const { data: motifs = [] } = useMotifs("ENTREE");
@@ -122,15 +129,21 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
 
   const centre = centres?.find((c) => c.id === centreId);
 
-  // 1. Données apprenants du centre
-  const apprenantsDuCentre = useMemo(
-    () => apprenants.filter((a) => a.centreId === centreId),
-    [apprenants, centreId],
-  );
+  // 1. Données apprenants du centre pour la session active
+  const apprenantsDuCentre = useMemo(() => {
+    if (!sessionActive?.id) {
+      return apprenants.filter((a) => a.centreId === centreId);
+    }
+    return apprenants.filter(
+      (a) => a.centreId === centreId && a.sessionId === sessionActive.id,
+    );
+  }, [apprenants, centreId, sessionActive]);
 
   const effectifTotal = apprenantsDuCentre.length;
   const preInscrits = apprenantsDuCentre.filter((a) => a.preInscrit).length;
   const definitifs = effectifTotal - preInscrits;
+  const pctDefinitifs = effectifTotal > 0 ? Math.round((definitifs / effectifTotal) * 100) : 0;
+  const pctPreInscrits = effectifTotal > 0 ? 100 - pctDefinitifs : 0;
 
   // 2. Données financières globales du centre
   const totalContratsCentre = useMemo(
@@ -156,7 +169,7 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
   const tauxRecouvrementGlobal =
     totalContratsCentre > 0
       ? Math.min(100, Math.round((montantTotalEncaisse / totalContratsCentre) * 100))
-      : 100;
+      : 0;
 
   // Calcul dynamique temps réel de la caisse journalière du centre
   const caisseDuJourCalcul = useMemo(() => {
@@ -172,11 +185,7 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
     const totalEntrees =
       bilan?.totalEntrees && bilan.totalEntrees > 0
         ? bilan.totalEntrees
-        : totalEntreesAuj > 0
-          ? totalEntreesAuj
-          : entreesCentre.length > 0
-            ? entreesCentre[0].montant
-            : 0;
+        : totalEntreesAuj;
 
     const totalSorties = bilan?.totalSorties ?? totalSortiesAuj;
     const net = bilan?.netAVerser ?? totalEntrees - totalSorties;
@@ -248,29 +257,62 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
     });
   }, [formations, apprenantsDuCentre, entreesCentre, repartition]);
 
-  // 6. Top élèves à relancer (Soldes restants prioritaires)
-  const soldesPrioritaires = useMemo(() => {
-    return apprenantsDuCentre
-      .map((apprenant) => {
-        const paye = entreesCentre
-          .filter((e) => e.apprenantId === apprenant.id)
-          .reduce((sum, e) => sum + e.montant, 0);
-        const solde = Math.max(0, (apprenant.montantContrat || 0) - paye);
-        const formation = formations.find((f) => f.id === apprenant.formationId);
-        return {
-          apprenant,
-          formationNom: formation?.nom || "Filière",
-          totalContrat: apprenant.montantContrat || 0,
-          paye,
-          solde,
-        };
-      })
-      .filter((item) => item.solde > 0)
-      .sort((a, b) => b.solde - a.solde)
-      .slice(0, 5);
-  }, [apprenantsDuCentre, entreesCentre, formations]);
+  // Totaux consolidés pour le tableau des formations
+  const totalStatsFormations = useMemo(() => {
+    const totaux = statsFormations.reduce(
+      (acc, f) => ({
+        totalEleves: acc.totalEleves + f.totalEleves,
+        definitifsFormation: acc.definitifsFormation + f.definitifsFormation,
+        preInscritsFormation: acc.preInscritsFormation + f.preInscritsFormation,
+        contratsFormation: acc.contratsFormation + f.contratsFormation,
+        encaisseAffiche: acc.encaisseAffiche + f.encaisseAffiche,
+        resteARecouvrer: acc.resteARecouvrer + f.resteARecouvrer,
+      }),
+      {
+        totalEleves: 0,
+        definitifsFormation: 0,
+        preInscritsFormation: 0,
+        contratsFormation: 0,
+        encaisseAffiche: 0,
+        resteARecouvrer: 0,
+      },
+    );
 
-  // 7. Top Lycées / Établissements d'Origine
+    const tauxGlobal =
+      totaux.contratsFormation > 0
+        ? Math.min(100, Math.round((totaux.encaisseAffiche / totaux.contratsFormation) * 100))
+        : 0;
+
+    return { ...totaux, tauxGlobal };
+  }, [statsFormations]);
+
+  // Filtrage temps réel des règlements récents
+  const entreesFiltrees = useMemo(() => {
+    return entreesCentre.filter((e) => {
+      if (filtreStatutTransaction !== "TOUS") {
+        if (filtreStatutTransaction === "VALIDE" && e.statut !== "VALIDE") return false;
+        if (filtreStatutTransaction === "EN_COURS" && e.statut === "VALIDE") return false;
+      }
+      if (!rechercheTransaction.trim()) return true;
+      const q = rechercheTransaction.toLowerCase();
+      const apprenant = apprenantsDuCentre.find((a) => a.id === e.apprenantId);
+      const motif = motifs.find((m) => m.id === e.motifId);
+      const formation = formations.find((f) => f.id === e.formationId);
+      const nomComplet = apprenant ? `${apprenant.prenom} ${apprenant.nom}`.toLowerCase() : "";
+      const motifNom = motif?.nom?.toLowerCase() || "";
+      const formationNom = formation?.nom?.toLowerCase() || "";
+      return nomComplet.includes(q) || motifNom.includes(q) || formationNom.includes(q);
+    });
+  }, [
+    entreesCentre,
+    filtreStatutTransaction,
+    rechercheTransaction,
+    apprenantsDuCentre,
+    motifs,
+    formations,
+  ]);
+
+  // 6. Top Lycées / Établissements d'Origine
   const topEtablissements = useMemo(() => {
     const counts: Record<string, number> = {};
     apprenantsDuCentre.forEach((a) => {
@@ -332,47 +374,60 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
   return (
     <div className="mx-auto max-w-7xl space-y-8">
       {/* ── 1. En-tête & Bannière Opérationnelle Hero ── */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <span className="inline-flex items-center gap-1.5 rounded-lg bg-orange-100 px-2.5 py-1 text-xs font-black text-brand-orange uppercase">
-                <Building2 size={13} />
-                <span>Centre Opérationnel</span>
-              </span>
+      <div className="relative overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-6 shadow-xs">
+        {/* Décoration douce d'arrière-plan */}
+        <div className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-gradient-to-br from-orange-100/50 via-amber-50/20 to-transparent blur-2xl" />
 
-              {sessionActive && (
-                <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
-                  <Calendar size={13} className="text-slate-500" />
-                  <span>Session {sessionActive.annee}</span>
-                </span>
-              )}
-
-              {phases.length > 0 && (
-                <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1 text-xs font-bold text-amber-900">
-                  <Layers size={13} className="text-brand-orange" />
-                  <span>Semaine {semaineCourante}</span>
-                </span>
-              )}
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-500/10 text-brand-orange ring-1 ring-orange-500/20 shadow-2xs">
+              <Building2 size={24} />
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
-              {centre?.nom ?? "Tableau de Bord du Centre"}
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500">
-              {centre?.adresseActuelle ? `${centre.adresseActuelle}, ` : ""}
-              {centre?.villeActuelle ?? "Direction de Centre"} · Suivi en temps réel des effectifs, de la caisse et des évaluations.
-            </p>
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Centre Opérationnel</span>
+                </span>
+
+                {sessionActive && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-700">
+                    <Calendar size={12} className="text-slate-500" />
+                    <span>Session {sessionActive.annee}</span>
+                  </span>
+                )}
+
+                {phases.length > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200/70 px-2.5 py-0.5 text-[11px] font-bold text-amber-900">
+                    <Layers size={12} className="text-brand-orange" />
+                    <span>Semaine {semaineCourante}</span>
+                  </span>
+                )}
+              </div>
+
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
+                {centre?.nom ?? "Tableau de Bord du Centre"}
+              </h1>
+
+              <p className="text-xs sm:text-sm text-slate-500 font-medium">
+                {centre?.adresseActuelle ? `${centre.adresseActuelle}, ` : ""}
+                {centre?.villeActuelle ?? "Direction de Centre"} · Suivi opérationnel en temps réel des effectifs, de la trésorerie et de la pédagogie.
+              </p>
+            </div>
           </div>
 
-          {/* Raccourcis d'actions rapides directes */}
+          {/* Actions opérationnelles directes */}
           <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-auto">
             <Button
               type="button"
-              onClick={() => setModalVersementOuverte(true)}
-              className="bg-brand-orange hover:bg-brand-orange/90 text-white flex items-center gap-1.5 text-xs font-bold shadow-xs cursor-pointer"
+              onClick={() => {
+                setApprenantSelectionneVersement(null);
+                setModalVersementOuverte(true);
+              }}
+              className="bg-brand-orange hover:bg-orange-600 text-white flex items-center gap-2 text-xs font-bold shadow-xs cursor-pointer px-4 py-2.5 rounded-xl transition-all active:scale-[0.98]"
             >
-              <Coins size={14} />
+              <Coins size={15} />
               <span>Encaisser versement</span>
             </Button>
 
@@ -380,43 +435,10 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
               <Button
                 type="button"
                 variant="secondary"
-                className="flex items-center gap-1.5 text-xs font-bold cursor-pointer"
+                className="flex items-center gap-2 text-xs font-bold cursor-pointer border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 rounded-xl text-slate-800 transition-all active:scale-[0.98]"
               >
-                <UserPlus size={14} />
+                <UserPlus size={15} />
                 <span>Inscrire un élève</span>
-              </Button>
-            </Link>
-
-            <Link href="/concours-blancs">
-              <Button
-                type="button"
-                variant="secondary"
-                className="flex items-center gap-1.5 text-xs font-bold cursor-pointer"
-              >
-                <Award size={14} />
-                <span>Concours Blancs</span>
-              </Button>
-            </Link>
-
-            <Link href="/livres">
-              <Button
-                type="button"
-                variant="secondary"
-                className="flex items-center gap-1.5 text-xs font-bold cursor-pointer"
-              >
-                <BookOpen size={14} />
-                <span>Livres & Supports</span>
-              </Button>
-            </Link>
-
-            <Link href="/planification">
-              <Button
-                type="button"
-                variant="secondary"
-                className="flex items-center gap-1.5 text-xs font-bold cursor-pointer"
-              >
-                <CalendarCheck size={14} />
-                <span>Planning</span>
               </Button>
             </Link>
           </div>
@@ -424,127 +446,271 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
       </div>
 
       {/* ── 2. 4 KPIs Majeurs en Données Réelles ── */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 items-stretch">
         {/* KPI 1 : Effectif Apprenants */}
-        <Link href="/apprenants" className="group">
-          <Card className="p-5 bg-white border border-slate-200 hover:border-brand-orange/50 transition-all shadow-2xs group-hover:shadow-sm">
-            <div className="flex items-start justify-between">
-              <span className="text-brand-gray text-xs font-bold tracking-wide uppercase">
+        <Link href="/apprenants" className="group flex flex-col h-full">
+          <Card className="p-5 bg-white border border-slate-200 hover:border-brand-orange/50 transition-all shadow-2xs group-hover:shadow-sm h-full flex flex-col justify-between min-h-[210px]">
+            {/* 1. Header */}
+            <div className="flex items-start justify-between min-h-[36px]">
+              <span className="text-slate-500 text-[11px] font-bold tracking-wider uppercase">
                 Effectif Apprenants
               </span>
-              <div className="bg-orange-50 text-brand-orange rounded-xl p-2.5 group-hover:scale-110 transition-transform">
-                <Users size={20} />
+              <div className="bg-orange-50 text-brand-orange rounded-xl p-2.5 ring-1 ring-orange-500/10 group-hover:scale-105 transition-transform shrink-0">
+                <Users size={18} />
               </div>
             </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-slate-900 text-3xl font-black">
-                {chargementApprenants ? "…" : effectifTotal}
-              </span>
-              <span className="text-xs font-bold text-slate-500">élèves au centre</span>
+
+            {/* 2. Corps / Métrique & Jauge */}
+            <div className="my-3 flex-1 flex flex-col justify-between space-y-3">
+              <div className="min-h-[46px]">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-slate-900 text-3xl font-black tabular-nums tracking-tight">
+                    {chargementApprenants ? "…" : effectifTotal}
+                  </span>
+                  <span className="text-xs font-bold text-slate-500">élèves au centre</span>
+                </div>
+              </div>
+
+              {/* Jauge visuelle */}
+              <div className="space-y-1">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 flex gap-0.5">
+                  <div
+                    className="h-full bg-emerald-500 transition-all duration-500 rounded-l-full"
+                    style={{ width: `${pctDefinitifs}%` }}
+                    title={`${definitifs} définitifs (${pctDefinitifs}%)`}
+                  />
+                  <div
+                    className="h-full bg-amber-400 transition-all duration-500 rounded-r-full"
+                    style={{ width: `${pctPreInscrits}%` }}
+                    title={`${preInscrits} pré-inscrits (${pctPreInscrits}%)`}
+                  />
+                </div>
+              </div>
             </div>
-            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-              <span className="inline-flex items-center gap-1 text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded-md">
-                <CheckCircle2 size={12} />
-                {definitifs} définitifs
+
+            {/* 3. Footer */}
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold mt-auto h-8">
+              <span className="inline-flex items-center gap-1.5 text-slate-600">
+                <span className="inline-flex items-center gap-1 text-emerald-800">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  {definitifs} déf.
+                </span>
+                <span>·</span>
+                <span className="inline-flex items-center gap-1 text-amber-800">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                  {preInscrits} pré-ins.
+                </span>
               </span>
-              <span className="inline-flex items-center gap-1 text-amber-800 font-bold bg-amber-50 px-2 py-0.5 rounded-md">
-                <Clock size={12} />
-                {preInscrits} pré-inscrits
+              <span className="inline-flex items-center gap-0.5 text-brand-orange">
+                <span>Apprenants</span>
+                <ArrowUpRight size={13} />
               </span>
             </div>
           </Card>
         </Link>
 
         {/* KPI 2 : Recouvrement Global */}
-        <Card className="p-5 bg-white border border-slate-200 shadow-2xs">
-          <div className="flex items-start justify-between">
-            <span className="text-brand-gray text-xs font-bold tracking-wide uppercase">
-              Recouvrement Global
-            </span>
-            <div className="bg-emerald-50 text-emerald-700 rounded-xl p-2.5">
-              <Wallet size={20} />
-            </div>
-          </div>
-          <div className="mt-2">
-            <span className="text-slate-900 text-2xl font-black">
-              {chargementMouvements ? "…" : `${FCFA.format(montantTotalEncaisse)} F`}
-            </span>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              sur {FCFA.format(totalContratsCentre)} F souscrits
-            </p>
-          </div>
-          <div className="mt-3 pt-3 border-t border-slate-100">
-            <div className="flex items-center justify-between text-[11px] font-bold mb-1">
-              <span className="text-slate-500">Taux de recouvrement</span>
-              <span className="text-emerald-700 font-black">{tauxRecouvrementGlobal}%</span>
-            </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-              <div
-                className="h-full rounded-full bg-emerald-500 transition-all duration-500"
-                style={{ width: `${tauxRecouvrementGlobal}%` }}
-              />
-            </div>
-          </div>
-        </Card>
-
-        {/* KPI 3 : Caisse du Jour & Bilan */}
-        <Card className="p-5 bg-white border border-slate-200 shadow-2xs">
-          <div className="flex items-start justify-between">
-            <span className="text-brand-gray text-xs font-bold tracking-wide uppercase">
-              Caisse du Jour
-            </span>
-            <div className="bg-blue-50 text-blue-700 rounded-xl p-2.5">
-              <Coins size={20} />
-            </div>
-          </div>
-          <div className="mt-2">
-            <span className="text-slate-900 text-2xl font-black">
-              {chargementBilan && chargementMouvements
-                ? "…"
-                : `${FCFA.format(caisseDuJourCalcul.net)} F`}
-            </span>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Entrées : {FCFA.format(caisseDuJourCalcul.totalEntrees)} F · Sorties : {FCFA.format(caisseDuJourCalcul.totalSorties)} F
-            </p>
-          </div>
-          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
-            <span
-              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase ${statutBilanInfo.badgeClass}`}
-            >
-              {statutBilanInfo.label}
-            </span>
-            {bilan?.effectifNouveauxEleves !== undefined && bilan.effectifNouveauxEleves > 0 && (
-              <span className="text-[11px] text-slate-400 font-medium">
-                +{bilan.effectifNouveauxEleves} élève(s) auj.
+        <Link href="/finances" className="group flex flex-col h-full">
+          <Card className="p-5 bg-white border border-slate-200 hover:border-brand-orange/50 transition-all shadow-2xs group-hover:shadow-sm h-full flex flex-col justify-between min-h-[210px]">
+            {/* 1. Header */}
+            <div className="flex items-start justify-between min-h-[36px]">
+              <span className="text-slate-500 text-[11px] font-bold tracking-wider uppercase">
+                Recouvrement Global
               </span>
-            )}
-          </div>
-        </Card>
-
-        {/* KPI 4 : Concours Blancs & Évaluations */}
-        <Link href="/concours-blancs" className="group">
-          <Card className="p-5 bg-white border border-slate-200 hover:border-brand-orange/50 transition-all shadow-2xs group-hover:shadow-sm">
-            <div className="flex items-start justify-between">
-              <span className="text-brand-gray text-xs font-bold tracking-wide uppercase">
-                Concours Blancs
-              </span>
-              <div className="bg-purple-50 text-purple-700 rounded-xl p-2.5 group-hover:scale-110 transition-transform">
-                <Award size={20} />
+              <div className="bg-emerald-50 text-emerald-700 rounded-xl p-2.5 ring-1 ring-emerald-600/10 group-hover:scale-105 transition-transform shrink-0">
+                <Wallet size={18} />
               </div>
             </div>
-            <div className="mt-2">
-              <p className="text-sm font-black text-slate-900 line-clamp-1">
-                {prochainConcours?.titre || "Concours Blanc Session"}
-              </p>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
-                {prochainConcours
-                  ? `Prévu le ${new Date(prochainConcours.dateEpreuve).toLocaleDateString("fr-FR")}`
-                  : `${concoursBlancs.length} épreuve(s) programmée(s)`}
-              </p>
+
+            {/* 2. Corps / Métrique & Jauge */}
+            <div className="my-3 flex-1 flex flex-col justify-between space-y-3">
+              <div className="min-h-[46px]">
+                <span className="text-slate-900 text-2xl lg:text-[26px] font-black tabular-nums tracking-tight block">
+                  {chargementMouvements ? "…" : `${FCFA.format(montantTotalEncaisse)} F`}
+                </span>
+                <p className="text-xs text-slate-500 font-medium mt-0.5 truncate">
+                  sur {FCFA.format(totalContratsCentre)} F souscrits
+                </p>
+              </div>
+
+              {/* Jauge visuelle */}
+              <div className="space-y-1">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                    style={{ width: `${tauxRecouvrementGlobal}%` }}
+                  />
+                </div>
+              </div>
             </div>
-            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-brand-orange font-bold">
-              <span>Voir les classements</span>
-              <ArrowUpRight size={14} />
+
+            {/* 3. Footer */}
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold mt-auto h-8">
+              <span className="text-slate-500">
+                Taux : <strong className="text-emerald-700 font-black">{tauxRecouvrementGlobal}%</strong>
+              </span>
+              <span className="text-slate-500">
+                Reste : <strong className="text-brand-orange font-black">{FCFA.format(resteGlobalRecouvrer)} F</strong>
+              </span>
+            </div>
+          </Card>
+        </Link>
+
+        {/* KPI 3 : Caisse du Jour & Bilan */}
+        <Link href="/bilan-journalier" className="group flex flex-col h-full">
+          <Card className="p-5 bg-white border border-slate-200 hover:border-brand-orange/50 transition-all shadow-2xs group-hover:shadow-sm h-full flex flex-col justify-between min-h-[210px]">
+            {/* 1. Header */}
+            <div className="flex items-start justify-between min-h-[36px]">
+              <span className="text-slate-500 text-[11px] font-bold tracking-wider uppercase">
+                Caisse du Jour
+              </span>
+              <div className="bg-blue-50 text-blue-700 rounded-xl p-2.5 ring-1 ring-blue-600/10 group-hover:scale-105 transition-transform shrink-0">
+                <Coins size={18} />
+              </div>
+            </div>
+
+            {/* 2. Corps / Métrique & Jauge */}
+            <div className="my-3 flex-1 flex flex-col justify-between space-y-3">
+              <div className="min-h-[46px]">
+                <span className="text-slate-900 text-2xl lg:text-[26px] font-black tabular-nums tracking-tight block">
+                  {chargementBilan && chargementMouvements
+                    ? "…"
+                    : `${FCFA.format(caisseDuJourCalcul.net)} F`}
+                </span>
+                <div className="flex items-center gap-2 mt-0.5 text-[11px] font-bold">
+                  <span className="text-emerald-700">+{FCFA.format(caisseDuJourCalcul.totalEntrees)} F</span>
+                  <span className="text-slate-300">·</span>
+                  <span className="text-rose-700">-{FCFA.format(caisseDuJourCalcul.totalSorties)} F</span>
+                </div>
+              </div>
+
+              {/* Jauge visuelle flux net / sorties */}
+              <div className="space-y-1">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 flex gap-0.5">
+                  <div
+                    className="h-full bg-emerald-500 transition-all duration-500 rounded-l-full"
+                    style={{
+                      width: `${
+                        caisseDuJourCalcul.totalEntrees + caisseDuJourCalcul.totalSorties > 0
+                          ? Math.max(
+                              15,
+                              Math.min(
+                                85,
+                                Math.round(
+                                  (caisseDuJourCalcul.totalEntrees /
+                                    (caisseDuJourCalcul.totalEntrees + caisseDuJourCalcul.totalSorties)) *
+                                    100,
+                                ),
+                              ),
+                            )
+                          : 50
+                      }%`,
+                    }}
+                    title="Entrées"
+                  />
+                  <div
+                    className="h-full bg-rose-400 transition-all duration-500 rounded-r-full"
+                    style={{
+                      width: `${
+                        caisseDuJourCalcul.totalEntrees + caisseDuJourCalcul.totalSorties > 0
+                          ? Math.max(
+                              15,
+                              Math.min(
+                                85,
+                                Math.round(
+                                  (caisseDuJourCalcul.totalSorties /
+                                    (caisseDuJourCalcul.totalEntrees + caisseDuJourCalcul.totalSorties)) *
+                                    100,
+                                ),
+                              ),
+                            )
+                          : 50
+                      }%`,
+                    }}
+                    title="Sorties"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Footer */}
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold mt-auto h-8">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${statutBilanInfo.badgeClass}`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${statutBilanInfo.dotClass} animate-pulse`} />
+                {statutBilanInfo.label}
+              </span>
+              <span className="inline-flex items-center gap-0.5 text-xs text-brand-orange font-bold">
+                <span>Bilan</span>
+                <ArrowUpRight size={13} />
+              </span>
+            </div>
+          </Card>
+        </Link>
+
+        {/* KPI 4 : Concours Blancs & Évaluations */}
+        <Link href="/concours-blancs" className="group flex flex-col h-full">
+          <Card className="p-5 bg-white border border-slate-200 hover:border-brand-orange/50 transition-all shadow-2xs group-hover:shadow-sm h-full flex flex-col justify-between min-h-[210px]">
+            {/* 1. Header */}
+            <div className="flex items-start justify-between min-h-[36px]">
+              <span className="text-slate-500 text-[11px] font-bold tracking-wider uppercase">
+                Concours Blancs
+              </span>
+              <div className="bg-purple-50 text-purple-700 rounded-xl p-2.5 ring-1 ring-purple-600/10 group-hover:scale-105 transition-transform shrink-0">
+                <Award size={18} />
+              </div>
+            </div>
+
+            {/* 2. Corps / Métrique & Jauge */}
+            <div className="my-3 flex-1 flex flex-col justify-between space-y-3">
+              <div className="min-h-[46px]">
+                <p className="text-sm font-black text-slate-900 line-clamp-1">
+                  {prochainConcours?.titre || "Concours Blanc Session"}
+                </p>
+                <p className="text-xs text-slate-500 font-medium mt-0.5 truncate">
+                  {prochainConcours
+                    ? `Prévu le ${new Date(prochainConcours.dateEpreuve).toLocaleDateString("fr-FR")}`
+                    : `${concoursBlancs.length} épreuve(s) programmée(s)`}
+                </p>
+              </div>
+
+              {/* Jauge visuelle */}
+              <div className="space-y-1">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-purple-500 transition-all duration-500"
+                    style={{
+                      width: `${
+                        concoursBlancs.length > 0
+                          ? Math.max(
+                              20,
+                              Math.min(
+                                100,
+                                Math.round(
+                                  (concoursBlancs.filter(
+                                    (c) => new Date(c.dateEpreuve).getTime() <= Date.now(),
+                                  ).length /
+                                    concoursBlancs.length) *
+                                    100,
+                                ),
+                              ),
+                            )
+                          : 100
+                      }%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Footer */}
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-brand-orange font-bold mt-auto h-8">
+              <span>{concoursBlancs.length} épreuve(s)</span>
+              <span className="inline-flex items-center gap-0.5">
+                <span>Classements</span>
+                <ArrowUpRight size={13} />
+              </span>
             </div>
           </Card>
         </Link>
@@ -651,39 +817,133 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
                     ))
                   )}
                 </tbody>
+                {statsFormations.length > 0 && (
+                  <tfoot className="border-t-2 border-slate-200 bg-slate-50/80 font-bold text-slate-800">
+                    <tr>
+                      <td className="p-3.5">
+                        <span className="font-extrabold text-slate-900 block">Total Consolidé</span>
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          {statsFormations.length} filière(s) active(s)
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-center">
+                        <span className="inline-flex items-center justify-center h-7 px-2.5 rounded-full bg-slate-200/80 font-black text-slate-900 tabular-nums">
+                          {totalStatsFormations.totalEleves}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-right font-black text-slate-900 tabular-nums">
+                        {FCFA.format(totalStatsFormations.contratsFormation)} F
+                      </td>
+                      <td className="p-3.5 text-right font-black text-emerald-800 tabular-nums">
+                        {FCFA.format(totalStatsFormations.encaisseAffiche)} F
+                      </td>
+                      <td className="p-3.5 text-right font-black text-brand-orange tabular-nums">
+                        {FCFA.format(totalStatsFormations.resteARecouvrer)} F
+                      </td>
+                      <td className="p-3.5 text-center">
+                        <div className="inline-flex flex-col items-center gap-1">
+                          <span className="rounded-full px-2 py-0.5 text-[10px] font-black uppercase bg-emerald-100 text-emerald-800">
+                            {totalStatsFormations.tauxGlobal}%
+                          </span>
+                          <div className="h-1.5 w-12 overflow-hidden rounded-full bg-slate-200">
+                            <div
+                              className="h-full rounded-full bg-emerald-500"
+                              style={{ width: `${totalStatsFormations.tauxGlobal}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           </Card>
 
           {/* Flux des Dernières Transactions Encaissées */}
           <Card className="overflow-hidden border border-slate-200 bg-white shadow-xs">
-            <div className="border-b border-slate-100 p-5 flex items-center justify-between">
+            <div className="border-b border-slate-100 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <h2 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
                   <TrendingUp className="text-brand-orange" size={20} />
-                  <span>Derniers Règlements Encaissés au Centre</span>
+                  <span>Derniers Règlements Encaissés</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+                    {entreesFiltrees.length}
+                  </span>
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Mouvements financiers récents enregistrés à la caisse du centre.
+                  Mouvements de trésorerie récents enregistrés au guichet du centre.
                 </p>
               </div>
 
-              <Button
-                type="button"
-                onClick={() => {
-                  setApprenantSelectionneVersement(null);
-                  setModalVersementOuverte(true);
-                }}
-                className="bg-brand-orange hover:bg-brand-orange/90 text-white flex items-center gap-1.5 text-xs font-bold cursor-pointer"
-              >
-                <Coins size={13} />
-                <span>Nouveau versement</span>
-              </Button>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <div className="relative">
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={rechercheTransaction}
+                    onChange={(e) => setRechercheTransaction(e.target.value)}
+                    placeholder="Filtrer élève, motif..."
+                    className="h-8 pl-8 pr-3 text-xs rounded-lg border border-slate-200 bg-slate-50/70 placeholder:text-slate-400 focus:bg-white focus:border-brand-orange focus:outline-none transition-all w-44 sm:w-48"
+                  />
+                </div>
+
+                <div className="flex items-center rounded-lg border border-slate-200 bg-slate-100/60 p-0.5 text-[11px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setFiltreStatutTransaction("TOUS")}
+                    className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+                      filtreStatutTransaction === "TOUS"
+                        ? "bg-white text-slate-900 shadow-2xs font-extrabold"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    Tous
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFiltreStatutTransaction("VALIDE")}
+                    className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+                      filtreStatutTransaction === "VALIDE"
+                        ? "bg-white text-emerald-800 shadow-2xs font-extrabold"
+                        : "text-slate-500 hover:text-emerald-800"
+                    }`}
+                  >
+                    Validés
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFiltreStatutTransaction("EN_COURS")}
+                    className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+                      filtreStatutTransaction === "EN_COURS"
+                        ? "bg-white text-amber-800 shadow-2xs font-extrabold"
+                        : "text-slate-500 hover:text-amber-800"
+                    }`}
+                  >
+                    En cours
+                  </button>
+                </div>
+
+                <Link
+                  href="/finances"
+                  className="text-xs font-bold text-brand-orange hover:underline flex items-center gap-1 ml-0.5"
+                >
+                  <span>Journal</span>
+                  <ArrowRight size={13} />
+                </Link>
+              </div>
             </div>
 
-            {entreesCentre.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 text-xs">
-                Aucun règlement financier enregistré pour le moment.
+            {entreesFiltrees.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
+                <div className="h-9 w-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                  <Search size={16} />
+                </div>
+                <p className="font-medium">
+                  {rechercheTransaction.trim()
+                    ? "Aucun règlement ne correspond à votre filtre."
+                    : "Aucun règlement financier enregistré pour le moment."}
+                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -699,7 +959,7 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {entreesCentre.slice(0, 10).map((e) => {
+                    {entreesFiltrees.slice(0, 10).map((e) => {
                       const apprenant = apprenantsDuCentre.find((a) => a.id === e.apprenantId);
                       const formation = formations.find((f) => f.id === e.formationId);
                       const motif = motifs.find((m) => m.id === e.motifId);
@@ -712,40 +972,61 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
 
                       return (
                         <tr key={e.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="p-3 text-slate-600 whitespace-nowrap">
-                            {new Date(e.date).toLocaleDateString("fr-FR")}
-                          </td>
-                          <td className="p-3">
-                            {apprenant ? (
-                              <Link
-                                href={`/apprenants/${apprenant.id}`}
-                                className="font-bold text-slate-900 hover:text-brand-orange transition-colors"
-                              >
-                                {apprenant.prenom} {apprenant.nom}
-                              </Link>
-                            ) : (
-                              <span className="text-slate-500 font-medium">Versement divers</span>
-                            )}
-                            {formation && (
-                              <span className="text-[10px] text-slate-400 block">
-                                {formation.nom}
+                          <td className="p-3 whitespace-nowrap">
+                            <span className="font-bold text-slate-800 block">
+                              {new Date(e.date).toLocaleDateString("fr-FR")}
+                            </span>
+                            {e.date === aujourdhuiStr && (
+                              <span className="inline-block mt-0.5 rounded px-1.5 py-0.2 bg-emerald-100 text-[10px] font-black text-emerald-800">
+                                Aujourd&apos;hui
                               </span>
                             )}
                           </td>
-                          <td className="p-3 text-slate-700 font-medium">
-                            {motif?.nom || "Frais de scolarité"}
+                          <td className="p-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className="h-7 w-7 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[10px] flex items-center justify-center shrink-0">
+                                {getInitiales(apprenant?.prenom, apprenant?.nom)}
+                              </div>
+                              <div className="min-w-0">
+                                {apprenant ? (
+                                  <Link
+                                    href={`/apprenants/${apprenant.id}`}
+                                    className="font-bold text-slate-900 hover:text-brand-orange transition-colors truncate block"
+                                  >
+                                    {apprenant.prenom} {apprenant.nom}
+                                  </Link>
+                                ) : (
+                                  <span className="text-slate-500 font-medium">Versement divers</span>
+                                )}
+                                {formation && (
+                                  <span className="text-[10px] text-slate-400 block truncate">
+                                    {formation.nom}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </td>
-                          <td className="p-3 text-right font-black text-slate-900 whitespace-nowrap">
-                            {FCFA.format(e.montant)} FCFA
+                          <td className="p-3 text-slate-700 font-medium">
+                            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-medium text-[11px] inline-block">
+                              {motif?.nom || "Frais de scolarité"}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right font-black text-slate-900 tabular-nums whitespace-nowrap">
+                            +{FCFA.format(e.montant)} F
                           </td>
                           <td className="p-3 text-center whitespace-nowrap">
                             <span
-                              className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
+                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
                                 e.statut === "VALIDE"
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : "bg-amber-100 text-amber-800"
+                                  ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20"
+                                  : "bg-amber-50 text-amber-700 ring-1 ring-amber-600/20"
                               }`}
                             >
+                              <span
+                                className={`h-1.5 w-1.5 rounded-full ${
+                                  e.statut === "VALIDE" ? "bg-emerald-500" : "bg-amber-500"
+                                }`}
+                              />
                               {e.statut === "VALIDE" ? "Validé" : "En cours"}
                             </span>
                           </td>
@@ -808,112 +1089,48 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
 
         {/* Colonne Droite : Volets Opérationnels Latéraux */}
         <div className="space-y-6">
-          {/* Card Soldes Prioritaires à Recouvrer (Relances) */}
-          {/* <Card className="p-5 bg-white border border-slate-200 shadow-xs space-y-3">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="text-brand-orange" size={18} />
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                  Soldes à Recouvrer
-                </h3>
-              </div>
-              <Link
-                href="/apprenants"
-                className="text-[11px] font-bold text-brand-orange hover:underline"
-              >
-                Tous les élèves
-              </Link>
-            </div>
-
-            {soldesPrioritaires.length === 0 ? (
-              <p className="text-xs text-slate-400 italic py-3 text-center">
-                Tous les contrats du centre sont intégralement soldés !
-              </p>
-            ) : (
-              <div className="space-y-2.5">
-                {soldesPrioritaires.map((item) => (
-                  <div
-                    key={item.apprenant.id}
-                    className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100 hover:border-brand-orange/30 transition-colors"
-                  >
-                    <div className="min-w-0 flex-1 pr-2">
-                      <Link
-                        href={`/apprenants/${item.apprenant.id}`}
-                        className="font-bold text-xs text-slate-900 hover:text-brand-orange truncate block"
-                        title={`${item.apprenant.nom} ${item.apprenant.prenom}`}
-                      >
-                        {item.apprenant.nom} {item.apprenant.prenom}
-                      </Link>
-                      <span className="text-[10px] text-slate-400 truncate block">
-                        {item.formationNom}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs font-black text-brand-orange whitespace-nowrap">
-                        {FCFA.format(item.solde)} F
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setApprenantSelectionneVersement({
-                            id: item.apprenant.id,
-                            nom: `${item.apprenant.nom} ${item.apprenant.prenom}`,
-                            soldeRestant: item.solde,
-                            formationId: item.apprenant.formationId,
-                          });
-                          setModalVersementOuverte(true);
-                        }}
-                        className="rounded-lg bg-emerald-100 text-emerald-800 hover:bg-emerald-600 hover:text-white px-2 py-1 text-[11px] font-bold transition-colors cursor-pointer"
-                        title="Encaisser un versement pour cet élève"
-                      >
-                        Encaisser
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card> */}
 
           {/* Card Salles & Infrastructures du Centre */}
           <Card className="p-5 bg-white border border-slate-200 shadow-xs space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <DoorOpen className="text-brand-orange" size={18} />
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                  Infrastructures
+                <div className="p-1 rounded-lg bg-orange-50 text-brand-orange">
+                  <DoorOpen size={17} />
+                </div>
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  Infrastructures & Salles
                 </h3>
               </div>
               <Link
                 href="/planification"
-                className="text-[11px] font-bold text-brand-orange hover:underline"
+                className="text-[11px] font-bold text-brand-orange hover:underline flex items-center gap-0.5"
               >
-                Planning
+                <span>Planning</span>
+                <ArrowRight size={11} />
               </Link>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center">
-                <span className="text-2xl font-black text-slate-900 block">
+              <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/80 text-center">
+                <span className="text-2xl font-black text-slate-900 tabular-nums block">
                   {sallesDuCentre.length}
                 </span>
-                <span className="text-[10px] font-bold text-slate-500 uppercase">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
                   Salles de cours
                 </span>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center">
-                <span className="text-2xl font-black text-brand-orange block">
+              <div className="p-3.5 rounded-xl bg-orange-50/50 border border-orange-200/60 text-center">
+                <span className="text-2xl font-black text-brand-orange tabular-nums block">
                   {seancesSemaineCentre}
                 </span>
-                <span className="text-[10px] font-bold text-slate-500 uppercase">
+                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wide">
                   Séances (Sem. {semaineCourante})
                 </span>
               </div>
             </div>
 
-            <div className="space-y-1.5 pt-1">
+            <div className="space-y-2 pt-1">
               <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">
                 Salles attribuées au centre
               </span>
@@ -924,7 +1141,7 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
                   sallesDuCentre.map((s) => (
                     <span
                       key={s.id}
-                      className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700"
+                      className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200/70 border border-slate-200 text-xs font-bold text-slate-700 transition-colors"
                     >
                       {s.nom}
                     </span>
@@ -937,8 +1154,10 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
           {/* Card Top Lycées d'Origine (Vivier de Recrutement) */}
           <Card className="p-5 bg-white border border-slate-200 shadow-xs space-y-4">
             <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-              <School className="text-brand-orange" size={18} />
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+              <div className="p-1 rounded-lg bg-orange-50 text-brand-orange">
+                <School size={17} />
+              </div>
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                 Lycées Partenaires (Top Recrutement)
               </h3>
             </div>
@@ -949,19 +1168,28 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
               </p>
             ) : (
               <div className="space-y-3">
-                {topEtablissements.map((etab) => (
-                  <div key={etab.nom} className="space-y-1">
+                {topEtablissements.map((etab, idx) => (
+                  <div key={etab.nom} className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-slate-800 truncate max-w-[180px]" title={etab.nom}>
-                        {etab.nom}
-                      </span>
-                      <span className="text-slate-500 font-bold">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={`h-5 w-5 rounded-md flex items-center justify-center text-[10px] font-black shrink-0 ${
+                            idx === 0 ? "bg-brand-orange text-white" : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          0{idx + 1}
+                        </span>
+                        <span className="font-bold text-slate-800 truncate max-w-[170px]" title={etab.nom}>
+                          {etab.nom}
+                        </span>
+                      </div>
+                      <span className="text-slate-600 font-bold tabular-nums">
                         {etab.count} élève{etab.count > 1 ? "s" : ""} ({etab.part}%)
                       </span>
                     </div>
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
                       <div
-                        className="h-full rounded-full bg-brand-orange"
+                        className="h-full rounded-full bg-brand-orange transition-all duration-500"
                         style={{ width: `${etab.part}%` }}
                       />
                     </div>

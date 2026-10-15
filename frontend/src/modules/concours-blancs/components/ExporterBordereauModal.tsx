@@ -8,6 +8,10 @@ import {
   Building2,
   Award,
   Filter,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Star,
 } from "lucide-react";
 import type { Formation } from "@/modules/academique";
 import type { Centre } from "@/modules/centres-sessions";
@@ -64,6 +68,36 @@ function BordereauFiliereSheet({
     return bordereau.epreuves.every((ep) => ep.coefficient === premier);
   }, [bordereau]);
 
+  const aUneEvolution = useMemo(() => {
+    if (!bordereau) return false;
+    return bordereau.candidats.some(
+      (c) => c.deltaRang !== null && c.deltaRang !== undefined,
+    );
+  }, [bordereau]);
+
+  // Tri rigoureux des candidats pour l'export et l'impression officielle
+  const estFiltreCentre = Boolean(centreIdFiltre && centreIdFiltre !== "TOUS");
+  const candidatsTries = useMemo(() => {
+    if (!bordereau?.candidats) return [];
+    return [...bordereau.candidats].sort((a, b) => {
+      const rA = estFiltreCentre ? a.rangCentre : a.rang;
+      const rB = estFiltreCentre ? b.rangCentre : b.rang;
+      if (rA !== null && rA !== undefined && rB !== null && rB !== undefined) {
+        if (rA !== rB) return rA - rB;
+      } else if (rA !== null && rA !== undefined) {
+        return -1;
+      } else if (rB !== null && rB !== undefined) {
+        return 1;
+      }
+
+      const tA = a.totalPondere ?? 0;
+      const tB = b.totalPondere ?? 0;
+      if (tA !== tB) return tB - tA;
+
+      return (a.nomComplet || "").localeCompare(b.nomComplet || "");
+    });
+  }, [bordereau?.candidats, estFiltreCentre]);
+
   if (isLoading) {
     return (
       <div className="bg-white p-8 rounded-lg shadow-sm border border-slate-200 text-center text-xs text-slate-400 py-12 mb-6">
@@ -119,7 +153,7 @@ function BordereauFiliereSheet({
       </div>
 
       {/* Tableau des notes A4 Paysage */}
-      {!bordereau || bordereau.candidats.length === 0 ? (
+      {!bordereau || candidatsTries.length === 0 ? (
         <p className="text-center text-xs text-slate-400 py-8 italic">
           Aucun résultat enregistré pour la filière {formation.nom}.
         </p>
@@ -130,6 +164,9 @@ function BordereauFiliereSheet({
               <tr className="bg-slate-100 text-slate-900 border-b border-slate-400 font-bold uppercase text-[10px]">
                 <th className="py-2 px-2 border-r border-slate-300 text-center w-12">Rang</th>
                 <th className="py-2 px-2 border-r border-slate-300 text-center w-14">Rang Ctre</th>
+                {aUneEvolution && (
+                  <th className="py-2 px-2 border-r border-slate-300 text-center w-14">Évolution</th>
+                )}
                 <th className="py-2 px-3 border-r border-slate-300 min-w-[170px]">Noms & Prénoms</th>
                 <th className="py-2 px-2 border-r border-slate-300 min-w-[80px]">Centre</th>
                 <th className="py-2 px-2 border-r border-slate-300 min-w-[100px]">Établissement</th>
@@ -149,65 +186,113 @@ function BordereauFiliereSheet({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-300">
-              {bordereau.candidats.map((c) => (
-                <tr key={c.id} className="border-b border-slate-300 text-[11px]">
-                  <td className="py-1.5 px-2 text-center font-bold border-r border-slate-300">
-                    {c.rang ?? "-"}
-                  </td>
-                  <td className="py-1.5 px-2 text-center font-semibold text-slate-700 border-r border-slate-300">
-                    {c.rangCentre ?? "-"}
-                  </td>
-                  <td className="py-1.5 px-3 font-semibold text-slate-900 border-r border-slate-300">
-                    {c.nomComplet}
-                  </td>
-                  <td className="py-1.5 px-2 text-slate-700 font-medium border-r border-slate-300 text-[10px]">
-                    {centres.find((ct) => ct.id === c.centreId)?.nom || "—"}
-                  </td>
-                  <td className="py-1.5 px-2 text-slate-600 border-r border-slate-300 text-[10px]">
-                    {c.etablissementOrigine || "—"}
-                  </td>
-                  {bordereau.epreuves.map((ep) => {
-                    const noteObj = c.notes.find((n) => n.epreuveId === ep.id);
-                    const noteVal = noteObj?.note;
-                    const statut = noteObj?.statut ?? "NOTE";
-                    const maxNote = bordereau.meilleuresNotesParEpreuve[ep.id];
-                    const estMeilleur =
-                      statut === "NOTE" &&
-                      noteVal !== null &&
-                      noteVal !== undefined &&
-                      maxNote !== undefined &&
-                      noteVal >= maxNote &&
-                      noteVal > 0;
+              {candidatsTries.map((c) => {
+                const estAbsent =
+                  !c.notes ||
+                  c.notes.length === 0 ||
+                  !c.notes.some((n) => n.statut === "NOTE" && n.note !== null);
 
-                    return (
-                      <td key={ep.id} className="py-1.5 px-2 text-center border-r border-slate-300 font-mono">
-                        {statut === "NOTE" ? (
-                          noteVal !== null && noteVal !== undefined ? (
-                            <span className={estMeilleur ? "font-black text-amber-700 underline" : ""}>
-                              {noteVal} {estMeilleur ? "★" : ""}
+                return (
+                  <tr
+                    key={c.id}
+                    className={`border-b border-slate-300 text-[11px] ${
+                      estAbsent ? "bg-rose-50/20 text-slate-500" : ""
+                    }`}
+                  >
+                    <td className="py-1.5 px-2 text-center font-bold border-r border-slate-300">
+                      {estAbsent ? (
+                        <span className="text-[10px] font-black text-rose-700">ABS</span>
+                      ) : (
+                        c.rang ?? "-"
+                      )}
+                    </td>
+                    <td className="py-1.5 px-2 text-center font-semibold text-slate-700 border-r border-slate-300">
+                      {estAbsent ? (
+                        <span className="text-[10px] font-bold text-rose-700">ABS</span>
+                      ) : (
+                        c.rangCentre ?? "-"
+                      )}
+                    </td>
+                    {aUneEvolution && (
+                      <td className="py-1.5 px-2 text-center border-r border-slate-300">
+                        {!estAbsent && c.deltaRang !== null && c.deltaRang !== undefined ? (
+                          c.deltaRang > 0 ? (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600">
+                              <TrendingUp size={10} />+{c.deltaRang}
+                            </span>
+                          ) : c.deltaRang < 0 ? (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-red-600">
+                              <TrendingDown size={10} />
+                              {c.deltaRang}
                             </span>
                           ) : (
-                            "-"
+                            <span className="inline-flex items-center text-[10px] font-bold text-slate-400">
+                              <Minus size={10} />
+                            </span>
                           )
                         ) : (
-                          <span className="font-bold text-[9px] text-red-700">{statut}</span>
+                          <span className="text-[10px] text-slate-300">—</span>
                         )}
                       </td>
-                    );
-                  })}
-                  <td className="py-1.5 px-2 text-center font-mono font-bold bg-slate-50">
-                    {c.totalPondere ?? "-"}
-                  </td>
-                </tr>
-              ))}
+                    )}
+                    <td className="py-1.5 px-3 font-semibold text-slate-900 border-r border-slate-300">
+                      {c.nomComplet}
+                    </td>
+                    <td className="py-1.5 px-2 text-slate-700 font-medium border-r border-slate-300 text-[10px]">
+                      {centres.find((ct) => ct.id === c.centreId)?.nom || "—"}
+                    </td>
+                    <td className="py-1.5 px-2 text-slate-600 border-r border-slate-300 text-[10px]">
+                      {c.etablissementOrigine || "—"}
+                    </td>
+                    {bordereau.epreuves.map((ep) => {
+                      const noteObj = c.notes.find((n) => n.epreuveId === ep.id);
+                      const noteVal = noteObj?.note;
+                      const statut = noteObj?.statut ?? "NOTE";
+                      const maxNote = bordereau.meilleuresNotesParEpreuve[ep.id];
+                      const estMeilleur =
+                        statut === "NOTE" &&
+                        noteVal !== null &&
+                        noteVal !== undefined &&
+                        maxNote !== undefined &&
+                        noteVal >= maxNote &&
+                        noteVal > 0;
+
+                      return (
+                        <td key={ep.id} className="py-1.5 px-2 text-center border-r border-slate-300 font-mono">
+                          {statut === "NOTE" ? (
+                            noteVal !== null && noteVal !== undefined ? (
+                              <span className={estMeilleur ? "font-black text-amber-700 underline inline-flex items-center gap-0.5 justify-center" : ""}>
+                                {noteVal}
+                                {estMeilleur && <Star size={9} className="inline fill-amber-600 text-amber-600" />}
+                              </span>
+                            ) : (
+                              "-"
+                            )
+                          ) : (
+                            <span className="font-bold text-[9px] text-red-700">{statut}</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td className="py-1.5 px-2 text-center font-mono font-bold bg-slate-50">
+                      {estAbsent ? (
+                        <span className="text-[10px] font-black text-rose-700">ABS</span>
+                      ) : (
+                        c.totalPondere ?? "-"
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
       {/* Note de bas de tableau */}
-      <p className="text-[10px] text-slate-500 italic mb-6">
-        ★ Indique la meilleure note obtenue dans la matière sur l&rsquo;ensemble des centres.
+      <p className="text-[10px] text-slate-500 italic mb-6 flex items-center gap-1">
+        <Star size={10} className="inline fill-amber-600 text-amber-600 shrink-0" />
+        <span>Indique la meilleure note obtenue dans la matière sur l&rsquo;ensemble des centres.</span>
       </p>
 
       {/* Bloc officiel de signature des visas */}

@@ -165,6 +165,49 @@ class BilanJournalierServiceTest {
     }
 
     @Nested
+    @DisplayName("Soumission Caissier (Arrêté de caisse)")
+    class SoumissionCaissier {
+
+        @Test
+        @DisplayName("crée un bilan SOUMIS_CAISSIER si aucun bilan n'existe")
+        void soumetBilanNouveau() {
+            UUID caissierId = UUID.randomUUID();
+            when(centreRepository.findById(centreId)).thenReturn(Optional.of(
+                    new Centre(centreId, "Centre Yaoundé", "Bastos", "Yaoundé")));
+            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
+            when(utilisateurRepository.findById(caissierId)).thenReturn(Optional.of(unUtilisateur(caissierId)));
+            when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date)).thenReturn(Optional.empty());
+            when(bilanRepository.save(any(BilanJournalier.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            BilanJournalier bilan = service.soumettreBilanCaissier(centreId, sessionId, date, caissierId);
+
+            assertThat(bilan).isNotNull();
+            assertThat(bilan.getStatut()).isEqualTo(StatutBilan.SOUMIS_CAISSIER);
+            assertThat(bilan.getCaissierId()).isEqualTo(caissierId);
+            assertThat(bilan.getDateVisaCaissier()).isNotNull();
+            verify(bilanRepository).save(any(BilanJournalier.class));
+        }
+
+        @Test
+        @DisplayName("met à jour le visa caissier si un bilan ouvert existe déjà")
+        void metAJourBilanExistant() {
+            UUID caissierId = UUID.randomUUID();
+            BilanJournalier existant = new BilanJournalier(UUID.randomUUID(), centreId, sessionId, date);
+            when(centreRepository.findById(centreId)).thenReturn(Optional.of(
+                    new Centre(centreId, "Centre Yaoundé", "Bastos", "Yaoundé")));
+            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
+            when(utilisateurRepository.findById(caissierId)).thenReturn(Optional.of(unUtilisateur(caissierId)));
+            when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date)).thenReturn(Optional.of(existant));
+            when(bilanRepository.save(any(BilanJournalier.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            BilanJournalier bilan = service.soumettreBilanCaissier(centreId, sessionId, date, caissierId);
+
+            assertThat(bilan.getStatut()).isEqualTo(StatutBilan.SOUMIS_CAISSIER);
+            assertThat(bilan.getCaissierId()).isEqualTo(caissierId);
+        }
+    }
+
+    @Nested
     @DisplayName("Validation Contrôleur (2ème signature, clôture)")
     class ValidationControleur {
 

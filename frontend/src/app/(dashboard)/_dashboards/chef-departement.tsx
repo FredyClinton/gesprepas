@@ -420,10 +420,10 @@ export function ChefDepartementDashboard({ departementId, chefId }: Props) {
                 </span>
               )}
             </div>
-            <p className="mt-1 text-xs text-slate-500">
+            {/* <p className="mt-1 text-xs text-slate-500">
               Tableau de bord disciplinaire • Suivi des programmes, charge
               d&apos;enseignement et assignations.
-            </p>
+            </p> */}
           </div>
         </div>
 
@@ -476,9 +476,9 @@ export function ChefDepartementDashboard({ departementId, chefId }: Props) {
             <p className="mt-0.5 text-2xl font-extrabold text-slate-900">
               {chargementRoster ? "…" : enseignantsDuDepartement.length}
             </p>
-            <p className="text-[11px] text-slate-400">
+            {/* <p className="text-[11px] text-slate-400">
               Roster actif de la session
-            </p>
+            </p> */}
           </div>
         </Card>
 
@@ -494,9 +494,9 @@ export function ChefDepartementDashboard({ departementId, chefId }: Props) {
             <p className="mt-0.5 text-2xl font-extrabold text-slate-900">
               {chargementAffectations ? "…" : affectations.length}
             </p>
-            <p className="text-[11px] text-slate-400">
+            {/* <p className="text-[11px] text-slate-400">
               {seancesAssignees} séances pourvues
-            </p>
+            </p> */}
           </div>
         </Card>
 

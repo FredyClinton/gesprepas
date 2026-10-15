@@ -16,16 +16,19 @@ import {
   Download,
   Filter,
   X,
-  AlertCircle,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Calendar,
 } from "lucide-react";
 
 import { Button, Card, Pagination, Skeleton } from "@/shared/ui";
-import { useApprenants, useCursusApprenant, type Apprenant } from "@/modules/apprenants";
+import { useApprenants, type Apprenant } from "@/modules/apprenants";
 import { useFormations, type Formation } from "@/modules/academique";
 import { useSessionActive } from "@/modules/centres-sessions";
-import { useDossierParApprenant } from "@/modules/dossiers";
+import { useDossiers, type Dossier } from "@/modules/dossiers";
 import {
-  useVersementsApprenant,
+  useMouvementsFinanciers,
   EnregistrerVersementModal,
 } from "@/modules/financier";
 
@@ -57,10 +60,17 @@ function getInitials(prenom: string, nom: string) {
   return (p + n).toUpperCase() || "E";
 }
 
+type ColonneTri = "nom" | "formation" | "paiement" | "dossier" | "date";
+type DirectionTri = "asc" | "desc";
+
 export function ApprenantsListView({ centreId }: { centreId: string }) {
   const { data: apprenants, isLoading: chargementApprenants } = useApprenants();
   const { data: formations = [] } = useFormations();
   const { data: sessionActive } = useSessionActive();
+  const { data: mouvements = [], isLoading: chargementMouvements } =
+    useMouvementsFinanciers(sessionActive?.id, centreId);
+  const { data: dossiers = [], isLoading: chargementDossiers } =
+    useDossiers(sessionActive?.id, centreId);
 
   const [recherche, setRecherche] = useState("");
   const [filtreFormation, setFiltreFormation] = useState("");
@@ -68,6 +78,13 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
   const [filtrePaiement, setFiltrePaiement] = useState<"TOUS" | "SOLDE" | "RESTANT">("TOUS");
   const [filtreAdmission, setFiltreAdmission] = useState<"TOUS" | "DEFINITIF" | "PRE_INSCRIT">("TOUS");
   const [page, setPage] = useState(1);
+
+  // État de tri
+  const [triColonne, setTriColonne] = useState<ColonneTri>("nom");
+  const [triDirection, setTriDirection] = useState<DirectionTri>("asc");
+
+  // État de sélection pour export
+  const [selectionIds, setSelectionIds] = useState<Set<string>>(new Set());
 
   // État modal encaissement rapide
   const [versementApprenant, setVersementApprenant] = useState<{
@@ -93,6 +110,10 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
     setFiltreAdmission(valeur);
     setPage(1);
   }
+  function changerFiltrePaiement(valeur: "TOUS" | "SOLDE" | "RESTANT") {
+    setFiltrePaiement(valeur);
+    setPage(1);
+  }
   function reinitialiserFiltres() {
     setRecherche("");
     setFiltreFormation("");
@@ -102,10 +123,43 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
     setPage(1);
   }
 
-  const apprenantsDuCentre = useMemo(
-    () => (apprenants ?? []).filter((a) => a.centreId === centreId),
-    [apprenants, centreId],
-  );
+  function basculerTri(colonne: ColonneTri) {
+    if (triColonne === colonne) {
+      setTriDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTriColonne(colonne);
+      setTriDirection("asc");
+    }
+  }
+
+  const apprenantsDuCentre = useMemo(() => {
+    if (!sessionActive?.id) {
+      return (apprenants ?? []).filter((a) => a.centreId === centreId);
+    }
+    return (apprenants ?? []).filter(
+      (a) => a.centreId === centreId && a.sessionId === sessionActive.id,
+    );
+  }, [apprenants, centreId, sessionActive]);
+
+  // Calcul groupé des montants payés par apprenant pour éviter les requêtes N+1
+  const paiementsParApprenant = useMemo(() => {
+    const map = new Map<string, number>();
+    mouvements
+      .filter((m) => m.type === "ENTREE" && m.statut !== "REJETE" && m.apprenantId)
+      .forEach((m) => {
+        map.set(m.apprenantId!, (map.get(m.apprenantId!) || 0) + m.montant);
+      });
+    return map;
+  }, [mouvements]);
+
+  // Indexation des dossiers de concours par apprenant
+  const dossiersParApprenant = useMemo(() => {
+    const map = new Map<string, Dossier>();
+    dossiers.forEach((d) => {
+      map.set(d.apprenantId, d);
+    });
+    return map;
+  }, [dossiers]);
 
   const listeEtablissements = useMemo(() => {
     const set = new Set<string>();
@@ -124,9 +178,9 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
     return { total, preInscrits, definitifs };
   }, [apprenantsDuCentre]);
 
-  // Filtrage combiné multi-critères
+  // Filtrage combiné multi-critères et tri
   const apprenantsFiltres = useMemo(() => {
-    return apprenantsDuCentre.filter((a) => {
+    const resultat = apprenantsDuCentre.filter((a) => {
       // 1. Filtre par formation
       if (filtreFormation && a.formationId !== filtreFormation) return false;
 
@@ -137,7 +191,13 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
       if (filtreAdmission === "PRE_INSCRIT" && !a.preInscrit) return false;
       if (filtreAdmission === "DEFINITIF" && a.preInscrit) return false;
 
-      // 4. Filtre recherche textuelle
+      // 4. Filtre par statut de paiement
+      const paye = paiementsParApprenant.get(a.id) || 0;
+      const soldeRestant = Math.max(0, (a.montantContrat || 0) - paye);
+      if (filtrePaiement === "SOLDE" && soldeRestant > 0) return false;
+      if (filtrePaiement === "RESTANT" && soldeRestant === 0) return false;
+
+      // 5. Filtre recherche textuelle
       if (recherche.trim()) {
         const q = recherche.trim().toLowerCase();
         const nomComplet = `${a.prenom} ${a.nom}`.toLowerCase();
@@ -155,12 +215,78 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
       }
       return true;
     });
-  }, [apprenantsDuCentre, filtreFormation, filtreEtablissement, filtreAdmission, recherche]);
+
+    // Tri
+    resultat.sort((a, b) => {
+      let comparaison = 0;
+      if (triColonne === "nom") {
+        const nomA = `${a.nom} ${a.prenom}`.toLowerCase();
+        const nomB = `${b.nom} ${b.prenom}`.toLowerCase();
+        comparaison = nomA.localeCompare(nomB, "fr-FR");
+      } else if (triColonne === "formation") {
+        const nomFA = formations.find((f) => f.id === a.formationId)?.nom || "";
+        const nomFB = formations.find((f) => f.id === b.formationId)?.nom || "";
+        comparaison = nomFA.localeCompare(nomFB, "fr-FR");
+      } else if (triColonne === "paiement") {
+        const soldeA = Math.max(0, (a.montantContrat || 0) - (paiementsParApprenant.get(a.id) || 0));
+        const soldeB = Math.max(0, (b.montantContrat || 0) - (paiementsParApprenant.get(b.id) || 0));
+        comparaison = soldeA - soldeB;
+      } else if (triColonne === "dossier") {
+        const statutA = dossiersParApprenant.get(a.id)?.statut || "Z";
+        const statutB = dossiersParApprenant.get(b.id)?.statut || "Z";
+        comparaison = statutA.localeCompare(statutB);
+      } else if (triColonne === "date") {
+        const dateA = a.dateInscription ? new Date(a.dateInscription).getTime() : 0;
+        const dateB = b.dateInscription ? new Date(b.dateInscription).getTime() : 0;
+        comparaison = dateA - dateB;
+      }
+      return triDirection === "asc" ? comparaison : -comparaison;
+    });
+
+    return resultat;
+  }, [
+    apprenantsDuCentre,
+    filtreFormation,
+    filtreEtablissement,
+    filtreAdmission,
+    filtrePaiement,
+    recherche,
+    paiementsParApprenant,
+    dossiersParApprenant,
+    formations,
+    triColonne,
+    triDirection,
+  ]);
 
   const apprenantsPage = useMemo(
     () => apprenantsFiltres.slice((page - 1) * TAILLE_PAGE, page * TAILLE_PAGE),
     [apprenantsFiltres, page],
   );
+
+  const tousSelectionnesSurPage =
+    apprenantsPage.length > 0 &&
+    apprenantsPage.every((a) => selectionIds.has(a.id));
+
+  function toggleSelectAllPage() {
+    setSelectionIds((prev) => {
+      const next = new Set(prev);
+      if (tousSelectionnesSurPage) {
+        apprenantsPage.forEach((a) => next.delete(a.id));
+      } else {
+        apprenantsPage.forEach((a) => next.add(a.id));
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectApprenant(id: string) {
+    setSelectionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const aDesFiltresActifs =
     Boolean(recherche) ||
@@ -169,8 +295,15 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
     filtreAdmission !== "TOUS" ||
     filtrePaiement !== "TOUS";
 
-  // Fonction d'export CSV
+  // Fonction d'export CSV (adaptée à la sélection)
   function exporterCSV() {
+    const cibles =
+      selectionIds.size > 0
+        ? apprenantsDuCentre.filter((a) => selectionIds.has(a.id))
+        : apprenantsFiltres;
+
+    if (cibles.length === 0) return;
+
     const enTetes = [
       "ID",
       "Nom",
@@ -181,13 +314,22 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
       "Type d'admission",
       "Date d'inscription",
       "Montant Contrat (FCFA)",
+      "Montant Payé (FCFA)",
+      "Reste Dû (FCFA)",
+      "Statut Paiement",
+      "Statut Dossier",
       "Nom Parent",
       "Contact Parent",
     ];
 
-    const lignes = apprenantsFiltres.map((a) => {
+    const lignes = cibles.map((a) => {
       const nomFormation =
         formations.find((f) => f.id === a.formationId)?.nom || "Non définie";
+      const paye = paiementsParApprenant.get(a.id) || 0;
+      const reste = Math.max(0, (a.montantContrat || 0) - paye);
+      const statutPaye = reste === 0 ? "Soldé" : paye > 0 ? "Partiel" : "Non démarré";
+      const statutDossier = dossiersParApprenant.get(a.id)?.statut || "Aucun dossier";
+
       return [
         a.id,
         `"${a.nom.replace(/"/g, '""')}"`,
@@ -198,6 +340,10 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
         a.preInscrit ? "Pré-inscrit" : "Inscription définitive",
         a.dateInscription ? new Date(a.dateInscription).toLocaleDateString("fr-FR") : "",
         a.montantContrat || 0,
+        paye,
+        reste,
+        statutPaye,
+        statutDossier,
         `"${(a.nomParent || "").replace(/"/g, '""')}"`,
         `"${a.contactParent || ""}"`,
       ].join(";");
@@ -208,14 +354,17 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
     const url = URL.createObjectURL(blob);
     const lien = document.createElement("a");
     lien.href = url;
-    lien.setAttribute("download", `apprenants_${new Date().toISOString().slice(0, 10)}.csv`);
+    lien.setAttribute(
+      "download",
+      `apprenants_${selectionIds.size > 0 ? "selection_" : ""}${new Date().toISOString().slice(0, 10)}.csv`,
+    );
     document.body.appendChild(lien);
     lien.click();
     document.body.removeChild(lien);
     URL.revokeObjectURL(url);
   }
 
-  const chargement = chargementApprenants;
+  const chargement = chargementApprenants || chargementMouvements || chargementDossiers;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -236,10 +385,18 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
             variant="secondary"
             onClick={exporterCSV}
             disabled={apprenantsFiltres.length === 0}
-            className="flex items-center gap-1.5 text-xs font-bold"
+            className={`flex items-center gap-1.5 text-xs font-bold transition-all ${
+              selectionIds.size > 0
+                ? "border-brand-orange text-brand-orange bg-orange-50/70"
+                : ""
+            }`}
           >
             <Download size={14} />
-            <span>Exporter CSV</span>
+            <span>
+              {selectionIds.size > 0
+                ? `Exporter sélection (${selectionIds.size})`
+                : "Exporter CSV"}
+            </span>
           </Button>
 
           <Link href="/inscription">
@@ -326,7 +483,7 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
         </button>
       </div>
 
-      {/* ── Filtres de Recherche Modernes ── */}
+      {/* ── Filtres de Recherche et Recouvrement ── */}
       <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           {/* Champ Recherche */}
@@ -373,13 +530,24 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
             className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 outline-none shadow-2xs focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
           >
             <option value="" className="bg-white text-slate-800">
-              Tous les établissements ({listeEtablissements.length})
+              Tous les lycées ({listeEtablissements.length})
             </option>
             {listeEtablissements.map((etab) => (
               <option key={etab} value={etab} className="bg-white text-slate-800">
                 {etab}
               </option>
             ))}
+          </select>
+
+          {/* Filtre Paiement */}
+          <select
+            value={filtrePaiement}
+            onChange={(e) => changerFiltrePaiement(e.target.value as "TOUS" | "SOLDE" | "RESTANT")}
+            className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 outline-none shadow-2xs focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
+          >
+            <option value="TOUS">Tous les paiements</option>
+            <option value="SOLDE">Soldés (100%)</option>
+            <option value="RESTANT">Reste à payer</option>
           </select>
 
           {/* Filtre Type d'admission */}
@@ -390,7 +558,7 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
             }
             className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 outline-none shadow-2xs focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
           >
-            <option value="TOUS">Tous les types d'admission</option>
+            <option value="TOUS">Tous les types d&rsquo;admission</option>
             <option value="DEFINITIF">Inscriptions définitives</option>
             <option value="PRE_INSCRIT">Pré-inscrits (Acomptes)</option>
           </select>
@@ -400,7 +568,7 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
             <button
               type="button"
               onClick={reinitialiserFiltres}
-              className="inline-flex items-center gap-1 text-xs font-bold text-brand-orange hover:underline px-2 py-1"
+              className="inline-flex items-center gap-1 text-xs font-bold text-brand-orange hover:underline px-2 py-1 shrink-0"
             >
               <X size={13} />
               <span>Réinitialiser</span>
@@ -408,16 +576,28 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
           )}
         </div>
 
-        {/* Info compteur résultats */}
-        <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-500">
-          <span>
-            {apprenantsFiltres.length} apprenant{apprenantsFiltres.length > 1 ? "s" : ""} trouvé
-            {apprenantsFiltres.length > 1 ? "s" : ""}
-          </span>
+        {/* Info compteur résultats et sélection */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs text-slate-500">
           <div className="flex items-center gap-2">
+            <span>
+              {apprenantsFiltres.length} apprenant{apprenantsFiltres.length > 1 ? "s" : ""} trouvé
+              {apprenantsFiltres.length > 1 ? "s" : ""}
+            </span>
+            {selectionIds.size > 0 && (
+              <span className="font-bold text-brand-orange bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200/60">
+                {selectionIds.size} sélectionné{selectionIds.size > 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             {filtreFormation && (
               <span className="font-semibold text-brand-orange bg-orange-50 px-2 py-0.5 rounded-md">
                 Formation : {formations.find((f) => f.id === filtreFormation)?.nom}
+              </span>
+            )}
+            {filtrePaiement !== "TOUS" && (
+              <span className="font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60">
+                {filtrePaiement === "SOLDE" ? "Soldés uniquement" : "Reste à payer"}
               </span>
             )}
             {filtreEtablissement && (
@@ -438,22 +618,84 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
       <Card className="overflow-hidden border border-slate-200 shadow-xs bg-white">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs sm:text-sm">
-            <thead className="border-b border-slate-200 bg-slate-100/90 text-slate-700">
+            <thead className="border-b border-slate-200 bg-slate-100/90 text-slate-700 select-none">
               <tr>
-                <th className="p-3.5 text-xs font-bold tracking-wider uppercase">
-                  Apprenant
+                <th className="p-3.5 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={tousSelectionnesSurPage}
+                    onChange={toggleSelectAllPage}
+                    className="h-4 w-4 rounded border-slate-300 text-brand-orange focus:ring-brand-orange/30 cursor-pointer"
+                    title="Tout sélectionner sur cette page"
+                  />
                 </th>
-                <th className="p-3.5 text-xs font-bold tracking-wider uppercase">
-                  Formation
+                <th
+                  onClick={() => basculerTri("nom")}
+                  className="p-3.5 text-xs font-bold tracking-wider uppercase cursor-pointer hover:text-brand-orange transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Apprenant &amp; Contact</span>
+                    {triColonne === "nom" ? (
+                      triDirection === "asc" ? (
+                        <ArrowUp size={13} className="text-brand-orange" />
+                      ) : (
+                        <ArrowDown size={13} className="text-brand-orange" />
+                      )
+                    ) : (
+                      <ArrowUpDown size={13} className="text-slate-400" />
+                    )}
+                  </div>
                 </th>
-                <th className="p-3.5 text-xs font-bold tracking-wider uppercase">
-                  Établissement
+                <th
+                  onClick={() => basculerTri("formation")}
+                  className="p-3.5 text-xs font-bold tracking-wider uppercase cursor-pointer hover:text-brand-orange transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Filière &amp; Inscription</span>
+                    {triColonne === "formation" ? (
+                      triDirection === "asc" ? (
+                        <ArrowUp size={13} className="text-brand-orange" />
+                      ) : (
+                        <ArrowDown size={13} className="text-brand-orange" />
+                      )
+                    ) : (
+                      <ArrowUpDown size={13} className="text-slate-400" />
+                    )}
+                  </div>
                 </th>
-                <th className="p-3.5 text-xs font-bold tracking-wider uppercase">
-                  Paiement & Contrat
+                <th
+                  onClick={() => basculerTri("paiement")}
+                  className="p-3.5 text-xs font-bold tracking-wider uppercase cursor-pointer hover:text-brand-orange transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Suivi Recouvrement</span>
+                    {triColonne === "paiement" ? (
+                      triDirection === "asc" ? (
+                        <ArrowUp size={13} className="text-brand-orange" />
+                      ) : (
+                        <ArrowDown size={13} className="text-brand-orange" />
+                      )
+                    ) : (
+                      <ArrowUpDown size={13} className="text-slate-400" />
+                    )}
+                  </div>
                 </th>
-                <th className="p-3.5 text-xs font-bold tracking-wider uppercase">
-                  Dossier
+                <th
+                  onClick={() => basculerTri("dossier")}
+                  className="p-3.5 text-xs font-bold tracking-wider uppercase cursor-pointer hover:text-brand-orange transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Dossier Concours</span>
+                    {triColonne === "dossier" ? (
+                      triDirection === "asc" ? (
+                        <ArrowUp size={13} className="text-brand-orange" />
+                      ) : (
+                        <ArrowDown size={13} className="text-brand-orange" />
+                      )
+                    ) : (
+                      <ArrowUpDown size={13} className="text-slate-400" />
+                    )}
+                  </div>
                 </th>
                 <th className="p-3.5 text-right text-xs font-bold tracking-wider uppercase">
                   Actions Rapides
@@ -464,29 +706,29 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
               {chargement &&
                 Array.from({ length: 6 }).map((_, idx) => (
                   <tr key={idx} className="animate-pulse">
+                    <td className="p-3.5 text-center">
+                      <Skeleton className="h-4 w-4 rounded mx-auto" />
+                    </td>
                     <td className="p-3.5">
                       <div className="flex items-center gap-3">
-                        <Skeleton className="h-9 w-9 rounded-xl shrink-0" />
+                        <Skeleton className="h-9 w-9 rounded-full shrink-0" />
                         <div className="space-y-1.5 flex-1">
                           <Skeleton className="h-3.5 w-32" />
-                          <Skeleton className="h-2.5 w-20" />
+                          <Skeleton className="h-2.5 w-24" />
                         </div>
                       </div>
                     </td>
                     <td className="p-3.5">
-                      <Skeleton className="h-3.5 w-24" />
-                    </td>
-                    <td className="p-3.5">
-                      <Skeleton className="h-3.5 w-28" />
+                      <Skeleton className="h-4 w-28" />
                     </td>
                     <td className="p-3.5">
                       <div className="space-y-1.5">
-                        <Skeleton className="h-3.5 w-20" />
-                        <Skeleton className="h-2 w-28" />
+                        <Skeleton className="h-2 w-28 rounded-full" />
+                        <Skeleton className="h-3 w-36" />
                       </div>
                     </td>
                     <td className="p-3.5">
-                      <Skeleton className="h-5 w-16 rounded-full" />
+                      <Skeleton className="h-5 w-20 rounded-full" />
                     </td>
                     <td className="p-3.5 text-right">
                       <Skeleton className="h-7 w-20 rounded-lg ml-auto" />
@@ -500,26 +742,42 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
                   </td>
                 </tr>
               )}
-              {apprenantsPage.map((a) => (
-                <LigneApprenant
-                  key={a.id}
-                  apprenant={a}
-                  formations={formations}
-                  onEncaisser={(soldeRestant) =>
-                    setVersementApprenant({
-                      id: a.id,
-                      nomComplet: `${a.prenom} ${a.nom}`,
-                      formationId: a.formationId,
-                      soldeRestant,
-                    })
-                  }
-                />
-              ))}
+              {apprenantsPage.map((a) => {
+                const nomFormation = formations.find((f) => f.id === a.formationId)?.nom;
+                const montantPaye = paiementsParApprenant.get(a.id) || 0;
+                const dossier = dossiersParApprenant.get(a.id);
+                const estSelectionne = selectionIds.has(a.id);
+
+                return (
+                  <LigneApprenant
+                    key={a.id}
+                    apprenant={a}
+                    nomFormation={nomFormation}
+                    montantPaye={montantPaye}
+                    dossier={dossier}
+                    estSelectionne={estSelectionne}
+                    onToggleSelect={() => toggleSelectApprenant(a.id)}
+                    onEncaisser={(soldeRestant) =>
+                      setVersementApprenant({
+                        id: a.id,
+                        nomComplet: `${a.prenom} ${a.nom}`,
+                        formationId: a.formationId,
+                        soldeRestant,
+                      })
+                    }
+                  />
+                );
+              })}
             </tbody>
           </table>
         </div>
         {!chargement && apprenantsFiltres.length > 0 && (
-          <div className="border-slate-100 border-t px-4 py-3 bg-slate-50/60">
+          <div className="border-slate-100 border-t px-4 py-3 bg-slate-50/60 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <span className="text-xs text-slate-500">
+              Affichage de {(page - 1) * TAILLE_PAGE + 1} à{" "}
+              {Math.min(page * TAILLE_PAGE, apprenantsFiltres.length)} sur{" "}
+              {apprenantsFiltres.length} apprenant{apprenantsFiltres.length > 1 ? "s" : ""}
+            </span>
             <Pagination
               page={page}
               totalPages={Math.max(1, Math.ceil(apprenantsFiltres.length / TAILLE_PAGE))}
@@ -550,137 +808,177 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
 
 function LigneApprenant({
   apprenant,
-  formations,
+  nomFormation,
+  montantPaye,
+  dossier,
+  estSelectionne,
+  onToggleSelect,
   onEncaisser,
 }: {
   apprenant: Apprenant;
-  formations: Formation[];
+  nomFormation?: string;
+  montantPaye: number;
+  dossier?: Dossier;
+  estSelectionne: boolean;
+  onToggleSelect: () => void;
   onEncaisser: (soldeRestant: number) => void;
 }) {
-  const { data: versements, isLoading: chargementVersements } =
-    useVersementsApprenant(apprenant.id);
-  const {
-    data: dossier,
-    isLoading: chargementDossier,
-    isError: erreurDossier,
-  } = useDossierParApprenant(apprenant.id);
-  const { data: cursus } = useCursusApprenant(apprenant.id);
-
-  const formationEffectiveId = cursus?.formationActiveId || apprenant.formationId;
-  const nomFormation = formations.find((f) => f.id === formationEffectiveId)?.nom;
-
-  const montantPaye = (versements ?? [])
-    .filter((v) => v.statut !== "REJETE")
-    .reduce((total, v) => total + v.montant, 0);
-  const soldeRestant = Math.max(apprenant.montantContrat - montantPaye, 0);
+  const montantContrat = apprenant.montantContrat || 0;
+  const soldeRestant = Math.max(0, montantContrat - montantPaye);
+  const pctRegle =
+    montantContrat > 0 ? Math.min(100, Math.round((montantPaye / montantContrat) * 100)) : 0;
 
   return (
-    <tr className="hover:bg-amber-50/50 transition-colors duration-150 group">
-      {/* 1. Identité & Avatar */}
+    <tr
+      className={`transition-colors duration-150 group ${
+        estSelectionne ? "bg-orange-50/60" : "hover:bg-amber-50/40"
+      }`}
+    >
+      {/* 0. Checkbox Sélection */}
+      <td className="p-3.5 text-center">
+        <input
+          type="checkbox"
+          checked={estSelectionne}
+          onChange={onToggleSelect}
+          className="h-4 w-4 rounded border-slate-300 text-brand-orange focus:ring-brand-orange/30 cursor-pointer"
+        />
+      </td>
+
+      {/* 1. Identité, Contact & Lycée d'origine regroupés */}
       <td className="p-3.5">
-        <Link
-          href={`/apprenants/${apprenant.id}`}
-          className="flex items-center gap-3 group"
-        >
-          <div
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/apprenants/${apprenant.id}`}
             className={`h-10 w-10 rounded-full flex items-center justify-center font-bold text-xs border shrink-0 transition-transform group-hover:scale-105 ${getAvatarStyles(
               `${apprenant.prenom} ${apprenant.nom}`,
             )}`}
           >
             {getInitials(apprenant.prenom, apprenant.nom)}
-          </div>
-          <div>
+          </Link>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-slate-900 group-hover:text-brand-orange transition-colors">
+              <Link
+                href={`/apprenants/${apprenant.id}`}
+                className="text-sm font-bold text-slate-900 group-hover:text-brand-orange transition-colors truncate"
+              >
                 {apprenant.nom} {apprenant.prenom}
-              </span>
+              </Link>
               {apprenant.preInscrit && (
                 <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[9px] font-black text-amber-800 uppercase shrink-0">
                   Pré-inscrit
                 </span>
               )}
             </div>
-            {apprenant.contactApprenant && (
-              <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                <Phone size={11} className="text-slate-400" />
-                <span>{apprenant.contactApprenant}</span>
-              </p>
-            )}
+            <div className="flex flex-wrap items-center gap-y-0.5 gap-x-2 text-xs text-slate-400 mt-0.5">
+              {apprenant.contactApprenant && (
+                <span className="inline-flex items-center gap-1 text-slate-500 font-medium">
+                  <Phone size={11} className="text-slate-400" />
+                  {apprenant.contactApprenant}
+                </span>
+              )}
+              {apprenant.contactApprenant && apprenant.etablissementOrigine && (
+                <span className="text-slate-300">·</span>
+              )}
+              {apprenant.etablissementOrigine ? (
+                <span
+                  className="inline-flex items-center gap-1 text-slate-600 truncate max-w-[180px]"
+                  title={apprenant.etablissementOrigine}
+                >
+                  <Building2 size={11} className="text-slate-400 shrink-0" />
+                  {apprenant.etablissementOrigine}
+                </span>
+              ) : (
+                <span className="italic text-slate-400">Lycée non précisé</span>
+              )}
+            </div>
           </div>
-        </Link>
+        </div>
       </td>
 
-      {/* 2. Formation */}
+      {/* 2. Filière & Date d'inscription */}
       <td className="p-3.5">
-        <span className="inline-flex items-center gap-1.5 rounded-lg bg-orange-50 border border-orange-200/70 px-2.5 py-1 text-xs font-bold text-orange-950">
-          <GraduationCap size={13} className="text-brand-orange shrink-0" />
-          <span>{nomFormation ?? "Formation non définie"}</span>
-        </span>
-      </td>
-
-      {/* 3. Établissement d'origine */}
-      <td className="p-3.5">
-        {apprenant.etablissementOrigine ? (
-          <span className="text-slate-700 flex items-center gap-1.5 text-xs font-medium">
-            <Building2 size={13} className="text-slate-400 shrink-0" />
-            <span className="truncate max-w-[200px]" title={apprenant.etablissementOrigine}>
-              {apprenant.etablissementOrigine}
-            </span>
+        <div className="space-y-1">
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-orange-50 border border-orange-200/70 px-2.5 py-0.5 text-xs font-bold text-orange-950">
+            <GraduationCap size={13} className="text-brand-orange shrink-0" />
+            <span className="truncate max-w-[160px]">{nomFormation ?? "Formation non définie"}</span>
           </span>
-        ) : (
-          <span className="text-slate-400 text-xs italic">Lycée non précisé</span>
-        )}
+          {apprenant.dateInscription && (
+            <p className="text-[11px] text-slate-400 flex items-center gap-1 font-medium">
+              <Calendar size={11} className="text-slate-400" />
+              <span>{new Date(apprenant.dateInscription).toLocaleDateString("fr-FR")}</span>
+            </p>
+          )}
+        </div>
       </td>
 
-      {/* 3. Statut Paiement */}
+      {/* 3. Mini-jauge de recouvrement contextuelle */}
       <td className="p-3.5">
-        {chargementVersements ? (
-          <span className="text-slate-400 text-xs">...</span>
-        ) : soldeRestant <= 0 ? (
+        {soldeRestant <= 0 ? (
           <div>
-            <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-bold text-green-800 uppercase">
-              <CheckCircle2 size={12} />
-              Soldé
-            </span>
-            <p className="text-[10px] text-slate-400 mt-0.5 font-medium">
-              Total : {FORMATEUR_FCFA.format(apprenant.montantContrat)} F
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 text-xs font-bold text-emerald-700">
+                <CheckCircle2 size={12} className="text-emerald-600" />
+                Soldé (100%)
+              </span>
+            </div>
+            <div className="mt-1.5 h-1.5 w-28 bg-emerald-100 rounded-full overflow-hidden">
+              <div className="h-full bg-emerald-500 rounded-full w-full" />
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1 font-medium">
+              Total : {FORMATEUR_FCFA.format(montantContrat)} F
+            </p>
+          </div>
+        ) : montantPaye > 0 ? (
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 w-24 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-amber-500 rounded-full transition-all duration-300"
+                  style={{ width: `${pctRegle}%` }}
+                />
+              </div>
+              <span className="text-xs font-black text-amber-900 tabular-nums">
+                {pctRegle}%
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Payé <strong className="text-slate-800">{FORMATEUR_FCFA.format(montantPaye)} F</strong>
+              {" · "}
+              Reste <strong className="text-brand-orange font-bold">{FORMATEUR_FCFA.format(soldeRestant)} F</strong>
             </p>
           </div>
         ) : (
           <div>
-            <span className="bg-orange-100 text-brand-orange rounded-full px-2.5 py-0.5 text-xs font-bold uppercase">
-              Reste : {FORMATEUR_FCFA.format(soldeRestant)} F
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+              0% versé
             </span>
-            <p className="text-[10px] text-slate-400 mt-0.5 font-medium">
-              Contrat : {FORMATEUR_FCFA.format(apprenant.montantContrat)} F
+            <div className="mt-1.5 h-1.5 w-24 bg-slate-100 rounded-full" />
+            <p className="text-[11px] text-brand-orange font-bold mt-1">
+              Reste : {FORMATEUR_FCFA.format(montantContrat)} F
             </p>
           </div>
         )}
       </td>
 
-      {/* 4. Statut Dossier */}
+      {/* 4. Statut Dossier Concours */}
       <td className="p-3.5">
-        {chargementDossier ? (
-          <span className="text-slate-400 text-xs">...</span>
-        ) : erreurDossier || !dossier ? (
-          <span className="bg-slate-100 text-slate-600 rounded-full px-2.5 py-0.5 text-xs font-bold uppercase">
+        {!dossier ? (
+          <span className="bg-slate-100 text-slate-500 rounded-full px-2.5 py-0.5 text-xs font-semibold">
             Aucun dossier
           </span>
+        ) : dossier.statut === "COMPLET" ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
+            <CheckCircle2 size={12} className="text-emerald-600" />
+            Complet
+          </span>
+        ) : dossier.statut === "CLOTURE" ? (
+          <span className="bg-slate-100 text-slate-600 rounded-full px-2.5 py-0.5 text-xs font-bold">
+            Clôturé
+          </span>
         ) : (
-          <span
-            className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${
-              dossier.statut === "CLOTURE"
-                ? "bg-slate-100 text-slate-600"
-                : dossier.statut === "COMPLET"
-                ? "bg-green-100 text-green-800"
-                : "bg-orange-100 text-brand-orange"
-            }`}
-          >
-            {dossier.statut === "OUVERT"
-              ? "Ouvert"
-              : dossier.statut === "COMPLET"
-              ? "Complet"
-              : "Clôturé"}
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200/80 px-2.5 py-0.5 text-xs font-bold text-amber-900">
+            <Clock size={12} className="text-amber-600" />
+            En cours
           </span>
         )}
       </td>

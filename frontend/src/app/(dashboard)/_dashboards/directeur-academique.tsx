@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import {
   UserRound,
+  Users,
   AlertTriangle,
   ClipboardList,
   Building2,
@@ -16,6 +17,7 @@ import { useEnseignants } from "@/modules/personnel";
 import { useCentres, useSessionActive } from "@/modules/centres-sessions";
 import { useAffectations } from "@/modules/affectation";
 import { useDepartements } from "@/modules/departement";
+import { useRostersDepartements } from "@/modules/affectation-departementale";
 import { useFormations } from "@/modules/academique";
 import { useMatieres } from "@/modules/matieres";
 import { useSalles } from "@/modules/salle";
@@ -29,10 +31,16 @@ export function DirecteurAcademiqueDashboard() {
     useEnseignants();
   const { data: centres, isLoading: chargementCentres } = useCentres();
   const { data: sessionActive } = useSessionActive();
+  const { data: departements = [] } = useDepartements();
 
-  const enseignantsActifs = enseignants?.filter(
-    (e) => e.statut === "ACTIF",
-  ).length;
+  const departementIds = useMemo(
+    () => departements.map((d) => d.id),
+    [departements],
+  );
+  const { data: rosters = [], isLoading: chargementRosters } = useRostersDepartements(
+    departementIds,
+    sessionActive?.id,
+  );
 
   const centresActifs = centres?.filter(
     (c) =>
@@ -40,6 +48,10 @@ export function DirecteurAcademiqueDashboard() {
       sessionActive &&
       c.sessionIds.includes(sessionActive.id),
   ).length;
+
+  const totalEnseignants = enseignants?.length ?? 0;
+  const enseignantsActifs = enseignants?.filter((e) => e.statut === "ACTIF").length ?? 0;
+  const enseignantsSuspendus = totalEnseignants - enseignantsActifs;
 
   // Semaine courante calculée comme sur le dashboard Chef de Département (pas de
   // semaine calendaire ISO côté backend). Pas de filtre matiereId : le Directeur
@@ -57,7 +69,6 @@ export function DirecteurAcademiqueDashboard() {
     (a) => a.statut === "PLANIFIEE",
   ).length;
 
-  const { data: departements = [] } = useDepartements();
   const { data: formations = [] } = useFormations();
   const { data: matieres = [] } = useMatieres();
   const { data: salles = [] } = useSalles(sessionActive?.id);
@@ -98,45 +109,135 @@ export function DirecteurAcademiqueDashboard() {
   const nbDepartementsAJour = conformiteSemaineCourante.filter((c) => c.aJour).length;
   const nbDepartementsEnAttente = conformiteSemaineCourante.length - nbDepartementsAJour;
 
+  // Enseignants mobilisés / rattachés à la session courante (roster départemental ou affectations de créneaux)
+  const enseignantIdsSession = useMemo(() => {
+    const ids = new Set<string>();
+    (rosters ?? []).forEach((r) => {
+      if (r.enseignantId) ids.add(r.enseignantId);
+    });
+    (affectations ?? []).forEach((a) => {
+      if (a.enseignantId) ids.add(a.enseignantId);
+    });
+    return ids;
+  }, [rosters, affectations]);
+
+  // Nombre d'enseignants actifs dans la session en cours
+  const enseignantsActifsSession = useMemo(() => {
+    if (!enseignants) return 0;
+    return enseignants.filter(
+      (e) => enseignantIdsSession.has(e.id) && e.statut === "ACTIF",
+    ).length;
+  }, [enseignants, enseignantIdsSession]);
+
+  // Données globales du réseau (tous les enseignants enregistrés)
+  const totalEnseignantsReseau = enseignants?.length ?? 0;
+  const totalEnseignantsActifsReseau =
+    enseignants?.filter((e) => e.statut === "ACTIF").length ?? 0;
+  const totalEnseignantsSuspendusReseau =
+    enseignants?.filter((e) => e.statut === "SUSPENDU").length ?? 0;
+
+  const departementsParEnseignant = useMemo(() => {
+    const map = new Map<string, string[]>();
+    rosters.forEach((r) => {
+      const dep = departements.find((d) => d.id === r.departementId);
+      if (dep) {
+        const existants = map.get(r.enseignantId) ?? [];
+        if (!existants.includes(dep.nom)) {
+          existants.push(dep.nom);
+          map.set(r.enseignantId, existants);
+        }
+      }
+    });
+    return map;
+  }, [rosters, departements]);
+
+  const enseignantsAffiches = useMemo(() => {
+    if (!enseignants) return [];
+    const tries = [...enseignants].sort((a, b) => {
+      const aInSession = enseignantIdsSession.has(a.id) ? 1 : 0;
+      const bInSession = enseignantIdsSession.has(b.id) ? 1 : 0;
+      if (aInSession !== bInSession) return bInSession - aInSession;
+      return a.nom.localeCompare(b.nom);
+    });
+    return tries.slice(0, 8);
+  }, [enseignants, enseignantIdsSession]);
+
   return (
     <div className="mx-auto max-w-7xl space-y-8">
       {/* En-tête de page */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-2xl font-extrabold tracking-tight text-brand-anthracite">
             Vue d&rsquo;ensemble Pédagogique
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-brand-gray">
             Supervision et conformité de l&rsquo;activité pédagogique du réseau
           </p>
         </div>
 
-        <Link
-          href="/livres"
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs hover:border-brand-orange/40 hover:text-brand-orange transition-colors"
-        >
-          <BookOpen size={16} className="text-brand-orange" />
-          <span>Gérer les Livres & Supports</span>
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/personnel"
+            className="inline-flex items-center gap-2 rounded-xl border border-brand-gray/20 bg-white px-3.5 py-2 text-xs font-bold text-brand-anthracite shadow-xs hover:border-brand-orange hover:text-brand-orange transition-colors"
+          >
+            <Users size={16} className="text-brand-orange" />
+            <span>Personnel & Accès</span>
+          </Link>
+          <Link
+            href="/livres"
+            className="inline-flex items-center gap-2 rounded-xl border border-brand-gray/20 bg-white px-3.5 py-2 text-xs font-bold text-brand-anthracite shadow-xs hover:border-brand-orange hover:text-brand-orange transition-colors"
+          >
+            <BookOpen size={16} className="text-brand-orange" />
+            <span>Gérer les Livres & Supports</span>
+          </Link>
+        </div>
       </div>
 
       {/* KPIs Opérationnels */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {/* KPI 1 : Enseignants Actifs */}
-        <Card className="group hover:shadow-brand-orange/10 relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
-          <div className="flex items-start justify-between">
-            <span className="text-brand-gray text-xs font-bold tracking-wide uppercase">
-              Enseignants actifs
-            </span>
-            <div className="from-brand-orange/20 to-brand-orange/5 text-brand-orange rounded-xl bg-gradient-to-br p-2.5 transition-transform duration-300 group-hover:scale-110">
-              <UserRound size={20} strokeWidth={2.5} />
+        {/* KPI 1 : Enseignants en session (Actifs) */}
+        <Card className="group hover:shadow-brand-orange/10 relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg flex flex-col justify-between">
+          <div>
+            <div className="flex items-start justify-between">
+              <span className="text-brand-gray text-xs font-bold tracking-wide uppercase">
+                Enseignants en session
+              </span>
+              <div className="from-brand-orange/20 to-brand-orange/5 text-brand-orange rounded-xl bg-gradient-to-br p-2.5 transition-transform duration-300 group-hover:scale-110">
+                <UserRound size={20} strokeWidth={2.5} />
+              </div>
             </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-brand-anthracite text-4xl font-extrabold tracking-tight">
+                {chargementEnseignants || chargementRosters
+                  ? "…"
+                  : (sessionActive ? enseignantsActifsSession : PLACEHOLDER)}
+              </span>
+              {enseignantsActifsSession > 0 ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700 border border-emerald-200">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  actif{enseignantsActifsSession > 1 ? "s" : ""}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500 border border-slate-200">
+                  aucun affecté
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-slate-400">
+              Rattachés à la session {sessionActive?.annee ?? "en cours"}
+            </p>
           </div>
-          <div className="text-brand-anthracite mt-3 text-4xl font-extrabold tracking-tight">
-            {chargementEnseignants ? "…" : (enseignantsActifs ?? PLACEHOLDER)}
-          </div>
-          <div className="mt-2 flex items-center text-xs font-medium">
-            <span className="text-brand-gray font-medium">Corps enseignant du réseau</span>
+          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-medium">
+            <span className="text-brand-gray">
+              Total réseau : <strong className="text-slate-800 font-bold">{chargementEnseignants ? "…" : totalEnseignantsReseau}</strong>
+            </span>
+            <Link
+              href="/enseignants"
+              className="text-brand-orange hover:underline font-bold inline-flex items-center gap-0.5"
+            >
+              <span>Annuaire</span>
+              <ArrowUpRight size={12} />
+            </Link>
           </div>
         </Card>
 
@@ -206,21 +307,21 @@ export function DirecteurAcademiqueDashboard() {
               <span className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-orange text-xs font-black text-white">
                 S{semaineCourante}
               </span>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900">
+              <h2 className="text-base sm:text-lg font-extrabold text-brand-anthracite">
                 Conformité Hebdomadaire des Progressions
               </h2>
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-brand-gray">
               État de remplissage du syllabus par département pour la semaine en cours (Semaine {semaineCourante})
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
+            <span className="rounded-full bg-slate-100 border border-slate-200/80 px-2.5 py-1 text-xs font-bold text-brand-anthracite">
               {nbDepartementsAJour} à jour
             </span>
             {nbDepartementsEnAttente > 0 && (
-              <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">
+              <span className="rounded-full bg-amber-50 border border-amber-200 px-2.5 py-1 text-xs font-bold text-amber-800">
                 {nbDepartementsEnAttente} en attente
               </span>
             )}
@@ -236,14 +337,14 @@ export function DirecteurAcademiqueDashboard() {
 
         {departements.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-6 text-center">
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-brand-gray">
               Aucun département créé pour l&rsquo;instant.
             </p>
           </div>
         ) : (
           <div className="overflow-hidden rounded-xl border border-slate-200">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
+              <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold tracking-wider text-brand-gray uppercase">
                 <tr>
                   <th className="p-3">Département / Discipline</th>
                   <th className="p-3 text-center">Séances planifiées</th>
@@ -257,17 +358,17 @@ export function DirecteurAcademiqueDashboard() {
                   <tr key={item.departementId} className="hover:bg-slate-50/70 transition-colors">
                     <td className="p-3">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-900">
+                        <span className="font-bold text-brand-anthracite">
                           {item.departementNom}
                         </span>
                         {item.sansChef && (
-                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-brand-gray">
                             Sans chef
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="p-3 text-center font-mono font-semibold text-slate-700">
+                    <td className="p-3 text-center font-semibold text-brand-anthracite">
                       {item.nbSeancesPlanifiees > 0 ? (
                         <span>{item.nbSeancesPlanifiees} créneau{item.nbSeancesPlanifiees > 1 ? "x" : ""}</span>
                       ) : (
@@ -275,22 +376,22 @@ export function DirecteurAcademiqueDashboard() {
                       )}
                     </td>
                     <td className="p-3 text-center">
-                      <span className={`font-mono font-bold px-2.5 py-1 rounded-lg ${
+                      <span className={`font-semibold px-2.5 py-1 rounded-lg ${
                         item.nbCoursSaisis > 0
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          : "bg-slate-100 text-slate-500"
+                          ? "bg-brand-orange/10 text-brand-orange border border-brand-orange/20"
+                          : "bg-slate-100 text-brand-gray"
                       }`}>
                         {item.nbCoursSaisis} cours saisi{item.nbCoursSaisis > 1 ? "s" : ""}
                       </span>
                     </td>
                     <td className="p-3 text-center">
                       {item.aJour ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 border border-emerald-200">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-brand-anthracite border border-slate-200">
+                          <span className="h-1.5 w-1.5 rounded-full bg-brand-orange" />
                           À jour
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700 border border-amber-200">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800 border border-amber-200">
                           <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
                           En attente de saisie
                         </span>
@@ -299,7 +400,7 @@ export function DirecteurAcademiqueDashboard() {
                     <td className="p-3 text-right">
                       <Link
                         href="/progression"
-                        className="text-xs font-bold text-brand-orange hover:underline inline-flex items-center gap-1"
+                        className="text-xs font-bold text-brand-orange hover:text-brand-orange/80 inline-flex items-center gap-1"
                       >
                         Consulter
                         <ArrowUpRight size={12} />
@@ -309,6 +410,154 @@ export function DirecteurAcademiqueDashboard() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+      </Card>
+
+      {/* ── Section Enseignants du Réseau (Placée plus bas) ── */}
+      <Card className="p-6">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-100 text-brand-orange">
+                <Users size={16} />
+              </div>
+              <h2 className="text-base sm:text-lg font-extrabold text-brand-anthracite">
+                Enseignants du Réseau & Session
+              </h2>
+            </div>
+            <p className="text-xs text-brand-gray">
+              {enseignantsActifsSession} actif{enseignantsActifsSession > 1 ? "s" : ""} dans la session en cours · {totalEnseignantsReseau} enseignant{totalEnseignantsReseau > 1 ? "s" : ""} au total dans l&rsquo;annuaire du réseau
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className={`rounded-full border px-2.5 py-1 text-xs font-bold flex items-center gap-1.5 ${
+              enseignantsActifsSession > 0
+                ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                : "bg-slate-100 border-slate-200 text-slate-600"
+            }`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${
+                enseignantsActifsSession > 0 ? "bg-emerald-500" : "bg-slate-400"
+              }`} />
+              {enseignantsActifsSession} en session
+            </span>
+            <span className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-bold text-slate-700">
+              {totalEnseignantsReseau} dans le réseau
+            </span>
+            <Link
+              href="/enseignants"
+              className="bg-brand-orange hover:bg-brand-orange/90 flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white shadow-xs transition-colors cursor-pointer"
+            >
+              <span>Accéder à l&rsquo;annuaire complet</span>
+              <ArrowUpRight size={14} />
+            </Link>
+          </div>
+        </div>
+
+        {chargementEnseignants ? (
+          <div className="p-6 text-center text-xs text-brand-gray">
+            Chargement des enseignants...
+          </div>
+        ) : !enseignants || enseignants.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-6 text-center">
+            <p className="text-xs text-brand-gray">
+              Aucun enseignant enregistré dans le réseau pour le moment.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="overflow-hidden rounded-xl border border-slate-200">
+              <table className="w-full text-left text-xs">
+                <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold tracking-wider text-brand-gray uppercase">
+                  <tr>
+                    <th className="p-3">Enseignant</th>
+                    <th className="p-3">Matricule</th>
+                    <th className="p-3">Département(s) session</th>
+                    <th className="p-3 text-center">Statut réseau</th>
+                    <th className="p-3 text-right">Fiche</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {enseignantsAffiches.map((e) => {
+                    const deps = departementsParEnseignant.get(e.id) ?? [];
+                    return (
+                      <tr key={e.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="p-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 font-bold text-slate-700 text-xs shrink-0">
+                              {(e.prenom?.[0] || "") + (e.nom?.[0] || "")}
+                            </div>
+                            <div>
+                              <div className="font-bold text-brand-anthracite">
+                                {e.prenom} {e.nom}
+                              </div>
+                              {e.telephone && (
+                                <div className="text-[11px] text-slate-400">
+                                  {e.telephone}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3 font-mono font-medium text-slate-600">
+                          {e.matricule}
+                        </td>
+                        <td className="p-3">
+                          {deps.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {deps.map((depNom) => (
+                                <span
+                                  key={depNom}
+                                  className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700 border border-slate-200/80"
+                                >
+                                  {depNom}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 italic">Non rattaché à la session</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-center">
+                          {e.statut === "ACTIF" ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-800 border border-emerald-200">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                              Actif
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600 border border-slate-200">
+                              Suspendu
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 text-right">
+                          <Link
+                            href={`/enseignants/${e.id}`}
+                            className="text-xs font-bold text-brand-orange hover:text-brand-orange/80 inline-flex items-center gap-1"
+                          >
+                            Consulter
+                            <ArrowUpRight size={12} />
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {enseignants.length > 8 && (
+              <div className="text-center pt-1">
+                <Link
+                  href="/enseignants"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-orange hover:underline"
+                >
+                  <span>Voir l&rsquo;ensemble des {enseignants.length} enseignants du réseau</span>
+                  <ArrowUpRight size={13} />
+                </Link>
+              </div>
+            )}
           </div>
         )}
       </Card>

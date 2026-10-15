@@ -25,8 +25,9 @@ import {
   ModifierApprenantModal,
 } from "@/modules/apprenants";
 import { useFormations } from "@/modules/academique";
-import { useCentres, useSessions } from "@/modules/centres-sessions";
-import { useDossierParApprenant } from "@/modules/dossiers";
+import { useCentres, useSessions, useSessionActive } from "@/modules/centres-sessions";
+import { useDossierParApprenant, useConcoursDuDossier } from "@/modules/dossiers";
+import { useSession } from "next-auth/react";
 import {
   useVersementsApprenant,
   EnregistrerVersementModal,
@@ -62,7 +63,11 @@ function getAvatarBg(str: string) {
 type Onglet = "informations" | "contrat" | "dossier" | "presence";
 
 export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
-  const [onglet, setOnglet] = useState<Onglet>("informations");
+  const { data: authSession } = useSession();
+  const role = authSession?.user?.role;
+  const isDossierOnlyRole = role === "SUPERVISEUR_DOSSIERS" || role === "CHARGE_DOSSIER";
+
+  const [onglet, setOnglet] = useState<Onglet>(isDossierOnlyRole ? "dossier" : "informations");
   const [modalModifierOuverte, setModalModifierOuverte] = useState(false);
   const [modalVersementOuverte, setModalVersementOuverte] = useState(false);
   const [modalContratOuverte, setModalContratOuverte] = useState(false);
@@ -72,8 +77,12 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
   const { data: formations } = useFormations();
   const { data: centres } = useCentres();
   const { data: sessions } = useSessions();
+  const { data: sessionActive } = useSessionActive();
   const { data: dossier } = useDossierParApprenant(apprenantId);
   const { data: versements } = useVersementsApprenant(apprenantId);
+  const { data: concoursDuDossier = [] } = useConcoursDuDossier(dossier?.id);
+
+  const totalFraisDossier = concoursDuDossier.reduce((sum, c) => sum + c.montantTotal, 0);
 
   const formation = formations?.find(
     (f) => f.id === (cursus?.formationActiveId || apprenant?.formationId),
@@ -105,11 +114,11 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
         <Card className="p-10 text-center">
           <p className="text-lg font-bold text-slate-900">Apprenant introuvable</p>
           <Link
-            href="/apprenants"
+            href={isDossierOnlyRole ? "/dossiers" : "/apprenants"}
             className="text-brand-orange mt-3 inline-flex items-center gap-1.5 text-sm font-bold hover:underline"
           >
             <ArrowLeft size={16} />
-            <span>Retour à la liste</span>
+            <span>{isDossierOnlyRole ? "Retour aux dossiers" : "Retour à la liste"}</span>
           </Link>
         </Card>
       </div>
@@ -125,11 +134,11 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
       {/* ── Fil d'Ariane & Navigation ── */}
       <div>
         <Link
-          href="/apprenants"
+          href={isDossierOnlyRole ? "/dossiers" : "/apprenants"}
           className="text-slate-500 hover:text-slate-900 mb-3 inline-flex items-center gap-1.5 text-xs font-bold transition-colors"
         >
           <ArrowLeft size={16} />
-          Retour à la liste des apprenants
+          {isDossierOnlyRole ? "Retour au suivi des dossiers" : "Retour à la liste des apprenants"}
         </Link>
       </div>
 
@@ -202,83 +211,126 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
               <span>Modifier</span>
             </Button>
 
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setModalContratOuverte(true)}
-              className="flex items-center gap-1.5 text-xs font-bold"
-            >
-              <Plus size={13} />
-              <span>Négocier phase</span>
-            </Button>
+            {!isDossierOnlyRole && (
+              <>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setModalContratOuverte(true)}
+                  className="flex items-center gap-1.5 text-xs font-bold"
+                >
+                  <Plus size={13} />
+                  <span>Négocier phase</span>
+                </Button>
 
-            <Button
-              type="button"
-              onClick={() => setModalVersementOuverte(true)}
-              className="bg-brand-orange hover:bg-brand-orange/90 text-white flex items-center gap-1.5 text-xs font-bold shadow-xs"
-            >
-              <Coins size={14} />
-              <span>Encaisser versement</span>
-            </Button>
+                <Button
+                  type="button"
+                  onClick={() => setModalVersementOuverte(true)}
+                  className="bg-brand-orange hover:bg-brand-orange/90 text-white flex items-center gap-1.5 text-xs font-bold shadow-xs"
+                >
+                  <Coins size={14} />
+                  <span>Encaisser versement</span>
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
         {/* ── Cartouche Financier Intégré & Jauge ── */}
-        <div className="mt-6 pt-5 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="rounded-xl bg-slate-50 p-3.5 border border-slate-200/80">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                Montant Total Contrats
+        {isDossierOnlyRole ? (
+          <div className="mt-6 pt-5 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="rounded-xl bg-orange-50/50 p-3.5 border border-orange-200/70">
+              <span className="text-[10px] font-bold text-brand-orange uppercase tracking-wider block">
+                Frais Dossiers Concours
               </span>
-              {cursus?.contrats && cursus.contrats.length > 0 && (
-                <span className="text-[10px] font-extrabold text-brand-orange bg-orange-50 border border-orange-200 px-1.5 py-0.2 rounded-md">
-                  {cursus.contrats.length} contrat{cursus.contrats.length > 1 ? "s" : ""}
-                </span>
-              )}
+              <p className="text-base font-black text-slate-900 mt-0.5">
+                {FCFA.format(totalFraisDossier)} FCFA
+              </p>
             </div>
-            <p className="text-base font-black text-slate-900 mt-0.5">
-              {FCFA.format(totalContrat)} FCFA
-            </p>
-          </div>
 
-          <div className="rounded-xl bg-slate-50 p-3.5 border border-slate-200/80">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Total Réglé ({tauxRecouvrement}%)
-            </span>
-            <p className="text-base font-black text-emerald-800 mt-0.5">
-              {FCFA.format(montantPaye)} FCFA
-            </p>
-          </div>
+            <div className="rounded-xl bg-slate-50 p-3.5 border border-slate-200/80">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                Concours Souscrits
+              </span>
+              <p className="text-base font-black text-slate-900 mt-0.5">
+                {concoursDuDossier.length} concours
+              </p>
+            </div>
 
-          <div className="rounded-xl bg-slate-50 p-3.5 border border-slate-200/80">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Reste à Solder
-            </span>
-            <p
-              className={`text-base font-black mt-0.5 ${
-                soldeRestant > 0 ? "text-brand-orange" : "text-emerald-800"
-              }`}
-            >
-              {FCFA.format(Math.max(soldeRestant, 0))} FCFA
-            </p>
+            <div className="rounded-xl bg-slate-50 p-3.5 border border-slate-200/80">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                Statut Dossier
+              </span>
+              <p className="text-base font-black text-slate-900 mt-0.5">
+                {dossier
+                  ? dossier.statut === "OUVERT"
+                    ? "En cours"
+                    : dossier.statut === "COMPLET"
+                    ? "Complet"
+                    : "Clôturé"
+                  : "Non ouvert"}
+              </p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="mt-6 pt-5 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="rounded-xl bg-slate-50 p-3.5 border border-slate-200/80">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Montant Total Contrats
+                  </span>
+                  {cursus?.contrats && cursus.contrats.length > 0 && (
+                    <span className="text-[10px] font-extrabold text-brand-orange bg-orange-50 border border-orange-200 px-1.5 py-0.2 rounded-md">
+                      {cursus.contrats.length} contrat{cursus.contrats.length > 1 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
+                <p className="text-base font-black text-slate-900 mt-0.5">
+                  {FCFA.format(totalContrat)} FCFA
+                </p>
+              </div>
 
-        {/* Barre de progression du règlement */}
-        <div className="mt-3">
-          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                tauxRecouvrement >= 100
-                  ? "bg-emerald-500"
-                  : tauxRecouvrement >= 50
-                  ? "bg-brand-orange"
-                  : "bg-amber-500"
-              }`}
-              style={{ width: `${tauxRecouvrement}%` }}
-            />
-          </div>
-        </div>
+              <div className="rounded-xl bg-slate-50 p-3.5 border border-slate-200/80">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Total Réglé ({tauxRecouvrement}%)
+                </span>
+                <p className="text-base font-black text-emerald-800 mt-0.5">
+                  {FCFA.format(montantPaye)} FCFA
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-slate-50 p-3.5 border border-slate-200/80">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Reste à Solder
+                </span>
+                <p
+                  className={`text-base font-black mt-0.5 ${
+                    soldeRestant > 0 ? "text-brand-orange" : "text-emerald-800"
+                  }`}
+                >
+                  {FCFA.format(Math.max(soldeRestant, 0))} FCFA
+                </p>
+              </div>
+            </div>
+
+            {/* Barre de progression du règlement */}
+            <div className="mt-3">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    tauxRecouvrement >= 100
+                      ? "bg-emerald-500"
+                      : tauxRecouvrement >= 50
+                      ? "bg-brand-orange"
+                      : "bg-amber-500"
+                  }`}
+                  style={{ width: `${tauxRecouvrement}%` }}
+                />
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* ── Onglets Modernes ── */}
@@ -289,24 +341,28 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
           icone={<Info size={16} />}
           libelle="Informations & Cursus"
         />
-        <OngletBouton
-          actif={onglet === "contrat"}
-          onClick={() => setOnglet("contrat")}
-          icone={<Wallet size={16} />}
-          libelle={cursus?.contrats?.length ? `Contrats (${cursus.contrats.length}) & Paiements` : "Contrats & Paiements"}
-        />
+        {!isDossierOnlyRole && (
+          <OngletBouton
+            actif={onglet === "contrat"}
+            onClick={() => setOnglet("contrat")}
+            icone={<Wallet size={16} />}
+            libelle={cursus?.contrats?.length ? `Contrats (${cursus.contrats.length}) & Paiements` : "Contrats & Paiements"}
+          />
+        )}
         <OngletBouton
           actif={onglet === "dossier"}
           onClick={() => setOnglet("dossier")}
           icone={<FolderKanban size={16} />}
           libelle="Dossier Administratif"
         />
-        <OngletBouton
-          actif={onglet === "presence"}
-          onClick={() => setOnglet("presence")}
-          icone={<CalendarCheck size={16} />}
-          libelle="Assiduité & Présences"
-        />
+        {!isDossierOnlyRole && (
+          <OngletBouton
+            actif={onglet === "presence"}
+            onClick={() => setOnglet("presence")}
+            icone={<CalendarCheck size={16} />}
+            libelle="Assiduité & Présences"
+          />
+        )}
       </div>
 
       {/* ── Contenu des Onglets ── */}
@@ -334,6 +390,7 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
           dossier={dossier}
           centres={centres}
           sessions={sessions}
+          apprenant={apprenant}
         />
       )}
 
@@ -355,7 +412,7 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
           apprenantId={apprenant.id}
           nomApprenant={nomComplet}
           centreId={apprenant.centreId}
-          sessionId={apprenant.sessionId}
+          sessionId={sessionActive?.id || apprenant.sessionId}
           formationId={formation?.id}
           soldeRestant={soldeRestant}
         />

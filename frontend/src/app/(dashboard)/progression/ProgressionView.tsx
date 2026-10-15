@@ -9,6 +9,7 @@ import {
   Copy,
   Printer,
   Columns,
+  GraduationCap,
 } from "lucide-react";
 
 import {
@@ -369,6 +370,7 @@ function ProgressionChefDepartement({
                 Session {sessionActive.annee}
               </span>
             )} */}
+            
           </div>
           <p className="text-sm text-slate-500">
             Contenus des cours, thèmes et compétences dispensés par formation cette semaine.
@@ -458,68 +460,58 @@ function ProgressionChefDepartement({
 
 
 
-      {/* ── Navigation Filières & Sélecteur de Semaine (Masqué à l'export/impression) ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3 no-print print:hidden">
-        {/* Onglets des filières */}
-        <div className="flex items-center gap-1.5 overflow-x-auto p-1 bg-slate-100/80 rounded-xl scrollbar-none">
-          {formationsPerimetre.map((f) => {
-            const stats = statsParFormationId.get(f.id);
-            const totalDocs = stats?.dispensees ?? 0;
-            const pct = stats?.pourcentage ?? 0;
-            const actif = (formationSelectionnee?.id ?? "") === f.id;
+      {/* ── Sélecteur de Formation & Sélecteur de Semaine (Masqué à l'export/impression) ── */}
+      <div className="flex flex-col gap-3.5 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-xs no-print print:hidden">
+        {/* Sélecteur de formation en liste déroulante bien visible */}
+        <div className="flex flex-1 flex-col sm:flex-row sm:items-center gap-3">
+          <label className="flex items-center gap-2.5 rounded-xl border-2 border-brand-orange/50 bg-orange-50/40 px-3.5 py-2 shadow-2xs transition-all hover:border-brand-orange focus-within:border-brand-orange focus-within:ring-2 focus-within:ring-brand-orange/20 cursor-pointer">
+            <GraduationCap size={18} className="text-brand-orange shrink-0" />
+            <span className="text-xs font-black tracking-wider text-slate-700 uppercase shrink-0">
+              Formation :
+            </span>
+            <select
+              value={formationSelectionnee?.id ?? ""}
+              onChange={(e) => setFiliereActiveId(e.target.value)}
+              className="cursor-pointer bg-transparent text-xs sm:text-sm font-bold text-slate-900 outline-none w-full sm:w-auto min-w-[200px]"
+            >
+              {formationsPerimetre.map((f) => {
+                const stats = statsParFormationId.get(f.id);
+                const totalDocs = stats?.dispensees ?? 0;
+                const pct = stats?.pourcentage ?? 0;
+                return (
+                  <option key={f.id} value={f.id} className="bg-white text-slate-900 font-semibold py-1">
+                    {f.nom} ({totalDocs} cours · {pct}%)
+                  </option>
+                );
+              })}
+            </select>
+          </label>
 
-            return (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setFiliereActiveId(f.id)}
-                className={`flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                  actif
-                    ? "bg-white text-slate-900 shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                <span>{f.nom}</span>
-                <span
-                  className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
-                    actif
-                      ? "bg-orange-100 text-brand-orange"
-                      : "bg-slate-200/70 text-slate-600"
-                  }`}
-                >
-                  {totalDocs} cours · {pct}%
-                </span>
-              </button>
-            );
-          })}
+          {/* Badge récapitulatif de la formation active */}
+          {formationSelectionnee && (
+            <div className="hidden md:flex items-center gap-2 text-xs font-semibold text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+              <span className="font-extrabold text-slate-900">{formationSelectionnee.nom}</span>
+              <span className="text-slate-300">·</span>
+              <span className="text-brand-orange font-bold">
+                {statsParFormationId.get(formationSelectionnee.id)?.dispensees ?? 0} cours documentés
+              </span>
+              <span className="text-slate-300">·</span>
+              <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                {statsParFormationId.get(formationSelectionnee.id)?.pourcentage ?? 0}% réalisé
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Sélecteur de semaine en liste déroulante */}
         <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
-          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs">
-            {/* <Calendar size={15} className="text-brand-orange shrink-0" />
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider hidden sm:inline">
-              Semaine :
-            </span> */}
-            <SelecteurSemaine
-              semaines={semainesDisponibles}
-              value={semaineSelectionnee}
-              semaineCourante={semaineCourante}
-              onChange={setSemaineSelectionnee}
-              toutes
-            />
-          </div>
-
-          {/* <button
-            type="button"
-            onClick={() => void handleAjouterNouvelleSemaine()}
-            disabled={ajouterSemaineMutation.isPending}
-            title="Ajouter une nouvelle semaine au syllabus"
-            className="inline-flex items-center gap-1 rounded-xl border border-dashed border-slate-300 bg-white px-2.5 py-1.5 text-xs sm:text-sm font-bold text-slate-700 shadow-2xs hover:border-brand-orange hover:bg-orange-50 hover:text-brand-orange transition-colors cursor-pointer shrink-0"
-          >
-            <Plus size={13} className="text-brand-orange" />
-            <span>+ Semaine</span>
-          </button> */}
+          <SelecteurSemaine
+            semaines={semainesDisponibles}
+            value={semaineSelectionnee}
+            semaineCourante={semaineCourante}
+            onChange={setSemaineSelectionnee}
+            toutes
+          />
         </div>
       </div>
 
@@ -876,40 +868,46 @@ function ProgressionDirecteurAcademique() {
   }
 
   const barreNavigation = (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3 no-print print:hidden">
-      {/* Onglets des filières (en mode syllabus) */}
+    <div className="flex flex-col gap-3.5 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-xs no-print print:hidden">
+      {/* Sélecteur de formation en liste déroulante (en mode syllabus) */}
       {modeVue === "syllabus" ? (
-        <div className="flex items-center gap-1.5 overflow-x-auto p-1 bg-slate-100/80 rounded-xl scrollbar-none">
-          {formations.map((f) => {
-            const stats = statsParFormationId.get(f.id);
-            const totalDocs = stats?.dispensees ?? 0;
-            const pct = stats?.pourcentage ?? 0;
-            const actif = (formationSelectionnee?.id ?? "") === f.id;
+        <div className="flex flex-1 flex-col sm:flex-row sm:items-center gap-3">
+          <label className="flex items-center gap-2.5 rounded-xl border-2 border-brand-orange/50 bg-orange-50/40 px-3.5 py-2 shadow-2xs transition-all hover:border-brand-orange focus-within:border-brand-orange focus-within:ring-2 focus-within:ring-brand-orange/20 cursor-pointer">
+            <GraduationCap size={18} className="text-brand-orange shrink-0" />
+            <span className="text-xs font-black tracking-wider text-slate-700 uppercase shrink-0">
+              Formation :
+            </span>
+            <select
+              value={formationSelectionnee?.id ?? ""}
+              onChange={(e) => setFiliereActiveId(e.target.value)}
+              className="cursor-pointer bg-transparent text-xs sm:text-sm font-bold text-slate-900 outline-none w-full sm:w-auto min-w-[200px]"
+            >
+              {formations.map((f) => {
+                const stats = statsParFormationId.get(f.id);
+                const totalDocs = stats?.dispensees ?? 0;
+                const pct = stats?.pourcentage ?? 0;
+                return (
+                  <option key={f.id} value={f.id} className="bg-white text-slate-900 font-semibold py-1">
+                    {f.nom} ({totalDocs} cours · {pct}%)
+                  </option>
+                );
+              })}
+            </select>
+          </label>
 
-            return (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setFiliereActiveId(f.id)}
-                className={`flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                  actif
-                    ? "bg-white text-slate-900 shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                <span>{f.nom}</span>
-                <span
-                  className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
-                    actif
-                      ? "bg-orange-100 text-brand-orange"
-                      : "bg-slate-200/70 text-slate-600"
-                  }`}
-                >
-                  {totalDocs} cours · {pct}%
-                </span>
-              </button>
-            );
-          })}
+          {formationSelectionnee && (
+            <div className="hidden md:flex items-center gap-2 text-xs font-semibold text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+              <span className="font-extrabold text-slate-900">{formationSelectionnee.nom}</span>
+              <span className="text-slate-300">·</span>
+              <span className="text-brand-orange font-bold">
+                {statsParFormationId.get(formationSelectionnee.id)?.dispensees ?? 0} cours documentés
+              </span>
+              <span className="text-slate-300">·</span>
+              <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                {statsParFormationId.get(formationSelectionnee.id)?.pourcentage ?? 0}% réalisé
+              </span>
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
@@ -922,19 +920,13 @@ function ProgressionDirecteurAcademique() {
       <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto">
         {modeVue === "syllabus" && (
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs">
-              <Calendar size={15} className="text-brand-orange shrink-0" />
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider hidden sm:inline">
-                Semaine :
-              </span>
-              <SelecteurSemaine
-                semaines={semainesDisponibles}
-                value={semaineSelectionnee}
-                semaineCourante={semaineCourante}
-                onChange={setSemaineSelectionnee}
-                toutes
-              />
-            </div>
+            <SelecteurSemaine
+              semaines={semainesDisponibles}
+              value={semaineSelectionnee}
+              semaineCourante={semaineCourante}
+              onChange={setSemaineSelectionnee}
+              toutes
+            />
 
             <button
               type="button"

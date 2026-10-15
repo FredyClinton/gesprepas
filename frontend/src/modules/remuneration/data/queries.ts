@@ -9,6 +9,9 @@ import {
   validerBordereauEnseignant,
   executerPaiementFiche,
   mettreAJourThemeSeance,
+  preparerBordereauPersonnel,
+  validerBordereauPersonnel,
+  getBordereauPersonnel,
 } from "./client";
 import type {
   FichePaieEnseignant,
@@ -17,6 +20,7 @@ import type {
   BordereauPaieEnseignantDetail,
   FichePaieDetail,
   ValiderBordereauEnseignantPayload,
+  ValiderBordereauPersonnelPayload,
 } from "../domain/types";
 
 export function useSimulationBordereauEnseignant(
@@ -205,4 +209,55 @@ export function usePaiementsPersonnelSession(
     ...query,
     paiements,
   };
+}
+
+export function useSimulationBordereauPersonnel(
+  sessionId?: string,
+  datePaiement?: string,
+  intitule?: string,
+  enabled = false,
+) {
+  return useQuery<BordereauPaiePersonnel>({
+    queryKey: [
+      "simulation-bordereau-personnel",
+      sessionId,
+      datePaiement,
+      intitule,
+    ],
+    queryFn: () =>
+      preparerBordereauPersonnel(sessionId!, datePaiement, intitule),
+    enabled: Boolean(sessionId && enabled),
+  });
+}
+
+export function useBordereauPersonnel(bordereauId?: string) {
+  return useQuery<BordereauPaiePersonnel>({
+    queryKey: ["bordereau-paie-personnel", bordereauId],
+    queryFn: () => getBordereauPersonnel(bordereauId!),
+    enabled: Boolean(bordereauId),
+  });
+}
+
+export function useValiderBordereauPersonnel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      sessionId,
+      payload,
+    }: {
+      sessionId: string;
+      payload: ValiderBordereauPersonnelPayload;
+    }) => validerBordereauPersonnel(sessionId, payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["bordereaux-paie-personnel"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["simulation-bordereau-personnel"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["finances"],
+      });
+    },
+  });
 }

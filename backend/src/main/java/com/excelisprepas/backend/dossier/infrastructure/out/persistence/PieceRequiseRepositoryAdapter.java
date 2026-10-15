@@ -2,6 +2,7 @@ package com.excelisprepas.backend.dossier.infrastructure.out.persistence;
 
 import com.excelisprepas.backend.dossier.domain.model.PieceRequise;
 import com.excelisprepas.backend.dossier.domain.port.out.PieceRequiseRepositoryPort;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -31,6 +32,6 @@ public class PieceRequiseRepositoryAdapter implements PieceRequiseRepositoryPort
 
     @Override
     public List<PieceRequise> findAll() {
-        return jpaRepository.findAll().stream().map(mapper::toDomain).toList();
+        return jpaRepository.findAll(Sort.by(Sort.Direction.ASC, "nom")).stream().map(mapper::toDomain).toList();
     }
 }

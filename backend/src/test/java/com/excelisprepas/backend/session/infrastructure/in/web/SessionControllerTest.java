@@ -36,6 +36,8 @@ class SessionControllerTest {
     @MockitoBean
     private CreerSessionAcademiqueUseCase creerSessionUseCase;
     @MockitoBean
+    private ModifierSessionUseCase modifierSessionUseCase;
+    @MockitoBean
     private RecupererSessionUseCase recupererSessionUseCase;
     @MockitoBean
     private ListerSessionsUseCase listerSessionsUseCase;
@@ -149,6 +151,31 @@ class SessionControllerTest {
         mockMvc.perform(patch("/api/sessions/" + session.getId() + "/cloturer"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.statut").value("CLOTUREE"));
+    }
+
+    @Test
+    @DisplayName("PUT /api/sessions/{id} avec des données valides retourne 200")
+    void modifierSession_donneesValides_retourne200() throws Exception {
+        UUID id = UUID.randomUUID();
+        SessionAcademique sessionModifiee = new SessionAcademique(id, "2026-2027",
+                LocalDate.of(2026, 10, 13), LocalDate.of(2027, 1, 13));
+        when(modifierSessionUseCase.modifierSession(eq(id), anyString(), any(), any()))
+                .thenReturn(sessionModifiee);
+
+        mockMvc.perform(put("/api/sessions/" + id)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "annee": "2026-2027",
+                                  "dateDebut": "2026-10-13",
+                                  "dateFin": "2027-01-13"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id.toString()))
+                .andExpect(jsonPath("$.annee").value("2026-2027"))
+                .andExpect(jsonPath("$.dateDebut").value("2026-10-13"))
+                .andExpect(jsonPath("$.dateFin").value("2027-01-13"));
     }
 
     @Test

@@ -1,8 +1,6 @@
 import { apiFetch } from "@/shared/lib/api-client";
 
-import type { Entree, Motif, TypeMotif, StatutMouvement } from "../domain/types";
-
-import type { BilanApercu, RepartitionFormation } from "../domain/types";
+import type { Entree, Sortie, Motif, TypeMotif, StatutMouvement, BilanApercu, BilanJournalier, RepartitionFormation } from "../domain/types";
 
 export function getBilanDuJour(
   centreId: string,
@@ -46,6 +44,23 @@ export type SaisirEntreeInput = {
 
 export function saisirEntree(input: SaisirEntreeInput): Promise<Entree> {
   return apiFetch<Entree>("/api/entrees", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export type SaisirSortieInput = {
+  sessionId: string;
+  motifId: string;
+  montant: number;
+  date: string;
+  saisiParUtilisateurId: string;
+  centreId?: string | null;
+  ordonnateur: string;
+};
+
+export function saisirSortie(input: SaisirSortieInput): Promise<Sortie> {
+  return apiFetch<Sortie>("/api/sorties", {
     method: "POST",
     body: JSON.stringify(input),
   });
@@ -98,3 +113,47 @@ export function supprimerEntree(id: string): Promise<void> {
   });
 }
 
+export type SoumettreBilanCaissierInput = {
+  centreId: string;
+  sessionId: string;
+  date: string;
+  caissierUtilisateurId: string;
+};
+
+export function soumettreBilanCaissier(
+  input: SoumettreBilanCaissierInput,
+): Promise<BilanJournalier> {
+  return apiFetch<BilanJournalier>("/api/bilans-journaliers/soumettre-caissier", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export type ValiderBilanChefCentreInput = {
+  centreId: string;
+  sessionId: string;
+  date: string;
+  validateurUtilisateurId: string;
+};
+
+export function validerBilanChefCentre(
+  input: ValiderBilanChefCentreInput,
+): Promise<BilanJournalier> {
+  return apiFetch<BilanJournalier>("/api/bilans-journaliers/valider-chef-centre", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function validerBilanControleur(
+  bilanId: string,
+  validateurUtilisateurId: string,
+): Promise<BilanJournalier> {
+  return apiFetch<BilanJournalier>(
+    `/api/bilans-journaliers/${bilanId}/valider-controleur`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ validateurUtilisateurId }),
+    },
+  );
+}

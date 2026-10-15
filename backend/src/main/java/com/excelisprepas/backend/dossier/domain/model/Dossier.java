@@ -60,6 +60,14 @@ public class Dossier {
         this.dateCloture = Objects.requireNonNull(dateCloture, "dateCloture ne peut pas être nulle");
     }
 
+    public void rouvrir() {
+        if (statut == StatutDossier.OUVERT) {
+            throw new IllegalStateException("Le dossier est déjà ouvert");
+        }
+        this.statut = StatutDossier.OUVERT;
+        this.dateCloture = null;
+    }
+
     public void modifierObservation(String observation) {
         if (statut == StatutDossier.CLOTURE) {
             throw new IllegalStateException("Impossible de modifier l'observation : le dossier est clôturé");

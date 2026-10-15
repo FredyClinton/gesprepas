@@ -178,8 +178,9 @@ public class DepartementService implements CreerDepartementUseCase, RecupererDep
                 Utilisateur nouvelUtilisateur = utilisateurRepository.findById(utilisateurId)
                         .orElseThrow(() -> new IllegalArgumentException("Utilisateur introuvable : " + utilisateurId));
 
-                if (nouvelUtilisateur.getRole() != RoleUtilisateur.CHEF_DEPARTEMENT) {
-                    throw new IllegalArgumentException("L'utilisateur doit posséder le rôle CHEF_DEPARTEMENT pour être assigné à ce département");
+                if (nouvelUtilisateur.getRole() != RoleUtilisateur.CHEF_DEPARTEMENT
+                        && nouvelUtilisateur.getRole() != RoleUtilisateur.DIRECTEUR_ACADEMIQUE) {
+                    throw new IllegalArgumentException("L'utilisateur doit posséder le rôle CHEF_DEPARTEMENT ou DIRECTEUR_ACADEMIQUE pour être assigné à ce département");
                 }
 
                 // Le champ legacy departementId ne porte qu'une seule valeur : on ne

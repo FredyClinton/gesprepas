@@ -11,7 +11,13 @@ export {
 } from "./data/queries";
 export { formationSchema, type FormationFormValues } from "./domain/schemas";
 export type { Phase } from "./data/phases";
-export { usePhases, listPhases } from "./data/phases";
+export {
+  usePhases,
+  listPhases,
+  useCreerPhase,
+  useModifierPhase,
+  useSupprimerPhase,
+} from "./data/phases";
 export { SelecteurEtablissement } from "./components/SelecteurEtablissement";
 export {
   useEtablissements,

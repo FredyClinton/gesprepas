@@ -103,6 +103,21 @@ export type ValiderBordereauEnseignantPayload = {
   saisiPar?: string;
 };
 
+export type LigneSaisiePaiePersonnelInput = {
+  personnelId: string;
+  salaireReference: number;
+  montantPaye: number;
+  observations?: string | null;
+};
+
+export type ValiderBordereauPersonnelPayload = {
+  datePaiement: string;
+  reference: string;
+  intitule?: string;
+  lignes: LigneSaisiePaiePersonnelInput[];
+  saisiPar?: string;
+};
+
 export type FichePaiePersonnel = {
   id: string;
   personnelId: string;
@@ -133,3 +148,4 @@ export type PaiementPhasePersonnel = {
   montantPaye: number;
   observations?: string | null;
 };
+

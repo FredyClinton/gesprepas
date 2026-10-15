@@ -68,6 +68,7 @@ import {
   Copy,
   Check,
   Phone,
+  Lightbulb,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 
@@ -637,13 +638,13 @@ export function PlanificationView({
                   <tr>
                     <th
                       rowSpan={3}
-                      className="sticky left-0 z-30 w-[52px] min-w-[52px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-100 p-1 text-center align-middle text-[10px] font-bold tracking-wide text-slate-700 uppercase shadow-[1px_0_0_0_#e2e8f0] sm:w-[64px] sm:min-w-[64px] sm:p-2 sm:text-xs sm:tracking-wider"
+                      className="sticky left-0 z-30 w-[44px] min-w-[44px] sm:w-[54px] sm:min-w-[54px] border-r border-r-slate-200 border-b border-b-slate-200 bg-slate-100 p-1.5 text-center align-middle text-[10px] sm:text-xs font-bold tracking-wider text-slate-700 uppercase"
                     >
                       Jour
                     </th>
                     <th
                       rowSpan={3}
-                      className="sticky left-[52px] z-30 w-[36px] min-w-[36px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-100 p-1 text-center align-middle text-[10px] font-bold tracking-wide text-slate-700 uppercase shadow-[1px_0_0_0_#e2e8f0] sm:left-[64px] sm:w-[40px] sm:min-w-[40px] sm:p-2 sm:text-xs sm:tracking-wider"
+                      className="sticky left-[44px] sm:left-[54px] z-30 hidden w-[36px] min-w-[36px] sm:w-[42px] sm:min-w-[42px] border-r-2 border-r-slate-300 border-b border-b-slate-200 bg-slate-100 p-1.5 text-center align-middle text-[10px] sm:text-xs font-bold tracking-wider text-slate-700 uppercase sm:table-cell"
                     >
                       Séance
                     </th>
@@ -655,7 +656,7 @@ export function PlanificationView({
                           0,
                         )}
                         className={`border-r border-b p-2.5 text-center text-xs font-bold tracking-wider text-white uppercase ${
-                          index % 2 === 0 ? "bg-slate-700" : "bg-slate-600"
+                          index % 2 === 0 ? "bg-brand-anthracite" : "bg-brand-gray"
                         } ${index > 0 ? "border-l-2 border-l-slate-400" : ""}`}
                       >
                         {groupe.centre.nom}
@@ -730,21 +731,21 @@ export function PlanificationView({
                         {ligne === 0 && (
                           <td
                             rowSpan={hauteur}
-                            className={`sticky left-0 z-20 w-[52px] min-w-[52px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-50/95 p-1 text-center align-middle text-[10px] shadow-[1px_0_0_0_#e2e8f0] backdrop-blur-xs sm:w-[64px] sm:min-w-[64px] sm:p-2 sm:text-xs ${
+                            className={`sticky left-0 z-20 w-[44px] min-w-[44px] sm:w-[54px] sm:min-w-[54px] border-r border-r-slate-200 border-b border-b-slate-200 bg-slate-50/90 backdrop-blur-xs p-1 text-center align-middle sm:p-1.5 ${
                               jourIndex > 0 ? BORDURE_JOUR : ""
                             }`}
                           >
-                            <span className="bg-brand-anthracite inline-block rounded-lg px-2.5 py-1.5 text-xs font-bold tracking-wider text-white uppercase shadow-xs">
+                            <span className="inline-block rounded-md bg-white border border-slate-200/90 px-1.5 sm:px-2 py-1 text-[11px] sm:text-xs font-bold tracking-wider text-slate-800 uppercase shadow-2xs">
                               {LABELS_JOUR[jour]}
                             </span>
                           </td>
                         )}
                         <td
-                          className={`sticky left-[52px] z-20 w-[36px] min-w-[36px] border-r border-r-slate-300 border-b border-b-slate-300 bg-slate-50/95 p-1 text-center align-middle text-[10px] shadow-[1px_0_0_0_#e2e8f0] backdrop-blur-xs sm:left-[64px] sm:w-[40px] sm:min-w-[40px] sm:p-2 sm:text-xs ${
+                          className={`sticky left-[44px] sm:left-[54px] z-20 hidden w-[36px] min-w-[36px] sm:w-[42px] sm:min-w-[42px] border-r-2 border-r-slate-300 border-b border-b-slate-200 bg-slate-50/90 backdrop-blur-xs p-1 text-center align-middle sm:table-cell sm:p-1.5 ${
                             ligne === 0 && jourIndex > 0 ? BORDURE_JOUR : ""
                           }`}
                         >
-                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-black text-slate-700 shadow-2xs">
+                          <span className="inline-flex h-6.5 w-6.5 sm:h-7 sm:w-7 items-center justify-center rounded-md bg-white border border-slate-200/90 text-slate-700 text-[11px] sm:text-xs font-bold shadow-2xs">
                             S{ligne + 1}
                           </span>
                         </td>
@@ -891,8 +892,10 @@ export function PlanificationView({
           )}
         </div>
 
-        {/* Légende des matières */}
-        <Card className="border-brand-orange/20 bg-brand-orange/5 w-full shrink-0 max-h-48 xl:max-h-none overflow-y-auto p-4 xl:w-52">
+        {/* Légende des matières - masquée sur mobile/tablette (peu lisible et prend
+            trop de place sur petit écran), visible à partir de xl aux côtés de la
+            grille. */}
+        <Card className="border-brand-orange/20 bg-brand-orange/5 hidden w-full shrink-0 p-4 xl:block xl:w-52">
           <div className="mb-3 flex items-center gap-2">
             <Palette size={15} className="text-brand-orange" />
             <h2 className="text-brand-anthracite text-xs font-bold tracking-wider uppercase">
@@ -968,10 +971,13 @@ export function PlanificationView({
             )}
           </div>
 
-          <div className="rounded-xl border border-amber-200/80 bg-amber-50/80 p-3 text-xs leading-relaxed text-amber-900">
-            💡 <strong>Astuce :</strong> Vous pouvez envoyer ce lien aux
-            formateurs ou aux apprenants. Ils visualisent immédiatement la
-            grille et la légende de la semaine {semaine}, sans menu ni sidebar.
+          <div className="flex items-start gap-2 rounded-xl border border-amber-200/80 bg-amber-50/80 p-3 text-xs leading-relaxed text-amber-900">
+            <Lightbulb size={16} className="shrink-0 text-brand-orange mt-0.5" />
+            <div>
+              <strong>Astuce :</strong> Vous pouvez envoyer ce lien aux
+              formateurs ou aux apprenants. Ils visualisent immédiatement la
+              grille et la légende de la semaine {semaine}, sans menu ni sidebar.
+            </div>
           </div>
 
           <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
@@ -1202,8 +1208,9 @@ function CelluleCreneau({
           disabled={!peutOuvrir}
           style={{
             borderColor: hex,
+            backgroundColor: `${hex}14`,
           }}
-          className={`group/slot relative w-full rounded-xl bg-white border-2 p-2.5 text-left shadow-2xs transition-all hover:bg-slate-50/60 hover:shadow-xs ${
+          className={`group/slot relative w-full rounded-xl border-2 p-2.5 text-left shadow-2xs transition-all hover:shadow-xs ${
             peutOuvrir
               ? "cursor-pointer"
               : "cursor-default"

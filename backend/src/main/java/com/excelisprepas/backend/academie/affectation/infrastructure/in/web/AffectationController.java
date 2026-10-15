@@ -38,6 +38,7 @@ public class AffectationController {
     private final ModifierMatiereUseCase modifierMatiereUseCase;
     private final SupprimerAffectationUseCase supprimerAffectationUseCase;
     private final ListerAffectationsParEnseignantUseCase listerAffectationsParEnseignantUseCase;
+    private final ListerAffectationsParCentreUseCase listerAffectationsParCentreUseCase;
 
     public AffectationController(CreerCreneauUseCase creerCreneauUseCase,
                                  AssignerEnseignantUseCase assignerEnseignantUseCase,
@@ -47,7 +48,8 @@ public class AffectationController {
                                  ListerAffectationUseCase listerAffectationUseCase,
                                  @Qualifier("modifierMatiereAffectationUseCase") ModifierMatiereUseCase modifierMatiereUseCase,
                                  SupprimerAffectationUseCase supprimerAffectationUseCase,
-                                 ListerAffectationsParEnseignantUseCase listerAffectationsParEnseignantUseCase) {
+                                 ListerAffectationsParEnseignantUseCase listerAffectationsParEnseignantUseCase,
+                                 ListerAffectationsParCentreUseCase listerAffectationsParCentreUseCase) {
         this.creerCreneauUseCase = creerCreneauUseCase;
         this.assignerEnseignantUseCase = assignerEnseignantUseCase;
         this.marquerEffectueeUseCase = marquerEffectueeUseCase;
@@ -57,6 +59,7 @@ public class AffectationController {
         this.modifierMatiereUseCase = modifierMatiereUseCase;
         this.supprimerAffectationUseCase = supprimerAffectationUseCase;
         this.listerAffectationsParEnseignantUseCase = listerAffectationsParEnseignantUseCase;
+        this.listerAffectationsParCentreUseCase = listerAffectationsParCentreUseCase;
     }
 
     private static AffectationResponse versReponse(Affectation affectation) {
@@ -220,6 +223,23 @@ public class AffectationController {
             @Parameter(description = "Session académique concernée") @RequestParam UUID sessionId) {
         List<AffectationResponse> reponses = listerAffectationsParEnseignantUseCase
                 .listerParEnseignant(enseignantId, sessionId).stream()
+                .map(AffectationController::versReponse)
+                .toList();
+        return ResponseEntity.ok(reponses);
+    }
+
+    @Operation(summary = "Lister les séances d'un centre",
+            description = "Retourne tous les créneaux (toutes semaines confondues) d'un centre pour une session donnée.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Liste des créneaux du centre",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = AffectationResponse.class))))
+    })
+    @GetMapping("/centre/{centreId}")
+    public ResponseEntity<List<AffectationResponse>> listerParCentre(
+            @Parameter(description = "Identifiant du centre") @PathVariable UUID centreId,
+            @Parameter(description = "Session académique concernée") @RequestParam UUID sessionId) {
+        List<AffectationResponse> reponses = listerAffectationsParCentreUseCase
+                .listerParCentre(centreId, sessionId).stream()
                 .map(AffectationController::versReponse)
                 .toList();
         return ResponseEntity.ok(reponses);

@@ -24,6 +24,11 @@ public class AuthExceptionHandler {
         return construireReponse(HttpStatus.UNAUTHORIZED, ex.getMessage());
     }
 
+    @ExceptionHandler(com.excelisprepas.backend.shared.exception.AccesBloqueException.class)
+    public ResponseEntity<ApiErrorResponse> gererAccesBloque(com.excelisprepas.backend.shared.exception.AccesBloqueException ex) {
+        return construireReponse(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
     private ResponseEntity<ApiErrorResponse> construireReponse(HttpStatus statut, String message) {
         return ResponseEntity.status(statut).body(new ApiErrorResponse(statut.value(), statut.getReasonPhrase(), message));
     }

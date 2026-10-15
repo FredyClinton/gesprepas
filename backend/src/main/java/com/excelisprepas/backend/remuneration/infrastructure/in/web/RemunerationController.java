@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -33,6 +34,7 @@ public class RemunerationController {
     }
 
     @Operation(summary = "Historique des fiches de paie d'un enseignant")
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_PAIE')")
     @GetMapping("/enseignants/{enseignantId}/fiches")
     public ResponseEntity<List<FichePaieEnseignantItemResponse>> listerFichesEnseignant(
             @PathVariable UUID enseignantId,
@@ -48,6 +50,7 @@ public class RemunerationController {
     }
 
     @Operation(summary = "Préparer un bordereau planifié (simulation avec détail des enseignants et coûts modifiables)")
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_PAIE')")
     @PostMapping("/enseignants/sessions/{sessionId}/preparer")
     public ResponseEntity<BordereauPaieDetailResponse> preparerBordereauEnseignants(
             @PathVariable UUID sessionId,
@@ -59,6 +62,7 @@ public class RemunerationController {
     }
 
     @Operation(summary = "Valider un bordereau de paie des enseignants avec ajustements des contrats et sortie financière globale")
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_PAIE')")
     @PostMapping("/enseignants/sessions/{sessionId}/valider")
     public ResponseEntity<BordereauPaieDetailResponse> validerBordereauEnseignants(
             @PathVariable UUID sessionId,
@@ -81,6 +85,7 @@ public class RemunerationController {
     }
 
     @Operation(summary = "Lister les bordereaux de paie des enseignants d'une session")
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_PAIE')")
     @GetMapping("/enseignants/sessions/{sessionId}/bordereaux")
     public ResponseEntity<List<BordereauPaieDetailResponse>> listerBordereauxEnseignantsParSession(
             @PathVariable UUID sessionId) {
@@ -92,6 +97,7 @@ public class RemunerationController {
     }
 
     @Operation(summary = "Consulter le détail d'un bordereau de paie des enseignants")
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_PAIE')")
     @GetMapping("/enseignants/bordereaux/{bordereauId}")
     public ResponseEntity<BordereauPaieDetailResponse> recupererBordereauEnseignants(
             @PathVariable UUID bordereauId) {
@@ -100,6 +106,7 @@ public class RemunerationController {
     }
 
     @Operation(summary = "Consulter la fiche de paie individuelle d'un enseignant avec le relevé de ses séances")
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_PAIE')")
     @GetMapping("/fiches/{ficheId}")
     public ResponseEntity<FichePaieDetailResponse> recupererFicheDetail(
             @PathVariable UUID ficheId) {
@@ -108,6 +115,7 @@ public class RemunerationController {
     }
     
     @Operation(summary = "Exécuter le paiement individuel d'une fiche de paie enseignant (ligne par ligne)")
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_PAIE')")
     @PostMapping("/enseignants/bordereaux/{bordereauId}/fiches/{ficheId}/executer")
     public ResponseEntity<Void> executerPaiementFiche(
             @PathVariable UUID bordereauId,
@@ -119,6 +127,7 @@ public class RemunerationController {
     }
 
     @Operation(summary = "Mettre à jour le thème d'une séance dans la fiche de paie")
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_PAIE')")
     @PatchMapping("/seances/{affectationId}/theme")
     public ResponseEntity<Void> mettreAJourThemeSeance(
             @PathVariable UUID affectationId,

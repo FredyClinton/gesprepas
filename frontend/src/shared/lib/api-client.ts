@@ -23,7 +23,10 @@ export class ApiError extends Error {
 // dédié, ex : erreur DB, bug non mappé) qui peut être un texte technique/Java,
 // pas rédigé pour un humain. En 4xx, le backend a un handler dédié qui rédige
 // un message métier propre, donc on peut lui faire confiance.
-export function messageErreurApi(erreur: unknown, repli: string): string {
+export function messageErreurApi(
+  erreur: unknown,
+  repli = "Une erreur est survenue.",
+): string {
   if (
     erreur instanceof ApiError &&
     erreur.status < 500 &&
@@ -69,5 +72,10 @@ export async function apiFetch<T>(
     return undefined as T;
   }
 
-  return res.json() as Promise<T>;
+  const text = await res.text();
+  if (!text || text.trim() === "") {
+    return undefined as T;
+  }
+
+  return JSON.parse(text) as T;
 }

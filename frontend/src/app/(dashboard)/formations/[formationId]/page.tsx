@@ -25,7 +25,10 @@ export default async function FormationDetailPage({
   return (
     <FormationDetailView
       formationId={formationId}
-      peutGererAcademique={utilisateur.role === "DIRECTEUR_ACADEMIQUE"}
+      peutGererAcademique={
+        utilisateur.role === "DIRECTEUR_ACADEMIQUE" ||
+        utilisateur.role === "DIRECTEUR"
+      }
     />
   );
 }

@@ -18,6 +18,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -72,6 +73,7 @@ public class AbonnementController {
             @ApiResponse(responseCode = "404", description = "Centre, Formation ou Session introuvable"),
             @ApiResponse(responseCode = "409", description = "Centre déjà abonné ou n'a pas rejoint la session")
     })
+    @PreAuthorize("hasAuthority('ACADEMIE_GERER_FORMATIONS')")
     @PostMapping("/centres/{centreId}/sessions/{sessionId}/formations/{formationId}/abonner")
     public ResponseEntity<AbonnementResponse> abonnerCentre(
             @Parameter(description = "Identifiant du centre") @PathVariable UUID centreId,
@@ -88,6 +90,7 @@ public class AbonnementController {
             @ApiResponse(responseCode = "404", description = "Centre, Formation, Session ou Abonnement introuvable"),
             @ApiResponse(responseCode = "409", description = "Impossible de désabonner car des salles sont encore rattachées")
     })
+    @PreAuthorize("hasAuthority('ACADEMIE_GERER_FORMATIONS')")
     @DeleteMapping("/centres/{centreId}/sessions/{sessionId}/formations/{formationId}/abonner")
     public ResponseEntity<Void> desabonnerCentre(
             @Parameter(description = "Identifiant du centre") @PathVariable UUID centreId,

@@ -110,6 +110,42 @@ class DossierTest {
 
             assertThatThrownBy(action).isInstanceOf(IllegalStateException.class);
         }
+
+        @Test
+        @DisplayName("rouvrir() passe un dossier clôturé à Ouvert")
+        void rouvrirDossierCloture() {
+            Dossier dossier = unDossierOuvert();
+            dossier.marquerComplet();
+            dossier.cloturer(LocalDate.of(2027, 2, 1));
+
+            dossier.rouvrir();
+
+            assertThat(dossier.getStatut()).isEqualTo(StatutDossier.OUVERT);
+            assertThat(dossier.getDateCloture()).isEmpty();
+            assertThat(dossier.estOuvert()).isTrue();
+        }
+
+        @Test
+        @DisplayName("rouvrir() passe un dossier complet à Ouvert")
+        void rouvrirDossierComplet() {
+            Dossier dossier = unDossierOuvert();
+            dossier.marquerComplet();
+
+            dossier.rouvrir();
+
+            assertThat(dossier.getStatut()).isEqualTo(StatutDossier.OUVERT);
+            assertThat(dossier.estOuvert()).isTrue();
+        }
+
+        @Test
+        @DisplayName("rouvrir() refuse si le dossier est déjà Ouvert")
+        void rouvrirRefuseSiDejaOuvert() {
+            Dossier dossier = unDossierOuvert();
+
+            ThrowingCallable action = dossier::rouvrir;
+
+            assertThatThrownBy(action).isInstanceOf(IllegalStateException.class);
+        }
     }
 
     @Nested

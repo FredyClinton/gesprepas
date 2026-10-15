@@ -2,10 +2,7 @@ package com.excelisprepas.backend.financier.infrastructure.in.web;
 
 import com.excelisprepas.backend.financier.domain.model.BilanJournalier;
 import com.excelisprepas.backend.financier.domain.model.BilanJournalierApercu;
-import com.excelisprepas.backend.financier.domain.port.in.ConsulterBilanDuJourUseCase;
-import com.excelisprepas.backend.financier.domain.port.in.ConsulterRepartitionParFormationUseCase;
-import com.excelisprepas.backend.financier.domain.port.in.ValiderBilanChefCentreUseCase;
-import com.excelisprepas.backend.financier.domain.port.in.ValiderBilanControleurUseCase;
+import com.excelisprepas.backend.financier.domain.port.in.*;
 import com.excelisprepas.backend.financier.infrastructure.in.web.dto.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -31,15 +28,18 @@ import java.util.UUID;
 @RequestMapping("/api/bilans-journaliers")
 public class BilanJournalierController {
 
+    private final SoumettreBilanCaissierUseCase soumettreBilanCaissierUseCase;
     private final ValiderBilanChefCentreUseCase validerBilanChefCentreUseCase;
     private final ValiderBilanControleurUseCase validerBilanControleurUseCase;
     private final ConsulterBilanDuJourUseCase consulterBilanDuJourUseCase;
     private final ConsulterRepartitionParFormationUseCase consulterRepartitionParFormationUseCase;
 
-    public BilanJournalierController(ValiderBilanChefCentreUseCase validerBilanChefCentreUseCase,
+    public BilanJournalierController(SoumettreBilanCaissierUseCase soumettreBilanCaissierUseCase,
+                                     ValiderBilanChefCentreUseCase validerBilanChefCentreUseCase,
                                      ValiderBilanControleurUseCase validerBilanControleurUseCase,
                                      ConsulterBilanDuJourUseCase consulterBilanDuJourUseCase,
                                      ConsulterRepartitionParFormationUseCase consulterRepartitionParFormationUseCase) {
+        this.soumettreBilanCaissierUseCase = soumettreBilanCaissierUseCase;
         this.validerBilanChefCentreUseCase = validerBilanChefCentreUseCase;
         this.validerBilanControleurUseCase = validerBilanControleurUseCase;
         this.consulterBilanDuJourUseCase = consulterBilanDuJourUseCase;
@@ -47,21 +47,44 @@ public class BilanJournalierController {
     }
 
     private static BilanJournalierResponse versReponse(BilanJournalier bilan) {
-        return new BilanJournalierResponse(bilan.getId(), bilan.getCentreId(), bilan.getSessionId(), bilan.getDate(),
-                bilan.getStatut(), bilan.getDateValidationChefCentre(), bilan.getValidateurChefCentreId(),
-                bilan.getDateValidationControleur(), bilan.getValidateurControleurId(),
+        return new BilanJournalierResponse(
+                bilan.getId(), bilan.getCentreId(), bilan.getSessionId(), bilan.getDate(),
+                bilan.getStatut(),
+                bilan.getDateVisaCaissier(), bilan.getCaissierId(), bilan.getNomCaissier(),
+                bilan.getDateValidationChefCentre(), bilan.getValidateurChefCentreId(), bilan.getNomChefCentre(),
+                bilan.getDateValidationControleur(), bilan.getValidateurControleurId(), bilan.getNomControleur(),
                 bilan.getTotalEntrees(), bilan.getTotalSorties(), bilan.getNetAVerser(),
-                bilan.getEffectifNouveauxEleves(), bilan.getEffectifTotalCentre());
+                bilan.getEffectifNouveauxEleves(), bilan.getEffectifTotalCentre(),
+                bilan.getNombreSalles() != null ? bilan.getNombreSalles() : 0,
+                bilan.getNombreCours() != null ? bilan.getNombreCours() : 0
+        );
+    }
+
+    @Operation(summary = "Soumettre un bilan journalier (caissier)",
+            description = "Enregistre l'arrêté de caisse et le visa du caissier pour la journée.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Bilan soumis par le caissier",
+                    content = @Content(schema = @Schema(implementation = BilanJournalierResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Centre, session ou utilisateur introuvable", content = @Content)
+    })
+    @PreAuthorize("hasAuthority('FINANCIER_SAISIR_MOUVEMENT') or hasAuthority('FINANCIER_VALIDER_BILAN_CHEF_CENTRE')")
+    @PostMapping("/soumettre-caissier")
+    public ResponseEntity<BilanJournalierResponse> soumettreCaissier(
+            @Valid @RequestBody SoumettreBilanCaissierRequest request) {
+        BilanJournalier bilan = soumettreBilanCaissierUseCase.soumettreBilanCaissier(
+                request.centreId(), request.sessionId(), request.date(), request.caissierUtilisateurId());
+        return ResponseEntity.ok(versReponse(bilan));
     }
 
     @Operation(summary = "Valider un bilan journalier (chef de centre)",
-            description = "Crée et valide le bilan journalier d'un centre, pour une session et une date données, côté chef de centre.")
+            description = "Valide le bilan journalier d'un centre, pour une session et une date données, côté chef de centre.")
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Bilan validé par le chef de centre",
+            @ApiResponse(responseCode = "200", description = "Bilan validé par le chef de centre",
                     content = @Content(schema = @Schema(implementation = BilanJournalierResponse.class))),
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "404", description = "Centre, session ou utilisateur introuvable", content = @Content),
-            @ApiResponse(responseCode = "409", description = "Bilan déjà existant pour ce centre, cette session et cette date", content = @Content)
+            @ApiResponse(responseCode = "409", description = "Bilan déjà clôturé pour ce centre, cette session et cette date", content = @Content)
     })
     @PreAuthorize("hasAuthority('FINANCIER_VALIDER_BILAN_CHEF_CENTRE')")
     @PostMapping("/valider-chef-centre")
@@ -69,13 +92,13 @@ public class BilanJournalierController {
             @Valid @RequestBody ValiderBilanChefCentreRequest request) {
         BilanJournalier bilan = validerBilanChefCentreUseCase.validerBilanChefCentre(
                 request.centreId(), request.sessionId(), request.date(), request.validateurUtilisateurId());
-        return ResponseEntity.status(HttpStatus.CREATED).body(versReponse(bilan));
+        return ResponseEntity.ok(versReponse(bilan));
     }
 
-    @Operation(summary = "Valider un bilan journalier (contrôleur)",
-            description = "Valide, côté contrôleur, un bilan journalier déjà validé par le chef de centre.")
+    @Operation(summary = "Valider et clôturer un bilan journalier (contrôleur / comptable)",
+            description = "Valide, côté contrôleur ou comptable, un bilan journalier déjà visé, calculant et figeant définitivement les totaux.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Bilan validé par le contrôleur",
+            @ApiResponse(responseCode = "200", description = "Bilan validé et clôturé par le contrôleur",
                     content = @Content(schema = @Schema(implementation = BilanJournalierResponse.class))),
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "404", description = "Bilan journalier ou utilisateur introuvable", content = @Content)
@@ -104,8 +127,14 @@ public class BilanJournalierController {
             @Parameter(description = "Date du bilan (ISO-8601)")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         BilanJournalierApercu apercu = consulterBilanDuJourUseCase.consulterBilanDuJour(centreId, sessionId, date);
-        return ResponseEntity.ok(new BilanApercuResponse(apercu.id(), apercu.statut(), apercu.totalEntrees(),
-                apercu.totalSorties(), apercu.netAVerser(), apercu.effectifNouveauxEleves(), apercu.effectifTotalCentre()));
+        return ResponseEntity.ok(new BilanApercuResponse(
+                apercu.id(), apercu.statut(), apercu.totalEntrees(),
+                apercu.totalSorties(), apercu.netAVerser(), apercu.effectifNouveauxEleves(),
+                apercu.effectifTotalCentre(), apercu.nombreSalles(), apercu.nombreCours(),
+                apercu.dateVisaCaissier(), apercu.nomCaissier(),
+                apercu.dateValidationChefCentre(), apercu.nomChefCentre(),
+                apercu.dateValidationControleur(), apercu.nomControleur()
+        ));
     }
 
     @Operation(summary = "Consulter la répartition par formation",

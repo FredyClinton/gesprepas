@@ -19,6 +19,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import org.springframework.web.server.ResponseStatusException;
@@ -73,6 +74,7 @@ public class LivreController {
     @Operation(summary = "Lister les livres", description = "Retourne tous les livres ou uniquement les actifs. Accessible à la direction et aux chefs de centre.")
     @ApiResponse(responseCode = "200", description = "Liste des livres",
             content = @Content(array = @ArraySchema(schema = @Schema(implementation = LivreResponse.class))))
+    @PreAuthorize("hasAuthority('FINANCIER_CONSULTER')")
     @GetMapping
     public ResponseEntity<List<LivreResponse>> lister(
             @Parameter(description = "Ne retourner que les livres actifs")
@@ -88,6 +90,7 @@ public class LivreController {
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "403", description = "Accès refusé - réservé au Directeur Académique", content = @Content)
     })
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_LIVRES')")
     @PostMapping
     public ResponseEntity<LivreResponse> creer(
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
@@ -109,6 +112,7 @@ public class LivreController {
             @ApiResponse(responseCode = "403", description = "Accès refusé - réservé au Directeur Académique", content = @Content),
             @ApiResponse(responseCode = "404", description = "Livre introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_LIVRES')")
     @PutMapping("/{id}")
     public ResponseEntity<LivreResponse> modifier(
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
@@ -131,6 +135,7 @@ public class LivreController {
             @ApiResponse(responseCode = "403", description = "Accès refusé - réservé au Directeur Académique", content = @Content),
             @ApiResponse(responseCode = "404", description = "Livre introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_LIVRES')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> supprimer(
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
