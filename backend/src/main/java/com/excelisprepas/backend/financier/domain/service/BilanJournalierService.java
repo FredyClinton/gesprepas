@@ -19,6 +19,9 @@ import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueReposi
 import com.excelisprepas.backend.shared.exception.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.excelisprepas.backend.academie.formation.domain.port.out.FormationRepositoryPort;
+import com.excelisprepas.backend.financier.domain.port.out.MotifRepositoryPort;
+
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -28,7 +31,8 @@ import java.util.*;
 
 @Slf4j
 public class BilanJournalierService implements SoumettreBilanCaissierUseCase, ValiderBilanChefCentreUseCase,
-        ValiderBilanControleurUseCase, ConsulterBilanDuJourUseCase, ConsulterRepartitionParFormationUseCase {
+        ValiderBilanControleurUseCase, ConsulterBilanDuJourUseCase, ConsulterRepartitionParFormationUseCase,
+        ConsulterBilanConsolideDuJourUseCase {
 
     private final BilanJournalierRepositoryPort bilanRepository;
     private final EntreeRepositoryPort entreeRepository;
@@ -39,6 +43,8 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
     private final SessionAcademiqueRepositoryPort sessionRepository;
     private final PersonnelRepositoryPort personnelRepository;
     private final AffectationRepositoryPort affectationRepository;
+    private final FormationRepositoryPort formationRepository;
+    private final MotifRepositoryPort motifRepository;
 
     public BilanJournalierService(BilanJournalierRepositoryPort bilanRepository,
                                   EntreeRepositoryPort entreeRepository,
@@ -48,7 +54,7 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
                                   UtilisateurRepositoryPort utilisateurRepository,
                                   SessionAcademiqueRepositoryPort sessionRepository) {
         this(bilanRepository, entreeRepository, sortieRepository, apprenantRepository,
-                centreRepository, utilisateurRepository, sessionRepository, null, null);
+                centreRepository, utilisateurRepository, sessionRepository, null, null, null, null);
     }
 
     public BilanJournalierService(BilanJournalierRepositoryPort bilanRepository,
@@ -60,6 +66,21 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
                                   SessionAcademiqueRepositoryPort sessionRepository,
                                   PersonnelRepositoryPort personnelRepository,
                                   AffectationRepositoryPort affectationRepository) {
+        this(bilanRepository, entreeRepository, sortieRepository, apprenantRepository,
+                centreRepository, utilisateurRepository, sessionRepository, personnelRepository, affectationRepository, null, null);
+    }
+
+    public BilanJournalierService(BilanJournalierRepositoryPort bilanRepository,
+                                  EntreeRepositoryPort entreeRepository,
+                                  SortieRepositoryPort sortieRepository,
+                                  ApprenantRepositoryPort apprenantRepository,
+                                  CentreRepositoryPort centreRepository,
+                                  UtilisateurRepositoryPort utilisateurRepository,
+                                  SessionAcademiqueRepositoryPort sessionRepository,
+                                  PersonnelRepositoryPort personnelRepository,
+                                  AffectationRepositoryPort affectationRepository,
+                                  FormationRepositoryPort formationRepository,
+                                  MotifRepositoryPort motifRepository) {
         this.bilanRepository = bilanRepository;
         this.entreeRepository = entreeRepository;
         this.sortieRepository = sortieRepository;
@@ -69,6 +90,8 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
         this.sessionRepository = sessionRepository;
         this.personnelRepository = personnelRepository;
         this.affectationRepository = affectationRepository;
+        this.formationRepository = formationRepository;
+        this.motifRepository = motifRepository;
     }
 
     private SessionAcademique verifierSessionUtilisable(UUID sessionId) {
@@ -285,5 +308,184 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
         return parFormation.entrySet().stream()
                 .map(entry -> new RepartitionFormationLigne(entry.getKey(), entry.getValue()))
                 .toList();
+    }
+
+    @Override
+    public BilanConsolideNational consulterBilanConsolide(UUID sessionId, LocalDate date) {
+        verifierSessionUtilisable(sessionId);
+
+        List<com.excelisprepas.backend.centre.domain.model.Centre> tousLesCentres = centreRepository.findAll();
+
+        Map<UUID, String> nomsFormations = new HashMap<>();
+        if (formationRepository != null) {
+            formationRepository.findAll().forEach(f -> nomsFormations.put(f.getId(), f.getNom()));
+        }
+
+        Map<UUID, String> nomsMotifs = new HashMap<>();
+        if (motifRepository != null) {
+            motifRepository.findAll().forEach(m -> nomsMotifs.put(m.getId(), m.getNom()));
+        }
+
+        List<BilanCentreResume> centresResumes = new ArrayList<>();
+        BigDecimal totalEntreesNational = BigDecimal.ZERO;
+        BigDecimal totalSortiesNational = BigDecimal.ZERO;
+        long totalNouveauxElevesNational = 0;
+        long totalEffectifNational = 0;
+        int centresCloturesCount = 0;
+
+        Map<String, LigneEntreeResume> mapEntreesNationales = new LinkedHashMap<>();
+        Map<UUID, LigneSortieResume> mapSortiesNationales = new LinkedHashMap<>();
+        Map<UUID, EffectifFormationResume> mapEffectifsNationaux = new LinkedHashMap<>();
+
+        for (com.excelisprepas.backend.centre.domain.model.Centre centre : tousLesCentres) {
+            BilanJournalierApercu apercu = consulterBilanDuJour(centre.getId(), sessionId, date);
+
+            totalEntreesNational = totalEntreesNational.add(apercu.totalEntrees());
+            totalSortiesNational = totalSortiesNational.add(apercu.totalSorties());
+            totalNouveauxElevesNational += apercu.effectifNouveauxEleves();
+            totalEffectifNational += apercu.effectifTotalCentre();
+            if (apercu.statut() == StatutBilan.CLOTURE) {
+                centresCloturesCount++;
+            }
+
+            // Entrées du centre
+            List<Entree> entrees = new ArrayList<>();
+            entrees.addAll(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre.getId(), sessionId, date, StatutMouvement.VALIDE));
+            entrees.addAll(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre.getId(), sessionId, date, StatutMouvement.EN_ATTENTE));
+
+            Map<String, LigneEntreeResume> mapEntreesCentre = new LinkedHashMap<>();
+            for (Entree e : entrees) {
+                String cle;
+                String cat;
+                UUID formId = e.getFormationId().orElse(null);
+                String lib;
+                if (formId != null) {
+                    cat = "FORMATION";
+                    cle = "FORMATION_" + formId;
+                    lib = nomsFormations.getOrDefault(formId, "Formation");
+                } else {
+                    cat = "AUTRE";
+                    cle = "AUTRE_" + e.getMotifId();
+                    lib = nomsMotifs.getOrDefault(e.getMotifId(), "Autre encaissement");
+                }
+                LigneEntreeResume existante = mapEntreesCentre.get(cle);
+                if (existante == null) {
+                    mapEntreesCentre.put(cle, new LigneEntreeResume(cat, formId, lib, e.getMontant(), 1));
+                } else {
+                    mapEntreesCentre.put(cle, new LigneEntreeResume(cat, formId, lib, existante.montant().add(e.getMontant()), existante.nombreOperations() + 1));
+                }
+
+                LigneEntreeResume existanteNat = mapEntreesNationales.get(cle);
+                if (existanteNat == null) {
+                    mapEntreesNationales.put(cle, new LigneEntreeResume(cat, formId, lib, e.getMontant(), 1));
+                } else {
+                    mapEntreesNationales.put(cle, new LigneEntreeResume(cat, formId, lib, existanteNat.montant().add(e.getMontant()), existanteNat.nombreOperations() + 1));
+                }
+            }
+
+            // Sorties du centre
+            List<Sortie> sorties = new ArrayList<>();
+            sorties.addAll(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre.getId(), sessionId, date, StatutMouvement.VALIDE));
+            sorties.addAll(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre.getId(), sessionId, date, StatutMouvement.EN_ATTENTE));
+
+            Map<UUID, LigneSortieResume> mapSortiesCentre = new LinkedHashMap<>();
+            for (Sortie s : sorties) {
+                UUID mId = s.getMotifId();
+                String lib = nomsMotifs.getOrDefault(mId, "Dépense");
+                LigneSortieResume existante = mapSortiesCentre.get(mId);
+                if (existante == null) {
+                    mapSortiesCentre.put(mId, new LigneSortieResume(mId, lib, s.getMontant(), 1));
+                } else {
+                    mapSortiesCentre.put(mId, new LigneSortieResume(mId, lib, existante.montant().add(s.getMontant()), existante.nombreOperations() + 1));
+                }
+
+                LigneSortieResume existanteNat = mapSortiesNationales.get(mId);
+                if (existanteNat == null) {
+                    mapSortiesNationales.put(mId, new LigneSortieResume(mId, lib, s.getMontant(), 1));
+                } else {
+                    mapSortiesNationales.put(mId, new LigneSortieResume(mId, lib, existanteNat.montant().add(s.getMontant()), existanteNat.nombreOperations() + 1));
+                }
+            }
+
+            // Effectifs du centre par formation
+            Map<UUID, EffectifFormationResume> mapEffectifsCentre = new LinkedHashMap<>();
+            if (apprenantRepository != null) {
+                List<com.excelisprepas.backend.apprenant.domain.model.Apprenant> apprenants =
+                        apprenantRepository.findByCentreIdAndSessionId(centre.getId(), sessionId);
+                for (com.excelisprepas.backend.apprenant.domain.model.Apprenant a : apprenants) {
+                    UUID fId = a.getFormationId();
+                    if (fId != null) {
+                        String fNom = nomsFormations.getOrDefault(fId, "Formation");
+                        boolean isNouveau = a.getDateInscription() != null && a.getDateInscription().equals(date);
+                        EffectifFormationResume eff = mapEffectifsCentre.get(fId);
+                        if (eff == null) {
+                            mapEffectifsCentre.put(fId, new EffectifFormationResume(fId, fNom, isNouveau ? 1 : 0, 1));
+                        } else {
+                            mapEffectifsCentre.put(fId, new EffectifFormationResume(fId, fNom,
+                                    eff.nouveauxElevesJour() + (isNouveau ? 1 : 0),
+                                    eff.effectifTotal() + 1));
+                        }
+
+                        EffectifFormationResume effNat = mapEffectifsNationaux.get(fId);
+                        if (effNat == null) {
+                            mapEffectifsNationaux.put(fId, new EffectifFormationResume(fId, fNom, isNouveau ? 1 : 0, 1));
+                        } else {
+                            mapEffectifsNationaux.put(fId, new EffectifFormationResume(fId, fNom,
+                                    effNat.nouveauxElevesJour() + (isNouveau ? 1 : 0),
+                                    effNat.effectifTotal() + 1));
+                        }
+                    }
+                }
+            }
+
+            centresResumes.add(new BilanCentreResume(
+                    centre.getId(),
+                    centre.getNom(),
+                    recupererVilleCentre(centre),
+                    apercu.statut(),
+                    apercu.totalEntrees(),
+                    apercu.totalSorties(),
+                    apercu.netAVerser(),
+                    apercu.effectifNouveauxEleves(),
+                    apercu.effectifTotalCentre(),
+                    apercu.nombreSalles(),
+                    apercu.nombreCours(),
+                    apercu.nomCaissier(),
+                    apercu.dateVisaCaissier(),
+                    apercu.nomChefCentre(),
+                    apercu.dateValidationChefCentre(),
+                    apercu.nomControleur(),
+                    apercu.dateValidationControleur(),
+                    new ArrayList<>(mapEntreesCentre.values()),
+                    new ArrayList<>(mapSortiesCentre.values()),
+                    new ArrayList<>(mapEffectifsCentre.values())
+            ));
+        }
+
+        BigDecimal netAVerserNational = totalEntreesNational.subtract(totalSortiesNational);
+
+        return new BilanConsolideNational(
+                date,
+                sessionId,
+                totalEntreesNational,
+                totalSortiesNational,
+                netAVerserNational,
+                totalNouveauxElevesNational,
+                totalEffectifNational,
+                centresCloturesCount,
+                tousLesCentres.size(),
+                centresResumes,
+                new ArrayList<>(mapEntreesNationales.values()),
+                new ArrayList<>(mapSortiesNationales.values()),
+                new ArrayList<>(mapEffectifsNationaux.values())
+        );
+    }
+
+    private String recupererVilleCentre(com.excelisprepas.backend.centre.domain.model.Centre centre) {
+        try {
+            return centre.getLocalisationActuelle().getVille();
+        } catch (Exception e) {
+            return "";
+        }
     }
 }
