@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   getBilanDuJour,
+  getBilanConsolideDuJour,
   getRepartitionFormations,
   listMotifs,
   listVersementsApprenant,
@@ -32,6 +33,18 @@ export function useBilanDuJour(
     queryKey: ["bilan-du-jour", centreId, sessionId, date],
     queryFn: () => getBilanDuJour(centreId!, sessionId!, date),
     enabled: Boolean(centreId && sessionId),
+  });
+}
+
+export function useBilanConsolideDuJour(
+  sessionId: string | undefined,
+  dateSelectionnee?: string,
+) {
+  const date = dateSelectionnee || new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  return useQuery({
+    queryKey: ["bilan-consolide", sessionId, date],
+    queryFn: () => getBilanConsolideDuJour(sessionId!, date),
+    enabled: Boolean(sessionId),
   });
 }
 
@@ -72,6 +85,7 @@ export function useSaisirEntree() {
         });
       }
       queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
+      queryClient.invalidateQueries({ queryKey: ["bilan-consolide"] });
       queryClient.invalidateQueries({ queryKey: ["mouvements-financiers"] });
       queryClient.invalidateQueries({ queryKey: ["livres"] });
     },
@@ -84,6 +98,7 @@ export function useSaisirSortie() {
     mutationFn: (input: SaisirSortieInput) => saisirSortie(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
+      queryClient.invalidateQueries({ queryKey: ["bilan-consolide"] });
       queryClient.invalidateQueries({ queryKey: ["mouvements-financiers"] });
     },
   });
@@ -104,6 +119,7 @@ export function useModifierEntree() {
         });
       }
       queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
+      queryClient.invalidateQueries({ queryKey: ["bilan-consolide"] });
       queryClient.invalidateQueries({ queryKey: ["mouvements-financiers"] });
     },
   });
@@ -117,6 +133,7 @@ export function useSupprimerEntree() {
       queryClient.invalidateQueries({ queryKey: ["versements-apprenant"] });
       queryClient.invalidateQueries({ queryKey: ["apprenants"] });
       queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
+      queryClient.invalidateQueries({ queryKey: ["bilan-consolide"] });
       queryClient.invalidateQueries({ queryKey: ["mouvements-financiers"] });
       queryClient.invalidateQueries({ queryKey: ["livres"] });
       queryClient.invalidateQueries({ queryKey: ["ventes-livres"] });
@@ -130,6 +147,7 @@ export function useSoumettreBilanCaissier() {
     mutationFn: (input: SoumettreBilanCaissierInput) => soumettreBilanCaissier(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
+      queryClient.invalidateQueries({ queryKey: ["bilan-consolide"] });
     },
   });
 }
@@ -140,6 +158,7 @@ export function useValiderBilanChefCentre() {
     mutationFn: (input: ValiderBilanChefCentreInput) => validerBilanChefCentre(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
+      queryClient.invalidateQueries({ queryKey: ["bilan-consolide"] });
     },
   });
 }
@@ -151,6 +170,7 @@ export function useValiderBilanControleur() {
       validerBilanControleur(bilanId, validateurUtilisateurId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
+      queryClient.invalidateQueries({ queryKey: ["bilan-consolide"] });
       queryClient.invalidateQueries({ queryKey: ["mouvements-financiers"] });
     },
   });

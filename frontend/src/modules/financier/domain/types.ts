@@ -84,4 +84,65 @@ export type Sortie = {
   ordonnateur: string;
 };
 
+export type LigneEntreeResume = {
+  categorie: string; // "FORMATION" | "LIVRE" | "AUTRE"
+  formationId?: string | null;
+  libelle: string;
+  montant: number;
+  nombreOperations: number;
+};
+
+export type LigneSortieResume = {
+  motifId?: string | null;
+  libelleMotif: string;
+  montant: number;
+  nombreOperations: number;
+};
+
+export type EffectifFormationResume = {
+  formationId: string;
+  formationNom: string;
+  nouveauxElevesJour: number;
+  effectifTotal: number;
+};
+
+export type BilanCentreResume = {
+  centreId: string;
+  centreNom: string;
+  centreVille: string;
+  statut: StatutBilan;
+  totalEntrees: number;
+  totalSorties: number;
+  netAVerser: number;
+  effectifNouveauxElevesTotal: number;
+  effectifTotalCentre: number;
+  nombreSalles?: number | null;
+  nombreCours?: number | null;
+  nomCaissier?: string | null;
+  dateVisaCaissier?: string | null;
+  nomChefCentre?: string | null;
+  dateValidationChefCentre?: string | null;
+  nomControleur?: string | null;
+  dateValidationControleur?: string | null;
+  entreesDetaillees: LigneEntreeResume[];
+  sortiesDetaillees: LigneSortieResume[];
+  effectifsParFormation: EffectifFormationResume[];
+};
+
+export type BilanConsolideNational = {
+  date: string;
+  sessionId: string;
+  totalEntreesNational: number;
+  totalSortiesNational: number;
+  netAVerserNational: number;
+  totalNouveauxElevesNational: number;
+  totalEffectifNational: number;
+  centresCloturesCount: number;
+  centresTotalCount: number;
+  centres: BilanCentreResume[];
+  entreesNationalesDetaillees: LigneEntreeResume[];
+  sortiesNationalesDetaillees: LigneSortieResume[];
+  effectifsNationauxParFormation: EffectifFormationResume[];
+};
+
 export type { MouvementFinancier } from "../data/client";

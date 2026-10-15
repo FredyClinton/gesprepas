@@ -1,6 +1,16 @@
 import { apiFetch } from "@/shared/lib/api-client";
 
-import type { Entree, Sortie, Motif, TypeMotif, StatutMouvement, BilanApercu, BilanJournalier, RepartitionFormation } from "../domain/types";
+import type {
+  Entree,
+  Sortie,
+  Motif,
+  TypeMotif,
+  StatutMouvement,
+  BilanApercu,
+  BilanJournalier,
+  RepartitionFormation,
+  BilanConsolideNational,
+} from "../domain/types";
 
 export function getBilanDuJour(
   centreId: string,
@@ -9,6 +19,16 @@ export function getBilanDuJour(
 ): Promise<BilanApercu> {
   const params = new URLSearchParams({ centreId, sessionId, date });
   return apiFetch<BilanApercu>(`/api/bilans-journaliers/du-jour?${params}`);
+}
+
+export function getBilanConsolideDuJour(
+  sessionId: string,
+  date: string,
+): Promise<BilanConsolideNational> {
+  const params = new URLSearchParams({ sessionId, date });
+  return apiFetch<BilanConsolideNational>(
+    `/api/bilans-journaliers/consolide-du-jour?${params}`,
+  );
 }
 
 export function getRepartitionFormations(
