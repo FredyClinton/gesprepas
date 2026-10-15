@@ -409,4 +409,99 @@ class BilanJournalierServiceTest {
             assertThatThrownBy(action).isInstanceOf(BilanJournalierIntrouvableException.class);
         }
     }
+
+    @Nested
+    @DisplayName("Bilan consolidé national du Directeur")
+    class BilanConsolideDirecteur {
+
+        @Test
+        @DisplayName("calcule et agrège fidèlement les flux et effectifs de tous les centres")
+        void calculeEtAgregeFluxEtEffectifs() {
+            // Given
+            UUID centre1Id = UUID.randomUUID();
+            UUID centre2Id = UUID.randomUUID();
+            Centre centre1 = new Centre(centre1Id, "Centre Yaoundé", "Bastos", "Yaoundé");
+            Centre centre2 = new Centre(centre2Id, "Centre Douala", "Akwa", "Douala");
+
+            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
+            when(centreRepository.findAll()).thenReturn(List.of(centre1, centre2));
+            when(centreRepository.findById(centre1Id)).thenReturn(Optional.of(centre1));
+            when(centreRepository.findById(centre2Id)).thenReturn(Optional.of(centre2));
+
+            UUID formationPolytech = UUID.randomUUID();
+            UUID formationMedecine = UUID.randomUUID();
+            UUID motifLivreId = UUID.randomUUID();
+            UUID motifTransportId = UUID.randomUUID();
+
+            Entree e1 = new Entree(UUID.randomUUID(), sessionId, motifId, new BigDecimal("100000"), date,
+                    saisiParUtilisateurId, centre1Id, null, formationPolytech, null);
+            e1.appliquerDecision(StatutMouvement.VALIDE);
+
+            Entree e2 = new Entree(UUID.randomUUID(), sessionId, motifLivreId, new BigDecimal("25000"), date,
+                    saisiParUtilisateurId, centre1Id, null, null, null);
+            e2.appliquerDecision(StatutMouvement.VALIDE);
+
+            Sortie s1 = new Sortie(UUID.randomUUID(), sessionId, motifTransportId, new BigDecimal("15000"), date,
+                    saisiParUtilisateurId, centre1Id, "Directeur");
+            s1.appliquerDecision(StatutMouvement.VALIDE);
+
+            when(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre1Id, sessionId, date, StatutMouvement.VALIDE))
+                    .thenReturn(List.of(e1, e2));
+            when(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre1Id, sessionId, date, StatutMouvement.EN_ATTENTE))
+                    .thenReturn(List.of());
+            when(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre1Id, sessionId, date, StatutMouvement.VALIDE))
+                    .thenReturn(List.of(s1));
+            when(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre1Id, sessionId, date, StatutMouvement.EN_ATTENTE))
+                    .thenReturn(List.of());
+
+            Entree e3 = new Entree(UUID.randomUUID(), sessionId, motifId, new BigDecimal("200000"), date,
+                    saisiParUtilisateurId, centre2Id, null, formationMedecine, null);
+            e3.appliquerDecision(StatutMouvement.VALIDE);
+
+            when(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre2Id, sessionId, date, StatutMouvement.VALIDE))
+                    .thenReturn(List.of(e3));
+            when(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre2Id, sessionId, date, StatutMouvement.EN_ATTENTE))
+                    .thenReturn(List.of());
+            when(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre2Id, sessionId, date, StatutMouvement.VALIDE))
+                    .thenReturn(List.of());
+            when(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre2Id, sessionId, date, StatutMouvement.EN_ATTENTE))
+                    .thenReturn(List.of());
+
+            // Apprenants
+            com.excelisprepas.backend.apprenant.domain.model.Apprenant a1 =
+                    new com.excelisprepas.backend.apprenant.domain.model.Apprenant(UUID.randomUUID(), "Doe", "John",
+                            LocalDate.of(2005, 1, 1), date, centre1Id, sessionId,
+                            "123", "P", "456", "Lycee", formationPolytech, BigDecimal.ZERO, false, "REF");
+
+            when(apprenantRepository.findByCentreIdAndSessionId(centre1Id, sessionId))
+                    .thenReturn(List.of(a1));
+            when(apprenantRepository.countByCentreIdAndSessionId(centre1Id, sessionId)).thenReturn(1L);
+            when(apprenantRepository.countByCentreIdAndSessionIdAndDateInscription(centre1Id, sessionId, date)).thenReturn(1L);
+
+            when(apprenantRepository.findByCentreIdAndSessionId(centre2Id, sessionId))
+                    .thenReturn(List.of());
+            when(apprenantRepository.countByCentreIdAndSessionId(centre2Id, sessionId)).thenReturn(0L);
+            when(apprenantRepository.countByCentreIdAndSessionIdAndDateInscription(centre2Id, sessionId, date)).thenReturn(0L);
+
+            // When
+            BilanConsolideNational resultat = service.consulterBilanConsolide(sessionId, date);
+
+            // Then
+            assertThat(resultat).isNotNull();
+            assertThat(resultat.totalEntreesNational()).isEqualByComparingTo("325000");
+            assertThat(resultat.totalSortiesNational()).isEqualByComparingTo("15000");
+            assertThat(resultat.netAVerserNational()).isEqualByComparingTo("310000");
+            assertThat(resultat.centres()).hasSize(2);
+            assertThat(resultat.centresTotalCount()).isEqualTo(2);
+
+            BilanCentreResume centre1Resume = resultat.centres().stream()
+                    .filter(c -> c.centreId().equals(centre1Id))
+                    .findFirst().orElseThrow();
+            assertThat(centre1Resume.totalEntrees()).isEqualByComparingTo("125000");
+            assertThat(centre1Resume.totalSorties()).isEqualByComparingTo("15000");
+            assertThat(centre1Resume.netAVerser()).isEqualByComparingTo("110000");
+            assertThat(centre1Resume.entreesDetaillees()).isNotEmpty();
+            assertThat(centre1Resume.sortiesDetaillees()).isNotEmpty();
+        }
+    }
 }

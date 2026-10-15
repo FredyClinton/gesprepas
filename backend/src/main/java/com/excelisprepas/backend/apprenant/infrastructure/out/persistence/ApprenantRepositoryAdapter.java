@@ -54,4 +54,11 @@ public class ApprenantRepositoryAdapter implements ApprenantRepositoryPort {
     public long countByCentreIdAndSessionIdAndDateInscription(UUID centreId, UUID sessionId, LocalDate dateInscription) {
         return jpaRepository.countByCentreIdAndSessionIdAndDateInscription(centreId, sessionId, dateInscription);
     }
+
+    @Override
+    public List<Apprenant> findByCentreIdAndSessionId(UUID centreId, UUID sessionId) {
+        return jpaRepository.findByCentreIdAndSessionId(centreId, sessionId).stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
 }
