@@ -19,6 +19,7 @@ import {
   TrendingUp,
   GraduationCap,
   BookOpen,
+  ShieldCheck,
 } from "lucide-react";
 
 import type { Role } from "@/types/roles";
@@ -47,6 +48,7 @@ const NAV_DIRECTEUR: NavItem[] = [
   { href: "/livres", label: "Livres & Supports", icon: BookOpen },
   { href: "/paie", label: "Paie", icon: Banknote },
   { href: "/archive", label: "Archive", icon: Archive },
+  { href: "/audit", label: "Journal d'audit", icon: ShieldCheck },
   { href: "/rapports", label: "Rapports", icon: BarChart3 },
   { href: "/parametres", label: "Paramètres", icon: Settings },
 ];
@@ -78,6 +80,7 @@ const NAV_CHEF_CENTRE: NavItem[] = [
     label: "Bilan Journalier",
     icon: ClipboardCheck,
   },
+  { href: "/audit", label: "Journal d'audit", icon: ShieldCheck },
   { href: "/rapports", label: "Rapports", icon: BarChart3 },
   { href: "/parametres", label: "Paramètres", icon: Settings },
 ];
@@ -94,6 +97,7 @@ const NAV_DIRECTEUR_ACADEMIQUE: NavItem[] = [
   { href: "/progression", label: "Progression", icon: TrendingUp },
   { href: "/concours-blancs", label: "Concours blancs", icon: ClipboardList },
   { href: "/livres", label: "Livres & Supports", icon: BookOpen },
+  { href: "/audit", label: "Journal d'audit", icon: ShieldCheck },
   { href: "/rapports", label: "Rapports", icon: BarChart3 },
   { href: "/parametres", label: "Paramètres", icon: Settings },
 ];
