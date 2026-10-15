@@ -37,6 +37,7 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
     private final com.excelisprepas.backend.apprenant.domain.port.out.ContratApprenantRepositoryPort contratApprenantRepository;
     private final com.excelisprepas.backend.financier.domain.port.out.BilanJournalierRepositoryPort bilanRepository;
     private final com.excelisprepas.backend.livre.domain.port.out.VenteLivreRepositoryPort venteLivreRepository;
+    private final com.excelisprepas.backend.shared.audit.application.AuditEventHelper auditEventHelper;
 
     public MouvementFinancierService(EntreeRepositoryPort entreeRepository,
                                      SortieRepositoryPort sortieRepository,
@@ -48,7 +49,7 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
                                      com.excelisprepas.backend.inscription.domain.port.out.DossierInscriptionRepositoryPort dossierInscriptionRepository,
                                      com.excelisprepas.backend.apprenant.domain.port.out.ContratApprenantRepositoryPort contratApprenantRepository) {
         this(entreeRepository, sortieRepository, motifRepository, centreRepository, apprenantRepository,
-                sessionRepository, mouvementRepository, dossierInscriptionRepository, contratApprenantRepository, null, null);
+                sessionRepository, mouvementRepository, dossierInscriptionRepository, contratApprenantRepository, null, null, null);
     }
 
     public MouvementFinancierService(EntreeRepositoryPort entreeRepository,
@@ -62,6 +63,23 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
                                      com.excelisprepas.backend.apprenant.domain.port.out.ContratApprenantRepositoryPort contratApprenantRepository,
                                      com.excelisprepas.backend.financier.domain.port.out.BilanJournalierRepositoryPort bilanRepository,
                                      com.excelisprepas.backend.livre.domain.port.out.VenteLivreRepositoryPort venteLivreRepository) {
+        this(entreeRepository, sortieRepository, motifRepository, centreRepository, apprenantRepository,
+                sessionRepository, mouvementRepository, dossierInscriptionRepository, contratApprenantRepository,
+                bilanRepository, venteLivreRepository, null);
+    }
+
+    public MouvementFinancierService(EntreeRepositoryPort entreeRepository,
+                                     SortieRepositoryPort sortieRepository,
+                                     MotifRepositoryPort motifRepository,
+                                     CentreRepositoryPort centreRepository,
+                                     ApprenantRepositoryPort apprenantRepository,
+                                     SessionAcademiqueRepositoryPort sessionRepository,
+                                     MouvementFinancierRepositoryPort mouvementRepository,
+                                     com.excelisprepas.backend.inscription.domain.port.out.DossierInscriptionRepositoryPort dossierInscriptionRepository,
+                                     com.excelisprepas.backend.apprenant.domain.port.out.ContratApprenantRepositoryPort contratApprenantRepository,
+                                     com.excelisprepas.backend.financier.domain.port.out.BilanJournalierRepositoryPort bilanRepository,
+                                     com.excelisprepas.backend.livre.domain.port.out.VenteLivreRepositoryPort venteLivreRepository,
+                                     com.excelisprepas.backend.shared.audit.application.AuditEventHelper auditEventHelper) {
         this.entreeRepository = entreeRepository;
         this.sortieRepository = sortieRepository;
         this.motifRepository = motifRepository;
@@ -73,6 +91,7 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
         this.contratApprenantRepository = contratApprenantRepository;
         this.bilanRepository = bilanRepository;
         this.venteLivreRepository = venteLivreRepository;
+        this.auditEventHelper = auditEventHelper;
     }
 
     private Motif verifierMotif(UUID motifId, TypeMotif typeAttendu) {
@@ -114,7 +133,7 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
 
             // Règle de non-dépassement : Si ce n'est pas un achat de livre ni un paiement dossier concours, contrôler le solde
             boolean estAchatLivre = motif.getNom().toLowerCase().contains("livre");
-            if (dossierConcoursId == null && !estAchatLivre) {
+            if (dossierConcoursId == null && !estAchatLivre && contratApprenantRepository != null) {
                 List<com.excelisprepas.backend.apprenant.domain.model.ContratApprenant> contrats = contratApprenantRepository.findByApprenantId(apprenantId);
                 BigDecimal totalContrat = contrats.stream()
                         .filter(c -> "ACTIF".equalsIgnoreCase(c.getStatut()))
@@ -141,9 +160,11 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
                 }
             }
 
-            List<com.excelisprepas.backend.inscription.domain.model.DossierInscription> dossiers = dossierInscriptionRepository.findByApprenantIdAndSessionId(apprenantId, sessionId);
-            if (!dossiers.isEmpty() && dossiers.get(0).getFormationsCibles() != null && !dossiers.get(0).getFormationsCibles().isEmpty()) {
-                formationId = dossiers.get(0).getFormationsCibles().get(0);
+            if (dossierInscriptionRepository != null) {
+                List<com.excelisprepas.backend.inscription.domain.model.DossierInscription> dossiers = dossierInscriptionRepository.findByApprenantIdAndSessionId(apprenantId, sessionId);
+                if (!dossiers.isEmpty() && dossiers.get(0).getFormationsCibles() != null && !dossiers.get(0).getFormationsCibles().isEmpty()) {
+                    formationId = dossiers.get(0).getFormationsCibles().get(0);
+                }
             }
             if (formationId == null) {
                 formationId = apprenant.getFormationId();
@@ -155,13 +176,50 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
         entree.appliquerDecision(StatutMouvement.VALIDE);
         entree = entreeRepository.save(entree);
         log.info("Entrée saisie et validée : id={}, sessionId={}, montant={}, centreId={}", entree.getId(), sessionId, montant, centreId);
+
+        if (auditEventHelper != null) {
+            if (apprenantId != null) {
+                String nomApprenant = apprenantRepository.findById(apprenantId)
+                        .map(a -> a.getNom() + " " + a.getPrenom())
+                        .orElse(apprenantId.toString());
+                auditEventHelper.audit(
+                        com.excelisprepas.backend.shared.audit.domain.event.AuditModule.FINANCE,
+                        "CREATION_VERSEMENT",
+                        "Versement de " + montant + " FCFA enregistré pour l'apprenant " + nomApprenant,
+                        "MouvementFinancier",
+                        entree.getId().toString(),
+                        java.util.Map.of(
+                                "montant", montant,
+                                "date", date.toString(),
+                                "motif", motif.getNom(),
+                                "apprenantId", apprenantId.toString()
+                        ),
+                        centreId
+                );
+            } else {
+                auditEventHelper.audit(
+                        com.excelisprepas.backend.shared.audit.domain.event.AuditModule.FINANCE,
+                        "ENTREE_CAISSE",
+                        "Entrée de caisse de " + montant + " FCFA - Motif : " + motif.getNom(),
+                        "MouvementFinancier",
+                        entree.getId().toString(),
+                        java.util.Map.of(
+                                "montant", montant,
+                                "date", date.toString(),
+                                "motif", motif.getNom()
+                        ),
+                        centreId
+                );
+            }
+        }
+
         return entree;
     }
 
     @Override
     public Sortie saisirSortie(UUID sessionId, UUID motifId, BigDecimal montant, LocalDate date,
                                UUID saisiParUtilisateurId, UUID centreId, String ordonnateur) {
-        verifierMotif(motifId, TypeMotif.SORTIE);
+        Motif motif = verifierMotif(motifId, TypeMotif.SORTIE);
         verifierSessionUtilisable(sessionId);
         if (centreId != null && centreRepository.findById(centreId).isEmpty()) {
             throw new CentreIntrouvableException(centreId);
@@ -171,6 +229,24 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
                 saisiParUtilisateurId, centreId, ordonnateur);
         sortie = sortieRepository.save(sortie);
         log.info("Sortie saisie : id={}, sessionId={}, montant={}, centreId={}", sortie.getId(), sessionId, montant, centreId);
+
+        if (auditEventHelper != null) {
+            auditEventHelper.audit(
+                    com.excelisprepas.backend.shared.audit.domain.event.AuditModule.FINANCE,
+                    "SORTIE_CAISSE",
+                    "Dépense de caisse de " + montant + " FCFA - Motif : " + motif.getNom() + (ordonnateur != null ? " (Ordonnateur: " + ordonnateur + ")" : ""),
+                    "MouvementFinancier",
+                    sortie.getId().toString(),
+                    java.util.Map.of(
+                            "montant", montant,
+                            "date", date.toString(),
+                            "motif", motif.getNom(),
+                            "ordonnateur", ordonnateur != null ? ordonnateur : ""
+                    ),
+                    centreId
+            );
+        }
+
         return sortie;
     }
 
@@ -292,6 +368,24 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
         Entree entreeMaj = entree.mettreAJour(montantFinal, dateFinal, motifFinal, apprenantFinal, formationId);
         entreeMaj = entreeRepository.save(entreeMaj);
         log.info("Entrée modifiée : id={}, montant={}, date={}", entreeMaj.getId(), montantFinal, dateFinal);
+
+        if (auditEventHelper != null) {
+            auditEventHelper.audit(
+                    com.excelisprepas.backend.shared.audit.domain.event.AuditModule.FINANCE,
+                    "MODIFICATION_VERSEMENT",
+                    "Modification versement/entrée : nouveau montant " + montantFinal + " FCFA",
+                    "MouvementFinancier",
+                    entreeMaj.getId().toString(),
+                    java.util.Map.of(
+                            "ancienMontant", entree.getMontant(),
+                            "nouveauMontant", montantFinal,
+                            "date", dateFinal.toString(),
+                            "motifId", motifFinal.toString()
+                    ),
+                    entree.getCentreId()
+            );
+        }
+
         return entreeMaj;
     }
 
@@ -314,5 +408,20 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
 
         entreeRepository.deleteById(entreeId);
         log.info("Entrée supprimée : id={}", entreeId);
+
+        if (auditEventHelper != null) {
+            auditEventHelper.audit(
+                    com.excelisprepas.backend.shared.audit.domain.event.AuditModule.FINANCE,
+                    "SUPPRESSION_VERSEMENT",
+                    "Suppression d'un versement/entrée de " + entree.getMontant() + " FCFA du " + entree.getDate(),
+                    "MouvementFinancier",
+                    entreeId.toString(),
+                    java.util.Map.of(
+                            "montant", entree.getMontant(),
+                            "date", entree.getDate().toString()
+                    ),
+                    entree.getCentreId()
+            );
+        }
     }
 }

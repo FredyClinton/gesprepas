@@ -57,10 +57,11 @@ public class FinancierBeanConfiguration {
                                                                com.excelisprepas.backend.inscription.domain.port.out.DossierInscriptionRepositoryPort dossierInscriptionRepository,
                                                                com.excelisprepas.backend.apprenant.domain.port.out.ContratApprenantRepositoryPort contratApprenantRepository,
                                                                com.excelisprepas.backend.financier.domain.port.out.BilanJournalierRepositoryPort bilanRepository,
-                                                               com.excelisprepas.backend.livre.domain.port.out.VenteLivreRepositoryPort venteLivreRepository) {
+                                                               com.excelisprepas.backend.livre.domain.port.out.VenteLivreRepositoryPort venteLivreRepository,
+                                                               com.excelisprepas.backend.shared.audit.application.AuditEventHelper auditEventHelper) {
         return new MouvementFinancierService(entreeRepository, sortieRepository, motifRepository,
                 centreRepository, apprenantRepository, sessionRepository, mouvementRepository,
-                dossierInscriptionRepository, contratApprenantRepository, bilanRepository, venteLivreRepository);
+                dossierInscriptionRepository, contratApprenantRepository, bilanRepository, venteLivreRepository, auditEventHelper);
     }
 
 

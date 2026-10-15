@@ -25,9 +25,10 @@ public class LivreBeanConfiguration {
                                                SaisirEntreeUseCase saisirEntreeUseCase,
                                                MotifRepositoryPort motifRepositoryPort,
                                                CentreRepositoryPort centreRepositoryPort,
-                                               ApprenantRepositoryPort apprenantRepositoryPort) {
+                                               ApprenantRepositoryPort apprenantRepositoryPort,
+                                               com.excelisprepas.backend.shared.audit.application.AuditEventHelper auditEventHelper) {
         return new VenteLivreService(venteLivreRepositoryPort, livreRepositoryPort,
-                saisirEntreeUseCase, motifRepositoryPort, centreRepositoryPort, apprenantRepositoryPort);
+                saisirEntreeUseCase, motifRepositoryPort, centreRepositoryPort, apprenantRepositoryPort, auditEventHelper);
     }
 }
 

@@ -38,6 +38,7 @@ public class VenteLivreService implements EnregistrerVenteLivreUseCase, ListerVe
     private final MotifRepositoryPort motifRepositoryPort;
     private final CentreRepositoryPort centreRepositoryPort;
     private final ApprenantRepositoryPort apprenantRepositoryPort;
+    private final com.excelisprepas.backend.shared.audit.application.AuditEventHelper auditEventHelper;
 
     public VenteLivreService(VenteLivreRepositoryPort venteLivreRepositoryPort,
                              LivreRepositoryPort livreRepositoryPort,
@@ -45,12 +46,24 @@ public class VenteLivreService implements EnregistrerVenteLivreUseCase, ListerVe
                              MotifRepositoryPort motifRepositoryPort,
                              CentreRepositoryPort centreRepositoryPort,
                              ApprenantRepositoryPort apprenantRepositoryPort) {
+        this(venteLivreRepositoryPort, livreRepositoryPort, saisirEntreeUseCase, motifRepositoryPort,
+                centreRepositoryPort, apprenantRepositoryPort, null);
+    }
+
+    public VenteLivreService(VenteLivreRepositoryPort venteLivreRepositoryPort,
+                             LivreRepositoryPort livreRepositoryPort,
+                             SaisirEntreeUseCase saisirEntreeUseCase,
+                             MotifRepositoryPort motifRepositoryPort,
+                             CentreRepositoryPort centreRepositoryPort,
+                             ApprenantRepositoryPort apprenantRepositoryPort,
+                             com.excelisprepas.backend.shared.audit.application.AuditEventHelper auditEventHelper) {
         this.venteLivreRepositoryPort = venteLivreRepositoryPort;
         this.livreRepositoryPort = livreRepositoryPort;
         this.saisirEntreeUseCase = saisirEntreeUseCase;
         this.motifRepositoryPort = motifRepositoryPort;
         this.centreRepositoryPort = centreRepositoryPort;
         this.apprenantRepositoryPort = apprenantRepositoryPort;
+        this.auditEventHelper = auditEventHelper;
     }
 
     @Override
@@ -159,6 +172,25 @@ public class VenteLivreService implements EnregistrerVenteLivreUseCase, ListerVe
         List<VenteLivre> sauves = venteLivreRepositoryPort.saveAll(ventesFinales);
         log.info("Vente de {} livre(s) enregistrée pour un total de {} FCFA dans le centre {}",
                 commande.lignes().size(), totalCommande, centre.getNom());
+
+        if (auditEventHelper != null) {
+            String firstId = sauves.isEmpty() ? "" : sauves.get(0).getId().toString();
+            auditEventHelper.audit(
+                    com.excelisprepas.backend.shared.audit.domain.event.AuditModule.FINANCE,
+                    "VENTE_LIVRE",
+                    "Vente de " + commande.lignes().size() + " livre(s) pour un total de " + totalCommande + " FCFA à " + nomAcheteur,
+                    "VenteLivre",
+                    firstId,
+                    Map.of(
+                            "montantTotal", totalCommande,
+                            "nomAcheteur", nomAcheteur,
+                            "nombreLivres", commande.lignes().size(),
+                            "dateVente", commande.dateVente().toString()
+                    ),
+                    commande.centreId()
+            );
+        }
+
         return sauves;
     }
 
