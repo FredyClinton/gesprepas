@@ -71,6 +71,11 @@ export function BilanJournalierView() {
     user?.role === "COMPTABLE" ||
     user?.role === "ADMIN";
 
+  const peutSaisirMouvement =
+    user?.role === "CAISSIER" ||
+    user?.role === "CHEF_CENTRE" ||
+    user?.role === "CHEF_DE_CENTRE";
+
   const [vueDirecteur, setVueDirecteur] = useState<"synthese" | "detail">("synthese");
 
   // Navigation Date (par défaut aujourd'hui)
@@ -306,27 +311,30 @@ export function BilanJournalierView() {
                 </button>
               )}
 
-              {/* Bouton Enregistrer versement */}
-              <button
-                onClick={() => setModalVersementOuverte(true)}
-                disabled={estCloture}
-                type="button"
-                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors disabled:opacity-40 cursor-pointer"
-              >
-                <Plus size={14} className="text-[#0e4a56]" />
-                <span>Enregistrer un versement</span>
-              </button>
+              {/* Boutons d'ajout d'écritures (réservés au caissier et chef de centre, masqués pour le directeur/comptable) */}
+              {peutSaisirMouvement && (
+                <>
+                  <button
+                    onClick={() => setModalVersementOuverte(true)}
+                    disabled={estCloture}
+                    type="button"
+                    className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors disabled:opacity-40 cursor-pointer"
+                  >
+                    <Plus size={14} className="text-[#0e4a56]" />
+                    <span>Enregistrer un versement</span>
+                  </button>
 
-              {/* Bouton Saisir dépense */}
-              <button
-                onClick={() => setModalSortieOuverte(true)}
-                disabled={estCloture}
-                type="button"
-                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors disabled:opacity-40 cursor-pointer"
-              >
-                <Plus size={14} className="text-rose-500" />
-                <span>Saisir une dépense</span>
-              </button>
+                  <button
+                    onClick={() => setModalSortieOuverte(true)}
+                    disabled={estCloture}
+                    type="button"
+                    className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors disabled:opacity-40 cursor-pointer"
+                  >
+                    <Plus size={14} className="text-rose-500" />
+                    <span>Saisir une dépense</span>
+                  </button>
+                </>
+              )}
 
               {/* Bouton Imprimer fiche */}
               <button
@@ -340,7 +348,7 @@ export function BilanJournalierView() {
             </div>
           </div>
 
-          {/* ── CIRCUIT DE VALIDATION EN FLUX VERTICAL "STEPPER" (Style Image 2) ── */}
+          {/* ── CIRCUIT DE VALIDATION EN FLUX HORIZONTAL (Stepper Horizontal) ── */}
           <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_2px_16px_rgba(0,0,0,0.03)]">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4 mb-6">
               <div>
@@ -379,115 +387,124 @@ export function BilanJournalierView() {
               </div>
             </div>
 
-            {/* Stepper Vertical Connecté */}
-            <div className="max-w-md mx-auto py-2">
-              <div className="relative space-y-6">
-                {/* Ligne de connexion verticale */}
-                <div className="absolute left-[15px] top-[18px] bottom-[18px] w-0.5 bg-slate-200" />
+            {/* Stepper Horizontal Connecté */}
+            <div className="relative pt-2 pb-2">
+              {/* Ligne de connexion horizontale en arrière-plan */}
+              <div className="hidden md:block absolute top-[20px] left-[16%] right-[16%] h-0.5 bg-slate-200 z-0" />
 
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
                 {/* Étape 1 : Arrêté de caisse */}
-                <div className="relative flex items-start gap-4">
+                <div className="flex flex-col items-center text-center">
                   <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors z-10 ${
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all shadow-2xs ${
                       bilan?.dateVisaCaissier
                         ? "bg-emerald-600 text-white"
                         : "bg-white border-2 border-slate-300 text-slate-400"
                     }`}
                   >
-                    {bilan?.dateVisaCaissier ? <Check size={16} /> : "1"}
+                    {bilan?.dateVisaCaissier ? <Check size={18} /> : "1"}
                   </div>
-                  <div className="flex-1 pt-0.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-900">
-                        Arrêté de caisse {bilan?.dateVisaCaissier && "✓"}
-                      </span>
+                  <div className="mt-2.5">
+                    <div className="text-xs font-bold text-slate-900">
+                      Arrêté de caisse {bilan?.dateVisaCaissier && "✓"}
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-[11px] text-slate-500 mt-0.5">
                       {bilan?.nomCaissier || "Caissier en service"}
                     </p>
-                    {!bilan?.dateVisaCaissier && !estCloture && (
-                      <div className="mt-2">
-                        <button
-                          onClick={handleVisaCaissier}
-                          disabled={enCoursSoumission}
-                          type="button"
-                          className="rounded-lg bg-[#0e4a56] hover:bg-[#0b3c48] px-4 py-1.5 text-xs font-semibold text-white shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
-                        >
-                          {enCoursSoumission ? "Signature en cours..." : "Signer l'arrêté de caisse"}
-                        </button>
-                      </div>
+                    {bilan?.dateVisaCaissier && (
+                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                        Signé à {new Date(bilan.dateVisaCaissier).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                      </p>
                     )}
                   </div>
+                  {!bilan?.dateVisaCaissier && !estCloture && (
+                    <div className="mt-2.5">
+                      <button
+                        onClick={handleVisaCaissier}
+                        disabled={enCoursSoumission}
+                        type="button"
+                        className="rounded-lg bg-[#0e4a56] hover:bg-[#0b3c48] px-4 py-1.5 text-xs font-semibold text-white shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        {enCoursSoumission ? "Signature..." : "Signer l'arrêté de caisse"}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Étape 2 : Visa direction */}
-                <div className="relative flex items-start gap-4">
+                <div className="flex flex-col items-center text-center">
                   <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors z-10 ${
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all shadow-2xs ${
                       bilan?.dateValidationChefCentre
                         ? "bg-emerald-600 text-white"
                         : "bg-white border-2 border-slate-300 text-slate-400"
                     }`}
                   >
-                    {bilan?.dateValidationChefCentre ? <Check size={16} /> : "2"}
+                    {bilan?.dateValidationChefCentre ? <Check size={18} /> : "2"}
                   </div>
-                  <div className="flex-1 pt-0.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-900">
-                        Visa direction {bilan?.dateValidationChefCentre && "✓"}
-                      </span>
+                  <div className="mt-2.5">
+                    <div className="text-xs font-bold text-slate-900">
+                      Visa direction {bilan?.dateValidationChefCentre && "✓"}
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-[11px] text-slate-500 mt-0.5">
                       {bilan?.nomChefCentre || "Direction de centre"}
                     </p>
-                    {bilan?.dateVisaCaissier && !bilan?.dateValidationChefCentre && !estCloture && (
-                      <div className="mt-2">
-                        <button
-                          onClick={handleVisaChefCentre}
-                          disabled={enCoursVisaChef}
-                          type="button"
-                          className="rounded-lg bg-[#0e4a56] hover:bg-[#0b3c48] px-5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
-                        >
-                          {enCoursVisaChef ? "Validation..." : "Viser le bilan"}
-                        </button>
-                      </div>
+                    {bilan?.dateValidationChefCentre && (
+                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                        Validé à {new Date(bilan.dateValidationChefCentre).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                      </p>
                     )}
                   </div>
+                  {bilan?.dateVisaCaissier && !bilan?.dateValidationChefCentre && !estCloture && (
+                    <div className="mt-2.5">
+                      <button
+                        onClick={handleVisaChefCentre}
+                        disabled={enCoursVisaChef}
+                        type="button"
+                        className="rounded-lg bg-[#0e4a56] hover:bg-[#0b3c48] px-5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        {enCoursVisaChef ? "Validation..." : "Viser le bilan"}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Étape 3 : Clôture comptable */}
-                <div className="relative flex items-start gap-4">
+                <div className="flex flex-col items-center text-center">
                   <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors z-10 ${
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all shadow-2xs ${
                       bilan?.dateValidationControleur
                         ? "bg-emerald-600 text-white"
                         : "bg-white border-2 border-slate-300 text-slate-400"
                     }`}
                   >
-                    {bilan?.dateValidationControleur ? <Check size={16} /> : "3"}
+                    {bilan?.dateValidationControleur ? <Check size={18} /> : "3"}
                   </div>
-                  <div className="flex-1 pt-0.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-900">
-                        Clôture comptable {bilan?.dateValidationControleur && "✓"}
-                      </span>
+                  <div className="mt-2.5">
+                    <div className="text-xs font-bold text-slate-900">
+                      Clôture comptable {bilan?.dateValidationControleur && "✓"}
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-[11px] text-slate-500 mt-0.5">
                       {bilan?.nomControleur || "Contrôleur définitivement"}
                     </p>
-                    {bilan?.dateValidationChefCentre && !estCloture && (
-                      <div className="mt-2">
-                        <button
-                          onClick={handleVisaComptable}
-                          disabled={enCoursCloture || !bilan?.id}
-                          type="button"
-                          className="rounded-lg bg-[#0e4a56] hover:bg-[#0b3c48] px-5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
-                        >
-                          {enCoursCloture ? "Clôture en cours..." : "Clôturer le bilan"}
-                        </button>
-                      </div>
+                    {bilan?.dateValidationControleur && (
+                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                        Clôturé à {new Date(bilan.dateValidationControleur).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                      </p>
                     )}
                   </div>
+                  {bilan?.dateValidationChefCentre && !estCloture && (
+                    <div className="mt-2.5">
+                      <button
+                        onClick={handleVisaComptable}
+                        disabled={enCoursCloture || !bilan?.id}
+                        type="button"
+                        className="rounded-lg bg-[#0e4a56] hover:bg-[#0b3c48] px-5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        {enCoursCloture ? "Clôture..." : "Clôturer le bilan"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
