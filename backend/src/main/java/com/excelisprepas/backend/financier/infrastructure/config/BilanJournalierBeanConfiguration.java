@@ -14,6 +14,7 @@ import com.excelisprepas.backend.personnel.domain.port.out.UtilisateurRepository
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import com.excelisprepas.backend.academie.formation.domain.port.out.FormationRepositoryPort;
 import com.excelisprepas.backend.financier.domain.port.out.MotifRepositoryPort;
+import com.excelisprepas.backend.shared.audit.application.AuditEventHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,10 +33,11 @@ public class BilanJournalierBeanConfiguration {
                                                          @Autowired(required = false) PersonnelRepositoryPort personnelRepository,
                                                          @Autowired(required = false) AffectationRepositoryPort affectationRepository,
                                                          @Autowired(required = false) FormationRepositoryPort formationRepository,
-                                                         @Autowired(required = false) MotifRepositoryPort motifRepository) {
+                                                         @Autowired(required = false) MotifRepositoryPort motifRepository,
+                                                         @Autowired(required = false) AuditEventHelper auditEventHelper) {
         return new BilanJournalierService(bilanRepository, entreeRepository, sortieRepository,
                 apprenantRepository, centreRepository, utilisateurRepository, sessionRepository,
-                personnelRepository, affectationRepository, formationRepository, motifRepository);
+                personnelRepository, affectationRepository, formationRepository, motifRepository, auditEventHelper);
     }
 
     @Bean

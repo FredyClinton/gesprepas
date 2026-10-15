@@ -45,6 +45,7 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
     private final AffectationRepositoryPort affectationRepository;
     private final FormationRepositoryPort formationRepository;
     private final MotifRepositoryPort motifRepository;
+    private final com.excelisprepas.backend.shared.audit.application.AuditEventHelper auditEventHelper;
 
     public BilanJournalierService(BilanJournalierRepositoryPort bilanRepository,
                                   EntreeRepositoryPort entreeRepository,
@@ -54,7 +55,7 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
                                   UtilisateurRepositoryPort utilisateurRepository,
                                   SessionAcademiqueRepositoryPort sessionRepository) {
         this(bilanRepository, entreeRepository, sortieRepository, apprenantRepository,
-                centreRepository, utilisateurRepository, sessionRepository, null, null, null, null);
+                centreRepository, utilisateurRepository, sessionRepository, null, null, null, null, null);
     }
 
     public BilanJournalierService(BilanJournalierRepositoryPort bilanRepository,
@@ -67,7 +68,7 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
                                   PersonnelRepositoryPort personnelRepository,
                                   AffectationRepositoryPort affectationRepository) {
         this(bilanRepository, entreeRepository, sortieRepository, apprenantRepository,
-                centreRepository, utilisateurRepository, sessionRepository, personnelRepository, affectationRepository, null, null);
+                centreRepository, utilisateurRepository, sessionRepository, personnelRepository, affectationRepository, null, null, null);
     }
 
     public BilanJournalierService(BilanJournalierRepositoryPort bilanRepository,
@@ -81,6 +82,23 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
                                   AffectationRepositoryPort affectationRepository,
                                   FormationRepositoryPort formationRepository,
                                   MotifRepositoryPort motifRepository) {
+        this(bilanRepository, entreeRepository, sortieRepository, apprenantRepository,
+                centreRepository, utilisateurRepository, sessionRepository, personnelRepository, affectationRepository,
+                formationRepository, motifRepository, null);
+    }
+
+    public BilanJournalierService(BilanJournalierRepositoryPort bilanRepository,
+                                  EntreeRepositoryPort entreeRepository,
+                                  SortieRepositoryPort sortieRepository,
+                                  ApprenantRepositoryPort apprenantRepository,
+                                  CentreRepositoryPort centreRepository,
+                                  UtilisateurRepositoryPort utilisateurRepository,
+                                  SessionAcademiqueRepositoryPort sessionRepository,
+                                  PersonnelRepositoryPort personnelRepository,
+                                  AffectationRepositoryPort affectationRepository,
+                                  FormationRepositoryPort formationRepository,
+                                  MotifRepositoryPort motifRepository,
+                                  com.excelisprepas.backend.shared.audit.application.AuditEventHelper auditEventHelper) {
         this.bilanRepository = bilanRepository;
         this.entreeRepository = entreeRepository;
         this.sortieRepository = sortieRepository;
@@ -92,6 +110,7 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
         this.affectationRepository = affectationRepository;
         this.formationRepository = formationRepository;
         this.motifRepository = motifRepository;
+        this.auditEventHelper = auditEventHelper;
     }
 
     private SessionAcademique verifierSessionUtilisable(UUID sessionId) {
@@ -191,6 +210,17 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
 
         bilan = bilanRepository.save(bilan);
         log.info("Bilan journalier soumis par le caissier : id={}, centreId={}, date={}", bilan.getId(), centreId, date);
+        if (auditEventHelper != null) {
+            auditEventHelper.audit(
+                    com.excelisprepas.backend.shared.audit.domain.event.AuditModule.BILAN_JOURNALIER,
+                    "VISA_CAISSIER",
+                    "Visa caissier apposé pour le bilan du " + date + " (par " + (nomCaissier != null ? nomCaissier : caissierUtilisateurId) + ")",
+                    "BilanJournalier",
+                    bilan.getId().toString(),
+                    java.util.Map.of("bilanId", bilan.getId().toString(), "date", date.toString(), "nomCaissier", nomCaissier != null ? nomCaissier : ""),
+                    centreId
+            );
+        }
         return bilan;
     }
 
@@ -222,6 +252,17 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
 
         bilan = bilanRepository.save(bilan);
         log.info("Bilan journalier validé par le chef de centre : id={}, centreId={}, date={}", bilan.getId(), centreId, date);
+        if (auditEventHelper != null) {
+            auditEventHelper.audit(
+                    com.excelisprepas.backend.shared.audit.domain.event.AuditModule.BILAN_JOURNALIER,
+                    "VISA_CHEF_CENTRE",
+                    "Visa chef de centre validé pour le bilan du " + date + " (par " + (nomChefCentre != null ? nomChefCentre : validateurUtilisateurId) + ")",
+                    "BilanJournalier",
+                    bilan.getId().toString(),
+                    java.util.Map.of("bilanId", bilan.getId().toString(), "date", date.toString(), "nomChefCentre", nomChefCentre != null ? nomChefCentre : ""),
+                    centreId
+            );
+        }
         return bilan;
     }
 
@@ -259,6 +300,17 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
         }
 
         log.info("Bilan journalier validé par le contrôleur : id={}", bilanId);
+        if (auditEventHelper != null) {
+            auditEventHelper.audit(
+                    com.excelisprepas.backend.shared.audit.domain.event.AuditModule.BILAN_JOURNALIER,
+                    "CLOTURE_BILAN",
+                    "Clôture et visa contrôleur du bilan du " + bilan.getDate() + " (par " + (nomControleur != null ? nomControleur : validateurUtilisateurId) + ")",
+                    "BilanJournalier",
+                    bilan.getId().toString(),
+                    java.util.Map.of("bilanId", bilan.getId().toString(), "date", bilan.getDate().toString(), "totalEntrees", totaux.totalEntrees(), "totalSorties", totaux.totalSorties()),
+                    bilan.getCentreId()
+            );
+        }
         return bilan;
     }
 
