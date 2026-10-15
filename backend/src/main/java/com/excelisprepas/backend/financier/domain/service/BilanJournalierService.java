@@ -22,6 +22,9 @@ import lombok.extern.slf4j.Slf4j;
 import com.excelisprepas.backend.academie.formation.domain.port.out.FormationRepositoryPort;
 import com.excelisprepas.backend.financier.domain.port.out.MotifRepositoryPort;
 
+import com.excelisprepas.backend.academie.salle.domain.port.out.SalleRepositoryPort;
+import com.excelisprepas.backend.academie.salle.domain.model.Salle;
+
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -32,7 +35,7 @@ import java.util.*;
 @Slf4j
 public class BilanJournalierService implements SoumettreBilanCaissierUseCase, ValiderBilanChefCentreUseCase,
         ValiderBilanControleurUseCase, ConsulterBilanDuJourUseCase, ConsulterRepartitionParFormationUseCase,
-        ConsulterBilanConsolideDuJourUseCase {
+        ConsulterBilanConsolideDuJourUseCase, AjusterActiviteBilanUseCase {
 
     private final BilanJournalierRepositoryPort bilanRepository;
     private final EntreeRepositoryPort entreeRepository;
@@ -46,6 +49,7 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
     private final FormationRepositoryPort formationRepository;
     private final MotifRepositoryPort motifRepository;
     private final com.excelisprepas.backend.shared.audit.application.AuditEventHelper auditEventHelper;
+    private final SalleRepositoryPort salleRepository;
 
     public BilanJournalierService(BilanJournalierRepositoryPort bilanRepository,
                                   EntreeRepositoryPort entreeRepository,
@@ -99,6 +103,24 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
                                   FormationRepositoryPort formationRepository,
                                   MotifRepositoryPort motifRepository,
                                   com.excelisprepas.backend.shared.audit.application.AuditEventHelper auditEventHelper) {
+        this(bilanRepository, entreeRepository, sortieRepository, apprenantRepository,
+                centreRepository, utilisateurRepository, sessionRepository, personnelRepository, affectationRepository,
+                formationRepository, motifRepository, auditEventHelper, null);
+    }
+
+    public BilanJournalierService(BilanJournalierRepositoryPort bilanRepository,
+                                  EntreeRepositoryPort entreeRepository,
+                                  SortieRepositoryPort sortieRepository,
+                                  ApprenantRepositoryPort apprenantRepository,
+                                  CentreRepositoryPort centreRepository,
+                                  UtilisateurRepositoryPort utilisateurRepository,
+                                  SessionAcademiqueRepositoryPort sessionRepository,
+                                  PersonnelRepositoryPort personnelRepository,
+                                  AffectationRepositoryPort affectationRepository,
+                                  FormationRepositoryPort formationRepository,
+                                  MotifRepositoryPort motifRepository,
+                                  com.excelisprepas.backend.shared.audit.application.AuditEventHelper auditEventHelper,
+                                  SalleRepositoryPort salleRepository) {
         this.bilanRepository = bilanRepository;
         this.entreeRepository = entreeRepository;
         this.sortieRepository = sortieRepository;
@@ -111,6 +133,7 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
         this.formationRepository = formationRepository;
         this.motifRepository = motifRepository;
         this.auditEventHelper = auditEventHelper;
+        this.salleRepository = salleRepository;
     }
 
     private SessionAcademique verifierSessionUtilisable(UUID sessionId) {
@@ -163,10 +186,41 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
                 Jour jour = convertirJour(date.getDayOfWeek());
                 if (jour != null) {
                     List<Affectation> affectations = affectationRepository.findBySessionIdAndCentreIdAndSemaine(sessionId, centreId, semaine);
+                    if (affectations.isEmpty() && semaine != 1) {
+                        affectations = affectationRepository.findBySessionIdAndCentreIdAndSemaine(sessionId, centreId, 1);
+                    }
                     List<Affectation> duJour = affectations.stream().filter(a -> a.getJour() == jour).toList();
-                    nombreCours = duJour.size();
-                    nombreSalles = (int) duJour.stream().map(Affectation::getSalleId).distinct().count();
+
+                    // Priorité 1 : cours validés du jour (marqués comme EFFECTUEE par le Chef de Centre)
+                    List<Affectation> coursValides = duJour.stream()
+                            .filter(a -> a.getStatut() == com.excelisprepas.backend.academie.affectation.domain.model.StatutAffectation.EFFECTUEE)
+                            .toList();
+                    if (!coursValides.isEmpty()) {
+                        nombreCours = coursValides.size();
+                        nombreSalles = (int) coursValides.stream().map(Affectation::getSalleId).filter(Objects::nonNull).distinct().count();
+                    } else {
+                        // Priorité 2 : cours prévus / planifiés du jour
+                        List<Affectation> coursPlanifies = duJour.stream()
+                                .filter(a -> a.getStatut() != com.excelisprepas.backend.academie.affectation.domain.model.StatutAffectation.ANNULEE)
+                                .toList();
+                        if (!coursPlanifies.isEmpty()) {
+                            nombreCours = coursPlanifies.size();
+                            nombreSalles = (int) coursPlanifies.stream().map(Affectation::getSalleId).filter(Objects::nonNull).distinct().count();
+                        }
+                    }
                 }
+            }
+        }
+
+        // Si aucune salle n'a été déduite du planning pour ce jour (ex: jour sans cours ou dimanche),
+        // on consulte le référentiel des salles physiques du centre pour la session
+        if (nombreSalles == 0 && salleRepository != null) {
+            List<Salle> salles = salleRepository.findByCentreIdAndSessionId(centreId, sessionId);
+            if (salles.isEmpty()) {
+                salles = salleRepository.findByCentreId(centreId);
+            }
+            if (!salles.isEmpty()) {
+                nombreSalles = salles.size();
             }
         }
 
@@ -278,11 +332,13 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
 
         String nomControleur = recupererNomCompletUtilisateur(validateurUtilisateurId);
         TotauxCentreJour totaux = calculerTotaux(bilan.getCentreId(), bilan.getSessionId(), bilan.getDate());
+        int nbSallesFinal = (bilan.getNombreSalles() != null && bilan.getNombreSalles() > 0) ? bilan.getNombreSalles() : totaux.nombreSalles();
+        int nbCoursFinal = (bilan.getNombreCours() != null && bilan.getNombreCours() > 0) ? bilan.getNombreCours() : totaux.nombreCours();
 
         bilan.cloturer(validateurUtilisateurId, nomControleur, LocalDateTime.now(),
                 totaux.totalEntrees(), totaux.totalSorties(),
                 totaux.effectifNouveauxEleves(), totaux.effectifTotalCentre(),
-                totaux.nombreSalles(), totaux.nombreCours());
+                nbSallesFinal, nbCoursFinal);
         bilanRepository.save(bilan);
 
         List<Entree> entrees = entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(
@@ -315,28 +371,61 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
     }
 
     @Override
+    public BilanJournalier ajusterActivite(UUID centreId, UUID sessionId, LocalDate date,
+                                           int nombreSalles, int nombreCours, UUID utilisateurId) {
+        if (centreRepository.findById(centreId).isEmpty()) {
+            throw new CentreIntrouvableException(centreId);
+        }
+        verifierSessionUtilisable(sessionId);
+
+        Optional<BilanJournalier> existant = bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date);
+        BilanJournalier bilan;
+        if (existant.isPresent()) {
+            bilan = existant.get();
+            bilan.ajusterActivite(nombreSalles, nombreCours);
+        } else {
+            bilan = new BilanJournalier(UUID.randomUUID(), centreId, sessionId, date);
+            bilan.ajusterActivite(nombreSalles, nombreCours);
+        }
+        bilan = bilanRepository.save(bilan);
+        log.info("Activité du bilan journalier ajustée : centreId={}, date={}, salles={}, cours={}", centreId, date, nombreSalles, nombreCours);
+        return bilan;
+    }
+
+    @Override
     public BilanJournalierApercu consulterBilanDuJour(UUID centreId, UUID sessionId, LocalDate date) {
         Optional<BilanJournalier> existant = bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date);
 
         if (existant.isPresent() && existant.get().getStatut() == StatutBilan.CLOTURE) {
             BilanJournalier bilan = existant.get();
+            int nbSalles = (bilan.getNombreSalles() != null) ? bilan.getNombreSalles() : 0;
+            int nbCours = (bilan.getNombreCours() != null) ? bilan.getNombreCours() : 0;
+
             return new BilanJournalierApercu(bilan.getId(), bilan.getStatut(), bilan.getTotalEntrees(),
                     bilan.getTotalSorties(), bilan.getNetAVerser(), bilan.getEffectifNouveauxEleves(),
                     bilan.getEffectifTotalCentre(),
-                    bilan.getNombreSalles() != null ? bilan.getNombreSalles() : 0,
-                    bilan.getNombreCours() != null ? bilan.getNombreCours() : 0,
+                    nbSalles,
+                    nbCours,
                     bilan.getDateVisaCaissier(), bilan.getNomCaissier(),
                     bilan.getDateValidationChefCentre(), bilan.getNomChefCentre(),
                     bilan.getDateValidationControleur(), bilan.getNomControleur());
         }
 
         TotauxCentreJour totaux = calculerTotaux(centreId, sessionId, date);
+
         UUID idExistant = existant.map(BilanJournalier::getId).orElse(null);
         StatutBilan statutExistant = existant.map(BilanJournalier::getStatut).orElse(null);
 
+        int nbSallesFinal = existant.map(BilanJournalier::getNombreSalles)
+                .filter(n -> n != null && n > 0)
+                .orElse(totaux.nombreSalles());
+        int nbCoursFinal = existant.map(BilanJournalier::getNombreCours)
+                .filter(n -> n != null && n > 0)
+                .orElse(totaux.nombreCours());
+
         return new BilanJournalierApercu(idExistant, statutExistant, totaux.totalEntrees(), totaux.totalSorties(),
                 totaux.netAVerser(), totaux.effectifNouveauxEleves(), totaux.effectifTotalCentre(),
-                totaux.nombreSalles(), totaux.nombreCours(),
+                nbSallesFinal, nbCoursFinal,
                 existant.map(BilanJournalier::getDateVisaCaissier).orElse(null),
                 existant.map(BilanJournalier::getNomCaissier).orElse(null),
                 existant.map(BilanJournalier::getDateValidationChefCentre).orElse(null),

@@ -17,6 +17,8 @@ import {
   Landmark,
   ChevronDown,
   Layers,
+  Pencil,
+  X,
 } from "lucide-react";
 import { useCentres, useSessionActive } from "@/modules/centres-sessions";
 import { useFormations, type Formation } from "@/modules/academique";
@@ -28,6 +30,7 @@ import {
   useSoumettreBilanCaissier,
   useValiderBilanChefCentre,
   useValiderBilanControleur,
+  useAjusterActiviteBilan,
 } from "@/modules/financier/data/queries";
 import { EnregistrerVersementModal } from "@/modules/financier/components/EnregistrerVersementModal";
 import { SaisirSortieModal } from "@/modules/financier/components/SaisirSortieModal";
@@ -131,12 +134,23 @@ export function BilanJournalierView() {
     useValiderBilanChefCentre();
   const { mutate: validerControleur, isPending: enCoursCloture } =
     useValiderBilanControleur();
+  const { mutate: ajusterActivite, isPending: enCoursAjustement } =
+    useAjusterActiviteBilan();
 
   // Modales
   const [modalVersementOuverte, setModalVersementOuverte] = useState(false);
   const [modalSortieOuverte, setModalSortieOuverte] = useState(false);
   const [modalPrintOuverte, setModalPrintOuverte] = useState(false);
+  const [modalActiviteOuverte, setModalActiviteOuverte] = useState(false);
+  const [sallesAjustees, setSallesAjustees] = useState<number>(0);
+  const [coursAjustes, setCoursAjustes] = useState<number>(0);
   const [afficherVentilation, setAfficherVentilation] = useState(false);
+
+  const ouvrirModalActivite = () => {
+    setSallesAjustees(bilan?.nombreSalles ?? 0);
+    setCoursAjustes(bilan?.nombreCours ?? 0);
+    setModalActiviteOuverte(true);
+  };
 
   // Navigation par jour
   const changerJour = (decalage: number) => {
@@ -581,13 +595,35 @@ export function BilanJournalierView() {
                   <span className="text-slate-500 text-[10px] uppercase font-bold">Réf_date</span>
                   <span className="font-mono text-xs sm:text-sm font-black text-[#0e4a56]">{refDate}</span>
                 </div>
-                <div className="p-2 flex flex-col justify-center">
-                  <span className="text-slate-500 text-[10px] uppercase font-bold">Nbre Salles</span>
-                  <span className="font-bold text-sm text-slate-900 tabular-nums">{bilan?.nombreSalles ?? "-"}</span>
+                <div className="p-2 flex flex-col justify-center relative group">
+                  <div className="flex items-center justify-center gap-1">
+                    <span className="text-slate-500 text-[10px] uppercase font-bold">Nbre Salles</span>
+                    {peutSaisirMouvement && !estCloture && (
+                      <button
+                        onClick={ouvrirModalActivite}
+                        className="opacity-70 hover:opacity-100 transition-opacity text-brand-orange hover:text-orange-700"
+                        title="Ajuster les salles et cours du jour"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                  <span className="font-bold text-sm text-slate-900 tabular-nums">{bilan?.nombreSalles ?? 0}</span>
                 </div>
-                <div className="p-2 flex flex-col justify-center">
-                  <span className="text-slate-500 text-[10px] uppercase font-bold">Nbre Cours</span>
-                  <span className="font-bold text-sm text-slate-900 tabular-nums">{bilan?.nombreCours ?? "-"}</span>
+                <div className="p-2 flex flex-col justify-center relative group">
+                  <div className="flex items-center justify-center gap-1">
+                    <span className="text-slate-500 text-[10px] uppercase font-bold">Nbre Cours</span>
+                    {peutSaisirMouvement && !estCloture && (
+                      <button
+                        onClick={ouvrirModalActivite}
+                        className="opacity-70 hover:opacity-100 transition-opacity text-brand-orange hover:text-orange-700"
+                        title="Ajuster les salles et cours du jour"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                  <span className="font-bold text-sm text-slate-900 tabular-nums">{bilan?.nombreCours ?? 0}</span>
                 </div>
                 <div className="p-2 flex flex-col justify-center bg-blue-50/30">
                   <span className="text-slate-500 text-[10px] uppercase font-bold">Nouveaux Élèves</span>
@@ -1012,6 +1048,100 @@ export function BilanJournalierView() {
           mouvements={mouvements}
           motifs={motifs}
         />
+      )}
+
+      {/* ── MODALE AJUSTEMENT ACTIVITÉ DU JOUR ── */}
+      {modalActiviteOuverte && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-brand-orange">
+                  <Pencil className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Activité Journalière
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Salles et cours du jour (Planning)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setModalActiviteOuverte(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-4 p-3 rounded-xl bg-blue-50/70 border border-blue-100 text-xs text-blue-900 leading-relaxed">
+              💡 <strong>Comptage automatique :</strong> Les cours validés du jour dans le planning et les salles occupées sont automatiquement comptabilisés. Vous pouvez corriger ou forcer ces valeurs avant la clôture du bilan.
+            </div>
+
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Nombre de Salles Occupées / Utilisées
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={sallesAjustees}
+                  onChange={(e) => setSallesAjustees(Math.max(0, parseInt(e.target.value) || 0))}
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm font-semibold text-slate-900 focus:border-brand-orange focus:outline-hidden focus:ring-2 focus:ring-brand-orange/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Nombre de Cours Validés / Effectués
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={coursAjustes}
+                  onChange={(e) => setCoursAjustes(Math.max(0, parseInt(e.target.value) || 0))}
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm font-semibold text-slate-900 focus:border-brand-orange focus:outline-hidden focus:ring-2 focus:ring-brand-orange/20"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setModalActiviteOuverte(false)}
+                className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                disabled={enCoursAjustement || !sessionActive}
+                onClick={() => {
+                  if (!sessionActive) return;
+                  ajusterActivite(
+                    {
+                      centreId: centreActifId,
+                      sessionId: sessionActive.id,
+                      date,
+                      nombreSalles: sallesAjustees,
+                      nombreCours: coursAjustes,
+                      utilisateurId: currentUserId,
+                    },
+                    {
+                      onSuccess: () => setModalActiviteOuverte(false),
+                    }
+                  );
+                }}
+                className="flex items-center gap-2 rounded-xl bg-brand-orange px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-orange-600 transition-colors disabled:opacity-50"
+              >
+                {enCoursAjustement ? "Enregistrement..." : "Enregistrer"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

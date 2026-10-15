@@ -177,3 +177,21 @@ export function validerBilanControleur(
     },
   );
 }
+
+export type AjusterActiviteBilanInput = {
+  centreId: string;
+  sessionId: string;
+  date: string;
+  nombreSalles: number;
+  nombreCours: number;
+  utilisateurId: string;
+};
+
+export function ajusterActiviteBilan(
+  input: AjusterActiviteBilanInput,
+): Promise<BilanJournalier> {
+  return apiFetch<BilanJournalier>("/api/bilans-journaliers/activite", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}

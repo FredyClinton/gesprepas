@@ -369,6 +369,27 @@ export function SyntheseNationaleView({
                       {isExpanded && (
                         <tr className="bg-slate-50/50">
                           <td colSpan={9} className="p-4 sm:p-6 border-t border-slate-100">
+                            {/* Bandeau indicateurs d'activité du centre */}
+                            <div className="flex flex-wrap items-center justify-between gap-3 mb-4 p-3 rounded-xl bg-white border border-slate-200/80 shadow-2xs text-xs">
+                              <div className="flex items-center gap-6">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-slate-400 font-medium">Salles occupées :</span>
+                                  <span className="font-bold text-slate-800">{c.nombreSalles ?? 0}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-slate-400 font-medium">Cours validés :</span>
+                                  <span className="font-bold text-slate-800">{c.nombreCours ?? 0}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-slate-400 font-medium">Nouveaux élèves :</span>
+                                  <span className="font-bold text-teal-700">+{c.effectifNouveauxElevesTotal}</span>
+                                </div>
+                              </div>
+                              <div className="text-[11px] text-slate-400">
+                                {c.nomCaissier ? `Arrêté de caisse visé par ${c.nomCaissier}` : "En attente de visa caissier"}
+                              </div>
+                            </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                               {/* 1. Entrées par formation & livres */}
                               <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-2xs">

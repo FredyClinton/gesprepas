@@ -150,6 +150,14 @@ public class BilanJournalier {
         this.statut = StatutBilan.EN_ATTENTE_CONTROLEUR;
     }
 
+    public void ajusterActivite(int nombreSalles, int nombreCours) {
+        if (statut == StatutBilan.CLOTURE) {
+            throw new IllegalStateException("Ce bilan est déjà clôturé");
+        }
+        this.nombreSalles = Math.max(0, nombreSalles);
+        this.nombreCours = Math.max(0, nombreCours);
+    }
+
     public void cloturer(UUID validateurControleurId, LocalDateTime dateValidationControleur,
                          BigDecimal totalEntrees, BigDecimal totalSorties,
                          int effectifNouveauxEleves, int effectifTotalCentre) {

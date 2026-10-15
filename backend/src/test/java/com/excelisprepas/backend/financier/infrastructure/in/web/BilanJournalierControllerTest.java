@@ -3,6 +3,7 @@ package com.excelisprepas.backend.financier.infrastructure.in.web;
 import com.excelisprepas.backend.financier.domain.model.BilanJournalier;
 import com.excelisprepas.backend.financier.domain.model.BilanJournalierApercu;
 import com.excelisprepas.backend.financier.domain.model.RepartitionFormationLigne;
+import com.excelisprepas.backend.financier.domain.port.in.AjusterActiviteBilanUseCase;
 import com.excelisprepas.backend.financier.domain.port.in.ConsulterBilanConsolideDuJourUseCase;
 import com.excelisprepas.backend.financier.domain.port.in.ConsulterBilanDuJourUseCase;
 import com.excelisprepas.backend.financier.domain.port.in.ConsulterRepartitionParFormationUseCase;
@@ -59,6 +60,8 @@ class BilanJournalierControllerTest {
     private ConsulterRepartitionParFormationUseCase consulterRepartitionParFormationUseCase;
     @MockitoBean
     private ConsulterBilanConsolideDuJourUseCase consulterBilanConsolideDuJourUseCase;
+    @MockitoBean
+    private AjusterActiviteBilanUseCase ajusterActiviteBilanUseCase;
 
     private BilanJournalier unBilanEnAttente() {
         return new BilanJournalier(UUID.randomUUID(), CENTRE_ID, SESSION_ID, DATE, LocalDateTime.now(), UTILISATEUR_ID);
@@ -242,5 +245,31 @@ class BilanJournalierControllerTest {
                 .andExpect(jsonPath("$.centres[0].centreNom").value("Centre Yaoundé"))
                 .andExpect(jsonPath("$.centres[0].entreesDetaillees.length()").value(1))
                 .andExpect(jsonPath("$.entreesNationalesDetaillees.length()").value(1));
+    }
+
+    @Test
+    @DisplayName("PUT /api/bilans-journaliers/activite retourne 200 avec les salles et cours ajustés")
+    void ajusterActivite_retourne200() throws Exception {
+        BilanJournalier bilan = new BilanJournalier(UUID.randomUUID(), CENTRE_ID, SESSION_ID, DATE);
+        bilan.ajusterActivite(5, 8);
+
+        when(ajusterActiviteBilanUseCase.ajusterActivite(any(), any(), any(), org.mockito.ArgumentMatchers.eq(5), org.mockito.ArgumentMatchers.eq(8), any()))
+                .thenReturn(bilan);
+
+        mockMvc.perform(put("/api/bilans-journaliers/activite")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "centreId": "%s",
+                                  "sessionId": "%s",
+                                  "date": "2026-09-15",
+                                  "nombreSalles": 5,
+                                  "nombreCours": 8,
+                                  "utilisateurId": "%s"
+                                }
+                                """.formatted(CENTRE_ID, SESSION_ID, UTILISATEUR_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nombreSalles").value(5))
+                .andExpect(jsonPath("$.nombreCours").value(8));
     }
 }

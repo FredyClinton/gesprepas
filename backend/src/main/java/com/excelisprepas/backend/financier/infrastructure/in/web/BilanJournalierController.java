@@ -34,19 +34,22 @@ public class BilanJournalierController {
     private final ConsulterBilanDuJourUseCase consulterBilanDuJourUseCase;
     private final ConsulterRepartitionParFormationUseCase consulterRepartitionParFormationUseCase;
     private final ConsulterBilanConsolideDuJourUseCase consulterBilanConsolideDuJourUseCase;
+    private final AjusterActiviteBilanUseCase ajusterActiviteBilanUseCase;
 
     public BilanJournalierController(SoumettreBilanCaissierUseCase soumettreBilanCaissierUseCase,
                                      ValiderBilanChefCentreUseCase validerBilanChefCentreUseCase,
                                      ValiderBilanControleurUseCase validerBilanControleurUseCase,
                                      ConsulterBilanDuJourUseCase consulterBilanDuJourUseCase,
                                      ConsulterRepartitionParFormationUseCase consulterRepartitionParFormationUseCase,
-                                     ConsulterBilanConsolideDuJourUseCase consulterBilanConsolideDuJourUseCase) {
+                                     ConsulterBilanConsolideDuJourUseCase consulterBilanConsolideDuJourUseCase,
+                                     AjusterActiviteBilanUseCase ajusterActiviteBilanUseCase) {
         this.soumettreBilanCaissierUseCase = soumettreBilanCaissierUseCase;
         this.validerBilanChefCentreUseCase = validerBilanChefCentreUseCase;
         this.validerBilanControleurUseCase = validerBilanControleurUseCase;
         this.consulterBilanDuJourUseCase = consulterBilanDuJourUseCase;
         this.consulterRepartitionParFormationUseCase = consulterRepartitionParFormationUseCase;
         this.consulterBilanConsolideDuJourUseCase = consulterBilanConsolideDuJourUseCase;
+        this.ajusterActiviteBilanUseCase = ajusterActiviteBilanUseCase;
     }
 
     private static BilanConsolideResponse versReponseConsolidee(com.excelisprepas.backend.financier.domain.model.BilanConsolideNational national) {
@@ -169,6 +172,29 @@ public class BilanJournalierController {
             @Parameter(description = "Identifiant du bilan journalier") @PathVariable UUID id,
             @Valid @RequestBody ValiderBilanControleurRequest request) {
         BilanJournalier bilan = validerBilanControleurUseCase.validerBilanControleur(id, request.validateurUtilisateurId());
+        return ResponseEntity.ok(versReponse(bilan));
+    }
+
+    @Operation(summary = "Ajuster l'activité (salles et cours) du bilan journalier",
+            description = "Permet de corriger ou renseigner manuellement le nombre de salles et de cours du jour.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Activité du bilan ajustée",
+                    content = @Content(schema = @Schema(implementation = BilanJournalierResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Données invalides ou bilan déjà clôturé", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Centre ou session introuvable", content = @Content)
+    })
+    @PreAuthorize("hasAnyAuthority('FINANCIER_SAISIR_MOUVEMENT', 'FINANCIER_VALIDER_BILAN_CHEF_CENTRE', 'FINANCIER_CLOTURER_BILAN')")
+    @PutMapping("/activite")
+    public ResponseEntity<BilanJournalierResponse> ajusterActivite(
+            @Valid @RequestBody AjusterActiviteBilanRequest request) {
+        BilanJournalier bilan = ajusterActiviteBilanUseCase.ajusterActivite(
+                request.centreId(),
+                request.sessionId(),
+                request.date(),
+                request.nombreSalles(),
+                request.nombreCours(),
+                request.utilisateurId()
+        );
         return ResponseEntity.ok(versReponse(bilan));
     }
 

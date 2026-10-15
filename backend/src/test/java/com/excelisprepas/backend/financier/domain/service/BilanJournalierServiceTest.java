@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -502,6 +503,57 @@ class BilanJournalierServiceTest {
             assertThat(centre1Resume.netAVerser()).isEqualByComparingTo("110000");
             assertThat(centre1Resume.entreesDetaillees()).isNotEmpty();
             assertThat(centre1Resume.sortiesDetaillees()).isNotEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("Ajustement de l'activité (salles et cours)")
+    class AjusterActivite {
+
+        @Test
+        @DisplayName("ajusterActivite enregistre le nombre de salles et de cours")
+        void ajusterActivite_succes() {
+            Centre centre = mock(Centre.class);
+            when(centreRepository.findById(centreId)).thenReturn(Optional.of(centre));
+            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
+
+            BilanJournalier existant = new BilanJournalier(UUID.randomUUID(), centreId, sessionId, date);
+            when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date))
+                    .thenReturn(Optional.of(existant));
+            when(bilanRepository.save(any(BilanJournalier.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            BilanJournalier resultat = service.ajusterActivite(centreId, sessionId, date, 4, 7, UUID.randomUUID());
+
+            assertThat(resultat.getNombreSalles()).isEqualTo(4);
+            assertThat(resultat.getNombreCours()).isEqualTo(7);
+            verify(bilanRepository).save(existant);
+        }
+
+        @Test
+        @DisplayName("ajusterActivite échoue si le bilan est déjà clôturé")
+        void ajusterActivite_bilanCloture_echoue() {
+            Centre centre = mock(Centre.class);
+            when(centreRepository.findById(centreId)).thenReturn(Optional.of(centre));
+            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
+
+            BilanJournalier existant = new BilanJournalier(UUID.randomUUID(), centreId, sessionId, date, LocalDateTime.now(), UUID.randomUUID());
+            existant.cloturer(validateurControleurId, "Controleur", LocalDateTime.now(), BigDecimal.ZERO, BigDecimal.ZERO, 0, 0, 2, 3);
+
+            when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date))
+                    .thenReturn(Optional.of(existant));
+
+            assertThatThrownBy(() -> service.ajusterActivite(centreId, sessionId, date, 4, 7, UUID.randomUUID()))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("déjà clôturé");
+        }
+
+        @Test
+        @DisplayName("ajusterActivite échoue si le centre n'existe pas")
+        void ajusterActivite_centreIntrouvable_echoue() {
+            when(centreRepository.findById(centreId)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> service.ajusterActivite(centreId, sessionId, date, 4, 7, UUID.randomUUID()))
+                    .isInstanceOf(CentreIntrouvableException.class);
         }
     }
 }

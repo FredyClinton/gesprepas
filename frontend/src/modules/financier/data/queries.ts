@@ -16,6 +16,8 @@ import {
   listMouvementsFinanciers,
   modifierEntree,
   supprimerEntree,
+  ajusterActiviteBilan,
+  type AjusterActiviteBilanInput,
   type ModifierEntreeInput,
   type SaisirSortieInput,
   type SoumettreBilanCaissierInput,
@@ -172,6 +174,17 @@ export function useValiderBilanControleur() {
       queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
       queryClient.invalidateQueries({ queryKey: ["bilan-consolide"] });
       queryClient.invalidateQueries({ queryKey: ["mouvements-financiers"] });
+    },
+  });
+}
+
+export function useAjusterActiviteBilan() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AjusterActiviteBilanInput) => ajusterActiviteBilan(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
+      queryClient.invalidateQueries({ queryKey: ["bilan-consolide"] });
     },
   });
 }

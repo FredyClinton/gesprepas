@@ -137,11 +137,11 @@ export function FicheBilanPrintModal({
                 </div>
                 <div className="p-1.5 flex flex-col justify-center">
                   <span className="text-slate-500 text-[9px]">Nbre Salles</span>
-                  <span className="font-bold text-xs text-slate-900">{bilan?.nombreSalles ?? "-"}</span>
+                  <span className="font-bold text-xs text-slate-900">{bilan?.nombreSalles ?? 0}</span>
                 </div>
                 <div className="p-1.5 flex flex-col justify-center">
                   <span className="text-slate-500 text-[9px]">Nbre Cours</span>
-                  <span className="font-bold text-xs text-slate-900">{bilan?.nombreCours ?? "-"}</span>
+                  <span className="font-bold text-xs text-slate-900">{bilan?.nombreCours ?? 0}</span>
                 </div>
                 <div className="p-1.5 flex flex-col justify-center">
                   <span className="text-slate-500 text-[9px]">Nouveaux Élèves</span>
