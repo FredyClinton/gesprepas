@@ -47,6 +47,15 @@ class PersonnelControllerTest {
     @MockitoBean
     private ConsulterHistoriqueSalairePersonnelUseCase consulterHistoriqueSalairePersonnelUseCase;
 
+    @MockitoBean
+    private com.excelisprepas.backend.personnel.domain.port.in.ModifierPersonnelUseCase modifierPersonnelUseCase;
+
+    @MockitoBean
+    private com.excelisprepas.backend.personnel.domain.port.in.SupprimerPersonnelUseCase supprimerPersonnelUseCase;
+
+    @MockitoBean
+    private com.excelisprepas.backend.personnel.domain.port.in.CreerComptePersonnelUseCase creerComptePersonnelUseCase;
+
     @Test
     @DisplayName("GET /api/personnel/{id} retourne 200 avec les informations du membre")
     void recupererPersonnel_existant_retourne200() throws Exception {
@@ -72,5 +81,71 @@ class PersonnelControllerTest {
 
         mockMvc.perform(get("/api/personnel/" + id))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("PUT /api/personnel/{id} retourne 200 avec les données mises à jour")
+    void modifierPersonnel_succes_retourne200() throws Exception {
+        UUID id = UUID.randomUUID();
+        Personnel maj = new Personnel(id, "Smith", "Jane", "+237677777777", "987654321", "jane.smith@excelis.cm");
+        when(modifierPersonnelUseCase.modifierPersonnel(org.mockito.ArgumentMatchers.eq(id),
+                org.mockito.ArgumentMatchers.eq("Smith"),
+                org.mockito.ArgumentMatchers.eq("Jane"),
+                org.mockito.ArgumentMatchers.eq("+237677777777"),
+                org.mockito.ArgumentMatchers.eq("987654321"),
+                org.mockito.ArgumentMatchers.eq("jane.smith@excelis.cm"))).thenReturn(maj);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/personnel/" + id)
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nom": "Smith",
+                                  "prenom": "Jane",
+                                  "telephone": "+237677777777",
+                                  "numeroCni": "987654321",
+                                  "email": "jane.smith@excelis.cm"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id.toString()))
+                .andExpect(jsonPath("$.nom").value("Smith"))
+                .andExpect(jsonPath("$.prenom").value("Jane"));
+    }
+
+    @Test
+    @DisplayName("DELETE /api/personnel/{id} retourne 204 No Content")
+    void supprimerPersonnel_succes_retourne204() throws Exception {
+        UUID id = UUID.randomUUID();
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/personnel/" + id))
+                .andExpect(status().isNoContent());
+
+        org.mockito.Mockito.verify(supprimerPersonnelUseCase).supprimerPersonnel(id);
+    }
+
+    @Test
+    @DisplayName("POST /api/personnel/{id}/compte retourne 201 avec le compte créé")
+    void creerCompte_succes_retourne201() throws Exception {
+        UUID id = UUID.randomUUID();
+        com.excelisprepas.backend.personnel.domain.model.Utilisateur utilisateur =
+                new com.excelisprepas.backend.personnel.domain.model.Utilisateur(
+                        id, "Doe", "John", "+237699999999", "123456789", "john.doe@excelis.cm",
+                        "hash", com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur.COMPTABLE, null);
+        when(creerComptePersonnelUseCase.creerCompte(org.mockito.ArgumentMatchers.eq(id),
+                org.mockito.ArgumentMatchers.eq("Secret123!"),
+                org.mockito.ArgumentMatchers.eq(com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur.COMPTABLE),
+                org.mockito.ArgumentMatchers.isNull())).thenReturn(utilisateur);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/personnel/" + id + "/compte")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "password": "Secret123!",
+                                  "role": "COMPTABLE",
+                                  "centreId": null
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(id.toString()))
+                .andExpect(jsonPath("$.role").value("COMPTABLE"));
     }
 }

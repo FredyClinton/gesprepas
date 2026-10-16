@@ -34,3 +34,9 @@ export type RefreshResponse = LoginResponse;
 export type LogoutRequest = {
   refreshToken: string;
 };
+
+export type ModifierUtilisateurInput = {
+  role: Role;
+  centreId?: string | null;
+};
+

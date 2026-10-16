@@ -51,6 +51,10 @@ class UtilisateurControllerTest {
     private DetacherCentreUseCase detacherCentreUseCase;
     @MockitoBean
     private SupprimerUtilisateurUseCase supprimerUtilisateurUseCase;
+    @MockitoBean
+    private ModifierUtilisateurUseCase modifierUtilisateurUseCase;
+    @MockitoBean
+    private RevoquerCompteUtilisateurUseCase revoquerCompteUtilisateurUseCase;
 
     private Utilisateur unUtilisateur() {
         return new Utilisateur(UUID.randomUUID(), "Bougang", "Pascal",
@@ -245,5 +249,38 @@ class UtilisateurControllerTest {
 
         mockMvc.perform(delete("/api/utilisateurs/" + id))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("PUT /api/utilisateurs/{id} retourne 200 avec utilisateur mis à jour")
+    void modifierUtilisateur_succes_retourne200() throws Exception {
+        UUID id = UUID.randomUUID();
+        Utilisateur modifie = new Utilisateur(id, "Bougang", "Pascal", "pascal@excelis.cm", "hash", RoleUtilisateur.DIRECTEUR);
+        when(modifierUtilisateurUseCase.modifierUtilisateur(eq(id), eq(RoleUtilisateur.DIRECTEUR), isNull()))
+                .thenReturn(modifie);
+
+        mockMvc.perform(put("/api/utilisateurs/" + id)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                    "role": "DIRECTEUR",
+                                    "centreId": null
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id.toString()))
+                .andExpect(jsonPath("$.role").value("DIRECTEUR"));
+    }
+
+    @Test
+    @DisplayName("DELETE /api/utilisateurs/{id}/revoquer retourne 204")
+    void revoquerCompte_succes_retourne204() throws Exception {
+        UUID id = UUID.randomUUID();
+        doNothing().when(revoquerCompteUtilisateurUseCase).revoquerCompte(id);
+
+        mockMvc.perform(delete("/api/utilisateurs/" + id + "/revoquer"))
+                .andExpect(status().isNoContent());
+
+        verify(revoquerCompteUtilisateurUseCase).revoquerCompte(id);
     }
 }

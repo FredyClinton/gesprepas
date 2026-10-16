@@ -75,3 +75,25 @@ export type GererAccesInput = {
   motif?: string | null;
 };
 
+export type CreerPersonnelInput = {
+  nom: string;
+  prenom: string;
+  telephone?: string | null;
+  numeroCni?: string | null;
+  email?: string | null;
+};
+
+export type ModifierPersonnelInput = {
+  nom: string;
+  prenom: string;
+  telephone?: string | null;
+  numeroCni?: string | null;
+  email?: string | null;
+};
+
+export type CreerComptePersonnelInput = {
+  password: string;
+  role: import("@/types/roles").Role;
+  centreId?: string | null;
+};
+

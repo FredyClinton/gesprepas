@@ -21,9 +21,10 @@ public class PersonnelBeanConfiguration {
     @Bean
     public UtilisateurService utilisateurService(UtilisateurRepositoryPort utilisateurRepositoryPort,
                                                  PasswordEncoderPort passwordEncoderPort,
-                                                 CentreRepositoryPort centreRepositoryPort) {
+                                                 CentreRepositoryPort centreRepositoryPort,
+                                                 com.excelisprepas.backend.personnel.domain.port.out.PersonnelRepositoryPort personnelRepositoryPort) {
         return new UtilisateurService(utilisateurRepositoryPort, passwordEncoderPort,
-                centreRepositoryPort);
+                centreRepositoryPort, personnelRepositoryPort);
     }
 
     @Bean
@@ -63,6 +64,21 @@ public class PersonnelBeanConfiguration {
 
     @Bean
     public SupprimerUtilisateurUseCase supprimerUtilisateurUseCase(UtilisateurService utilisateurService) {
+        return utilisateurService;
+    }
+
+    @Bean
+    public ModifierUtilisateurUseCase modifierUtilisateurUseCase(UtilisateurService utilisateurService) {
+        return utilisateurService;
+    }
+
+    @Bean
+    public RevoquerCompteUtilisateurUseCase revoquerCompteUtilisateurUseCase(UtilisateurService utilisateurService) {
+        return utilisateurService;
+    }
+
+    @Bean
+    public CreerComptePersonnelUseCase creerComptePersonnelUseCase(UtilisateurService utilisateurService) {
         return utilisateurService;
     }
 
@@ -127,9 +143,10 @@ public class PersonnelBeanConfiguration {
     @Bean
     public com.excelisprepas.backend.personnel.domain.service.PersonnelService personnelService(
             com.excelisprepas.backend.personnel.domain.port.out.PersonnelRepositoryPort personnelRepositoryPort,
-            com.excelisprepas.backend.personnel.domain.port.out.HistoriqueSalairePersonnelRepositoryPort historiqueSalairePersonnelRepositoryPort) {
+            com.excelisprepas.backend.personnel.domain.port.out.HistoriqueSalairePersonnelRepositoryPort historiqueSalairePersonnelRepositoryPort,
+            UtilisateurRepositoryPort utilisateurRepositoryPort) {
         return new com.excelisprepas.backend.personnel.domain.service.PersonnelService(
-                personnelRepositoryPort, historiqueSalairePersonnelRepositoryPort);
+                personnelRepositoryPort, historiqueSalairePersonnelRepositoryPort, utilisateurRepositoryPort);
     }
 
     @Bean
@@ -154,6 +171,16 @@ public class PersonnelBeanConfiguration {
 
     @Bean
     public RecupererPersonnelUseCase recupererPersonnelUseCase(com.excelisprepas.backend.personnel.domain.service.PersonnelService personnelService) {
+        return personnelService;
+    }
+
+    @Bean
+    public ModifierPersonnelUseCase modifierPersonnelUseCase(com.excelisprepas.backend.personnel.domain.service.PersonnelService personnelService) {
+        return personnelService;
+    }
+
+    @Bean
+    public SupprimerPersonnelUseCase supprimerPersonnelUseCase(com.excelisprepas.backend.personnel.domain.service.PersonnelService personnelService) {
         return personnelService;
     }
 

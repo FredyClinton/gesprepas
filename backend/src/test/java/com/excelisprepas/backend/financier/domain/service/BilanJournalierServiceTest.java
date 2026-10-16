@@ -34,526 +34,584 @@ import static org.mockito.Mockito.*;
 
 class BilanJournalierServiceTest {
 
-    private final UUID centreId = UUID.randomUUID();
-    private final UUID sessionId = UUID.randomUUID();
-    private final UUID motifId = UUID.randomUUID();
-    private final UUID saisiParUtilisateurId = UUID.randomUUID();
-    private final UUID validateurChefCentreId = UUID.randomUUID();
-    private final UUID validateurControleurId = UUID.randomUUID();
-    private final LocalDate date = LocalDate.of(2026, 9, 15);
+        private final UUID centreId = UUID.randomUUID();
+        private final UUID sessionId = UUID.randomUUID();
+        private final UUID motifId = UUID.randomUUID();
+        private final UUID saisiParUtilisateurId = UUID.randomUUID();
+        private final UUID validateurChefCentreId = UUID.randomUUID();
+        private final UUID validateurControleurId = UUID.randomUUID();
+        private final LocalDate date = LocalDate.of(2026, 9, 15);
 
-    private BilanJournalierRepositoryPort bilanRepository;
-    private EntreeRepositoryPort entreeRepository;
-    private SortieRepositoryPort sortieRepository;
-    private ApprenantRepositoryPort apprenantRepository;
-    private CentreRepositoryPort centreRepository;
-    private UtilisateurRepositoryPort utilisateurRepository;
-    private SessionAcademiqueRepositoryPort sessionRepository;
-    private BilanJournalierService service;
+        private BilanJournalierRepositoryPort bilanRepository;
+        private EntreeRepositoryPort entreeRepository;
+        private SortieRepositoryPort sortieRepository;
+        private ApprenantRepositoryPort apprenantRepository;
+        private CentreRepositoryPort centreRepository;
+        private UtilisateurRepositoryPort utilisateurRepository;
+        private SessionAcademiqueRepositoryPort sessionRepository;
+        private BilanJournalierService service;
 
-    @BeforeEach
-    void setUp() {
-        bilanRepository = mock(BilanJournalierRepositoryPort.class);
-        entreeRepository = mock(EntreeRepositoryPort.class);
-        sortieRepository = mock(SortieRepositoryPort.class);
-        apprenantRepository = mock(ApprenantRepositoryPort.class);
-        centreRepository = mock(CentreRepositoryPort.class);
-        utilisateurRepository = mock(UtilisateurRepositoryPort.class);
-        sessionRepository = mock(SessionAcademiqueRepositoryPort.class);
-        service = new BilanJournalierService(bilanRepository, entreeRepository, sortieRepository,
-                apprenantRepository, centreRepository, utilisateurRepository, sessionRepository);
-    }
-
-    private SessionAcademique uneSessionEnCours() {
-        return SessionAcademique.reconstituer(sessionId, "2026-2027",
-                LocalDate.of(2026, 9, 1), LocalDate.of(2027, 6, 30), StatutSession.EN_COURS);
-    }
-
-    private Utilisateur unUtilisateur(UUID id) {
-        return new Utilisateur(id, "Nom", "Prenom", id + "@excelis.cm", "hash", RoleUtilisateur.COMPTABLE);
-    }
-
-    private Entree uneEntreeValidee(BigDecimal montant, UUID formationId) {
-        Entree entree = new Entree(UUID.randomUUID(), sessionId, motifId, montant, date,
-                saisiParUtilisateurId, centreId, null, formationId, null);
-        entree.appliquerDecision(StatutMouvement.VALIDE);
-        return entree;
-    }
-
-    private Sortie uneSortieValidee(BigDecimal montant) {
-        Sortie sortie = new Sortie(UUID.randomUUID(), sessionId, motifId, montant, date,
-                saisiParUtilisateurId, centreId, "Ordonnateur");
-        sortie.appliquerDecision(StatutMouvement.VALIDE);
-        return sortie;
-    }
-
-    @Nested
-    @DisplayName("Validation Chef de centre (1ère signature)")
-    class ValidationChefCentre {
-
-        @Test
-        @DisplayName("crée un bilan EN_ATTENTE_CONTROLEUR")
-        void creeUnBilanEnAttenteControleur() {
-            // Given
-            when(centreRepository.findById(centreId)).thenReturn(Optional.of(
-                    new Centre(centreId, "Centre NIL", "Adresse", "Yaoundé")));
-            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
-            when(utilisateurRepository.findById(validateurChefCentreId)).thenReturn(Optional.of(unUtilisateur(validateurChefCentreId)));
-            when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date)).thenReturn(Optional.empty());
-            when(bilanRepository.save(any(BilanJournalier.class))).thenAnswer(i -> i.getArgument(0));
-
-            // When
-            BilanJournalier resultat = service.validerBilanChefCentre(centreId, sessionId, date, validateurChefCentreId);
-
-            // Then
-            assertThat(resultat.getStatut()).isEqualTo(StatutBilan.EN_ATTENTE_CONTROLEUR);
-            assertThat(resultat.getValidateurChefCentreId()).isEqualTo(validateurChefCentreId);
-            assertThat(resultat.getTotalEntrees()).isNull();
+        @BeforeEach
+        void setUp() {
+                bilanRepository = mock(BilanJournalierRepositoryPort.class);
+                entreeRepository = mock(EntreeRepositoryPort.class);
+                sortieRepository = mock(SortieRepositoryPort.class);
+                apprenantRepository = mock(ApprenantRepositoryPort.class);
+                centreRepository = mock(CentreRepositoryPort.class);
+                utilisateurRepository = mock(UtilisateurRepositoryPort.class);
+                sessionRepository = mock(SessionAcademiqueRepositoryPort.class);
+                service = new BilanJournalierService(bilanRepository, entreeRepository, sortieRepository,
+                                apprenantRepository, centreRepository, utilisateurRepository, sessionRepository);
         }
 
-        @Test
-        @DisplayName("refuse si le centre n'existe pas")
-        void refuseSiCentreInexistant() {
-            when(centreRepository.findById(centreId)).thenReturn(Optional.empty());
-
-            ThrowingCallable action = () -> service.validerBilanChefCentre(centreId, sessionId, date, validateurChefCentreId);
-
-            assertThatThrownBy(action).isInstanceOf(CentreIntrouvableException.class);
+        private SessionAcademique uneSessionEnCours() {
+                return SessionAcademique.reconstituer(sessionId, "2026-2027",
+                                LocalDate.of(2026, 9, 1), LocalDate.of(2027, 6, 30), StatutSession.EN_COURS);
         }
 
-        @Test
-        @DisplayName("refuse si la session est clôturée")
-        void refuseSiSessionCloturee() {
-            when(centreRepository.findById(centreId)).thenReturn(Optional.of(
-                    new Centre(centreId, "Centre NIL", "Adresse", "Yaoundé")));
-            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(
-                    SessionAcademique.reconstituer(sessionId, "2025-2026",
-                            LocalDate.of(2025, 9, 1), LocalDate.of(2026, 6, 30), StatutSession.CLOTUREE)));
-
-            ThrowingCallable action = () -> service.validerBilanChefCentre(centreId, sessionId, date, validateurChefCentreId);
-
-            assertThatThrownBy(action).isInstanceOf(SessionNonUtilisableException.class);
+        private Utilisateur unUtilisateur(UUID id) {
+                return new Utilisateur(id, "Nom", "Prenom", id + "@excelis.cm", "hash", RoleUtilisateur.COMPTABLE);
         }
 
-        @Test
-        @DisplayName("refuse si le validateur n'existe pas")
-        void refuseSiValidateurInexistant() {
-            when(centreRepository.findById(centreId)).thenReturn(Optional.of(
-                    new Centre(centreId, "Centre NIL", "Adresse", "Yaoundé")));
-            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
-            when(utilisateurRepository.findById(validateurChefCentreId)).thenReturn(Optional.empty());
-
-            ThrowingCallable action = () -> service.validerBilanChefCentre(centreId, sessionId, date, validateurChefCentreId);
-
-            assertThatThrownBy(action).isInstanceOf(UtilisateurIntrouvableException.class);
+        private Entree uneEntreeValidee(BigDecimal montant, UUID formationId) {
+                Entree entree = new Entree(UUID.randomUUID(), sessionId, motifId, montant, date,
+                                saisiParUtilisateurId, centreId, null, formationId, null);
+                entree.appliquerDecision(StatutMouvement.VALIDE);
+                return entree;
         }
 
-        @Test
-        @DisplayName("refuse si un bilan existe déjà pour ce centre/session/date")
-        void refuseSiBilanDejaExistant() {
-            when(centreRepository.findById(centreId)).thenReturn(Optional.of(
-                    new Centre(centreId, "Centre NIL", "Adresse", "Yaoundé")));
-            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
-            when(utilisateurRepository.findById(validateurChefCentreId)).thenReturn(Optional.of(unUtilisateur(validateurChefCentreId)));
-            when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date)).thenReturn(Optional.of(
-                    new BilanJournalier(UUID.randomUUID(), centreId, sessionId, date, java.time.LocalDateTime.now(), validateurChefCentreId)));
-
-            ThrowingCallable action = () -> service.validerBilanChefCentre(centreId, sessionId, date, validateurChefCentreId);
-
-            assertThatThrownBy(action).isInstanceOf(BilanJournalierDejaExistantException.class);
-            verify(bilanRepository, never()).save(any(BilanJournalier.class));
-        }
-    }
-
-    @Nested
-    @DisplayName("Soumission Caissier (Arrêté de caisse)")
-    class SoumissionCaissier {
-
-        @Test
-        @DisplayName("crée un bilan SOUMIS_CAISSIER si aucun bilan n'existe")
-        void soumetBilanNouveau() {
-            UUID caissierId = UUID.randomUUID();
-            when(centreRepository.findById(centreId)).thenReturn(Optional.of(
-                    new Centre(centreId, "Centre Yaoundé", "Bastos", "Yaoundé")));
-            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
-            when(utilisateurRepository.findById(caissierId)).thenReturn(Optional.of(unUtilisateur(caissierId)));
-            when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date)).thenReturn(Optional.empty());
-            when(bilanRepository.save(any(BilanJournalier.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-            BilanJournalier bilan = service.soumettreBilanCaissier(centreId, sessionId, date, caissierId);
-
-            assertThat(bilan).isNotNull();
-            assertThat(bilan.getStatut()).isEqualTo(StatutBilan.SOUMIS_CAISSIER);
-            assertThat(bilan.getCaissierId()).isEqualTo(caissierId);
-            assertThat(bilan.getDateVisaCaissier()).isNotNull();
-            verify(bilanRepository).save(any(BilanJournalier.class));
+        private Sortie uneSortieValidee(BigDecimal montant) {
+                Sortie sortie = new Sortie(UUID.randomUUID(), sessionId, motifId, montant, date,
+                                saisiParUtilisateurId, centreId, "Ordonnateur");
+                sortie.appliquerDecision(StatutMouvement.VALIDE);
+                return sortie;
         }
 
-        @Test
-        @DisplayName("met à jour le visa caissier si un bilan ouvert existe déjà")
-        void metAJourBilanExistant() {
-            UUID caissierId = UUID.randomUUID();
-            BilanJournalier existant = new BilanJournalier(UUID.randomUUID(), centreId, sessionId, date);
-            when(centreRepository.findById(centreId)).thenReturn(Optional.of(
-                    new Centre(centreId, "Centre Yaoundé", "Bastos", "Yaoundé")));
-            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
-            when(utilisateurRepository.findById(caissierId)).thenReturn(Optional.of(unUtilisateur(caissierId)));
-            when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date)).thenReturn(Optional.of(existant));
-            when(bilanRepository.save(any(BilanJournalier.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        @Nested
+        @DisplayName("Validation Chef de centre (1ère signature)")
+        class ValidationChefCentre {
 
-            BilanJournalier bilan = service.soumettreBilanCaissier(centreId, sessionId, date, caissierId);
+                @Test
+                @DisplayName("crée un bilan EN_ATTENTE_CONTROLEUR")
+                void creeUnBilanEnAttenteControleur() {
+                        // Given
+                        when(centreRepository.findById(centreId)).thenReturn(Optional.of(
+                                        new Centre(centreId, "Centre NIL", "Adresse", "Yaoundé")));
+                        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
+                        when(utilisateurRepository.findById(validateurChefCentreId))
+                                        .thenReturn(Optional.of(unUtilisateur(validateurChefCentreId)));
+                        when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date))
+                                        .thenReturn(Optional.empty());
+                        when(bilanRepository.save(any(BilanJournalier.class))).thenAnswer(i -> i.getArgument(0));
 
-            assertThat(bilan.getStatut()).isEqualTo(StatutBilan.SOUMIS_CAISSIER);
-            assertThat(bilan.getCaissierId()).isEqualTo(caissierId);
-        }
-    }
+                        // When
+                        BilanJournalier resultat = service.validerBilanChefCentre(centreId, sessionId, date,
+                                        validateurChefCentreId);
 
-    @Nested
-    @DisplayName("Validation Contrôleur (2ème signature, clôture)")
-    class ValidationControleur {
-
-        @Test
-        @DisplayName("calcule les totaux, clôture le bilan et rattache les mouvements Valide du jour")
-        void validationControleurClotureEtRattache() {
-            // Given
-            BilanJournalier bilan = new BilanJournalier(
-                    UUID.randomUUID(), centreId, sessionId, date, java.time.LocalDateTime.now(), validateurChefCentreId);
-            UUID formationId = UUID.randomUUID();
-            Entree entree1 = uneEntreeValidee(new BigDecimal("1000000"), formationId);
-            Entree entree2 = uneEntreeValidee(new BigDecimal("300000"), null);
-            Sortie sortie1 = uneSortieValidee(new BigDecimal("500000"));
-
-            when(bilanRepository.findById(bilan.getId())).thenReturn(Optional.of(bilan));
-            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
-            when(utilisateurRepository.findById(validateurControleurId)).thenReturn(Optional.of(unUtilisateur(validateurControleurId)));
-            when(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centreId, sessionId, date, StatutMouvement.VALIDE))
-                    .thenReturn(List.of(entree1, entree2));
-            when(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centreId, sessionId, date, StatutMouvement.VALIDE))
-                    .thenReturn(List.of(sortie1));
-
-            when(bilanRepository.save(any(BilanJournalier.class))).thenAnswer(i -> i.getArgument(0));
-            when(entreeRepository.save(any(Entree.class))).thenAnswer(i -> i.getArgument(0));
-            when(sortieRepository.save(any(Sortie.class))).thenAnswer(i -> i.getArgument(0));
-
-            // When
-            BilanJournalier resultat = service.validerBilanControleur(bilan.getId(), validateurControleurId);
-
-            // Then
-            assertThat(resultat.getStatut()).isEqualTo(StatutBilan.CLOTURE);
-            assertThat(resultat.getTotalEntrees()).isEqualByComparingTo("1300000");
-            assertThat(resultat.getTotalSorties()).isEqualByComparingTo("500000");
-            assertThat(resultat.getNetAVerser()).isEqualByComparingTo("800000");
-            assertThat(resultat.getEffectifNouveauxEleves()).isEqualTo(0);
-            assertThat(resultat.getEffectifTotalCentre()).isEqualTo(0);
-            assertThat(entree1.getBilanJournalierId()).contains(bilan.getId());
-            assertThat(entree2.getBilanJournalierId()).contains(bilan.getId());
-            assertThat(sortie1.getBilanJournalierId()).contains(bilan.getId());
-        }
-
-        @Test
-        @DisplayName("refuse si le bilan n'existe pas")
-        void refuseSiBilanIntrouvable() {
-            UUID bilanId = UUID.randomUUID();
-            when(bilanRepository.findById(bilanId)).thenReturn(Optional.empty());
-
-            ThrowingCallable action = () -> service.validerBilanControleur(bilanId, validateurControleurId);
-
-            assertThatThrownBy(action).isInstanceOf(BilanJournalierIntrouvableException.class);
-        }
-
-        @Test
-        @DisplayName("refuse si le bilan est déjà clôturé")
-        void refuseSiDejaCloture() {
-            BilanJournalier bilan = new BilanJournalier(
-                    UUID.randomUUID(), centreId, sessionId, date, java.time.LocalDateTime.now(), validateurChefCentreId);
-            bilan.cloturer(UUID.randomUUID(), java.time.LocalDateTime.now(),
-                    new BigDecimal("1000000"), new BigDecimal("500000"), 2, 600);
-
-            when(bilanRepository.findById(bilan.getId())).thenReturn(Optional.of(bilan));
-            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
-            when(utilisateurRepository.findById(validateurControleurId)).thenReturn(Optional.of(unUtilisateur(validateurControleurId)));
-
-            ThrowingCallable action = () -> service.validerBilanControleur(bilan.getId(), validateurControleurId);
-
-            assertThatThrownBy(action).isInstanceOf(IllegalStateException.class);
-        }
-
-        @Test
-        @DisplayName("refuse si la session est clôturée")
-        void refuseSiSessionCloturee() {
-            BilanJournalier bilan = new BilanJournalier(
-                    UUID.randomUUID(), centreId, sessionId, date, java.time.LocalDateTime.now(), validateurChefCentreId);
-            when(bilanRepository.findById(bilan.getId())).thenReturn(Optional.of(bilan));
-            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(
-                    SessionAcademique.reconstituer(sessionId, "2025-2026",
-                            LocalDate.of(2025, 9, 1), LocalDate.of(2026, 6, 30), StatutSession.CLOTUREE)));
-
-            ThrowingCallable action = () -> service.validerBilanControleur(bilan.getId(), validateurControleurId);
-
-            assertThatThrownBy(action).isInstanceOf(SessionNonUtilisableException.class);
-        }
-    }
-
-    @Nested
-    @DisplayName("Consultation du bilan du jour")
-    class ConsultationBilanDuJour {
-
-        @Test
-        @DisplayName("retourne les valeurs figées si un bilan CLOTURE existe déjà")
-        void retourneLesValeursFigeesSiCloture() {
-            // Given
-            BilanJournalier bilan = new BilanJournalier(
-                    UUID.randomUUID(), centreId, sessionId, date, java.time.LocalDateTime.now(), validateurChefCentreId);
-            bilan.cloturer(validateurControleurId, java.time.LocalDateTime.now(),
-                    new BigDecimal("1300000"), new BigDecimal("500000"), 3, 620);
-            when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date)).thenReturn(Optional.of(bilan));
-
-            // When
-            BilanJournalierApercu apercu = service.consulterBilanDuJour(centreId, sessionId, date);
-
-            // Then
-            assertThat(apercu.statut()).isEqualTo(StatutBilan.CLOTURE);
-            assertThat(apercu.totalEntrees()).isEqualByComparingTo("1300000");
-            verify(entreeRepository, never()).findByCentreIdAndSessionIdAndDateAndStatut(any(), any(), any(), any());
-        }
-
-        @Test
-        @DisplayName("calcule à la volée si aucun bilan n'existe encore")
-        void calculeALaVoleeSiAucunBilan() {
-            // Given
-            when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date)).thenReturn(Optional.empty());
-            when(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centreId, sessionId, date, StatutMouvement.VALIDE))
-                    .thenReturn(List.of(uneEntreeValidee(new BigDecimal("300000"), null)));
-            when(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centreId, sessionId, date, StatutMouvement.VALIDE))
-                    .thenReturn(List.of());
-
-
-            // When
-            BilanJournalierApercu apercu = service.consulterBilanDuJour(centreId, sessionId, date);
-
-            // Then
-            assertThat(apercu.id()).isNull();
-            assertThat(apercu.statut()).isNull();
-            assertThat(apercu.totalEntrees()).isEqualByComparingTo("300000");
-            assertThat(apercu.effectifTotalCentre()).isEqualTo(0);
-        }
-
-        @Test
-        @DisplayName("calcule à la volée en gardant id/statut si un bilan EN_ATTENTE_CONTROLEUR existe")
-        void calculeALaVoleeEnGardantIdEtStatutSiEnAttente() {
-            // Given
-            BilanJournalier bilan = new BilanJournalier(
-                    UUID.randomUUID(), centreId, sessionId, date, java.time.LocalDateTime.now(), validateurChefCentreId);
-            when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date)).thenReturn(Optional.of(bilan));
-            when(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centreId, sessionId, date, StatutMouvement.VALIDE))
-                    .thenReturn(List.of());
-            when(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centreId, sessionId, date, StatutMouvement.VALIDE))
-                    .thenReturn(List.of());
-
-            // When
-            BilanJournalierApercu apercu = service.consulterBilanDuJour(centreId, sessionId, date);
-
-            // Then
-            assertThat(apercu.id()).isEqualTo(bilan.getId());
-            assertThat(apercu.statut()).isEqualTo(StatutBilan.EN_ATTENTE_CONTROLEUR);
-        }
-    }
-
-    @Nested
-    @DisplayName("Répartition par formation")
-    class RepartitionParFormation {
-
-        @Test
-        @DisplayName("regroupe les entrées rattachées par formation, y compris celles sans formation")
-        void regroupeParFormation() {
-            // Given
-            UUID bilanId = UUID.randomUUID();
-            UUID formationA = UUID.randomUUID();
-            UUID formationB = UUID.randomUUID();
-            BilanJournalier bilan = new BilanJournalier(
-                    bilanId, centreId, sessionId, date, java.time.LocalDateTime.now(), validateurChefCentreId);
-
-            Entree entreeFormationA1 = uneEntreeValidee(new BigDecimal("100000"), formationA);
-            Entree entreeFormationA2 = uneEntreeValidee(new BigDecimal("50000"), formationA);
-            Entree entreeFormationB = uneEntreeValidee(new BigDecimal("200000"), formationB);
-            Entree entreeSansFormation = uneEntreeValidee(new BigDecimal("30000"), null);
-
-            when(bilanRepository.findById(bilanId)).thenReturn(Optional.of(bilan));
-            when(entreeRepository.findByBilanJournalierId(bilanId)).thenReturn(
-                    List.of(entreeFormationA1, entreeFormationA2, entreeFormationB, entreeSansFormation));
-
-            // When
-            List<RepartitionFormationLigne> resultat = service.consulterRepartitionParFormation(bilanId);
-
-            // Then
-            assertThat(resultat).hasSize(3);
-            assertThat(resultat).anySatisfy(ligne -> {
-                if (formationA.equals(ligne.formationId())) {
-                    assertThat(ligne.montant()).isEqualByComparingTo("150000");
+                        // Then
+                        assertThat(resultat.getStatut()).isEqualTo(StatutBilan.EN_ATTENTE_CONTROLEUR);
+                        assertThat(resultat.getValidateurChefCentreId()).isEqualTo(validateurChefCentreId);
+                        assertThat(resultat.getTotalEntrees()).isNull();
                 }
-            });
-            assertThat(resultat).anySatisfy(ligne -> {
-                if (ligne.formationId() == null) {
-                    assertThat(ligne.montant()).isEqualByComparingTo("30000");
+
+                @Test
+                @DisplayName("refuse si le centre n'existe pas")
+                void refuseSiCentreInexistant() {
+                        when(centreRepository.findById(centreId)).thenReturn(Optional.empty());
+
+                        ThrowingCallable action = () -> service.validerBilanChefCentre(centreId, sessionId, date,
+                                        validateurChefCentreId);
+
+                        assertThatThrownBy(action).isInstanceOf(CentreIntrouvableException.class);
                 }
-            });
+
+                @Test
+                @DisplayName("refuse si la session est clôturée")
+                void refuseSiSessionCloturee() {
+                        when(centreRepository.findById(centreId)).thenReturn(Optional.of(
+                                        new Centre(centreId, "Centre NIL", "Adresse", "Yaoundé")));
+                        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(
+                                        SessionAcademique.reconstituer(sessionId, "2025-2026",
+                                                        LocalDate.of(2025, 9, 1), LocalDate.of(2026, 6, 30),
+                                                        StatutSession.CLOTUREE)));
+
+                        ThrowingCallable action = () -> service.validerBilanChefCentre(centreId, sessionId, date,
+                                        validateurChefCentreId);
+
+                        assertThatThrownBy(action).isInstanceOf(SessionNonUtilisableException.class);
+                }
+
+                @Test
+                @DisplayName("refuse si le validateur n'existe pas")
+                void refuseSiValidateurInexistant() {
+                        when(centreRepository.findById(centreId)).thenReturn(Optional.of(
+                                        new Centre(centreId, "Centre NIL", "Adresse", "Yaoundé")));
+                        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
+                        when(utilisateurRepository.findById(validateurChefCentreId)).thenReturn(Optional.empty());
+
+                        ThrowingCallable action = () -> service.validerBilanChefCentre(centreId, sessionId, date,
+                                        validateurChefCentreId);
+
+                        assertThatThrownBy(action).isInstanceOf(UtilisateurIntrouvableException.class);
+                }
+
+                @Test
+                @DisplayName("refuse si un bilan existe déjà pour ce centre/session/date")
+                void refuseSiBilanDejaExistant() {
+                        when(centreRepository.findById(centreId)).thenReturn(Optional.of(
+                                        new Centre(centreId, "Centre NIL", "Adresse", "Yaoundé")));
+                        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
+                        when(utilisateurRepository.findById(validateurChefCentreId))
+                                        .thenReturn(Optional.of(unUtilisateur(validateurChefCentreId)));
+                        when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date))
+                                        .thenReturn(Optional.of(
+                                                        new BilanJournalier(UUID.randomUUID(), centreId, sessionId,
+                                                                        date, java.time.LocalDateTime.now(),
+                                                                        validateurChefCentreId)));
+
+                        ThrowingCallable action = () -> service.validerBilanChefCentre(centreId, sessionId, date,
+                                        validateurChefCentreId);
+
+                        assertThatThrownBy(action).isInstanceOf(BilanJournalierDejaExistantException.class);
+                        verify(bilanRepository, never()).save(any(BilanJournalier.class));
+                }
         }
 
-        @Test
-        @DisplayName("refuse si le bilan n'existe pas")
-        void refuseSiBilanIntrouvable() {
-            UUID bilanId = UUID.randomUUID();
-            when(bilanRepository.findById(bilanId)).thenReturn(Optional.empty());
+        @Nested
+        @DisplayName("Soumission Caissier (Arrêté de caisse)")
+        class SoumissionCaissier {
 
-            ThrowingCallable action = () -> service.consulterRepartitionParFormation(bilanId);
+                @Test
+                @DisplayName("crée un bilan SOUMIS_CAISSIER si aucun bilan n'existe")
+                void soumetBilanNouveau() {
+                        UUID caissierId = UUID.randomUUID();
+                        when(centreRepository.findById(centreId)).thenReturn(Optional.of(
+                                        new Centre(centreId, "Centre Yaoundé", "Bastos", "Yaoundé")));
+                        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
+                        when(utilisateurRepository.findById(caissierId))
+                                        .thenReturn(Optional.of(unUtilisateur(caissierId)));
+                        when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date))
+                                        .thenReturn(Optional.empty());
+                        when(bilanRepository.save(any(BilanJournalier.class)))
+                                        .thenAnswer(invocation -> invocation.getArgument(0));
 
-            assertThatThrownBy(action).isInstanceOf(BilanJournalierIntrouvableException.class);
-        }
-    }
+                        BilanJournalier bilan = service.soumettreBilanCaissier(centreId, sessionId, date, caissierId);
 
-    @Nested
-    @DisplayName("Bilan consolidé national du Directeur")
-    class BilanConsolideDirecteur {
+                        assertThat(bilan).isNotNull();
+                        assertThat(bilan.getStatut()).isEqualTo(StatutBilan.SOUMIS_CAISSIER);
+                        assertThat(bilan.getCaissierId()).isEqualTo(caissierId);
+                        assertThat(bilan.getDateVisaCaissier()).isNotNull();
+                        verify(bilanRepository).save(any(BilanJournalier.class));
+                }
 
-        @Test
-        @DisplayName("calcule et agrège fidèlement les flux et effectifs de tous les centres")
-        void calculeEtAgregeFluxEtEffectifs() {
-            // Given
-            UUID centre1Id = UUID.randomUUID();
-            UUID centre2Id = UUID.randomUUID();
-            Centre centre1 = new Centre(centre1Id, "Centre Yaoundé", "Bastos", "Yaoundé");
-            Centre centre2 = new Centre(centre2Id, "Centre Douala", "Akwa", "Douala");
+                @Test
+                @DisplayName("met à jour le visa caissier si un bilan ouvert existe déjà")
+                void metAJourBilanExistant() {
+                        UUID caissierId = UUID.randomUUID();
+                        BilanJournalier existant = new BilanJournalier(UUID.randomUUID(), centreId, sessionId, date);
+                        when(centreRepository.findById(centreId)).thenReturn(Optional.of(
+                                        new Centre(centreId, "Centre Yaoundé", "Bastos", "Yaoundé")));
+                        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
+                        when(utilisateurRepository.findById(caissierId))
+                                        .thenReturn(Optional.of(unUtilisateur(caissierId)));
+                        when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date))
+                                        .thenReturn(Optional.of(existant));
+                        when(bilanRepository.save(any(BilanJournalier.class)))
+                                        .thenAnswer(invocation -> invocation.getArgument(0));
 
-            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
-            when(centreRepository.findAll()).thenReturn(List.of(centre1, centre2));
-            when(centreRepository.findById(centre1Id)).thenReturn(Optional.of(centre1));
-            when(centreRepository.findById(centre2Id)).thenReturn(Optional.of(centre2));
+                        BilanJournalier bilan = service.soumettreBilanCaissier(centreId, sessionId, date, caissierId);
 
-            UUID formationPolytech = UUID.randomUUID();
-            UUID formationMedecine = UUID.randomUUID();
-            UUID motifLivreId = UUID.randomUUID();
-            UUID motifTransportId = UUID.randomUUID();
-
-            Entree e1 = new Entree(UUID.randomUUID(), sessionId, motifId, new BigDecimal("100000"), date,
-                    saisiParUtilisateurId, centre1Id, null, formationPolytech, null);
-            e1.appliquerDecision(StatutMouvement.VALIDE);
-
-            Entree e2 = new Entree(UUID.randomUUID(), sessionId, motifLivreId, new BigDecimal("25000"), date,
-                    saisiParUtilisateurId, centre1Id, null, null, null);
-            e2.appliquerDecision(StatutMouvement.VALIDE);
-
-            Sortie s1 = new Sortie(UUID.randomUUID(), sessionId, motifTransportId, new BigDecimal("15000"), date,
-                    saisiParUtilisateurId, centre1Id, "Directeur");
-            s1.appliquerDecision(StatutMouvement.VALIDE);
-
-            when(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre1Id, sessionId, date, StatutMouvement.VALIDE))
-                    .thenReturn(List.of(e1, e2));
-            when(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre1Id, sessionId, date, StatutMouvement.EN_ATTENTE))
-                    .thenReturn(List.of());
-            when(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre1Id, sessionId, date, StatutMouvement.VALIDE))
-                    .thenReturn(List.of(s1));
-            when(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre1Id, sessionId, date, StatutMouvement.EN_ATTENTE))
-                    .thenReturn(List.of());
-
-            Entree e3 = new Entree(UUID.randomUUID(), sessionId, motifId, new BigDecimal("200000"), date,
-                    saisiParUtilisateurId, centre2Id, null, formationMedecine, null);
-            e3.appliquerDecision(StatutMouvement.VALIDE);
-
-            when(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre2Id, sessionId, date, StatutMouvement.VALIDE))
-                    .thenReturn(List.of(e3));
-            when(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre2Id, sessionId, date, StatutMouvement.EN_ATTENTE))
-                    .thenReturn(List.of());
-            when(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre2Id, sessionId, date, StatutMouvement.VALIDE))
-                    .thenReturn(List.of());
-            when(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre2Id, sessionId, date, StatutMouvement.EN_ATTENTE))
-                    .thenReturn(List.of());
-
-            // Apprenants
-            com.excelisprepas.backend.apprenant.domain.model.Apprenant a1 =
-                    new com.excelisprepas.backend.apprenant.domain.model.Apprenant(UUID.randomUUID(), "Doe", "John",
-                            LocalDate.of(2005, 1, 1), date, centre1Id, sessionId,
-                            "123", "P", "456", "Lycee", formationPolytech, BigDecimal.ZERO, false, "REF");
-
-            when(apprenantRepository.findByCentreIdAndSessionId(centre1Id, sessionId))
-                    .thenReturn(List.of(a1));
-            when(apprenantRepository.countByCentreIdAndSessionId(centre1Id, sessionId)).thenReturn(1L);
-            when(apprenantRepository.countByCentreIdAndSessionIdAndDateInscription(centre1Id, sessionId, date)).thenReturn(1L);
-
-            when(apprenantRepository.findByCentreIdAndSessionId(centre2Id, sessionId))
-                    .thenReturn(List.of());
-            when(apprenantRepository.countByCentreIdAndSessionId(centre2Id, sessionId)).thenReturn(0L);
-            when(apprenantRepository.countByCentreIdAndSessionIdAndDateInscription(centre2Id, sessionId, date)).thenReturn(0L);
-
-            // When
-            BilanConsolideNational resultat = service.consulterBilanConsolide(sessionId, date);
-
-            // Then
-            assertThat(resultat).isNotNull();
-            assertThat(resultat.totalEntreesNational()).isEqualByComparingTo("325000");
-            assertThat(resultat.totalSortiesNational()).isEqualByComparingTo("15000");
-            assertThat(resultat.netAVerserNational()).isEqualByComparingTo("310000");
-            assertThat(resultat.centres()).hasSize(2);
-            assertThat(resultat.centresTotalCount()).isEqualTo(2);
-
-            BilanCentreResume centre1Resume = resultat.centres().stream()
-                    .filter(c -> c.centreId().equals(centre1Id))
-                    .findFirst().orElseThrow();
-            assertThat(centre1Resume.totalEntrees()).isEqualByComparingTo("125000");
-            assertThat(centre1Resume.totalSorties()).isEqualByComparingTo("15000");
-            assertThat(centre1Resume.netAVerser()).isEqualByComparingTo("110000");
-            assertThat(centre1Resume.entreesDetaillees()).isNotEmpty();
-            assertThat(centre1Resume.sortiesDetaillees()).isNotEmpty();
-        }
-    }
-
-    @Nested
-    @DisplayName("Ajustement de l'activité (salles et cours)")
-    class AjusterActivite {
-
-        @Test
-        @DisplayName("ajusterActivite enregistre le nombre de salles et de cours")
-        void ajusterActivite_succes() {
-            Centre centre = mock(Centre.class);
-            when(centreRepository.findById(centreId)).thenReturn(Optional.of(centre));
-            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
-
-            BilanJournalier existant = new BilanJournalier(UUID.randomUUID(), centreId, sessionId, date);
-            when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date))
-                    .thenReturn(Optional.of(existant));
-            when(bilanRepository.save(any(BilanJournalier.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-            BilanJournalier resultat = service.ajusterActivite(centreId, sessionId, date, 4, 7, UUID.randomUUID());
-
-            assertThat(resultat.getNombreSalles()).isEqualTo(4);
-            assertThat(resultat.getNombreCours()).isEqualTo(7);
-            verify(bilanRepository).save(existant);
+                        assertThat(bilan.getStatut()).isEqualTo(StatutBilan.SOUMIS_CAISSIER);
+                        assertThat(bilan.getCaissierId()).isEqualTo(caissierId);
+                }
         }
 
-        @Test
-        @DisplayName("ajusterActivite échoue si le bilan est déjà clôturé")
-        void ajusterActivite_bilanCloture_echoue() {
-            Centre centre = mock(Centre.class);
-            when(centreRepository.findById(centreId)).thenReturn(Optional.of(centre));
-            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
+        @Nested
+        @DisplayName("Validation Contrôleur (2ème signature, clôture)")
+        class ValidationControleur {
 
-            BilanJournalier existant = new BilanJournalier(UUID.randomUUID(), centreId, sessionId, date, LocalDateTime.now(), UUID.randomUUID());
-            existant.cloturer(validateurControleurId, "Controleur", LocalDateTime.now(), BigDecimal.ZERO, BigDecimal.ZERO, 0, 0, 2, 3);
+                @Test
+                @DisplayName("calcule les totaux, clôture le bilan et rattache les mouvements Valide du jour")
+                void validationControleurClotureEtRattache() {
+                        // Given
+                        BilanJournalier bilan = new BilanJournalier(
+                                        UUID.randomUUID(), centreId, sessionId, date, java.time.LocalDateTime.now(),
+                                        validateurChefCentreId);
+                        UUID formationId = UUID.randomUUID();
+                        Entree entree1 = uneEntreeValidee(new BigDecimal("1000000"), formationId);
+                        Entree entree2 = uneEntreeValidee(new BigDecimal("300000"), null);
+                        Sortie sortie1 = uneSortieValidee(new BigDecimal("500000"));
 
-            when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date))
-                    .thenReturn(Optional.of(existant));
+                        when(bilanRepository.findById(bilan.getId())).thenReturn(Optional.of(bilan));
+                        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
+                        when(utilisateurRepository.findById(validateurControleurId))
+                                        .thenReturn(Optional.of(unUtilisateur(validateurControleurId)));
+                        when(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centreId, sessionId, date,
+                                        StatutMouvement.VALIDE))
+                                        .thenReturn(List.of(entree1, entree2));
+                        when(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centreId, sessionId, date,
+                                        StatutMouvement.VALIDE))
+                                        .thenReturn(List.of(sortie1));
 
-            assertThatThrownBy(() -> service.ajusterActivite(centreId, sessionId, date, 4, 7, UUID.randomUUID()))
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("déjà clôturé");
+                        when(bilanRepository.save(any(BilanJournalier.class))).thenAnswer(i -> i.getArgument(0));
+                        when(entreeRepository.save(any(Entree.class))).thenAnswer(i -> i.getArgument(0));
+                        when(sortieRepository.save(any(Sortie.class))).thenAnswer(i -> i.getArgument(0));
+
+                        // When
+                        BilanJournalier resultat = service.validerBilanControleur(bilan.getId(),
+                                        validateurControleurId);
+
+                        // Then
+                        assertThat(resultat.getStatut()).isEqualTo(StatutBilan.CLOTURE);
+                        assertThat(resultat.getTotalEntrees()).isEqualByComparingTo("1300000");
+                        assertThat(resultat.getTotalSorties()).isEqualByComparingTo("500000");
+                        assertThat(resultat.getNetAVerser()).isEqualByComparingTo("800000");
+                        assertThat(resultat.getEffectifNouveauxEleves()).isEqualTo(0);
+                        assertThat(resultat.getEffectifTotalCentre()).isEqualTo(0);
+                        assertThat(entree1.getBilanJournalierId()).contains(bilan.getId());
+                        assertThat(entree2.getBilanJournalierId()).contains(bilan.getId());
+                        assertThat(sortie1.getBilanJournalierId()).contains(bilan.getId());
+                }
+
+                @Test
+                @DisplayName("refuse si le bilan n'existe pas")
+                void refuseSiBilanIntrouvable() {
+                        UUID bilanId = UUID.randomUUID();
+                        when(bilanRepository.findById(bilanId)).thenReturn(Optional.empty());
+
+                        ThrowingCallable action = () -> service.validerBilanControleur(bilanId, validateurControleurId);
+
+                        assertThatThrownBy(action).isInstanceOf(BilanJournalierIntrouvableException.class);
+                }
+
+                @Test
+                @DisplayName("refuse si le bilan est déjà clôturé")
+                void refuseSiDejaCloture() {
+                        BilanJournalier bilan = new BilanJournalier(
+                                        UUID.randomUUID(), centreId, sessionId, date, java.time.LocalDateTime.now(),
+                                        validateurChefCentreId);
+                        bilan.cloturer(UUID.randomUUID(), java.time.LocalDateTime.now(),
+                                        new BigDecimal("1000000"), new BigDecimal("500000"), 2, 600);
+
+                        when(bilanRepository.findById(bilan.getId())).thenReturn(Optional.of(bilan));
+                        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
+                        when(utilisateurRepository.findById(validateurControleurId))
+                                        .thenReturn(Optional.of(unUtilisateur(validateurControleurId)));
+
+                        ThrowingCallable action = () -> service.validerBilanControleur(bilan.getId(),
+                                        validateurControleurId);
+
+                        assertThatThrownBy(action).isInstanceOf(IllegalStateException.class);
+                }
+
+                @Test
+                @DisplayName("refuse si la session est clôturée")
+                void refuseSiSessionCloturee() {
+                        BilanJournalier bilan = new BilanJournalier(
+                                        UUID.randomUUID(), centreId, sessionId, date, java.time.LocalDateTime.now(),
+                                        validateurChefCentreId);
+                        when(bilanRepository.findById(bilan.getId())).thenReturn(Optional.of(bilan));
+                        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(
+                                        SessionAcademique.reconstituer(sessionId, "2025-2026",
+                                                        LocalDate.of(2025, 9, 1), LocalDate.of(2026, 6, 30),
+                                                        StatutSession.CLOTUREE)));
+
+                        ThrowingCallable action = () -> service.validerBilanControleur(bilan.getId(),
+                                        validateurControleurId);
+
+                        assertThatThrownBy(action).isInstanceOf(SessionNonUtilisableException.class);
+                }
         }
 
-        @Test
-        @DisplayName("ajusterActivite échoue si le centre n'existe pas")
-        void ajusterActivite_centreIntrouvable_echoue() {
-            when(centreRepository.findById(centreId)).thenReturn(Optional.empty());
+        @Nested
+        @DisplayName("Consultation du bilan du jour")
+        class ConsultationBilanDuJour {
 
-            assertThatThrownBy(() -> service.ajusterActivite(centreId, sessionId, date, 4, 7, UUID.randomUUID()))
-                    .isInstanceOf(CentreIntrouvableException.class);
+                @Test
+                @DisplayName("retourne les valeurs figées si un bilan CLOTURE existe déjà")
+                void retourneLesValeursFigeesSiCloture() {
+                        // Given
+                        BilanJournalier bilan = new BilanJournalier(
+                                        UUID.randomUUID(), centreId, sessionId, date, java.time.LocalDateTime.now(),
+                                        validateurChefCentreId);
+                        bilan.cloturer(validateurControleurId, java.time.LocalDateTime.now(),
+                                        new BigDecimal("1300000"), new BigDecimal("500000"), 3, 620);
+                        when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date))
+                                        .thenReturn(Optional.of(bilan));
+
+                        // When
+                        BilanJournalierApercu apercu = service.consulterBilanDuJour(centreId, sessionId, date);
+
+                        // Then
+                        assertThat(apercu.statut()).isEqualTo(StatutBilan.CLOTURE);
+                        assertThat(apercu.totalEntrees()).isEqualByComparingTo("1300000");
+                        verify(entreeRepository, never()).findByCentreIdAndSessionIdAndDateAndStatut(any(), any(),
+                                        any(), any());
+                }
+
+                @Test
+                @DisplayName("calcule à la volée si aucun bilan n'existe encore")
+                void calculeALaVoleeSiAucunBilan() {
+                        // Given
+                        when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date))
+                                        .thenReturn(Optional.empty());
+                        when(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centreId, sessionId, date,
+                                        StatutMouvement.VALIDE))
+                                        .thenReturn(List.of(uneEntreeValidee(new BigDecimal("300000"), null)));
+                        when(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centreId, sessionId, date,
+                                        StatutMouvement.VALIDE))
+                                        .thenReturn(List.of());
+
+                        // When
+                        BilanJournalierApercu apercu = service.consulterBilanDuJour(centreId, sessionId, date);
+
+                        // Then
+                        assertThat(apercu.id()).isNull();
+                        assertThat(apercu.statut()).isNull();
+                        assertThat(apercu.totalEntrees()).isEqualByComparingTo("300000");
+                        assertThat(apercu.effectifTotalCentre()).isEqualTo(0);
+                }
+
+                @Test
+                @DisplayName("calcule à la volée en gardant id/statut si un bilan EN_ATTENTE_CONTROLEUR existe")
+                void calculeALaVoleeEnGardantIdEtStatutSiEnAttente() {
+                        // Given
+                        BilanJournalier bilan = new BilanJournalier(
+                                        UUID.randomUUID(), centreId, sessionId, date, java.time.LocalDateTime.now(),
+                                        validateurChefCentreId);
+                        when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date))
+                                        .thenReturn(Optional.of(bilan));
+                        when(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centreId, sessionId, date,
+                                        StatutMouvement.VALIDE))
+                                        .thenReturn(List.of());
+                        when(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centreId, sessionId, date,
+                                        StatutMouvement.VALIDE))
+                                        .thenReturn(List.of());
+
+                        // When
+                        BilanJournalierApercu apercu = service.consulterBilanDuJour(centreId, sessionId, date);
+
+                        // Then
+                        assertThat(apercu.id()).isEqualTo(bilan.getId());
+                        assertThat(apercu.statut()).isEqualTo(StatutBilan.EN_ATTENTE_CONTROLEUR);
+                }
         }
-    }
+
+        @Nested
+        @DisplayName("Répartition par formation")
+        class RepartitionParFormation {
+
+                @Test
+                @DisplayName("regroupe les entrées rattachées par formation, y compris celles sans formation")
+                void regroupeParFormation() {
+                        // Given
+                        UUID bilanId = UUID.randomUUID();
+                        UUID formationA = UUID.randomUUID();
+                        UUID formationB = UUID.randomUUID();
+                        BilanJournalier bilan = new BilanJournalier(
+                                        bilanId, centreId, sessionId, date, java.time.LocalDateTime.now(),
+                                        validateurChefCentreId);
+
+                        Entree entreeFormationA1 = uneEntreeValidee(new BigDecimal("100000"), formationA);
+                        Entree entreeFormationA2 = uneEntreeValidee(new BigDecimal("50000"), formationA);
+                        Entree entreeFormationB = uneEntreeValidee(new BigDecimal("200000"), formationB);
+                        Entree entreeSansFormation = uneEntreeValidee(new BigDecimal("30000"), null);
+
+                        when(bilanRepository.findById(bilanId)).thenReturn(Optional.of(bilan));
+                        when(entreeRepository.findByBilanJournalierId(bilanId)).thenReturn(
+                                        List.of(entreeFormationA1, entreeFormationA2, entreeFormationB,
+                                                        entreeSansFormation));
+
+                        // When
+                        List<RepartitionFormationLigne> resultat = service.consulterRepartitionParFormation(bilanId);
+
+                        // Then
+                        assertThat(resultat).hasSize(3);
+                        assertThat(resultat).anySatisfy(ligne -> {
+                                if (formationA.equals(ligne.formationId())) {
+                                        assertThat(ligne.montant()).isEqualByComparingTo("150000");
+                                }
+                        });
+                        assertThat(resultat).anySatisfy(ligne -> {
+                                if (ligne.formationId() == null) {
+                                        assertThat(ligne.montant()).isEqualByComparingTo("30000");
+                                }
+                        });
+                }
+
+                @Test
+                @DisplayName("refuse si le bilan n'existe pas")
+                void refuseSiBilanIntrouvable() {
+                        UUID bilanId = UUID.randomUUID();
+                        when(bilanRepository.findById(bilanId)).thenReturn(Optional.empty());
+
+                        ThrowingCallable action = () -> service.consulterRepartitionParFormation(bilanId);
+
+                        assertThatThrownBy(action).isInstanceOf(BilanJournalierIntrouvableException.class);
+                }
+        }
+
+        @Nested
+        @DisplayName("Bilan consolidé national du Directeur")
+        class BilanConsolideDirecteur {
+
+                @Test
+                @DisplayName("calcule et agrège fidèlement les flux et effectifs de tous les centres")
+                void calculeEtAgregeFluxEtEffectifs() {
+                        // Given
+                        UUID centre1Id = UUID.randomUUID();
+                        UUID centre2Id = UUID.randomUUID();
+                        Centre centre1 = new Centre(centre1Id, "Centre Yaoundé", "Bastos", "Yaoundé");
+                        Centre centre2 = new Centre(centre2Id, "Centre Douala", "Akwa", "Douala");
+
+                        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
+                        when(centreRepository.findAll()).thenReturn(List.of(centre1, centre2));
+                        when(centreRepository.findById(centre1Id)).thenReturn(Optional.of(centre1));
+                        when(centreRepository.findById(centre2Id)).thenReturn(Optional.of(centre2));
+
+                        UUID formationPolytech = UUID.randomUUID();
+                        UUID formationMedecine = UUID.randomUUID();
+                        UUID motifLivreId = UUID.randomUUID();
+                        UUID motifTransportId = UUID.randomUUID();
+
+                        Entree e1 = new Entree(UUID.randomUUID(), sessionId, motifId, new BigDecimal("100000"), date,
+                                        saisiParUtilisateurId, centre1Id, null, formationPolytech, null);
+                        e1.appliquerDecision(StatutMouvement.VALIDE);
+
+                        Entree e2 = new Entree(UUID.randomUUID(), sessionId, motifLivreId, new BigDecimal("25000"),
+                                        date,
+                                        saisiParUtilisateurId, centre1Id, null, null, null);
+                        e2.appliquerDecision(StatutMouvement.VALIDE);
+
+                        Sortie s1 = new Sortie(UUID.randomUUID(), sessionId, motifTransportId, new BigDecimal("15000"),
+                                        date,
+                                        saisiParUtilisateurId, centre1Id, "Directeur");
+                        s1.appliquerDecision(StatutMouvement.VALIDE);
+
+                        when(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre1Id, sessionId, date,
+                                        StatutMouvement.VALIDE))
+                                        .thenReturn(List.of(e1, e2));
+                        when(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre1Id, sessionId, date,
+                                        StatutMouvement.EN_ATTENTE))
+                                        .thenReturn(List.of());
+                        when(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre1Id, sessionId, date,
+                                        StatutMouvement.VALIDE))
+                                        .thenReturn(List.of(s1));
+                        when(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre1Id, sessionId, date,
+                                        StatutMouvement.EN_ATTENTE))
+                                        .thenReturn(List.of());
+
+                        Entree e3 = new Entree(UUID.randomUUID(), sessionId, motifId, new BigDecimal("200000"), date,
+                                        saisiParUtilisateurId, centre2Id, null, formationMedecine, null);
+                        e3.appliquerDecision(StatutMouvement.VALIDE);
+
+                        when(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre2Id, sessionId, date,
+                                        StatutMouvement.VALIDE))
+                                        .thenReturn(List.of(e3));
+                        when(entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre2Id, sessionId, date,
+                                        StatutMouvement.EN_ATTENTE))
+                                        .thenReturn(List.of());
+                        when(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre2Id, sessionId, date,
+                                        StatutMouvement.VALIDE))
+                                        .thenReturn(List.of());
+                        when(sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(centre2Id, sessionId, date,
+                                        StatutMouvement.EN_ATTENTE))
+                                        .thenReturn(List.of());
+
+                        // Apprenants
+                        com.excelisprepas.backend.apprenant.domain.model.Apprenant a1 = new com.excelisprepas.backend.apprenant.domain.model.Apprenant(
+                                        UUID.randomUUID(), "Doe", "John",
+                                        LocalDate.of(2005, 1, 1), date, centre1Id, sessionId,
+                                        "123", "P", "456", "Lycee", formationPolytech, BigDecimal.ZERO, false, "REF");
+
+                        when(apprenantRepository.findByCentreIdAndSessionId(centre1Id, sessionId))
+                                        .thenReturn(List.of(a1));
+                        when(apprenantRepository.countByCentreIdAndSessionId(centre1Id, sessionId)).thenReturn(1L);
+                        when(apprenantRepository.countByCentreIdAndSessionIdAndDateInscription(centre1Id, sessionId,
+                                        date)).thenReturn(1L);
+
+                        when(apprenantRepository.findByCentreIdAndSessionId(centre2Id, sessionId))
+                                        .thenReturn(List.of());
+                        when(apprenantRepository.countByCentreIdAndSessionId(centre2Id, sessionId)).thenReturn(0L);
+                        when(apprenantRepository.countByCentreIdAndSessionIdAndDateInscription(centre2Id, sessionId,
+                                        date)).thenReturn(0L);
+
+                        // When
+                        BilanConsolideNational resultat = service.consulterBilanConsolide(sessionId, date);
+
+                        // Then
+                        assertThat(resultat).isNotNull();
+                        assertThat(resultat.totalEntreesNational()).isEqualByComparingTo("325000");
+                        assertThat(resultat.totalSortiesNational()).isEqualByComparingTo("15000");
+                        assertThat(resultat.netAVerserNational()).isEqualByComparingTo("310000");
+                        assertThat(resultat.centres()).hasSize(2);
+                        assertThat(resultat.centresTotalCount()).isEqualTo(2);
+
+                        BilanCentreResume centre1Resume = resultat.centres().stream()
+                                        .filter(c -> c.centreId().equals(centre1Id))
+                                        .findFirst().orElseThrow();
+                        assertThat(centre1Resume.totalEntrees()).isEqualByComparingTo("125000");
+                        assertThat(centre1Resume.totalSorties()).isEqualByComparingTo("15000");
+                        assertThat(centre1Resume.netAVerser()).isEqualByComparingTo("110000");
+                        assertThat(centre1Resume.entreesDetaillees()).isNotEmpty();
+                        assertThat(centre1Resume.sortiesDetaillees()).isNotEmpty();
+                }
+        }
+
+        @Nested
+        @DisplayName("Ajustement de l'activité (salles et cours)")
+        class AjusterActivite {
+
+                @Test
+                @DisplayName("ajusterActivite enregistre le nombre de salles et de cours")
+                void ajusterActivite_succes() {
+                        Centre centre = mock(Centre.class);
+                        when(centreRepository.findById(centreId)).thenReturn(Optional.of(centre));
+                        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
+
+                        BilanJournalier existant = new BilanJournalier(UUID.randomUUID(), centreId, sessionId, date);
+                        when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date))
+                                        .thenReturn(Optional.of(existant));
+                        when(bilanRepository.save(any(BilanJournalier.class)))
+                                        .thenAnswer(invocation -> invocation.getArgument(0));
+
+                        BilanJournalier resultat = service.ajusterActivite(centreId, sessionId, date, 4, 7,
+                                        UUID.randomUUID());
+
+                        assertThat(resultat.getNombreSalles()).isEqualTo(4);
+                        assertThat(resultat.getNombreCours()).isEqualTo(7);
+                        verify(bilanRepository).save(existant);
+                }
+
+                @Test
+                @DisplayName("ajusterActivite échoue si le bilan est déjà clôturé")
+                void ajusterActivite_bilanCloture_echoue() {
+                        Centre centre = mock(Centre.class);
+                        when(centreRepository.findById(centreId)).thenReturn(Optional.of(centre));
+                        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
+
+                        BilanJournalier existant = new BilanJournalier(UUID.randomUUID(), centreId, sessionId, date,
+                                        LocalDateTime.now(), UUID.randomUUID());
+                        existant.cloturer(validateurControleurId, "Controleur", LocalDateTime.now(), BigDecimal.ZERO,
+                                        BigDecimal.ZERO, 0, 0, 2, 3);
+
+                        when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date))
+                                        .thenReturn(Optional.of(existant));
+
+                        assertThatThrownBy(() -> service.ajusterActivite(centreId, sessionId, date, 4, 7,
+                                        UUID.randomUUID()))
+                                        .isInstanceOf(IllegalStateException.class)
+                                        .hasMessageContaining("déjà clôturé");
+                }
+
+                @Test
+                @DisplayName("ajusterActivite échoue si le centre n'existe pas")
+                void ajusterActivite_centreIntrouvable_echoue() {
+                        when(centreRepository.findById(centreId)).thenReturn(Optional.empty());
+
+                        assertThatThrownBy(() -> service.ajusterActivite(centreId, sessionId, date, 4, 7,
+                                        UUID.randomUUID()))
+                                        .isInstanceOf(CentreIntrouvableException.class);
+                }
+        }
 }

@@ -13,11 +13,14 @@ public class UtilisateurRepositoryAdapter implements UtilisateurRepositoryPort {
 
     private final UtilisateurJpaRepository jpaRepository;
     private final UtilisateurPersistenceMapper mapper;
+    private final jakarta.persistence.EntityManager entityManager;
 
     public UtilisateurRepositoryAdapter(UtilisateurJpaRepository jpaRepository,
-                                        UtilisateurPersistenceMapper mapper) {
+                                        UtilisateurPersistenceMapper mapper,
+                                        jakarta.persistence.EntityManager entityManager) {
         this.jpaRepository = jpaRepository;
         this.mapper = mapper;
+        this.entityManager = entityManager;
     }
 
     @Override
@@ -67,5 +70,24 @@ public class UtilisateurRepositoryAdapter implements UtilisateurRepositoryPort {
     @Override
     public List<Utilisateur> findByRole(com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur role) {
         return jpaRepository.findByRole(role).stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public boolean existsById(UUID id) {
+        return jpaRepository.existsById(id);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public void creerComptePourPersonnelExistant(UUID personnelId, String motDePasseHash, com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur role, UUID centreId) {
+        jpaRepository.creerCompteExistant(personnelId, motDePasseHash, role.name(), centreId);
+        entityManager.clear();
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public void supprimerCompteSeul(UUID utilisateurId) {
+        jpaRepository.supprimerCompteSeul(utilisateurId);
+        entityManager.clear();
     }
 }

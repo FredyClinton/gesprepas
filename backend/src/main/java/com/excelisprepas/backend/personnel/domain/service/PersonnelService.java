@@ -6,9 +6,12 @@ import com.excelisprepas.backend.personnel.domain.port.in.ConsulterHistoriqueSal
 import com.excelisprepas.backend.personnel.domain.port.in.CreerPersonnelUseCase;
 import com.excelisprepas.backend.personnel.domain.port.in.DefinirSalairePersonnelUseCase;
 import com.excelisprepas.backend.personnel.domain.port.in.ListerPersonnelUseCase;
+import com.excelisprepas.backend.personnel.domain.port.in.ModifierPersonnelUseCase;
 import com.excelisprepas.backend.personnel.domain.port.in.RecupererPersonnelUseCase;
+import com.excelisprepas.backend.personnel.domain.port.in.SupprimerPersonnelUseCase;
 import com.excelisprepas.backend.personnel.domain.port.out.HistoriqueSalairePersonnelRepositoryPort;
 import com.excelisprepas.backend.personnel.domain.port.out.PersonnelRepositoryPort;
+import com.excelisprepas.backend.personnel.domain.port.out.UtilisateurRepositoryPort;
 import com.excelisprepas.backend.shared.exception.PersonnelIntrouvableException;
 
 import java.math.BigDecimal;
@@ -18,15 +21,23 @@ import java.util.UUID;
 
 public class PersonnelService implements CreerPersonnelUseCase, ListerPersonnelUseCase,
         DefinirSalairePersonnelUseCase, ConsulterHistoriqueSalairePersonnelUseCase,
-        RecupererPersonnelUseCase {
+        RecupererPersonnelUseCase, ModifierPersonnelUseCase, SupprimerPersonnelUseCase {
 
     private final PersonnelRepositoryPort personnelRepository;
     private final HistoriqueSalairePersonnelRepositoryPort historiqueSalaireRepository;
+    private final UtilisateurRepositoryPort utilisateurRepository;
 
     public PersonnelService(PersonnelRepositoryPort personnelRepository,
                             HistoriqueSalairePersonnelRepositoryPort historiqueSalaireRepository) {
+        this(personnelRepository, historiqueSalaireRepository, null);
+    }
+
+    public PersonnelService(PersonnelRepositoryPort personnelRepository,
+                            HistoriqueSalairePersonnelRepositoryPort historiqueSalaireRepository,
+                            UtilisateurRepositoryPort utilisateurRepository) {
         this.personnelRepository = personnelRepository;
         this.historiqueSalaireRepository = historiqueSalaireRepository;
+        this.utilisateurRepository = utilisateurRepository;
     }
 
     @Override
@@ -65,5 +76,22 @@ public class PersonnelService implements CreerPersonnelUseCase, ListerPersonnelU
     @Override
     public List<HistoriqueSalairePersonnel> listerParSession(UUID sessionId) {
         return historiqueSalaireRepository.findBySessionId(sessionId);
+    }
+
+    @Override
+    public Personnel modifierPersonnel(UUID id, String nom, String prenom, String telephone, String numeroCni, String email) {
+        Personnel personnel = recupererPersonnel(id);
+        personnel.renommer(nom, prenom);
+        personnel.modifierCoordonnees(telephone, numeroCni, email);
+        return personnelRepository.save(personnel);
+    }
+
+    @Override
+    public void supprimerPersonnel(UUID id) {
+        recupererPersonnel(id);
+        if (utilisateurRepository != null && utilisateurRepository.existsById(id)) {
+            utilisateurRepository.supprimerCompteSeul(id);
+        }
+        personnelRepository.deleteById(id);
     }
 }

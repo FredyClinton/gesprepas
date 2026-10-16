@@ -20,6 +20,10 @@ import {
   renommerEnseignant,
   supprimerEnseignant,
   suspendreEnseignant,
+  creerPersonnel,
+  modifierPersonnel,
+  supprimerPersonnel,
+  creerComptePourPersonnel,
 } from "./client";
 
 export function useEnseignants() {
@@ -231,3 +235,64 @@ export function useGererAccesPersonnel() {
     },
   });
 }
+
+export function useCreerPersonnel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: import("../domain/types").CreerPersonnelInput) => creerPersonnel(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["personnel-list"] });
+      queryClient.invalidateQueries({ queryKey: ["utilisateurs"] });
+    },
+  });
+}
+
+export function useModifierPersonnel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      input,
+    }: {
+      id: string;
+      input: import("../domain/types").ModifierPersonnelInput;
+    }) => modifierPersonnel(id, input),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["personnel-list"] });
+      queryClient.invalidateQueries({ queryKey: ["personnel", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["utilisateurs"] });
+    },
+  });
+}
+
+export function useSupprimerPersonnel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => supprimerPersonnel(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["personnel-list"] });
+      queryClient.invalidateQueries({ queryKey: ["utilisateurs"] });
+      queryClient.invalidateQueries({ queryKey: ["acces-personnel-list"] });
+    },
+  });
+}
+
+export function useCreerComptePourPersonnel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      input,
+    }: {
+      id: string;
+      input: import("../domain/types").CreerComptePersonnelInput;
+    }) => creerComptePourPersonnel(id, input),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["personnel-list"] });
+      queryClient.invalidateQueries({ queryKey: ["personnel", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["utilisateurs"] });
+      queryClient.invalidateQueries({ queryKey: ["acces-personnel-list"] });
+    },
+  });
+}
+

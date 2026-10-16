@@ -33,6 +33,8 @@ public class UtilisateurController {
     private final RattacherCentreUseCase rattacherCentreUseCase;
     private final DetacherCentreUseCase detacherCentreUseCase;
     private final SupprimerUtilisateurUseCase supprimerUtilisateurUseCase;
+    private final ModifierUtilisateurUseCase modifierUtilisateurUseCase;
+    private final RevoquerCompteUtilisateurUseCase revoquerCompteUtilisateurUseCase;
 
     public UtilisateurController(CreerUtilisateurUseCase creerUtilisateurUseCase,
                                  RecupererUtilisateurUseCase recupererUtilisateurUseCase,
@@ -41,7 +43,9 @@ public class UtilisateurController {
                                  ChangerMotDePasseUseCase changerMotDePasseUseCase,
                                  RattacherCentreUseCase rattacherCentreUseCase,
                                  DetacherCentreUseCase detacherCentreUseCase,
-                                 SupprimerUtilisateurUseCase supprimerUtilisateurUseCase) {
+                                 SupprimerUtilisateurUseCase supprimerUtilisateurUseCase,
+                                 ModifierUtilisateurUseCase modifierUtilisateurUseCase,
+                                 RevoquerCompteUtilisateurUseCase revoquerCompteUtilisateurUseCase) {
         this.creerUtilisateurUseCase = creerUtilisateurUseCase;
         this.recupererUtilisateurUseCase = recupererUtilisateurUseCase;
         this.listerUtilisateursUseCase = listerUtilisateursUseCase;
@@ -50,6 +54,8 @@ public class UtilisateurController {
         this.rattacherCentreUseCase = rattacherCentreUseCase;
         this.detacherCentreUseCase = detacherCentreUseCase;
         this.supprimerUtilisateurUseCase = supprimerUtilisateurUseCase;
+        this.modifierUtilisateurUseCase = modifierUtilisateurUseCase;
+        this.revoquerCompteUtilisateurUseCase = revoquerCompteUtilisateurUseCase;
     }
 
     private static UtilisateurResponse versReponse(Utilisateur utilisateur) {
@@ -170,6 +176,35 @@ public class UtilisateurController {
     public ResponseEntity<Void> supprimerUtilisateur(
             @Parameter(description = "Identifiant de l'utilisateur") @PathVariable UUID id) {
         supprimerUtilisateurUseCase.supprimerUtilisateur(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Modifier le compte d'un utilisateur", description = "Met à jour le rôle et le centre de rattachement.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Compte utilisateur mis à jour",
+                    content = @Content(schema = @Schema(implementation = UtilisateurResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Utilisateur introuvable", content = @Content)
+    })
+    @PreAuthorize("hasAuthority('UTILISATEUR_GERER')")
+    @PutMapping("/{id}")
+    public ResponseEntity<UtilisateurResponse> modifierUtilisateur(
+            @Parameter(description = "Identifiant de l'utilisateur") @PathVariable UUID id,
+            @Valid @RequestBody ModifierUtilisateurRequest request) {
+        Utilisateur utilisateur = modifierUtilisateurUseCase.modifierUtilisateur(id, request.role(), request.centreId());
+        return ResponseEntity.ok(versReponse(utilisateur));
+    }
+
+    @Operation(summary = "Révoquer le compte applicatif d'un utilisateur", description = "Supprime le compte de connexion sans supprimer la fiche personnel.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Compte révoqué", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Utilisateur introuvable", content = @Content)
+    })
+    @PreAuthorize("hasAuthority('UTILISATEUR_GERER')")
+    @DeleteMapping("/{id}/revoquer")
+    public ResponseEntity<Void> revoquerCompte(
+            @Parameter(description = "Identifiant de l'utilisateur") @PathVariable UUID id) {
+        revoquerCompteUtilisateurUseCase.revoquerCompte(id);
         return ResponseEntity.noContent().build();
     }
 }

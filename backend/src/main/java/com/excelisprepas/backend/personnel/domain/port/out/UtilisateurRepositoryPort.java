@@ -1,5 +1,6 @@
 package com.excelisprepas.backend.personnel.domain.port.out;
 
+import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
 import com.excelisprepas.backend.personnel.domain.model.Utilisateur;
 
 import java.util.List;
@@ -24,5 +25,11 @@ public interface UtilisateurRepositoryPort {
 
     Optional<Utilisateur> findByDepartementId(UUID departementId);
 
-    List<Utilisateur> findByRole(com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur role);
+    List<Utilisateur> findByRole(RoleUtilisateur role);
+
+    boolean existsById(UUID id);
+
+    void creerComptePourPersonnelExistant(UUID personnelId, String motDePasseHash, RoleUtilisateur role, UUID centreId);
+
+    void supprimerCompteSeul(UUID utilisateurId);
 }

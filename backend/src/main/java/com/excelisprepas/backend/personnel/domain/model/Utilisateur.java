@@ -15,7 +15,7 @@ public class Utilisateur extends Personnel {
             Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
     private String motDePasseHash;
-    private final RoleUtilisateur role;
+    private RoleUtilisateur role;
     private UUID centreId; // nullable : rattachement optionnel
     private UUID departementId; // nullable : rattachement département optionnel
 
@@ -60,6 +60,10 @@ public class Utilisateur extends Personnel {
 
     public void changerMotDePasseHash(String nouveauHash) {
         this.motDePasseHash = validerMotDePasseHash(nouveauHash);
+    }
+
+    public void changerRole(RoleUtilisateur nouveauRole) {
+        this.role = Objects.requireNonNull(nouveauRole, "role ne peut pas être nul");
     }
 
     public void rattacherACentre(UUID centreId) {

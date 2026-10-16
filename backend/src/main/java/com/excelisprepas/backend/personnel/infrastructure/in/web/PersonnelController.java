@@ -29,17 +29,26 @@ public class PersonnelController {
     private final ListerPersonnelUseCase listerPersonnelUseCase;
     private final DefinirSalairePersonnelUseCase definirSalairePersonnelUseCase;
     private final ConsulterHistoriqueSalairePersonnelUseCase consulterHistoriqueSalairePersonnelUseCase;
+    private final com.excelisprepas.backend.personnel.domain.port.in.ModifierPersonnelUseCase modifierPersonnelUseCase;
+    private final com.excelisprepas.backend.personnel.domain.port.in.SupprimerPersonnelUseCase supprimerPersonnelUseCase;
+    private final com.excelisprepas.backend.personnel.domain.port.in.CreerComptePersonnelUseCase creerComptePersonnelUseCase;
 
     public PersonnelController(CreerPersonnelUseCase creerPersonnelUseCase,
                                RecupererPersonnelUseCase recupererPersonnelUseCase,
                                ListerPersonnelUseCase listerPersonnelUseCase,
                                DefinirSalairePersonnelUseCase definirSalairePersonnelUseCase,
-                               ConsulterHistoriqueSalairePersonnelUseCase consulterHistoriqueSalairePersonnelUseCase) {
+                               ConsulterHistoriqueSalairePersonnelUseCase consulterHistoriqueSalairePersonnelUseCase,
+                               com.excelisprepas.backend.personnel.domain.port.in.ModifierPersonnelUseCase modifierPersonnelUseCase,
+                               com.excelisprepas.backend.personnel.domain.port.in.SupprimerPersonnelUseCase supprimerPersonnelUseCase,
+                               com.excelisprepas.backend.personnel.domain.port.in.CreerComptePersonnelUseCase creerComptePersonnelUseCase) {
         this.creerPersonnelUseCase = creerPersonnelUseCase;
         this.recupererPersonnelUseCase = recupererPersonnelUseCase;
         this.listerPersonnelUseCase = listerPersonnelUseCase;
         this.definirSalairePersonnelUseCase = definirSalairePersonnelUseCase;
         this.consulterHistoriqueSalairePersonnelUseCase = consulterHistoriqueSalairePersonnelUseCase;
+        this.modifierPersonnelUseCase = modifierPersonnelUseCase;
+        this.supprimerPersonnelUseCase = supprimerPersonnelUseCase;
+        this.creerComptePersonnelUseCase = creerComptePersonnelUseCase;
     }
 
     @Operation(summary = "Créer un membre du personnel")
@@ -92,5 +101,40 @@ public class PersonnelController {
                 .map(HistoriqueSalaireResponse::fromDomain)
                 .toList();
         return ResponseEntity.ok(list);
+    }
+
+    @Operation(summary = "Modifier les coordonnées d'un membre du personnel")
+    @PreAuthorize("hasAuthority('PERSONNEL_GERER')")
+    @PutMapping("/{id}")
+    public ResponseEntity<PersonnelResponse> modifier(
+            @PathVariable UUID id,
+            @Valid @RequestBody ModifierPersonnelRequest request) {
+        Personnel personnel = modifierPersonnelUseCase.modifierPersonnel(
+                id, request.nom(), request.prenom(), request.telephone(), request.numeroCni(), request.email());
+        return ResponseEntity.ok(PersonnelResponse.fromDomain(personnel));
+    }
+
+    @Operation(summary = "Supprimer un membre du personnel")
+    @PreAuthorize("hasAuthority('PERSONNEL_GERER')")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> supprimer(@PathVariable UUID id) {
+        supprimerPersonnelUseCase.supprimerPersonnel(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Créer un compte d'accès pour un personnel existant")
+    @PreAuthorize("hasAuthority('PERSONNEL_GERER')")
+    @PostMapping("/{id}/compte")
+    public ResponseEntity<UtilisateurResponse> creerCompte(
+            @PathVariable UUID id,
+            @Valid @RequestBody CreerComptePersonnelRequest request) {
+        com.excelisprepas.backend.personnel.domain.model.Utilisateur utilisateur =
+                creerComptePersonnelUseCase.creerCompte(id, request.password(), request.role(), request.centreId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(new UtilisateurResponse(
+                utilisateur.getId(), utilisateur.getNom(), utilisateur.getPrenom(),
+                utilisateur.getTelephone(), utilisateur.getNumeroCni(),
+                utilisateur.getEmail(), utilisateur.getRole(), utilisateur.getCentreId(),
+                utilisateur.getDepartementId()
+        ));
     }
 }

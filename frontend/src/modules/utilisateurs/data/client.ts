@@ -46,3 +46,30 @@ export function listUtilisateurs(): Promise<Utilisateur[]> {
 export function getUtilisateur(id: string): Promise<Utilisateur> {
   return apiFetch<Utilisateur>(`/api/utilisateurs/${id}`);
 }
+
+export function modifierUtilisateur(
+  id: string,
+  input: import("../domain/types").ModifierUtilisateurInput,
+): Promise<Utilisateur> {
+  return apiFetch<Utilisateur>(`/api/utilisateurs/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export function changerMotDePasse(
+  id: string,
+  password: string,
+): Promise<void> {
+  return apiFetch<void>(`/api/utilisateurs/${id}/mot-de-passe`, {
+    method: "PATCH",
+    body: JSON.stringify({ password }),
+  });
+}
+
+export function revoquerCompteUtilisateur(id: string): Promise<void> {
+  return apiFetch<void>(`/api/utilisateurs/${id}/revoquer`, {
+    method: "DELETE",
+  });
+}
+

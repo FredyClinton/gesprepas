@@ -23,6 +23,11 @@ import {
   Lock,
   Unlock,
   ChevronDown,
+  Plus,
+  Pencil,
+  Trash2,
+  Key,
+  UserPlus,
 } from "lucide-react";
 
 import {
@@ -38,6 +43,10 @@ import {
   useEnseignants,
   useAccesPersonnelList,
   useGererAccesPersonnel,
+  CreerPersonnelModal,
+  ModifierPersonnelModal,
+  GestionCompteModal,
+  SupprimerPersonnelModal,
   type PersonnelMembre,
   type StatutAcces,
 } from "@/modules/personnel";
@@ -128,6 +137,12 @@ export function PersonnelListView() {
   const [statutCible, setStatutCible] = useState<StatutAcces>("ACCORDE");
   const [motifSaisi, setMotifSaisi] = useState("");
   const [erreurAction, setErreurAction] = useState<string | null>(null);
+
+  // Modales CRUD Personnel & Comptes
+  const [modalCreerOuvert, setModalCreerOuvert] = useState(false);
+  const [membrePourModif, setMembrePourModif] = useState<PersonnelFusionne | null>(null);
+  const [membrePourCompte, setMembrePourCompte] = useState<PersonnelFusionne | null>(null);
+  const [membrePourSuppr, setMembrePourSuppr] = useState<PersonnelFusionne | null>(null);
 
   // Map des accès pour lookup instantané
   const mapAcces = useMemo(() => {
@@ -319,46 +334,58 @@ export function PersonnelListView() {
           </div>
         </div>
 
-        {/* ── Sélecteur de Contexte Temporel (Session & Phase) ── */}
-        <div className="flex flex-wrap items-center gap-2.5 bg-slate-50 p-2 rounded-xl border border-slate-200">
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 pl-1.5">
-            <CalendarRange className="w-4 h-4 text-slate-400" />
-            <span>Session :</span>
-          </div>
-          <select
-            value={effectiveSessionId}
-            onChange={(e) => {
-              setSessionIdSelectionnee(e.target.value);
-              setPageCourante(1);
-            }}
-            className="text-xs font-medium bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {sessions.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.annee} {s.statut === "EN_COURS" ? "(En cours)" : `(${s.statut})`}
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* ── Sélecteur de Contexte Temporel (Session & Phase) ── */}
+          <div className="flex flex-wrap items-center gap-2.5 bg-slate-50 p-2 rounded-xl border border-slate-200">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 pl-1.5">
+              <CalendarRange className="w-4 h-4 text-slate-400" />
+              <span>Session :</span>
+            </div>
+            <select
+              value={effectiveSessionId}
+              onChange={(e) => {
+                setSessionIdSelectionnee(e.target.value);
+                setPageCourante(1);
+              }}
+              className="text-xs font-medium bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {sessions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.annee} {s.statut === "EN_COURS" ? "(En cours)" : `(${s.statut})`}
+                </option>
+              ))}
+            </select>
 
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 pl-2 border-l border-slate-200">
-            <Layers className="w-4 h-4 text-slate-400" />
-            <span>Phase :</span>
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 pl-2 border-l border-slate-200">
+              <Layers className="w-4 h-4 text-slate-400" />
+              <span>Phase :</span>
+            </div>
+            <select
+              value={phaseIdSelectionnee}
+              onChange={(e) => {
+                setPhaseIdSelectionnee(e.target.value);
+                setPageCourante(1);
+              }}
+              className="text-xs font-medium bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="TOUTES">Toutes les phases (Session complète)</option>
+              {phases.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.code} - {p.libelle}
+                </option>
+              ))}
+            </select>
           </div>
-          <select
-            value={phaseIdSelectionnee}
-            onChange={(e) => {
-              setPhaseIdSelectionnee(e.target.value);
-              setPageCourante(1);
-            }}
-            className="text-xs font-medium bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+
+          {/* ── Bouton d'action Création Collaborateur ── */}
+          <button
+            type="button"
+            onClick={() => setModalCreerOuvert(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs hover:shadow transition-all"
           >
-            <option value="TOUTES">Toutes les phases (Session complète)</option>
-            {phases.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.code} - {p.libelle}
-              </option>
-            ))}
-          </select>
+            <UserPlus className="w-4 h-4" />
+            <span>Nouveau Collaborateur</span>
+          </button>
         </div>
       </div>
 
@@ -634,46 +661,83 @@ export function PersonnelListView() {
                         )}
                       </td>
 
-                      {/* Actions */}
+                      {/* Actions Direction */}
                       <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {/* Toggle Accorder / Bloquer UNIQUEMENT pour les comptes utilisateurs hors Directeur */}
-                          {!membre.hasUserAccount ? (
-                            <span className="text-[11px] text-slate-400 italic">
-                              Compte requis
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* 1. Voir la fiche détaillée */}
+                          <Link
+                            href={`/personnel/${membre.id}`}
+                            title="Consulter la fiche détaillée"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="sr-only sm:not-sr-only sm:ml-0.5">Fiche</span>
+                          </Link>
+
+                          {/* 2. Modifier les coordonnées RH */}
+                          <button
+                            type="button"
+                            onClick={() => setMembrePourModif(membre)}
+                            title="Modifier les coordonnées RH"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-xl text-slate-600 hover:text-blue-700 hover:bg-blue-50 transition-colors"
+                          >
+                            <Pencil className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="sr-only sm:not-sr-only sm:ml-0.5">Modifier</span>
+                          </button>
+
+                          {/* 3. Gérer le compte applicatif */}
+                          <button
+                            type="button"
+                            onClick={() => setMembrePourCompte(membre)}
+                            title={membre.hasUserAccount ? "Paramètres du compte utilisateur" : "Créer un compte d'accès"}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-xl transition-colors ${
+                              membre.hasUserAccount
+                                ? "text-purple-700 bg-purple-50 hover:bg-purple-100/80 border border-purple-200/60"
+                                : "text-slate-600 hover:text-purple-700 hover:bg-purple-50 border border-dashed border-slate-300"
+                            }`}
+                          >
+                            <Key className="w-3.5 h-3.5" />
+                            <span className="sr-only sm:not-sr-only sm:ml-0.5">
+                              {membre.hasUserAccount ? "Compte" : "+ Compte"}
                             </span>
-                          ) : membre.utilisateur?.role === "DIRECTEUR" ? (
-                            <span className="text-[11px] text-amber-600 font-medium">
+                          </button>
+
+                          {/* 4. Toggle Accorder / Bloquer UNIQUEMENT pour les comptes utilisateurs hors Directeur */}
+                          {!membre.hasUserAccount ? null : membre.utilisateur?.role === "DIRECTEUR" ? (
+                            <span className="text-[11px] text-amber-600 font-medium px-1">
                               Protégé
                             </span>
                           ) : estBloque ? (
                             <button
                               type="button"
                               onClick={() => handleOuvrirGestionAcces(membre, "ACCORDE")}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border text-emerald-700 bg-white border-emerald-300 hover:bg-emerald-50 hover:border-emerald-400 transition-colors shadow-2xs"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-xl border text-emerald-700 bg-white border-emerald-300 hover:bg-emerald-50 hover:border-emerald-400 transition-colors shadow-2xs"
+                              title="Débloquer l'accès pour cette session/phase"
                             >
                               <Unlock className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Débloquer</span>
+                              <span className="sr-only sm:not-sr-only sm:ml-0.5">Débloquer</span>
                             </button>
                           ) : (
                             <button
                               type="button"
                               onClick={() => handleOuvrirGestionAcces(membre, "BLOQUE")}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border text-rose-700 bg-white border-rose-300 hover:bg-rose-50 hover:border-rose-400 transition-colors shadow-2xs"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-xl border text-rose-700 bg-white border-rose-300 hover:bg-rose-50 hover:border-rose-400 transition-colors shadow-2xs"
+                              title="Bloquer l'accès pour cette session/phase"
                             >
                               <Lock className="w-3.5 h-3.5 text-rose-600" />
-                              <span>Bloquer</span>
+                              <span className="sr-only sm:not-sr-only sm:ml-0.5">Bloquer</span>
                             </button>
                           )}
 
-                          {/* Voir la fiche détaillée */}
-                          <Link
-                            href={`/personnel/${membre.id}`}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                          {/* 5. Supprimer le collaborateur */}
+                          <button
+                            type="button"
+                            onClick={() => setMembrePourSuppr(membre)}
+                            title="Supprimer définitivement ce collaborateur"
+                            className="inline-flex items-center p-1.5 text-xs font-medium rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors ml-0.5"
                           >
-                            <Eye className="w-3.5 h-3.5 text-slate-400" />
-                            <span className="sr-only sm:not-sr-only sm:ml-1">Fiche</span>
-                          </Link>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -793,6 +857,32 @@ export function PersonnelListView() {
           </div>
         </Modal>
       )}
+
+      {/* ── Modales CRUD Personnel & Comptes ── */}
+      <CreerPersonnelModal
+        isOpen={modalCreerOuvert}
+        onClose={() => setModalCreerOuvert(false)}
+        centres={centres}
+      />
+
+      <ModifierPersonnelModal
+        isOpen={Boolean(membrePourModif)}
+        onClose={() => setMembrePourModif(null)}
+        personnel={membrePourModif}
+      />
+
+      <GestionCompteModal
+        isOpen={Boolean(membrePourCompte)}
+        onClose={() => setMembrePourCompte(null)}
+        personnel={membrePourCompte}
+        centres={centres}
+      />
+
+      <SupprimerPersonnelModal
+        isOpen={Boolean(membrePourSuppr)}
+        onClose={() => setMembrePourSuppr(null)}
+        personnel={membrePourSuppr}
+      />
     </div>
   );
 }

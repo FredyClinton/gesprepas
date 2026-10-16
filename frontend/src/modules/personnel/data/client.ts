@@ -183,3 +183,42 @@ export function gererAccesPersonnel(
     },
   );
 }
+
+export function creerPersonnel(
+  input: import("../domain/types").CreerPersonnelInput,
+): Promise<PersonnelMembre> {
+  return apiFetch<PersonnelMembre>("/api/personnel", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function modifierPersonnel(
+  id: string,
+  input: import("../domain/types").ModifierPersonnelInput,
+): Promise<PersonnelMembre> {
+  return apiFetch<PersonnelMembre>(`/api/personnel/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export function supprimerPersonnel(id: string): Promise<void> {
+  return apiFetch<void>(`/api/personnel/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export function creerComptePourPersonnel(
+  id: string,
+  input: import("../domain/types").CreerComptePersonnelInput,
+): Promise<import("@/modules/utilisateurs").Utilisateur> {
+  return apiFetch<import("@/modules/utilisateurs").Utilisateur>(
+    `/api/personnel/${id}/compte`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
+}
+
