@@ -30,7 +30,8 @@ import {
   X,
   ShoppingBag,
 } from "lucide-react";
-import { Card, Button, Modal, SkeletonCard, SkeletonTable } from "@/shared/ui";
+import { Card, Button, Modal, SkeletonCard, SkeletonTable, SortableHeader } from "@/shared/ui";
+import { compareStrings, compareNumbers, compareDates, type SortDirection } from "@/shared/lib/sort-utils";
 import {
   useLivres,
   useCreerLivre,
@@ -64,6 +65,9 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
 
   const isChefCentre = roleEffectif === "CHEF_CENTRE";
   const peutGererLivres = roleEffectif === "DIRECTEUR_ACADEMIQUE";
+  const peutEnregistrerVente =
+    roleEffectif === "CAISSIER" ||
+    roleEffectif === "DIRECTEUR";
 
   // Navigation par onglets
   const [ongletActif, setOngletActif] = useState<"catalogue" | "bilan">("catalogue");
@@ -90,6 +94,60 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
     | "disponibilite"
     | "recent";
   const [triCatalogue, setTriCatalogue] = useState<TriCatalogueOption>("titre-asc");
+
+  function handleTriCatalogueHeader(colonne: "titre" | "prix" | "disponibilite") {
+    if (colonne === "titre") {
+      setTriCatalogue((prev) => (prev === "titre-asc" ? "titre-desc" : "titre-asc"));
+    } else if (colonne === "prix") {
+      setTriCatalogue((prev) => (prev === "prix-asc" ? "prix-desc" : "prix-asc"));
+    } else if (colonne === "disponibilite") {
+      setTriCatalogue("disponibilite");
+    }
+  }
+
+  // Tris des ventes et statistiques
+  type TriVenteColonne = "date" | "centre" | "acheteur" | "type" | "livre" | "quantite" | "prix" | "total";
+  const [triVenteColonne, setTriVenteColonne] = useState<TriVenteColonne>("date");
+  const [triVenteDirection, setTriVenteDirection] = useState<SortDirection>("desc");
+
+  function handleTriVente(colonne: TriVenteColonne) {
+    if (triVenteColonne === colonne) {
+      setTriVenteDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTriVenteColonne(colonne);
+      setTriVenteDirection(
+        colonne === "date" || colonne === "quantite" || colonne === "prix" || colonne === "total"
+          ? "desc"
+          : "asc",
+      );
+    }
+  }
+
+  type TriLivreVentesOuvrageColonne = "nom" | "quantite" | "recette" | "part";
+  const [triOuvrageColonne, setTriOuvrageColonne] = useState<TriLivreVentesOuvrageColonne>("recette");
+  const [triOuvrageDirection, setTriOuvrageDirection] = useState<SortDirection>("desc");
+
+  function handleTriOuvrage(colonne: TriLivreVentesOuvrageColonne) {
+    if (triOuvrageColonne === colonne) {
+      setTriOuvrageDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTriOuvrageColonne(colonne);
+      setTriOuvrageDirection(colonne === "nom" ? "asc" : "desc");
+    }
+  }
+
+  type TriLivreVentesCentreColonne = "centre" | "quantite" | "recette" | "contribution";
+  const [triCentreColonne, setTriCentreColonne] = useState<TriLivreVentesCentreColonne>("recette");
+  const [triCentreDirection, setTriCentreDirection] = useState<SortDirection>("desc");
+
+  function handleTriCentre(colonne: TriLivreVentesCentreColonne) {
+    if (triCentreColonne === colonne) {
+      setTriCentreDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTriCentreColonne(colonne);
+      setTriCentreDirection(colonne === "centre" ? "asc" : "desc");
+    }
+  }
 
   // Modal Catalogue (Création / Edition)
   const [modalCatalogueOuverte, setModalCatalogueOuverte] = useState(false);
@@ -155,9 +213,9 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
     userCentreIdEffectif ?? undefined,
   );
 
-  // Filtrage local des ventes (acheteur / texte)
+  // Filtrage et Tri local des ventes (acheteur / texte)
   const ventesFiltrees = useMemo(() => {
-    return (ventes || []).filter((v: VenteLivre) => {
+    const filtered = (ventes || []).filter((v: VenteLivre) => {
       if (selectedTypeAcheteur === "INTERNE" && v.estExterne) return false;
       if (selectedTypeAcheteur === "EXTERNE" && !v.estExterne) return false;
       if (rechercheVente.trim() !== "") {
@@ -169,7 +227,63 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
       }
       return true;
     });
-  }, [ventes, selectedTypeAcheteur, rechercheVente]);
+
+    return [...filtered].sort((a: VenteLivre, b: VenteLivre) => {
+      let cmp = 0;
+      if (triVenteColonne === "date") {
+        cmp = compareDates(a.dateVente, b.dateVente);
+      } else if (triVenteColonne === "centre") {
+        cmp = compareStrings(a.centreNom, b.centreNom);
+      } else if (triVenteColonne === "acheteur") {
+        cmp = compareStrings(a.nomAcheteur, b.nomAcheteur);
+      } else if (triVenteColonne === "type") {
+        cmp = Number(b.estExterne) - Number(a.estExterne);
+      } else if (triVenteColonne === "livre") {
+        cmp = compareStrings(a.livreTitre, b.livreTitre);
+      } else if (triVenteColonne === "quantite") {
+        cmp = compareNumbers(a.quantite, b.quantite);
+      } else if (triVenteColonne === "prix") {
+        cmp = compareNumbers(a.prixUnitaire, b.prixUnitaire);
+      } else if (triVenteColonne === "total") {
+        cmp = compareNumbers(a.montantTotal, b.montantTotal);
+      }
+      return triVenteDirection === "asc" ? cmp : -cmp;
+    });
+  }, [ventes, selectedTypeAcheteur, rechercheVente, triVenteColonne, triVenteDirection]);
+
+  const statsParLivreTries = useMemo(() => {
+    if (!statsVentes?.parLivre) return [];
+    return [...statsVentes.parLivre].sort((a, b) => {
+      let cmp = 0;
+      if (triOuvrageColonne === "nom") {
+        cmp = compareStrings(a.titreLivre, b.titreLivre);
+      } else if (triOuvrageColonne === "quantite") {
+        cmp = compareNumbers(a.quantiteVendue, b.quantiteVendue);
+      } else if (triOuvrageColonne === "recette") {
+        cmp = compareNumbers(a.montantTotal, b.montantTotal);
+      } else if (triOuvrageColonne === "part") {
+        cmp = compareNumbers(a.montantTotal, b.montantTotal);
+      }
+      return triOuvrageDirection === "asc" ? cmp : -cmp;
+    });
+  }, [statsVentes?.parLivre, triOuvrageColonne, triOuvrageDirection]);
+
+  const statsParCentreTries = useMemo(() => {
+    if (!statsVentes?.parCentre) return [];
+    return [...statsVentes.parCentre].sort((a, b) => {
+      let cmp = 0;
+      if (triCentreColonne === "centre") {
+        cmp = compareStrings(a.nomCentre, b.nomCentre);
+      } else if (triCentreColonne === "quantite") {
+        cmp = compareNumbers(a.quantiteVendue, b.quantiteVendue);
+      } else if (triCentreColonne === "recette") {
+        cmp = compareNumbers(a.montantTotal, b.montantTotal);
+      } else if (triCentreColonne === "contribution") {
+        cmp = compareNumbers(a.montantTotal, b.montantTotal);
+      }
+      return triCentreDirection === "asc" ? cmp : -cmp;
+    });
+  }, [statsVentes?.parCentre, triCentreColonne, triCentreDirection]);
 
   // Agrégats complémentaires des ventes filtrées
   const aggregatesFiltres = useMemo(() => {
@@ -385,13 +499,15 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
 
         {/* Boutons d'action contextuels */}
         <div className="flex items-center gap-2.5">
-          <Button
-            onClick={() => setModalVenteOuverte(true)}
-            className="flex items-center gap-2 bg-brand-orange hover:bg-brand-orange/90 text-white font-bold shadow-sm cursor-pointer"
-          >
-            <ShoppingCart size={16} />
-            <span>Enregistrer une vente</span>
-          </Button>
+          {peutEnregistrerVente && (
+            <Button
+              onClick={() => setModalVenteOuverte(true)}
+              className="flex items-center gap-2 bg-brand-orange hover:bg-brand-orange/90 text-white font-bold shadow-sm cursor-pointer"
+            >
+              <ShoppingCart size={16} />
+              <span>Enregistrer une vente</span>
+            </Button>
+          )}
 
           {peutGererLivres && (
             <Button
@@ -697,9 +813,29 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50/75 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
-                      <th className="py-3.5 px-4">Ouvrage & Référence</th>
-                      <th className="py-3.5 px-4 text-right">Prix Unitaire</th>
-                      <th className="py-3.5 px-4 text-center">Disponibilité</th>
+                      <SortableHeader
+                        label="Ouvrage & Référence"
+                        sortKey="titre"
+                        currentSortKey={triCatalogue.startsWith("titre") ? "titre" : undefined}
+                        direction={triCatalogue === "titre-desc" ? "desc" : "asc"}
+                        onSort={() => handleTriCatalogueHeader("titre")}
+                      />
+                      <SortableHeader
+                        label="Prix Unitaire"
+                        sortKey="prix"
+                        currentSortKey={triCatalogue.startsWith("prix") ? "prix" : undefined}
+                        direction={triCatalogue === "prix-desc" ? "desc" : "asc"}
+                        onSort={() => handleTriCatalogueHeader("prix")}
+                        align="right"
+                      />
+                      <SortableHeader
+                        label="Disponibilité"
+                        sortKey="disponibilite"
+                        currentSortKey={triCatalogue === "disponibilite" ? "disponibilite" : undefined}
+                        direction="asc"
+                        onSort={() => handleTriCatalogueHeader("disponibilite")}
+                        align="center"
+                      />
                       <th className="py-3.5 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -784,8 +920,8 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
 
                         <td className="py-3.5 px-4 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
-                            {/* Raccourci Vente Directe */}
-                            {livre.actif && (
+                            {/* Raccourci Vente Directe (Caissier / Direction) */}
+                            {livre.actif && peutEnregistrerVente && (
                               <button
                                 type="button"
                                 onClick={() => ouvrirVente(livre.id)}
@@ -946,7 +1082,7 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                           </span>
                         </div>
 
-                        {livre.actif && (
+                        {livre.actif && peutEnregistrerVente && (
                           <button
                             type="button"
                             onClick={() => ouvrirVente(livre.id)}
@@ -1237,14 +1373,41 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50/75 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
-                      <th className="py-3 px-4">Nom de l'Ouvrage</th>
-                      <th className="py-3 px-4 text-center">Exemplaires Vendus</th>
-                      <th className="py-3 px-4 text-right">Recette Totale</th>
-                      <th className="py-3 px-4 text-center">Part du Chiffre</th>
+                      <SortableHeader
+                        label="Nom de l'Ouvrage"
+                        sortKey="nom"
+                        currentSortKey={triOuvrageColonne}
+                        direction={triOuvrageDirection}
+                        onSort={handleTriOuvrage}
+                      />
+                      <SortableHeader
+                        label="Exemplaires Vendus"
+                        sortKey="quantite"
+                        currentSortKey={triOuvrageColonne}
+                        direction={triOuvrageDirection}
+                        onSort={handleTriOuvrage}
+                        align="center"
+                      />
+                      <SortableHeader
+                        label="Recette Totale"
+                        sortKey="recette"
+                        currentSortKey={triOuvrageColonne}
+                        direction={triOuvrageDirection}
+                        onSort={handleTriOuvrage}
+                        align="right"
+                      />
+                      <SortableHeader
+                        label="Part du Chiffre"
+                        sortKey="part"
+                        currentSortKey={triOuvrageColonne}
+                        direction={triOuvrageDirection}
+                        onSort={handleTriOuvrage}
+                        align="center"
+                      />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {statsVentes.parLivre.map((item: VentilationLivreItem) => {
+                    {statsParLivreTries.map((item: VentilationLivreItem) => {
                       const pct =
                         statsVentes.totalMontant > 0
                           ? Math.round((item.montantTotal / statsVentes.totalMontant) * 100)
@@ -1317,14 +1480,41 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50/75 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
-                      <th className="py-3 px-4">Centre</th>
-                      <th className="py-3 px-4 text-center">Exemplaires Vendus</th>
-                      <th className="py-3 px-4 text-right">Recette Totale</th>
-                      <th className="py-3 px-4 text-center">Contribution</th>
+                      <SortableHeader
+                        label="Centre"
+                        sortKey="centre"
+                        currentSortKey={triCentreColonne}
+                        direction={triCentreDirection}
+                        onSort={handleTriCentre}
+                      />
+                      <SortableHeader
+                        label="Exemplaires Vendus"
+                        sortKey="quantite"
+                        currentSortKey={triCentreColonne}
+                        direction={triCentreDirection}
+                        onSort={handleTriCentre}
+                        align="center"
+                      />
+                      <SortableHeader
+                        label="Recette Totale"
+                        sortKey="recette"
+                        currentSortKey={triCentreColonne}
+                        direction={triCentreDirection}
+                        onSort={handleTriCentre}
+                        align="right"
+                      />
+                      <SortableHeader
+                        label="Contribution"
+                        sortKey="contribution"
+                        currentSortKey={triCentreColonne}
+                        direction={triCentreDirection}
+                        onSort={handleTriCentre}
+                        align="center"
+                      />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {statsVentes.parCentre.map((c: VentilationCentreItem) => {
+                    {statsParCentreTries.map((c: VentilationCentreItem) => {
                       const pct =
                         statsVentes.totalMontant > 0
                           ? Math.round((c.montantTotal / statsVentes.totalMontant) * 100)
@@ -1407,14 +1597,65 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="sticky top-0 bg-slate-50/95 backdrop-blur-xs z-10">
                     <tr className="border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
-                      <th className="py-3 px-4">Date de vente</th>
-                      <th className="py-3 px-4">Centre</th>
-                      <th className="py-3 px-4">Nom de l'Acheteur</th>
-                      <th className="py-3 px-4">Type</th>
-                      <th className="py-3 px-4">Ouvrage vendu</th>
-                      <th className="py-3 px-4 text-center">Quantité</th>
-                      <th className="py-3 px-4 text-right">Prix Unitaire</th>
-                      <th className="py-3 px-4 text-right">Total FCFA</th>
+                      <SortableHeader
+                        label="Date de vente"
+                        sortKey="date"
+                        currentSortKey={triVenteColonne}
+                        direction={triVenteDirection}
+                        onSort={handleTriVente}
+                      />
+                      <SortableHeader
+                        label="Centre"
+                        sortKey="centre"
+                        currentSortKey={triVenteColonne}
+                        direction={triVenteDirection}
+                        onSort={handleTriVente}
+                      />
+                      <SortableHeader
+                        label="Nom de l'Acheteur"
+                        sortKey="acheteur"
+                        currentSortKey={triVenteColonne}
+                        direction={triVenteDirection}
+                        onSort={handleTriVente}
+                      />
+                      <SortableHeader
+                        label="Type"
+                        sortKey="type"
+                        currentSortKey={triVenteColonne}
+                        direction={triVenteDirection}
+                        onSort={handleTriVente}
+                      />
+                      <SortableHeader
+                        label="Ouvrage vendu"
+                        sortKey="livre"
+                        currentSortKey={triVenteColonne}
+                        direction={triVenteDirection}
+                        onSort={handleTriVente}
+                      />
+                      <SortableHeader
+                        label="Quantité"
+                        sortKey="quantite"
+                        currentSortKey={triVenteColonne}
+                        direction={triVenteDirection}
+                        onSort={handleTriVente}
+                        align="center"
+                      />
+                      <SortableHeader
+                        label="Prix Unitaire"
+                        sortKey="prix"
+                        currentSortKey={triVenteColonne}
+                        direction={triVenteDirection}
+                        onSort={handleTriVente}
+                        align="right"
+                      />
+                      <SortableHeader
+                        label="Total FCFA"
+                        sortKey="total"
+                        currentSortKey={triVenteColonne}
+                        direction={triVenteDirection}
+                        onSort={handleTriVente}
+                        align="right"
+                      />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">

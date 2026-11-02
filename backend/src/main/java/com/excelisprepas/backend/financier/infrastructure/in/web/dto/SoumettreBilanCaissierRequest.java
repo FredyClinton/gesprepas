@@ -8,6 +8,6 @@ public record SoumettreBilanCaissierRequest(
         @NotNull UUID centreId,
         @NotNull UUID sessionId,
         @NotNull LocalDate date,
-        @NotNull UUID caissierUtilisateurId
+        UUID caissierUtilisateurId
 ) {
 }

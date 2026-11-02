@@ -6,8 +6,8 @@ export const LABELS_STATUT_FICHE_PAIE: Record<StatutFichePaie, string> = {
 };
 
 export const CLASSES_STATUT_FICHE_PAIE: Record<StatutFichePaie, string> = {
-  PROGRAMMEE: "bg-blue-50 text-blue-700 border border-blue-200/80",
-  PAYEE: "bg-emerald-50 text-emerald-700 border border-emerald-200/80",
+  PROGRAMMEE: "bg-blue-50 text-blue-800 border border-blue-200",
+  PAYEE: "bg-emerald-50 text-emerald-800 border border-emerald-200",
 };
 
 export type FichePaieEnseignant = {

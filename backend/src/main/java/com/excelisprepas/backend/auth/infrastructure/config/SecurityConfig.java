@@ -39,7 +39,8 @@ public class SecurityConfig {
             "/api/auth/**",
             "/swagger-ui/**",
             "/swagger-ui.html",
-            "/v3/api-docs/**"
+            "/v3/api-docs/**",
+            "/error"
     };
 
     // Instance dédiée, pas le bean ObjectMapper de l'appli (spring-boot-starter-webmvc,
@@ -55,6 +56,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ERROR, jakarta.servlet.DispatcherType.FORWARD).permitAll()
                         .requestMatchers(ROUTES_PUBLIQUES).permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(exceptions -> exceptions

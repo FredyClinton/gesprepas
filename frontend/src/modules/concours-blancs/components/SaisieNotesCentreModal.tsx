@@ -8,6 +8,7 @@ import {
   Save,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   Building2,
   Award,
   GraduationCap,
@@ -30,6 +31,7 @@ import {
   useEtablissements,
   useEnregistrerEtablissement,
 } from "@/modules/academique";
+import { messageErreurApi } from "@/shared/lib/api-client";
 
 interface SaisieNotesCentreModalProps {
   isOpen: boolean;
@@ -77,11 +79,40 @@ export function SaisieNotesCentreModal({
 
   const [sauvegardeSucces, setSauvegardeSucces] = useState(false);
   const [lignes, setLignes] = useState<CandidatNotesInput[]>([]);
+  const [erreurValidation, setErreurValidation] = useState<string | null>(null);
 
   // Épreuves configurées pour cette formation
   const epreuves = useMemo(() => {
     return concoursBlanc.epreuves.filter((e) => e.formationId === formationId);
   }, [concoursBlanc, formationId]);
+
+  // Détection exhaustive des notes hors barème (< 0 ou > noteMax de l'épreuve)
+  const notesHorsBareme = useMemo(() => {
+    const mapEpreuves = new Map(epreuves.map((e) => [e.id, e]));
+    const invalides: {
+      candidatNom: string;
+      epreuveIntitule: string;
+      note: number;
+      noteMax: number;
+    }[] = [];
+
+    for (const cand of lignes) {
+      for (const n of cand.notes) {
+        if (n.statut === "NOTE" && n.note !== null && n.note !== undefined) {
+          const ep = mapEpreuves.get(n.epreuveId);
+          if (ep && (n.note < 0 || n.note > ep.noteMax)) {
+            invalides.push({
+              candidatNom: cand.nomComplet,
+              epreuveIntitule: ep.intitule,
+              note: n.note,
+              noteMax: ep.noteMax,
+            });
+          }
+        }
+      }
+    }
+    return invalides;
+  }, [lignes, epreuves]);
 
   // États pour l'ajout d'élèves
   const [rechercheApprenant, setRechercheApprenant] = useState("");
@@ -214,6 +245,7 @@ export function SaisieNotesCentreModal({
     valeur: string,
     statut: StatutNote = "NOTE",
   ) => {
+    setErreurValidation(null);
     setLignes((prev) => {
       const copy = [...prev];
       const c = { ...copy[indexCandidat] };
@@ -250,17 +282,31 @@ export function SaisieNotesCentreModal({
   };
 
   const handleEnregistrer = async () => {
-    await enregistrerMutation.mutateAsync({
-      id: concoursBlanc.id,
-      payload: {
-        centreId,
-        candidats: lignes,
-      },
-      role,
-      userCentreId,
-    });
-    setSauvegardeSucces(true);
-    setTimeout(() => setSauvegardeSucces(false), 3000);
+    if (estVerrouille || !concoursBlanc || enregistrerMutation.isPending) return;
+
+    if (notesHorsBareme.length > 0) {
+      setErreurValidation(
+        `Validation impossible : ${notesHorsBareme.length} note(s) hors barème détectée(s). Les notes doivent obligatoirement être comprises entre 0 et le barème maximal autorisé.`,
+      );
+      return;
+    }
+
+    setErreurValidation(null);
+    try {
+      await enregistrerMutation.mutateAsync({
+        id: concoursBlanc.id,
+        payload: {
+          centreId,
+          candidats: lignes,
+        },
+        role,
+        userCentreId,
+      });
+      setSauvegardeSucces(true);
+      setTimeout(() => setSauvegardeSucces(false), 3000);
+    } catch (err) {
+      setErreurValidation(messageErreurApi(err, "Erreur lors de l'enregistrement des notes."));
+    }
   };
 
   return (
@@ -319,11 +365,22 @@ export function SaisieNotesCentreModal({
             <button
               type="button"
               onClick={handleEnregistrer}
-              disabled={estVerrouille || enregistrerMutation.isPending}
+              disabled={estVerrouille || enregistrerMutation.isPending || notesHorsBareme.length > 0}
+              title={
+                notesHorsBareme.length > 0
+                  ? `Enregistrement bloqué : ${notesHorsBareme.length} note(s) hors barème`
+                  : undefined
+              }
               className="inline-flex items-center gap-1.5 rounded-xl bg-brand-orange px-4 py-2 text-xs font-bold text-white hover:bg-brand-orange/90 shadow-xs transition-colors cursor-pointer disabled:opacity-50"
             >
               <Save size={14} />
-              <span>{enregistrerMutation.isPending ? "Enregistrement..." : "Enregistrer les notes"}</span>
+              <span>
+                {enregistrerMutation.isPending
+                  ? "Enregistrement..."
+                  : notesHorsBareme.length > 0
+                    ? `Bloqué (${notesHorsBareme.length} hors barème)`
+                    : "Enregistrer les notes"}
+              </span>
             </button>
 
             <button
@@ -335,6 +392,35 @@ export function SaisieNotesCentreModal({
             </button>
           </div>
         </div>
+
+        {/* Bannière Notes Hors Barème */}
+        {(notesHorsBareme.length > 0 || erreurValidation) && (
+          <div className="my-2 flex items-start gap-2.5 rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-900 shrink-0 shadow-2xs">
+            <AlertTriangle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-bold">
+                {erreurValidation ||
+                  `${notesHorsBareme.length} note(s) hors barème détectée(s) — Enregistrement bloqué`}
+              </p>
+              {notesHorsBareme.length > 0 && (
+                <ul className="list-disc pl-4 text-[11px] text-rose-800 space-y-0.5">
+                  {notesHorsBareme.slice(0, 4).map((inv, i) => (
+                    <li key={i}>
+                      <span className="font-semibold">{inv.candidatNom}</span> : note de{" "}
+                      <strong>{inv.note}</strong> en <em>{inv.epreuveIntitule}</em> (barème autorisé : 0 à {inv.noteMax})
+                    </li>
+                  ))}
+                  {notesHorsBareme.length > 4 && (
+                    <li>... et {notesHorsBareme.length - 4} autre(s) note(s) hors barème</li>
+                  )}
+                </ul>
+              )}
+              <p className="text-[11px] font-medium text-rose-700">
+                Chaque note doit être comprise entre 0 et la note maximale de l&apos;épreuve.
+              </p>
+            </div>
+          </div>
+        )}
 
         {estVerrouille && (
           <div className="my-2 flex items-center gap-2 rounded-xl bg-red-50 px-4 py-2.5 border border-red-200 text-xs font-bold text-red-800 shrink-0">
@@ -524,45 +610,66 @@ export function SaisieNotesCentreModal({
                       const noteObj = candidat.notes.find((n) => n.epreuveId === ep.id);
                       const noteVal = noteObj?.note ?? "";
                       const statut = noteObj?.statut ?? "NOTE";
+                      const depasseMax =
+                        typeof noteVal === "number" &&
+                        (noteVal > ep.noteMax || noteVal < 0);
 
                       return (
                         <td key={ep.id} className="py-1.5 px-3 border-l border-slate-200 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            {statut === "NOTE" ? (
-                              <input
-                                type="number"
-                                step="0.25"
-                                min={0}
-                                max={ep.noteMax}
+                          <div className="flex flex-col items-center justify-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              {statut === "NOTE" ? (
+                                <input
+                                  type="number"
+                                  step="0.25"
+                                  min={0}
+                                  max={ep.noteMax}
+                                  disabled={estVerrouille}
+                                  value={noteVal}
+                                  onChange={(e) => handleNoteChange(idx, ep.id, e.target.value, "NOTE")}
+                                  placeholder={`--/${ep.noteMax}`}
+                                  title={
+                                    depasseMax
+                                      ? noteVal < 0
+                                        ? "Note négative interdite !"
+                                        : `Note ${noteVal} hors barème ! Le barème maximal est de ${ep.noteMax}.`
+                                      : undefined
+                                  }
+                                  className={`w-18 rounded-lg border px-2 py-1 text-center text-xs font-bold outline-none transition disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed ${
+                                    depasseMax
+                                      ? "border-2 border-rose-500 bg-rose-50 text-rose-900 ring-2 ring-rose-200"
+                                      : "border-slate-200 text-slate-800 focus:border-brand-orange"
+                                  }`}
+                                />
+                              ) : (
+                                <span
+                                  className={`w-18 rounded-lg py-1 text-center text-xs font-black uppercase ${
+                                    statut === "ABS" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-700"
+                                  }`}
+                                >
+                                  {statut}
+                                </span>
+                              )}
+
+                              {/* Menu bascule NOTE / ABS / DISP */}
+                              <select
+                                value={statut}
                                 disabled={estVerrouille}
-                                value={noteVal}
-                                onChange={(e) => handleNoteChange(idx, ep.id, e.target.value, "NOTE")}
-                                placeholder="--/20"
-                                className="w-18 rounded-lg border border-slate-200 px-2 py-1 text-center text-xs font-bold text-slate-800 focus:border-brand-orange focus:outline-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
-                              />
-                            ) : (
-                              <span
-                                className={`w-18 rounded-lg py-1 text-center text-xs font-black uppercase ${
-                                  statut === "ABS" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-700"
-                                }`}
+                                onChange={(e) =>
+                                  handleNoteChange(idx, ep.id, "", e.target.value as StatutNote)
+                                }
+                                className="rounded-md border border-slate-200 bg-slate-50 px-1 py-1 text-[10px] font-bold text-slate-600 outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
                               >
-                                {statut}
+                                <option value="NOTE">Note</option>
+                                <option value="ABS">ABS</option>
+                                <option value="DISP">DISP</option>
+                              </select>
+                            </div>
+                            {depasseMax && (
+                              <span className="text-[9px] font-bold text-rose-600 whitespace-nowrap mt-0.5">
+                                {noteVal < 0 ? "< 0 !" : `max ${ep.noteMax}`}
                               </span>
                             )}
-
-                            {/* Menu bascule NOTE / ABS / DISP */}
-                            <select
-                              value={statut}
-                              disabled={estVerrouille}
-                              onChange={(e) =>
-                                handleNoteChange(idx, ep.id, "", e.target.value as StatutNote)
-                              }
-                              className="rounded-md border border-slate-200 bg-slate-50 px-1 py-1 text-[10px] font-bold text-slate-600 outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
-                            >
-                              <option value="NOTE">Note</option>
-                              <option value="ABS">ABS</option>
-                              <option value="DISP">DISP</option>
-                            </select>
                           </div>
                         </td>
                       );
@@ -591,11 +698,22 @@ export function SaisieNotesCentreModal({
             <button
               type="button"
               onClick={handleEnregistrer}
-              disabled={enregistrerMutation.isPending || estVerrouille}
+              disabled={enregistrerMutation.isPending || estVerrouille || notesHorsBareme.length > 0}
+              title={
+                notesHorsBareme.length > 0
+                  ? `Enregistrement bloqué : ${notesHorsBareme.length} note(s) hors barème`
+                  : undefined
+              }
               className="inline-flex items-center gap-1.5 rounded-xl bg-brand-orange px-5 py-2 font-bold text-white hover:bg-brand-orange/90 shadow-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save size={14} />
-              <span>{enregistrerMutation.isPending ? "Enregistrement..." : "Enregistrer les notes"}</span>
+              <span>
+                {enregistrerMutation.isPending
+                  ? "Enregistrement..."
+                  : notesHorsBareme.length > 0
+                    ? `Bloqué (${notesHorsBareme.length} hors barème)`
+                    : "Enregistrer les notes"}
+              </span>
             </button>
           </div>
         </div>

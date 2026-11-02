@@ -58,9 +58,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 ClaimsAccessToken claims = tokenPort.validerAccessToken(enTete.substring(PREFIXE_BEARER.length()));
 
-                List<GrantedAuthority> autorites = MatricePermissions.permissionsDe(claims.role()).stream()
-                        .map(permission -> (GrantedAuthority) new SimpleGrantedAuthority(permission.name()))
-                        .toList();
+                List<GrantedAuthority> autorites = new java.util.ArrayList<>(
+                        MatricePermissions.permissionsDe(claims.role()).stream()
+                                .map(permission -> (GrantedAuthority) new SimpleGrantedAuthority(permission.name()))
+                                .toList()
+                );
+                if (claims.role() != null) {
+                    autorites.add(new SimpleGrantedAuthority("ROLE_" + claims.role().name()));
+                }
 
                 var authentication = new UsernamePasswordAuthenticationToken(claims, null, autorites);
                 SecurityContextHolder.getContext().setAuthentication(authentication);

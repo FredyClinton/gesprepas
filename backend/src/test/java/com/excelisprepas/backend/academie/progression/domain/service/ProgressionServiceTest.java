@@ -8,6 +8,11 @@ import com.excelisprepas.backend.academie.progression.domain.model.Progression;
 import com.excelisprepas.backend.academie.progression.domain.port.out.ProgressionRepositoryPort;
 import com.excelisprepas.backend.academie.quota.domain.model.QuotaHebdomadaire;
 import com.excelisprepas.backend.academie.quota.domain.port.out.QuotaHebdomadaireRepositoryPort;
+import com.excelisprepas.backend.abonnement.domain.model.CentreFormationAbonnement;
+import com.excelisprepas.backend.abonnement.domain.port.out.CentreFormationAbonnementRepositoryPort;
+import com.excelisprepas.backend.auth.domain.model.ContexteUtilisateur;
+import com.excelisprepas.backend.auth.domain.model.Permission;
+import com.excelisprepas.backend.auth.domain.port.out.ContexteUtilisateurPort;
 import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.model.StatutSession;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
@@ -18,6 +23,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -32,12 +38,15 @@ class ProgressionServiceTest {
     private final UUID formationId = UUID.randomUUID();
     private final UUID sessionId = UUID.randomUUID();
     private final UUID matiereId = UUID.randomUUID();
+        private final UUID centreId = UUID.randomUUID();
 
     private ProgressionRepositoryPort progressionRepository;
     private FormationRepositoryPort formationRepository;
     private MatiereRepositoryPort matiereRepository;
     private SessionAcademiqueRepositoryPort sessionRepository;
     private QuotaHebdomadaireRepositoryPort quotaRepository;
+        private CentreFormationAbonnementRepositoryPort abonnementRepository;
+        private ContexteUtilisateurPort contexteUtilisateurPort;
     private ProgressionService service;
 
     @BeforeEach
@@ -47,7 +56,10 @@ class ProgressionServiceTest {
         matiereRepository = mock(MatiereRepositoryPort.class);
         sessionRepository = mock(SessionAcademiqueRepositoryPort.class);
         quotaRepository = mock(QuotaHebdomadaireRepositoryPort.class);
-        service = new ProgressionService(progressionRepository, formationRepository, matiereRepository, sessionRepository, quotaRepository);
+        abonnementRepository = mock(CentreFormationAbonnementRepositoryPort.class);
+        contexteUtilisateurPort = mock(ContexteUtilisateurPort.class);
+        service = new ProgressionService(progressionRepository, formationRepository, matiereRepository,
+                sessionRepository, quotaRepository, abonnementRepository, contexteUtilisateurPort);
         when(quotaRepository.findByFormationIdAndSessionIdAndMatiereIdAndSemaine(any(), any(), any(), anyInt()))
                 .thenReturn(Optional.empty());
     }
@@ -234,5 +246,37 @@ class ProgressionServiceTest {
         // Then
         assertThat(resultat.getNumeroCours()).isEqualTo(2);
         verify(progressionRepository).save(any(Progression.class));
+    }
+
+    @Test
+    @DisplayName("limite la liste aux progressions des formations auxquelles le centre est abonné")
+    void listeProgressionsLimiteesAuxAbonnementsDuCentre() {
+        UUID autreFormationId = UUID.randomUUID();
+        Progression progressionDuCentre = new Progression(UUID.randomUUID(), formationId, sessionId,
+                UUID.randomUUID(), matiereId, 1, 1, "Thème centre", "Contenu", null);
+        Progression progressionAutreCentre = new Progression(UUID.randomUUID(), autreFormationId, sessionId,
+                UUID.randomUUID(), matiereId, 1, 1, "Thème autre centre", "Contenu", null);
+        when(contexteUtilisateurPort.courant()).thenReturn(new ContexteUtilisateur(
+                UUID.randomUUID(), Set.of(), centreId, Set.of(Permission.PROGRESSION_CONSULTER)));
+        when(abonnementRepository.findByCentreId(centreId)).thenReturn(List.of(
+                new CentreFormationAbonnement(UUID.randomUUID(), centreId, formationId, sessionId, LocalDate.now())));
+        when(progressionRepository.findAll()).thenReturn(List.of(progressionDuCentre, progressionAutreCentre));
+
+        assertThat(service.listerProgressions()).containsExactly(progressionDuCentre);
+    }
+
+    @Test
+    @DisplayName("refuse la lecture directe d'une progression d'une formation non abonnée par le centre")
+    void refuseProgressionHorsAbonnementDuCentre() {
+        Progression progression = new Progression(UUID.randomUUID(), formationId, sessionId,
+                UUID.randomUUID(), matiereId, 1, 1, "Thème", "Contenu", null);
+        when(contexteUtilisateurPort.courant()).thenReturn(new ContexteUtilisateur(
+                UUID.randomUUID(), Set.of(), centreId, Set.of(Permission.PROGRESSION_CONSULTER)));
+        when(progressionRepository.findById(progression.getId())).thenReturn(Optional.of(progression));
+        when(abonnementRepository.existsByCentreIdAndFormationIdAndSessionId(centreId, formationId, sessionId))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> service.recupererProgression(progression.getId()))
+                .isInstanceOf(AccesCentreInterditException.class);
     }
 }

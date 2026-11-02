@@ -44,8 +44,15 @@ public class ValidationMouvementController {
     public ResponseEntity<ValidationMouvementResponse> validerMouvement(
             @Parameter(description = "Identifiant du mouvement financier") @PathVariable UUID id,
             @Valid @RequestBody ValiderMouvementRequest request) {
+        UUID validateurId = request.validateurUtilisateurId();
+        if (validateurId == null || "00000000-0000-0000-0000-000000000000".equals(validateurId.toString())) {
+            var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof com.excelisprepas.backend.auth.domain.model.ClaimsAccessToken claims) {
+                validateurId = claims.utilisateurId();
+            }
+        }
         ValidationMouvement validation = validerMouvementUseCase.validerMouvement(
-                id, request.decision(), request.validateurUtilisateurId());
+                id, request.decision(), validateurId);
         return ResponseEntity.ok(new ValidationMouvementResponse(
                 validation.getId(), validation.getMouvementFinancierId(), validation.getValidateurUtilisateurId(),
                 validation.getDecision(), validation.getDate()));

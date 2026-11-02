@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Eye, EyeOff } from "lucide-react";
 
-import { Button, Input } from "@/shared/ui";
+import { Button, Input, Logo } from "@/shared/ui";
 import { loginSchema, type LoginFormValues } from "@/modules/utilisateurs";
 
 function LoginForm() {
@@ -25,9 +25,7 @@ function LoginForm() {
     resolver: zodResolver(loginSchema),
   });
 
-  // Déjà connecté (ex: revenu manuellement sur /login) : pas la peine d'y rester -
-  // le proxy (étape 5) exclut volontairement /login de sa protection, donc cette
-  // page reste accessible même avec une session active.
+  // Déjà connecté : redirection vers le tableau de bord
   useEffect(() => {
     if (status === "authenticated") {
       router.replace("/");
@@ -41,11 +39,6 @@ function LoginForm() {
     });
 
     if (resultat?.error) {
-      // "CredentialsSignin" est le code SPÉCIFIQUE renvoyé quand authorize() (auth.ts)
-      // retourne `null` - c.-à-d. email inconnu ou mot de passe incorrect (volontairement
-      // indifférenciés, par sécurité). Tout autre code (backend injoignable, erreur 500...)
-      // mérite un message différent : dire "mot de passe incorrect" alors que le vrai
-      // problème est un serveur injoignable serait trompeur.
       setError("root", {
         message:
           resultat.error === "CredentialsSignin"
@@ -55,43 +48,45 @@ function LoginForm() {
       return;
     }
 
-    // callbackUrl posé par le proxy si on venait d'une page protégée (étape 5) ;
-    // sinon on atterrit simplement sur le tableau de bord.
     router.replace(searchParams.get("callbackUrl") ?? "/");
   });
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-[#f4f6f8] p-4 sm:p-8">
-      {/* En-tête avec le nom de la marque épuré */}
-      <div className="mb-8 text-center">
-        <h1 className="text-3xl font-extrabold tracking-tight text-brand-anthracite">
-          EXCELIS <span className="text-brand-orange">PRÉPAS</span>
-        </h1>
-        <p className="mt-2 text-sm text-brand-gray/80">
-          Plateforme de gestion centralisée
-        </p>
+    <main className="relative flex min-h-screen flex-col items-center justify-center bg-radial from-slate-50 via-slate-100/60 to-slate-200/50 p-4 sm:p-8">
+      {/* Halo subtil aux couleurs officielles de la marque */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-brand-orange/5 blur-3xl" />
+        <div className="absolute bottom-1/4 left-1/2 -translate-x-1/2 translate-y-1/4 w-80 h-80 rounded-full bg-[#2D2E80]/5 blur-3xl" />
       </div>
 
-      {/* Conteneur principal du formulaire */}
-      <div className="w-full max-w-[420px]">
-        <div className="rounded-2xl bg-white p-8 sm:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)]">
+      {/* Conteneur principal */}
+      <div className="relative z-10 w-full max-w-[420px]">
+        {/* En-tête avec le LOGO OFFICIEL EXCELIS PRÉPAS */}
+        <div className="mb-8 text-center flex flex-col items-center">
+          <Logo className="h-14 w-auto object-contain transition-transform hover:scale-102" priority />
+          <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Plateforme de gestion centralisée
+          </p>
+        </div>
+
+        {/* Carte de connexion */}
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-7 sm:p-9 shadow-xl shadow-slate-200/50 transition-all">
           <div className="mb-6 text-center">
-            {/* Icône de sécurité/connexion pour habiller la carte */}
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-orange-50 text-brand-orange">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#2D2E80]/10 text-[#2D2E80]">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-brand-anthracite">
+            <h2 className="text-lg font-bold text-brand-anthracite">
               Espace sécurisé
             </h2>
-            <p className="mt-1.5 text-sm text-brand-gray">
-              Saisissez vos identifiants pour continuer
+            <p className="mt-1 text-xs text-slate-500">
+              Saisissez vos identifiants pour accéder à votre espace
             </p>
           </div>
 
-          <hr className="mb-6 border-gray-100" />
+          <hr className="mb-6 border-slate-100" />
 
           <form
             method="post"
@@ -139,13 +134,17 @@ function LoginForm() {
             />
 
             {errors.root && (
-              <div className="rounded-md bg-red-50 p-3 text-sm font-medium text-red-600 ring-1 ring-inset ring-red-600/20">
+              <div className="rounded-xl border border-rose-200 bg-rose-50/90 p-3.5 text-xs font-semibold text-rose-700 shadow-2xs animate-in fade-in duration-150">
                 {errors.root.message}
               </div>
             )}
 
-            <Button type="submit" className="w-full h-11 text-base font-medium shadow-sm transition-transform active:scale-[0.99] mt-2 bg-brand-orange hover:bg-brand-orange/90 text-white" disabled={isSubmitting}>
-              {isSubmitting ? "Connexion..." : "Se connecter"}
+            <Button
+              type="submit"
+              className="mt-2 h-11 w-full rounded-xl bg-brand-orange text-sm font-bold text-white shadow-md shadow-brand-orange/20 transition-all hover:bg-[#e07f12] active:scale-[0.99]"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Connexion en cours..." : "Se connecter"}
             </Button>
           </form>
         </div>
@@ -164,7 +163,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4">
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
           <div className="w-10 h-10 border-4 border-brand-orange border-t-transparent rounded-full animate-spin" />
         </div>
       }

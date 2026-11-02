@@ -23,6 +23,9 @@ public class AffectationPersistenceMapper {
         entite.setStatutPaiement(domaine.getStatutPaiement());
         entite.setCoutApplique(domaine.getCoutApplique());
         entite.setFichePaieId(domaine.getFichePaieId());
+        entite.setDateSeance(domaine.getDateSeance());
+        entite.setHeureDebut(domaine.getHeureDebut());
+        entite.setHeureFin(domaine.getHeureFin());
         return entite;
     }
 
@@ -31,6 +34,7 @@ public class AffectationPersistenceMapper {
         return Affectation.reconstituer(entite.getId(), entite.getCentreId(), entite.getSessionId(), entite.getFormationId(),
                 entite.getSalleId(), entite.getMatiereId(), entite.getEnseignantId(), entite.getJour(),
                 entite.getSeance(), entite.getSemaine(), entite.getStatut(),
-                entite.getStatutPaiement(), entite.getCoutApplique(), entite.getFichePaieId());
+                entite.getStatutPaiement(), entite.getCoutApplique(), entite.getFichePaieId(),
+                entite.getDateSeance(), entite.getHeureDebut(), entite.getHeureFin());
     }
 }

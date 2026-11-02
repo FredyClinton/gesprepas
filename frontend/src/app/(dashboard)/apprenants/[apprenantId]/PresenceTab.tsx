@@ -15,9 +15,9 @@ const LABELS_TYPE: Record<TypeSeance, string> = {
 };
 
 const CLASSES_TYPE: Record<TypeSeance, string> = {
-  PRESENT: "bg-green-100 text-green-800",
-  ABSENCE: "bg-red-100 text-red-800",
-  RETARD: "bg-brand-orange/10 text-brand-orange",
+  PRESENT: "bg-emerald-50 text-emerald-800 border border-emerald-200",
+  ABSENCE: "bg-rose-50 text-rose-800 border border-rose-200",
+  RETARD: "bg-amber-50 text-amber-800 border border-amber-200",
 };
 
 const LABELS_JUSTIFICATION: Record<StatutJustification, string> = {
@@ -27,8 +27,8 @@ const LABELS_JUSTIFICATION: Record<StatutJustification, string> = {
 };
 
 const CLASSES_JUSTIFICATION: Record<StatutJustification, string> = {
-  NON_JUSTIFIE: "text-red-600",
-  ACCEPTEE: "text-green-800",
+  NON_JUSTIFIE: "text-rose-700",
+  ACCEPTEE: "text-emerald-800",
   EN_ATTENTE: "text-brand-orange",
 };
 
@@ -77,18 +77,18 @@ export function PresenceTab() {
           </div>
           <div className="mt-5 grid grid-cols-3 gap-4">
             <div className="bg-brand-gray/5 rounded-md p-4">
-              <p className="text-brand-gray text-xs font-bold tracking-wide uppercase">
+              <p className="text-brand-gray text-xs font-semibold">
                 Présences
               </p>
-              <p className="mt-1 text-2xl font-bold text-green-800">
+              <p className="mt-1 text-2xl font-bold text-emerald-800">
                 {String(presences).padStart(2, "0")}
               </p>
             </div>
             <div className="bg-brand-gray/5 rounded-md p-4">
-              <p className="text-brand-gray text-xs font-bold tracking-wide uppercase">
+              <p className="text-brand-gray text-xs font-semibold">
                 Absences
               </p>
-              <p className="mt-1 text-2xl font-bold text-red-600">
+              <p className="mt-1 text-2xl font-bold text-rose-700">
                 {String(absences).padStart(2, "0")}
               </p>
             </div>

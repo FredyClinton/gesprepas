@@ -29,5 +29,7 @@ public interface JpaVenteLivreRepository extends JpaRepository<VenteLivreEntity,
     );
 
     List<VenteLivreEntity> findByEntreeId(UUID entreeId);
+
+    List<VenteLivreEntity> findByApprenantIdOrderByDateVenteDescCreatedAtDesc(UUID apprenantId);
 }
 

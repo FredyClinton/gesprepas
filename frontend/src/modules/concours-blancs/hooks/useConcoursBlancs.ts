@@ -150,6 +150,7 @@ export function useEnregistrerNotesConcoursBlanc() {
       role?: string;
       userCentreId?: string;
     }) => enregistrerNotesConcoursBlanc(id, payload, role, userCentreId),
+    retry: false,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [CONCOURS_BLANCS_QUERY_KEY] });
       queryClient.refetchQueries({ queryKey: [CONCOURS_BLANCS_QUERY_KEY] });

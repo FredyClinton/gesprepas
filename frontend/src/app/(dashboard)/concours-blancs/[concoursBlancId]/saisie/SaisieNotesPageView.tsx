@@ -34,6 +34,7 @@ import type {
   CandidatNotesInput,
   StatutNote,
 } from "@/modules/concours-blancs/types/concours-blanc.types";
+import { messageErreurApi } from "@/shared/lib/api-client";
 
 interface Props {
   concoursBlancId: string;
@@ -115,6 +116,35 @@ export function SaisieNotesPageView({
   const [lignes, setLignes] = useState<CandidatNotesInput[]>([]);
   const [sauvegardeSucces, setSauvegardeSucces] = useState(false);
   const [estModifie, setEstModifie] = useState(false);
+  const [erreurValidation, setErreurValidation] = useState<string | null>(null);
+
+  // Détection exhaustive des notes hors barème (< 0 ou > noteMax de l'épreuve)
+  const notesHorsBareme = useMemo(() => {
+    const mapEpreuves = new Map(epreuves.map((e) => [e.id, e]));
+    const invalides: {
+      candidatNom: string;
+      epreuveIntitule: string;
+      note: number;
+      noteMax: number;
+    }[] = [];
+
+    for (const cand of lignes) {
+      for (const n of cand.notes) {
+        if (n.statut === "NOTE" && n.note !== null && n.note !== undefined) {
+          const ep = mapEpreuves.get(n.epreuveId);
+          if (ep && (n.note < 0 || n.note > ep.noteMax)) {
+            invalides.push({
+              candidatNom: cand.nomComplet,
+              epreuveIntitule: ep.intitule,
+              note: n.note,
+              noteMax: ep.noteMax,
+            });
+          }
+        }
+      }
+    }
+    return invalides;
+  }, [lignes, epreuves]);
 
   // Outils d'ajout
   const [rechercheApprenant, setRechercheApprenant] = useState("");
@@ -124,6 +154,7 @@ export function SaisieNotesPageView({
   // Filtre d'affichage
   const [filtreTableau, setFiltreTableau] = useState<"TOUS" | "INCOMPLETS" | "ABSENTS">("TOUS");
   const [rechercheTableau, setRechercheTableau] = useState("");
+  const [panneauAjoutOuvert, setPanneauAjoutOuvert] = useState(false);
 
   // Apprenants du centre
   const apprenantsCentre = useMemo(() => {
@@ -278,6 +309,7 @@ export function SaisieNotesPageView({
     valeur: string | number,
     statut: StatutNote = "NOTE",
   ) => {
+    setErreurValidation(null);
     setLignes((prev) => {
       const next = [...prev];
       const c = { ...next[candidatIdx] };
@@ -288,7 +320,7 @@ export function SaisieNotesPageView({
         statut === "NOTE"
           ? valeur === "" || Number.isNaN(Number(valeur))
             ? null
-            : Math.max(0, Number(valeur))
+            : Number(valeur)
           : null;
 
       if (nIdx >= 0) {
@@ -314,10 +346,19 @@ export function SaisieNotesPageView({
   };
 
   const handleEnregistrer = useCallback(async () => {
-    if (estVerrouille || !concoursBlanc) return;
+    if (estVerrouille || !concoursBlanc || enregistrerMutation.isPending) return;
 
+    // Blocage strict si des notes sont hors barème
+    if (notesHorsBareme.length > 0) {
+      setErreurValidation(
+        `Validation impossible : ${notesHorsBareme.length} note(s) hors barème détectée(s). Les notes doivent être comprises entre 0 et le barème maximal autorisé.`,
+      );
+      return;
+    }
+
+    setErreurValidation(null);
     try {
-      await enregistrerMutation.mutateAsync({
+      const resultatsEnregistres = await enregistrerMutation.mutateAsync({
         id: concoursBlanc.id,
         payload: {
           centreId,
@@ -326,13 +367,50 @@ export function SaisieNotesPageView({
         role: userRole,
         userCentreId,
       });
+      if (resultatsEnregistres && resultatsEnregistres.length > 0) {
+        const majLignes: CandidatNotesInput[] = resultatsEnregistres.map((r) => {
+          const candidatApprenant = apprenants.find((a) => a.id === r.apprenantId);
+          return {
+            id: r.id,
+            formationId: r.formationId || formationId,
+            apprenantId: r.apprenantId,
+            nomComplet: r.nomComplet,
+            etablissementOrigine:
+              r.etablissementOrigine || candidatApprenant?.etablissementOrigine || "",
+            horsListe: !r.apprenantId,
+            notes: epreuves.map((ep) => {
+              const n = r.notes.find((note) => note.epreuveId === ep.id);
+              return {
+                epreuveId: ep.id,
+                note: n?.note !== null && n?.note !== undefined ? n.note : null,
+                statut: (n?.statut as StatutNote) || "NOTE",
+              };
+            }),
+          };
+        });
+        majLignes.sort((a, b) => a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" }));
+        setLignes(majLignes);
+      }
       setSauvegardeSucces(true);
       setEstModifie(false);
       setTimeout(() => setSauvegardeSucces(false), 4000);
     } catch (err) {
       console.error("Erreur lors de l'enregistrement des notes", err);
+      setErreurValidation(messageErreurApi(err, "Erreur lors de l'enregistrement des notes."));
     }
-  }, [estVerrouille, concoursBlanc, centreId, userRole, userCentreId, lignes, enregistrerMutation]);
+  }, [
+    estVerrouille,
+    concoursBlanc,
+    notesHorsBareme,
+    centreId,
+    userRole,
+    userCentreId,
+    lignes,
+    enregistrerMutation,
+    apprenants,
+    formationId,
+    epreuves,
+  ]);
 
   // Raccourci clavier Ctrl+S / Cmd+S
   useEffect(() => {
@@ -370,6 +448,9 @@ export function SaisieNotesPageView({
     }
 
     const totalCandidatsPresents = totalCandidats - totalCandidatsAbsents;
+    const nbIncomplets = lignes.filter((lig) =>
+      lig.notes.some((n) => n.statut === "NOTE" && (n.note === null || n.note === undefined))
+    ).length;
     const pourcentage =
       totalNotesAttendues > 0
         ? Math.round((totalNotesSaisies / totalNotesAttendues) * 100)
@@ -382,6 +463,7 @@ export function SaisieNotesPageView({
       totalNotesSaisies,
       totalNotesAttendues,
       pourcentage,
+      nbIncomplets,
     };
   }, [lignes, epreuves]);
 
@@ -440,93 +522,66 @@ export function SaisieNotesPageView({
 
   return (
     <div className="w-full space-y-6 pb-20">
-      {/* ── En-tête Supérieur Sticky ── */}
-      <div className="sticky top-0 z-30 -mx-4 sm:-mx-8 px-4 sm:px-8 py-3.5 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+      {/* ── En-tête Contextuel Unique (Sticky) ── */}
+      <div className="sticky top-0 z-30 -mx-4 sm:-mx-8 px-4 sm:px-8 py-3 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs space-y-2.5">
+        {/* Ligne 1 : Breadcrumb & Titre & Statut */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
             <Link
               href="/concours-blancs"
-              className="hover:text-brand-orange flex items-center gap-1 transition-colors"
+              className="text-slate-500 hover:text-brand-orange flex items-center gap-1 font-semibold transition-colors"
             >
               <ArrowLeft size={13} />
               Concours Blancs
             </Link>
             <ChevronRight size={12} className="text-slate-300" />
-            <span className="text-slate-800 font-bold">{concoursBlanc.titre}</span>
+            <span className="text-slate-700 font-bold">{concoursBlanc.titre}</span>
             <ChevronRight size={12} className="text-slate-300" />
             <span className="text-brand-orange font-bold">Feuille de notation</span>
-          </div>
 
-          <div className="flex items-center gap-3 mt-1">
-            <h1 className="text-xl font-black tracking-tight text-slate-900">
-              Saisie des notes — {concoursBlanc.titre}
-            </h1>
             {estCloture ? (
-              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600 border border-slate-200">
+              <span className="ml-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 border border-slate-200">
                 Clôturé
               </span>
             ) : concoursBlanc.saisieNotesBloqueeCentre ? (
-              <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-bold text-red-700 border border-red-200 flex items-center gap-1">
-                <Lock size={12} />
-                Verrouillé aux centres
+              <span className="ml-1 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 border border-rose-200 flex items-center gap-1">
+                <Lock size={10} />
+                Verrouillé centres
               </span>
             ) : (
-              <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 border border-emerald-200">
+              <span className="ml-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
                 Saisie ouverte
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2.5 text-xs">
+            {notesHorsBareme.length > 0 ? (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-lg border border-rose-300 animate-pulse">
+                <AlertTriangle size={12} className="text-rose-600" />
+                {notesHorsBareme.length} note(s) hors barème
+              </span>
+            ) : estModifie && !estVerrouille ? (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-lg border border-amber-200 animate-pulse">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                Modifié non enregistré (Ctrl+S)
+              </span>
+            ) : null}
+            {sauvegardeSucces && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200">
+                <CheckCircle2 size={12} className="text-emerald-600" />
+                Enregistré !
               </span>
             )}
           </div>
         </div>
 
-        {/* Contrôles et Sauvegarde */}
-        <div className="flex items-center gap-3">
-          {estModifie && !estVerrouille && (
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 animate-pulse">
-              <span className="h-2 w-2 rounded-full bg-amber-500" />
-              Non enregistré (Ctrl+S)
-            </span>
-          )}
-
-          {sauvegardeSucces && (
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-              <CheckCircle2 size={14} className="text-emerald-600" />
-              Enregistré !
-            </span>
-          )}
-
-          <Link href="/concours-blancs">
-            <Button variant="secondary" type="button">
-              <span className="flex items-center gap-1.5 text-xs font-bold">
-                <ArrowLeft size={13} />
-                Retour
-              </span>
-            </Button>
-          </Link>
-
-          <button
-            type="button"
-            onClick={handleEnregistrer}
-            disabled={estVerrouille || enregistrerMutation.isPending || (!estModifie && !sauvegardeSucces)}
-            className="inline-flex items-center gap-2 rounded-xl bg-brand-orange px-5 py-2.5 text-xs font-black text-white hover:bg-brand-orange/90 shadow-xs transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Save size={15} />
-            <span>
-              {enregistrerMutation.isPending
-                ? "Enregistrement en cours..."
-                : "Enregistrer les notes (Ctrl+S)"}
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* ── Sélecteurs de Contexte : Centre & Filière ── */}
-      <Card className="p-4 bg-white border border-slate-200/80 shadow-xs">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-4">
-            {/* Choix du Centre */}
-            <div className="flex items-center gap-2">
-              <Building2 size={16} className="text-brand-orange shrink-0" />
-              <span className="text-xs font-bold text-slate-700">Centre d&rsquo;examen :</span>
+        {/* Ligne 2 : Sélecteurs Contextuels (Centre & Filière) + Progression */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-2 border-t border-slate-100">
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            {/* Centre d'examen */}
+            <div className="flex items-center gap-1.5">
+              <Building2 size={14} className="text-brand-orange shrink-0" />
               {centres.length > 1 && estDA ? (
                 <select
                   value={centreId}
@@ -536,7 +591,7 @@ export function SaisieNotesPageView({
                       `/concours-blancs/${concoursBlancId}/saisie?formationId=${formationId}&centreId=${e.target.value}`,
                     );
                   }}
-                  className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 outline-none focus:border-brand-orange focus:bg-white"
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-800 outline-none focus:border-brand-orange focus:bg-white cursor-pointer"
                 >
                   {centres.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -545,19 +600,18 @@ export function SaisieNotesPageView({
                   ))}
                 </select>
               ) : (
-                <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-800 border border-slate-200">
+                <span className="font-bold text-slate-800">
                   {centreActif?.nom || "Centre non spécifié"}
                 </span>
               )}
             </div>
 
-            <div className="h-4 w-px bg-slate-200 hidden sm:block" />
+            <span className="text-slate-200 hidden sm:inline">|</span>
 
-            {/* Choix de la Filière / Formation */}
-            <div className="flex items-center gap-2">
-              <GraduationCap size={16} className="text-brand-orange shrink-0" />
-              <span className="text-xs font-bold text-slate-700">Filière :</span>
-              <div className="flex flex-wrap gap-1.5">
+            {/* Filières (pills compactes) */}
+            <div className="flex items-center gap-1.5">
+              <GraduationCap size={14} className="text-brand-orange shrink-0" />
+              <div className="flex flex-wrap gap-1">
                 {formations.map((f) => {
                   const estActive = f.id === formationId;
                   return (
@@ -570,10 +624,10 @@ export function SaisieNotesPageView({
                           `/concours-blancs/${concoursBlancId}/saisie?formationId=${f.id}&centreId=${centreId}`,
                         );
                       }}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                         estActive
-                          ? "bg-brand-orange text-white shadow-xs"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          ? "bg-brand-orange text-white shadow-2xs"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200/80"
                       }`}
                     >
                       {f.nom}
@@ -584,38 +638,61 @@ export function SaisieNotesPageView({
             </div>
           </div>
 
-          {/* Mini barre de progression de la saisie */}
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="text-right">
-              <p className="text-[11px] font-bold text-slate-500">
-                Progression :{" "}
-                <strong className="text-slate-900">
-                  {stats.totalNotesSaisies} / {stats.totalNotesAttendues}
-                </strong>{" "}
-                notes ({stats.pourcentage}%)
-              </p>
-              <div className="w-36 h-2 rounded-full bg-slate-100 overflow-hidden mt-1 border border-slate-200/60">
-                <div
-                  className="h-full bg-brand-orange rounded-full transition-all duration-300"
-                  style={{ width: `${stats.pourcentage}%` }}
-                />
-              </div>
+          {/* Progression compacte */}
+          <div className="flex items-center gap-2.5 self-start lg:self-auto shrink-0 text-xs">
+            <span className="text-[11px] font-semibold text-slate-500">
+              Progression : <strong className="text-slate-900 font-bold">{stats.totalNotesSaisies}/{stats.totalNotesAttendues}</strong> ({stats.pourcentage}%)
+            </span>
+            <div className="w-24 sm:w-32 h-1.5 rounded-full bg-slate-100 overflow-hidden border border-slate-200/50">
+              <div
+                className="h-full bg-brand-orange rounded-full transition-all duration-300"
+                style={{ width: `${stats.pourcentage}%` }}
+              />
             </div>
           </div>
         </div>
-      </Card>
+      </div>
 
-      {/* ── Alerte Verrouillage ── */}
-      {estVerrouille && (
-        <div className="flex items-center gap-3 rounded-2xl bg-red-50 p-4 border border-red-200 text-xs font-bold text-red-900">
-          <Lock size={18} className="text-red-600 shrink-0" />
-          <div>
-            {estCloture
-              ? "Ce concours blanc est définitivement clôturé. Les notes sont consultables en lecture seule."
-              : "La saisie des notes est actuellement verrouillée pour les centres par la Direction Académique. Seul le Directeur Académique dispose du droit de modification."}
+        {/* ── Alerte Verrouillage ── */}
+        {estVerrouille && (
+          <div className="flex items-center gap-3 rounded-2xl bg-red-50 p-4 border border-red-200 text-xs font-bold text-red-900">
+            <Lock size={18} className="text-red-600 shrink-0" />
+            <div>
+              {estCloture
+                ? "Ce concours blanc est définitivement clôturé. Les notes sont consultables en lecture seule."
+                : "La saisie des notes est actuellement verrouillée pour les centres par la Direction Académique. Seul le Directeur Académique dispose du droit de modification."}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* ── Bannière d'Alerte Notes Hors Barème ── */}
+        {(notesHorsBareme.length > 0 || erreurValidation) && (
+          <div className="flex items-start gap-2.5 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-xs text-rose-900 shadow-2xs">
+            <AlertTriangle size={18} className="text-rose-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-bold">
+                {erreurValidation ||
+                  `${notesHorsBareme.length} note(s) hors barème détectée(s) — Validation et enregistrement bloqués`}
+              </p>
+              {notesHorsBareme.length > 0 && (
+                <ul className="list-disc pl-4 text-[11px] text-rose-800 space-y-0.5">
+                  {notesHorsBareme.slice(0, 5).map((inv, i) => (
+                    <li key={i}>
+                      <span className="font-semibold">{inv.candidatNom}</span> : note de{" "}
+                      <strong>{inv.note}</strong> en <em>{inv.epreuveIntitule}</em> (barème autorisé : 0 à {inv.noteMax})
+                    </li>
+                  ))}
+                  {notesHorsBareme.length > 5 && (
+                    <li>... et {notesHorsBareme.length - 5} autre(s) note(s) hors barème</li>
+                  )}
+                </ul>
+              )}
+              <p className="text-[11px] font-medium text-rose-700">
+                Veuillez corriger chaque note hors barème pour autoriser l&apos;enregistrement de la feuille.
+              </p>
+            </div>
+          </div>
+        )}
 
       {/* ── Alerte si aucune épreuve configurée ── */}
       {epreuves.length === 0 ? (
@@ -637,165 +714,179 @@ export function SaisieNotesPageView({
         </Card>
       ) : (
         <>
-          {/* ── Barre d'outils Candidats ── */}
-          {!estVerrouille && (
-            <Card className="p-4 bg-slate-50/90 border border-slate-200">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                {/* 1. Ajout d'un apprenant déjà existant dans le centre ou la session */}
-                <div className="relative w-full lg:w-96">
-                  <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-2xs text-xs">
-                    <Search size={14} className="text-slate-400 shrink-0" />
-                    <input
-                      type="text"
-                      value={rechercheApprenant}
-                      onChange={(e) => setRechercheApprenant(e.target.value)}
-                      placeholder="Ajouter un élève du centre / autre groupe..."
-                      className="w-full outline-none text-slate-800 placeholder-slate-400 bg-transparent font-medium"
-                    />
-                    {rechercheApprenant && (
-                      <button
-                        type="button"
-                        onClick={() => setRechercheApprenant("")}
-                        className="text-slate-400 hover:text-slate-600 cursor-pointer"
-                      >
-                        <X size={12} />
-                      </button>
-                    )}
-                  </div>
-
-                  {apprenantsSuggeres.length > 0 && (
-                    <div className="absolute top-full left-0 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-xl z-40 max-h-56 overflow-y-auto divide-y divide-slate-100">
-                      {apprenantsSuggeres.map((a) => (
-                        <button
-                          key={a.id}
-                          type="button"
-                          onClick={() => ajouterApprenant(a)}
-                          className="w-full text-left px-3.5 py-2 text-xs hover:bg-orange-50 flex items-center justify-between group cursor-pointer transition-colors"
-                        >
-                          <div>
-                            <span className="font-bold text-slate-900 block">
-                              {a.nom} {a.prenom}
-                            </span>
-                            {a.etablissementOrigine && (
-                              <span className="text-[11px] text-slate-500 block">
-                                {a.etablissementOrigine}
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-[11px] text-brand-orange font-bold group-hover:underline">
-                            + Ajouter
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* 2. Ajout rapide d'un Candidat Hors-liste avec le Sélecteur d'Établissement moderne */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto">
-                  <input
-                    type="text"
-                    value={nouveauNomHorsListe}
-                    onChange={(e) => setNouveauNomHorsListe(e.target.value)}
-                    placeholder="Nom complet candidat libre..."
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 outline-none w-full sm:w-56 focus:border-brand-orange shadow-2xs"
-                  />
-
-                  {/* Sélecteur d'établissement intelligent avec création directe */}
-                  <div className="w-full sm:w-64">
-                    <SelecteurEtablissement
-                      value={etablissementHorsListe}
-                      onChange={setEtablissementHorsListe}
-                      placeholder="Lycée d'origine..."
-                    />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={ajouterCandidatHorsListe}
-                    disabled={!nouveauNomHorsListe.trim()}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-brand-orange/70 bg-orange-50/80 px-4 py-2 text-xs font-bold text-brand-orange hover:bg-brand-orange hover:text-white transition-all cursor-pointer disabled:opacity-40 shrink-0 shadow-2xs"
-                  >
-                    <UserPlus size={14} />
-                    <span>+ Candidat hors-liste</span>
-                  </button>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* ── Filtres du Tableau ── */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-600">Afficher :</span>
-              <div className="flex rounded-lg border border-slate-200 bg-slate-100 p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setFiltreTableau("TOUS")}
-                  className={`px-3 py-1 rounded-md font-bold transition-all cursor-pointer ${
-                    filtreTableau === "TOUS"
-                      ? "bg-white text-slate-900 shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  Tous ({lignes.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFiltreTableau("INCOMPLETS")}
-                  className={`px-3 py-1 rounded-md font-bold transition-all cursor-pointer ${
-                    filtreTableau === "INCOMPLETS"
-                      ? "bg-white text-amber-700 shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  Notes manquantes
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFiltreTableau("ABSENTS")}
-                  className={`px-3 py-1 rounded-md font-bold transition-all cursor-pointer ${
-                    filtreTableau === "ABSENTS"
-                      ? "bg-white text-red-700 shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  Absents ({stats.totalCandidatsAbsents})
-                </button>
-              </div>
+          {/* ── Barre d'outils unifiée et minimaliste ── */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
+            {/* Filtres de statut des notes */}
+            <div className="flex items-center gap-1 bg-slate-100/80 p-0.5 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setFiltreTableau("TOUS")}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                  filtreTableau === "TOUS"
+                    ? "bg-white text-slate-900 shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Tous ({lignes.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltreTableau("INCOMPLETS")}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                  filtreTableau === "INCOMPLETS"
+                    ? "bg-white text-amber-700 shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Notes manquantes ({stats.nbIncomplets})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltreTableau("ABSENTS")}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                  filtreTableau === "ABSENTS"
+                    ? "bg-white text-rose-700 shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Absents ({stats.totalCandidatsAbsents})
+              </button>
             </div>
 
-            <div className="relative w-full sm:w-64">
-              <Search size={13} className="absolute left-3 top-2.5 text-slate-400" />
-              <input
-                type="text"
-                value={rechercheTableau}
-                onChange={(e) => setRechercheTableau(e.target.value)}
-                placeholder="Filtrer dans la liste..."
-                className="w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-brand-orange"
-              />
+            {/* Recherche & Action d'ajout */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 sm:w-60">
+                <Search size={13} className="absolute left-3 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={rechercheTableau}
+                  onChange={(e) => setRechercheTableau(e.target.value)}
+                  placeholder="Filtrer dans la liste..."
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-brand-orange focus:bg-white shadow-2xs"
+                />
+              </div>
+
+              {!estVerrouille && (
+                <button
+                  type="button"
+                  onClick={() => setPanneauAjoutOuvert(!panneauAjoutOuvert)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 ${
+                    panneauAjoutOuvert
+                      ? "border-brand-orange bg-orange-50 text-brand-orange"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <UserPlus size={13} />
+                  <span>{panneauAjoutOuvert ? "Fermer" : "Ajouter candidat"}</span>
+                </button>
+              )}
             </div>
           </div>
 
-          {/* ── Grille de Notation Plein Écran (Tableau Type Tableur) ── */}
-          <Card className="overflow-hidden border border-slate-200 shadow-xs">
+          {/* Tiroir / Zone d'ajout contextuel compact */}
+          {!estVerrouille && panneauAjoutOuvert && (
+            <div className="p-3.5 bg-slate-50/90 rounded-2xl border border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs">
+              {/* 1. Recherche élève centre */}
+              <div className="relative w-full lg:w-80">
+                <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs">
+                  <Search size={13} className="text-slate-400 shrink-0" />
+                  <input
+                    type="text"
+                    value={rechercheApprenant}
+                    onChange={(e) => setRechercheApprenant(e.target.value)}
+                    placeholder="Ajouter élève du centre..."
+                    className="w-full outline-none text-slate-800 placeholder-slate-400 bg-transparent font-medium"
+                  />
+                  {rechercheApprenant && (
+                    <button
+                      type="button"
+                      onClick={() => setRechercheApprenant("")}
+                      className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+
+                {apprenantsSuggeres.length > 0 && (
+                  <div className="absolute top-full left-0 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-xl z-40 max-h-56 overflow-y-auto divide-y divide-slate-100">
+                    {apprenantsSuggeres.map((a) => (
+                      <button
+                        key={a.id}
+                        type="button"
+                        onClick={() => ajouterApprenant(a)}
+                        className="w-full text-left px-3.5 py-2 text-xs hover:bg-orange-50 flex items-center justify-between group cursor-pointer transition-colors"
+                      >
+                        <div>
+                          <span className="font-bold text-slate-900 block">
+                            {a.nom} {a.prenom}
+                          </span>
+                          {a.etablissementOrigine && (
+                            <span className="text-[11px] text-slate-500 block">
+                              {a.etablissementOrigine}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-brand-orange font-bold group-hover:underline">
+                          + Ajouter
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Candidat hors-liste */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
+                <input
+                  type="text"
+                  value={nouveauNomHorsListe}
+                  onChange={(e) => setNouveauNomHorsListe(e.target.value)}
+                  placeholder="Nom candidat libre..."
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-800 outline-none w-full sm:w-48 focus:border-brand-orange shadow-2xs"
+                />
+
+                <div className="w-full sm:w-56">
+                  <SelecteurEtablissement
+                    value={etablissementHorsListe}
+                    onChange={setEtablissementHorsListe}
+                    placeholder="Lycée d'origine..."
+                    variant="compact"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={ajouterCandidatHorsListe}
+                  disabled={!nouveauNomHorsListe.trim()}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand-orange px-3.5 py-1.5 font-bold text-white hover:bg-brand-orange/90 transition-all cursor-pointer disabled:opacity-40 shrink-0 shadow-2xs"
+                >
+                  <Plus size={13} />
+                  <span>Ajouter</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Grille de Notation Plein Écran (Tableau Type Tableur Excel-like) ── */}
+          <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs">
             <div className="overflow-x-auto max-h-[75vh]">
               <table className="w-full border-collapse text-left text-xs">
                 {/* En-tête Sticky */}
-                <thead className="sticky top-0 z-20 bg-slate-100/95 backdrop-blur-xs text-slate-700 border-b border-slate-200 shadow-2xs">
+                <thead className="sticky top-0 z-20 bg-slate-50/95 backdrop-blur-xs text-slate-700 border-b border-slate-200 shadow-2xs">
                   <tr>
                     {/* Colonne 1 : N° (Sticky Left) */}
-                    <th className="sticky left-0 z-20 bg-slate-100 py-3 px-3 w-12 text-center font-bold text-slate-500 border-r border-slate-200">
+                    <th className="sticky left-0 z-20 bg-slate-50/95 py-3 px-3 w-12 text-center font-bold text-slate-500">
                       N°
                     </th>
 
                     {/* Colonne 2 : Candidat (Sticky Left) */}
-                    <th className="sticky left-12 z-20 bg-slate-100 py-3 px-4 min-w-[260px] font-bold text-slate-800 border-r border-slate-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
+                    <th className="sticky left-12 z-20 bg-slate-50/95 py-3 px-4 min-w-[260px] font-bold text-slate-800 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
                       Nom & Prénom du Candidat
                     </th>
 
                     {/* Colonne 3 : Établissement d'origine */}
-                    <th className="py-3 px-4 min-w-[220px] font-bold text-slate-800 border-r border-slate-200">
+                    <th className="py-3 px-4 min-w-[200px] font-bold text-slate-700">
                       Établissement d&rsquo;origine
                     </th>
 
@@ -803,12 +894,12 @@ export function SaisieNotesPageView({
                     {epreuves.map((ep) => (
                       <th
                         key={ep.id}
-                        className="py-3 px-3 text-center min-w-[150px] font-bold border-r border-slate-200 last:border-r-0 bg-slate-50/80"
+                        className="py-3 px-3 text-center min-w-[140px] font-bold text-slate-900"
                       >
-                        <div className="text-xs font-bold text-slate-900 truncate">
+                        <div className="text-xs font-bold truncate">
                           {ep.intitule}
                         </div>
-                        <div className="text-[11px] font-normal text-slate-500 mt-0.5">
+                        <div className="text-[10px] font-normal text-slate-400 mt-0.5">
                           Sur /{ep.noteMax} · Coef {ep.coefficient}
                         </div>
                       </th>
@@ -816,7 +907,7 @@ export function SaisieNotesPageView({
 
                     {/* Colonne Actions (si DA ou non verrouillé) */}
                     {!estVerrouille && (
-                      <th className="py-3 px-2 w-12 text-center font-bold text-slate-500">
+                      <th className="py-3 px-2 w-10 text-center font-bold text-slate-400">
                         
                       </th>
                     )}
@@ -844,16 +935,16 @@ export function SaisieNotesPageView({
                         <tr
                           key={candidat.apprenantId || `hl-${idxOriginal}`}
                           className={`transition-colors group ${
-                            estToutAbsent ? "bg-rose-50/20 hover:bg-rose-50/35" : "hover:bg-amber-50/50"
+                            estToutAbsent ? "bg-rose-50/15 hover:bg-rose-50/25" : "hover:bg-amber-50/35"
                           }`}
                         >
                           {/* 1. N° */}
-                          <td className="sticky left-0 z-10 bg-white group-hover:bg-amber-50/90 py-2.5 px-3 text-center font-mono font-bold text-slate-400 border-r border-slate-100">
+                          <td className="sticky left-0 z-10 bg-inherit py-2 px-3 text-center font-mono font-semibold text-slate-400">
                             {idxOriginal + 1}
                           </td>
 
                           {/* 2. Nom & Prénom */}
-                          <td className="sticky left-12 z-10 bg-white group-hover:bg-amber-50/90 py-2.5 px-4 font-bold text-slate-900 border-r border-slate-100 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
+                          <td className="sticky left-12 z-10 bg-inherit py-2 px-4 font-bold text-slate-900 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-2 min-w-0">
                                 {candidat.horsListe && (
@@ -879,7 +970,7 @@ export function SaisieNotesPageView({
                                   className={`rounded px-1.5 py-0.5 text-[10px] font-bold transition-all cursor-pointer shrink-0 ${
                                     estToutAbsent
                                       ? "bg-rose-100 text-rose-700 hover:bg-rose-200"
-                                      : "border border-slate-200 text-slate-400 hover:border-rose-300 hover:text-rose-700 hover:bg-rose-50"
+                                      : "text-slate-400 hover:border-rose-300 hover:text-rose-700 hover:bg-rose-50 opacity-0 group-hover:opacity-100 focus:opacity-100"
                                   }`}
                                 >
                                   {estToutAbsent ? "Annuler ABS" : "ABS"}
@@ -889,7 +980,7 @@ export function SaisieNotesPageView({
                           </td>
 
                           {/* 3. Établissement (avec SelecteurEtablissement compact) */}
-                          <td className="py-2.5 px-3 border-r border-slate-100">
+                          <td className="py-2 px-3">
                             <SelecteurEtablissement
                               value={candidat.etablissementOrigine || ""}
                               onChange={(nouvelEtab) => {
@@ -908,25 +999,26 @@ export function SaisieNotesPageView({
                             />
                           </td>
 
-                          {/* 4. Cellules de Notation par Épreuve */}
+                          {/* 4. Cellules de Notation par Épreuve (Excel-like) */}
                           {epreuves.map((ep) => {
                             const noteObj = candidat.notes.find((n) => n.epreuveId === ep.id);
                             const noteVal = noteObj?.note !== null && noteObj?.note !== undefined ? noteObj.note : "";
                             const statut = noteObj?.statut ?? "NOTE";
                             const estAbsent = statut === "ABS";
                             const depasseMax =
-                              typeof noteVal === "number" && noteVal > ep.noteMax;
+                              typeof noteVal === "number" &&
+                              (noteVal > ep.noteMax || noteVal < 0);
 
                             return (
                               <td
                                 key={ep.id}
-                                className={`py-2 px-3 border-r border-slate-100 text-center ${
-                                  estAbsent ? "bg-red-50/50" : ""
+                                className={`py-1.5 px-2 text-center ${
+                                  estAbsent ? "bg-rose-50/30" : ""
                                 }`}
                               >
-                                <div className="flex items-center justify-center gap-1.5">
+                                <div className="flex items-center justify-center gap-1">
                                   {estAbsent ? (
-                                    <span className="w-18 py-1 rounded-lg bg-red-100 text-red-700 font-black text-xs">
+                                    <span className="w-16 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-200/80 font-black text-xs">
                                       ABS
                                     </span>
                                   ) : (
@@ -945,13 +1037,13 @@ export function SaisieNotesPageView({
                                           "NOTE",
                                         )
                                       }
-                                      placeholder={`--/${ep.noteMax}`}
-                                      className={`w-20 rounded-lg border px-2.5 py-1 text-center text-xs font-bold transition-all outline-none ${
+                                      placeholder="—"
+                                      className={`w-16 rounded-lg text-center text-xs transition-all outline-none font-bold tabular-nums py-1 ${
                                         depasseMax
-                                          ? "border-red-500 bg-red-50 text-red-700 ring-2 ring-red-200"
+                                          ? "border border-rose-400 bg-rose-50 text-rose-700 ring-2 ring-rose-200"
                                           : noteVal !== ""
-                                          ? "border-slate-300 bg-white font-black text-slate-900 focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
-                                          : "border-slate-200 bg-slate-50 text-slate-700 focus:border-brand-orange focus:bg-white"
+                                            ? "border border-transparent bg-slate-50/60 hover:bg-white hover:border-slate-300 focus:border-brand-orange focus:bg-white focus:ring-2 focus:ring-brand-orange/20 font-black text-slate-900"
+                                            : "border border-transparent bg-transparent hover:bg-slate-100/70 focus:border-brand-orange focus:bg-white focus:ring-2 focus:ring-brand-orange/20 text-slate-400"
                                       } disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed`}
                                     />
                                   )}
@@ -967,10 +1059,10 @@ export function SaisieNotesPageView({
                                           ? "Candidat absent (cliquer pour noter)"
                                           : "Marquer comme absent"
                                       }
-                                      className={`px-1.5 py-1 rounded text-[10px] font-black transition-colors cursor-pointer ${
+                                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
                                         estAbsent
-                                          ? "bg-red-600 text-white"
-                                          : "bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-600"
+                                          ? "bg-rose-600 text-white shadow-2xs"
+                                          : "text-slate-400 hover:text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100 focus:opacity-100"
                                       }`}
                                     >
                                       ABS
@@ -979,7 +1071,7 @@ export function SaisieNotesPageView({
                                 </div>
 
                                 {depasseMax && (
-                                  <p className="text-[10px] font-bold text-red-600 mt-0.5">
+                                  <p className="text-[10px] font-bold text-rose-600 mt-0.5">
                                     Max {ep.noteMax}
                                   </p>
                                 )}
@@ -989,13 +1081,13 @@ export function SaisieNotesPageView({
 
                           {/* 5. Supprimer de la feuille (candidats hors-liste) */}
                           {!estVerrouille && (
-                            <td className="py-2.5 px-2 text-center">
+                            <td className="py-2 px-2 text-center">
                               {candidat.horsListe && (
                                 <button
                                   type="button"
                                   onClick={() => supprimerLigne(idxOriginal)}
                                   title="Retirer ce candidat de la feuille"
-                                  className="p-1 text-slate-300 hover:text-red-600 transition-colors cursor-pointer"
+                                  className="p-1 text-slate-300 hover:text-rose-600 transition-colors cursor-pointer"
                                 >
                                   <Trash2 size={13} />
                                 </button>
@@ -1009,7 +1101,7 @@ export function SaisieNotesPageView({
                 </tbody>
               </table>
             </div>
-          </Card>
+          </div>
 
           {/* ── Barre d'Actions Inférieure Flottante ── */}
           <div className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 px-6 py-3 shadow-lg flex items-center justify-between">
@@ -1040,14 +1132,26 @@ export function SaisieNotesPageView({
               <button
                 type="button"
                 onClick={handleEnregistrer}
-                disabled={estVerrouille || enregistrerMutation.isPending || (!estModifie && !sauvegardeSucces)}
+                disabled={
+                  estVerrouille ||
+                  enregistrerMutation.isPending ||
+                  notesHorsBareme.length > 0 ||
+                  (!estModifie && !sauvegardeSucces)
+                }
+                title={
+                  notesHorsBareme.length > 0
+                    ? `Enregistrement bloqué : ${notesHorsBareme.length} note(s) hors barème`
+                    : undefined
+                }
                 className="inline-flex items-center gap-2 rounded-xl bg-brand-orange px-6 py-2.5 text-xs font-black text-white hover:bg-brand-orange/90 shadow-xs transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Save size={15} />
                 <span>
                   {enregistrerMutation.isPending
                     ? "Enregistrement..."
-                    : "Enregistrer les notes"}
+                    : notesHorsBareme.length > 0
+                      ? `Bloqué (${notesHorsBareme.length} hors barème)`
+                      : "Enregistrer les notes"}
                 </span>
               </button>
             </div>

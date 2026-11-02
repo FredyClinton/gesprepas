@@ -13,13 +13,19 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import com.excelisprepas.backend.livre.domain.port.out.VenteLivreRepositoryPort;
+import com.excelisprepas.backend.livre.domain.port.out.LivreRepositoryPort;
+import com.excelisprepas.backend.livre.domain.model.VenteLivre;
+import com.excelisprepas.backend.livre.domain.model.Livre;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RequestMapping("/api")
 @Tag(name = "Mouvements financiers", description = "Saisie et consultation des entrées et sorties financières d'une session")
@@ -33,6 +39,12 @@ public class MouvementFinancierController {
     private final ListerVersementsApprenantUseCase listerVersementsApprenantUseCase;
     private final ModifierEntreeUseCase modifierEntreeUseCase;
     private final SupprimerEntreeUseCase supprimerEntreeUseCase;
+
+    @Autowired(required = false)
+    private VenteLivreRepositoryPort venteLivreRepositoryPort;
+
+    @Autowired(required = false)
+    private LivreRepositoryPort livreRepositoryPort;
 
     public MouvementFinancierController(SaisirEntreeUseCase saisirEntreeUseCase,
                                         SaisirSortieUseCase saisirSortieUseCase,
@@ -50,7 +62,30 @@ public class MouvementFinancierController {
         this.supprimerEntreeUseCase = supprimerEntreeUseCase;
     }
 
-    private static EntreeResponse versReponse(Entree entree) {
+    private String resoudreTitreLivre(UUID entreeId) {
+        if (venteLivreRepositoryPort == null || livreRepositoryPort == null || entreeId == null) {
+            return null;
+        }
+        try {
+            List<VenteLivre> ventes = venteLivreRepositoryPort.findByEntreeId(entreeId);
+            if (ventes == null || ventes.isEmpty()) {
+                return null;
+            }
+            return ventes.stream()
+                    .map(v -> {
+                        String titre = livreRepositoryPort.findById(v.getLivreId())
+                                .map(Livre::getTitre)
+                                .orElse("Livre");
+                        return v.getQuantite() > 1 ? titre + " (x" + v.getQuantite() + ")" : titre;
+                    })
+                    .collect(Collectors.joining(", "));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private EntreeResponse versReponse(Entree entree) {
+        String titreLivre = resoudreTitreLivre(entree.getId());
         return new EntreeResponse(
                 entree.getId(),
                 entree.getSessionId(),
@@ -62,7 +97,8 @@ public class MouvementFinancierController {
                 entree.getCentreId(),
                 entree.getApprenantId().orElse(null),
                 entree.getFormationId().orElse(null),
-                entree.getDossierConcoursId().orElse(null)
+                entree.getDossierConcoursId().orElse(null),
+                titreLivre
         );
     }
 
@@ -72,11 +108,12 @@ public class MouvementFinancierController {
                 sortie.getCentreId().orElse(null), sortie.getOrdonnateur());
     }
 
-    private static MouvementFinancierResponse versReponseGenerique(MouvementFinancier mouvement) {
+    private MouvementFinancierResponse versReponseGenerique(MouvementFinancier mouvement) {
         if (mouvement instanceof Entree entree) {
+            String titreLivre = resoudreTitreLivre(entree.getId());
             return new MouvementFinancierResponse(entree.getId(), "ENTREE", entree.getSessionId(), entree.getMotifId(),
                     entree.getMontant(), entree.getDate(), entree.getSaisiParUtilisateurId(), entree.getStatut(),
-                    entree.getCentreId(), entree.getApprenantId().orElse(null), entree.getFormationId().orElse(null), null);
+                    entree.getCentreId(), entree.getApprenantId().orElse(null), entree.getFormationId().orElse(null), null, titreLivre);
         }
         if (mouvement instanceof Sortie sortie) {
             return new MouvementFinancierResponse(sortie.getId(), "SORTIE", sortie.getSessionId(), sortie.getMotifId(),
@@ -113,7 +150,7 @@ public class MouvementFinancierController {
     @GetMapping("/entrees")
     public ResponseEntity<List<EntreeResponse>> listerVersementsApprenant(@RequestParam UUID apprenantId) {
         List<EntreeResponse> reponses = listerVersementsApprenantUseCase.listerVersementsApprenant(apprenantId).stream()
-                .map(MouvementFinancierController::versReponse)
+                .map(this::versReponse)
                 .toList();
         return ResponseEntity.ok(reponses);
     }
@@ -191,7 +228,7 @@ public class MouvementFinancierController {
             @RequestParam(required = false) StatutMouvement statut) {
         List<MouvementFinancierResponse> reponses = listerMouvementsUseCase
                 .listerMouvements(sessionId, centreId, statut).stream()
-                .map(MouvementFinancierController::versReponseGenerique)
+                .map(this::versReponseGenerique)
                 .toList();
         return ResponseEntity.ok(reponses);
     }

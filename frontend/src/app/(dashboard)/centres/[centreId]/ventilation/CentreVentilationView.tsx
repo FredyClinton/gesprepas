@@ -29,12 +29,16 @@ import {
   Award,
 } from "lucide-react";
 
-import { Card, Button, SkeletonCard, SkeletonTable } from "@/shared/ui";
+import { Card, Button, SkeletonCard, SkeletonTable, SortableHeader } from "@/shared/ui";
+import { compareStrings, compareNumbers, compareDates, type SortDirection } from "@/shared/lib/sort-utils";
 import { useCentres, useSessionActive, useSessions } from "@/modules/centres-sessions";
 import { useUtilisateurs } from "@/modules/utilisateurs";
 import { useFormations } from "@/modules/academique";
 import { useApprenants } from "@/modules/apprenants";
-import { useMouvementsFinanciers, useMotifs } from "@/modules/financier";
+import {
+  useMouvementsFinanciers,
+  useMotifs,
+} from "@/modules/financier";
 import { useStatsVentesLivres, useVentesLivres } from "@/modules/livres";
 import { useDossiers } from "@/modules/dossiers";
 
@@ -59,6 +63,59 @@ export function CentreVentilationView({
   const [rechercheMouvement, setRechercheMouvement] = useState("");
   const [filtreTypeMouvement, setFiltreTypeMouvement] = useState<"TOUS" | "ENTREE" | "SORTIE">("TOUS");
   const [rechercheDossier, setRechercheDossier] = useState("");
+
+  // Tris des différents tableaux
+  type TriFormationColonne = "nom" | "effectif" | "partEffectif" | "caContrats" | "encaisse" | "resteARecouvrer" | "tauxRecouvrement";
+  const [triFormationColonne, setTriFormationColonne] = useState<TriFormationColonne>("effectif");
+  const [triFormationDirection, setTriFormationDirection] = useState<SortDirection>("desc");
+
+  function handleTriFormation(colonne: TriFormationColonne) {
+    if (triFormationColonne === colonne) {
+      setTriFormationDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTriFormationColonne(colonne);
+      setTriFormationDirection(colonne === "nom" ? "asc" : "desc");
+    }
+  }
+
+  type TriMouvementColonne = "date" | "type" | "motif" | "montant";
+  const [triMouvementColonne, setTriMouvementColonne] = useState<TriMouvementColonne>("date");
+  const [triMouvementDirection, setTriMouvementDirection] = useState<SortDirection>("desc");
+
+  function handleTriMouvement(colonne: TriMouvementColonne) {
+    if (triMouvementColonne === colonne) {
+      setTriMouvementDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTriMouvementColonne(colonne);
+      setTriMouvementDirection(colonne === "date" ? "desc" : "asc");
+    }
+  }
+
+  type TriLivreColonne = "titre" | "quantite" | "montant" | "part";
+  const [triLivreColonne, setTriLivreColonne] = useState<TriLivreColonne>("quantite");
+  const [triLivreDirection, setTriLivreDirection] = useState<SortDirection>("desc");
+
+  function handleTriLivre(colonne: TriLivreColonne) {
+    if (triLivreColonne === colonne) {
+      setTriLivreDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTriLivreColonne(colonne);
+      setTriLivreDirection(colonne === "titre" ? "asc" : "desc");
+    }
+  }
+
+  type TriDossierColonne = "candidat" | "filiere" | "date" | "statut";
+  const [triDossierColonne, setTriDossierColonne] = useState<TriDossierColonne>("candidat");
+  const [triDossierDirection, setTriDossierDirection] = useState<SortDirection>("asc");
+
+  function handleTriDossier(colonne: TriDossierColonne) {
+    if (triDossierColonne === colonne) {
+      setTriDossierDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTriDossierColonne(colonne);
+      setTriDossierDirection("asc");
+    }
+  }
 
   // Récupération des données globales
   const { data: centres = [], isLoading: chargementCentres } = useCentres();
@@ -222,14 +279,36 @@ export function CentreVentilationView({
       .sort((a, b) => b.effectif - a.effectif);
   }, [formations, apprenantsCentre, entreesValides]);
 
-  // Formations filtrées pour affichage
+  // Formations filtrées et triées pour affichage
   const formationsAffichees = useMemo(() => {
-    if (!rechercheFormation.trim()) return ventilationFormations;
     const q = rechercheFormation.toLowerCase().trim();
-    return ventilationFormations.filter((item) =>
-      item.formation.nom.toLowerCase().includes(q),
-    );
-  }, [ventilationFormations, rechercheFormation]);
+    const filtered = !q
+      ? ventilationFormations
+      : ventilationFormations.filter((item) =>
+          item.formation.nom.toLowerCase().includes(q),
+        );
+
+    return [...filtered].sort((a, b) => {
+      let cmp = 0;
+      if (triFormationColonne === "nom") {
+        cmp = compareStrings(a.formation.nom, b.formation.nom);
+      } else if (triFormationColonne === "effectif") {
+        cmp = compareNumbers(a.effectif, b.effectif);
+      } else if (triFormationColonne === "partEffectif") {
+        cmp = compareNumbers(a.partEffectif, b.partEffectif);
+      } else if (triFormationColonne === "caContrats") {
+        cmp = compareNumbers(a.caContrats, b.caContrats);
+      } else if (triFormationColonne === "encaisse") {
+        cmp = compareNumbers(a.encaisse, b.encaisse);
+      } else if (triFormationColonne === "resteARecouvrer") {
+        cmp = compareNumbers(a.resteARecouvrer, b.resteARecouvrer);
+      } else if (triFormationColonne === "tauxRecouvrement") {
+        cmp = compareNumbers(a.tauxRecouvrement, b.tauxRecouvrement);
+      }
+      return triFormationDirection === "asc" ? cmp : -cmp;
+    });
+  }, [ventilationFormations, rechercheFormation, triFormationColonne, triFormationDirection]);
+
 
   // Synthèse globale centre
   const caContratsTotal = useMemo(
@@ -245,6 +324,22 @@ export function CentreVentilationView({
   const livresCaTotal = statsVentesLivres?.totalMontant || 0;
   const livresParOuvrage = statsVentesLivres?.parLivre || [];
 
+  const livresParOuvrageAffiches = useMemo(() => {
+    return [...livresParOuvrage].sort((a, b) => {
+      let cmp = 0;
+      if (triLivreColonne === "titre") {
+        cmp = compareStrings(a.titreLivre, b.titreLivre);
+      } else if (triLivreColonne === "quantite") {
+        cmp = compareNumbers(a.quantiteVendue, b.quantiteVendue);
+      } else if (triLivreColonne === "montant") {
+        cmp = compareNumbers(a.montantTotal, b.montantTotal);
+      } else if (triLivreColonne === "part") {
+        cmp = compareNumbers(a.montantTotal, b.montantTotal);
+      }
+      return triLivreDirection === "asc" ? cmp : -cmp;
+    });
+  }, [livresParOuvrage, triLivreColonne, triLivreDirection]);
+
   // 3. VENTILATION DES DOSSIERS
   const dossiersTotal = dossiers.length;
   const dossiersComplets = dossiers.filter((d) => d.statut === "COMPLET").length;
@@ -252,34 +347,82 @@ export function CentreVentilationView({
   const dossiersClotures = dossiers.filter((d) => d.statut === "CLOTURE").length;
 
   const dossiersAffiches = useMemo(() => {
-    if (!rechercheDossier.trim()) return dossiers;
-    const q = rechercheDossier.toLowerCase().trim();
-    return dossiers.filter((d) => {
-      const apprenant = mapApprenants.get(d.apprenantId);
-      const nomComplet = `${apprenant?.prenom || ""} ${apprenant?.nom || ""}`.toLowerCase();
-      return nomComplet.includes(q) || d.observation?.toLowerCase().includes(q);
-    });
-  }, [dossiers, rechercheDossier, mapApprenants]);
+    const filtered = !rechercheDossier.trim()
+      ? dossiers
+      : dossiers.filter((d) => {
+          const apprenant = mapApprenants.get(d.apprenantId);
+          const nomComplet = `${apprenant?.prenom || ""} ${apprenant?.nom || ""}`.toLowerCase();
+          return (
+            nomComplet.includes(rechercheDossier.toLowerCase().trim()) ||
+            d.observation?.toLowerCase().includes(rechercheDossier.toLowerCase().trim())
+          );
+        });
 
-  // 4. MOUVEMENTS FINANCIERS FILTRÉS
+    return [...filtered].sort((a, b) => {
+      let cmp = 0;
+      if (triDossierColonne === "candidat") {
+        const appA = mapApprenants.get(a.apprenantId);
+        const appB = mapApprenants.get(b.apprenantId);
+        const nomA = `${appA?.nom || ""} ${appA?.prenom || ""}`;
+        const nomB = `${appB?.nom || ""} ${appB?.prenom || ""}`;
+        cmp = compareStrings(nomA, nomB);
+      } else if (triDossierColonne === "filiere") {
+        const appA = mapApprenants.get(a.apprenantId);
+        const appB = mapApprenants.get(b.apprenantId);
+        const formA = appA?.formationId ? mapFormations.get(appA.formationId)?.nom || "" : "";
+        const formB = appB?.formationId ? mapFormations.get(appB.formationId)?.nom || "" : "";
+        cmp = compareStrings(formA, formB);
+      } else if (triDossierColonne === "date") {
+        cmp = compareDates(a.dateOuverture, b.dateOuverture);
+      } else if (triDossierColonne === "statut") {
+        cmp = compareStrings(a.statut, b.statut);
+      }
+      return triDossierDirection === "asc" ? cmp : -cmp;
+    });
+  }, [dossiers, rechercheDossier, mapApprenants, mapFormations, triDossierColonne, triDossierDirection]);
+
+  // 4. MOUVEMENTS FINANCIERS FILTRÉS ET TRIÉS
   const mouvementsAffiches = useMemo(() => {
-    return mouvements
-      .filter((m) => {
-        if (filtreTypeMouvement !== "TOUS" && m.type !== filtreTypeMouvement) return false;
-        if (rechercheMouvement.trim()) {
-          const q = rechercheMouvement.toLowerCase().trim();
-          const motif = mapMotifs.get(m.motifId)?.toLowerCase() || "";
-          const apprenant = m.apprenantId ? mapApprenants.get(m.apprenantId) : null;
-          const nomApprenant = apprenant
-            ? `${apprenant.prenom} ${apprenant.nom}`.toLowerCase()
-            : "";
-          const formation = m.formationId ? mapFormations.get(m.formationId)?.nom.toLowerCase() || "" : "";
-          return motif.includes(q) || nomApprenant.includes(q) || formation.includes(q);
-        }
-        return true;
-      })
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [mouvements, filtreTypeMouvement, rechercheMouvement, mapMotifs, mapApprenants, mapFormations]);
+    const list = mouvements.filter((m) => {
+      if (filtreTypeMouvement !== "TOUS" && m.type !== filtreTypeMouvement) return false;
+      if (rechercheMouvement.trim()) {
+        const q = rechercheMouvement.toLowerCase().trim();
+        const motif = mapMotifs.get(m.motifId)?.toLowerCase() || "";
+        const apprenant = m.apprenantId ? mapApprenants.get(m.apprenantId) : null;
+        const nomApprenant = apprenant
+          ? `${apprenant.prenom} ${apprenant.nom}`.toLowerCase()
+          : "";
+        const formation = m.formationId ? mapFormations.get(m.formationId)?.nom.toLowerCase() || "" : "";
+        return motif.includes(q) || nomApprenant.includes(q) || formation.includes(q);
+      }
+      return true;
+    });
+
+    return [...list].sort((a, b) => {
+      let cmp = 0;
+      if (triMouvementColonne === "date") {
+        cmp = compareDates(a.date, b.date);
+      } else if (triMouvementColonne === "type") {
+        cmp = compareStrings(a.type, b.type);
+      } else if (triMouvementColonne === "motif") {
+        const motifA = mapMotifs.get(a.motifId) || "";
+        const motifB = mapMotifs.get(b.motifId) || "";
+        cmp = compareStrings(motifA, motifB);
+      } else if (triMouvementColonne === "montant") {
+        cmp = compareNumbers(a.montant, b.montant);
+      }
+      return triMouvementDirection === "asc" ? cmp : -cmp;
+    });
+  }, [
+    mouvements,
+    filtreTypeMouvement,
+    rechercheMouvement,
+    mapMotifs,
+    mapApprenants,
+    mapFormations,
+    triMouvementColonne,
+    triMouvementDirection,
+  ]);
 
   const chargementEnCours =
     chargementCentres ||
@@ -331,7 +474,7 @@ export function CentreVentilationView({
   const estOuvert = centre.statut === "OUVERT";
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 pb-16 animate-in fade-in duration-200">
+    <div className="w-full space-y-6 pb-16 animate-in fade-in duration-200">
       {/* ── 1. FIL D'ARIANE ET NAVIGATION SUPÉRIEURE ── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -391,11 +534,11 @@ export function CentreVentilationView({
       </div>
 
       {/* ── 2. BANNIÈRE D'IDENTITÉ DU CENTRE & RESPONSABLE ── */}
-      <Card className="relative overflow-hidden rounded-3xl border border-slate-200/90 bg-gradient-to-r from-white via-white to-slate-50/70 p-6 shadow-xs">
+      <Card className="relative overflow-hidden rounded-3xl border border-slate-200/90 bg-white p-6 shadow-xs">
         <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div className="flex items-start gap-4 sm:items-center">
             {/* Avatar / Badge du centre */}
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-orange to-amber-500 font-black text-2xl text-white shadow-md shadow-brand-orange/20">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand-orange font-bold text-xl text-white">
               {centre.nom.substring(0, 2).toUpperCase()}
             </div>
 
@@ -648,6 +791,7 @@ export function CentreVentilationView({
         </div>
       </div>
 
+
       {/* ═════════════════════════════════════════════════════════════════ */}
       {/* SECTION 1 : VENTILATION PAR FORMATION (EFFECTIFS & FINANCES)      */}
       {/* ═════════════════════════════════════════════════════════════════ */}
@@ -693,13 +837,61 @@ export function CentreVentilationView({
               <table className="w-full text-left text-xs">
                 <thead className="border-b border-slate-200 bg-slate-50/70 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                   <tr>
-                    <th className="p-3.5">Filière / Formation</th>
-                    <th className="p-3.5 text-center">Effectif</th>
-                    <th className="p-3.5 text-center">Part (%)</th>
-                    <th className="p-3.5 text-right">CA Contrats</th>
-                    <th className="p-3.5 text-right">Total Encaissé</th>
-                    <th className="p-3.5 text-right">Reste à Recouvrer</th>
-                    <th className="p-3.5 min-w-[140px]">Taux Recouvrement</th>
+                    <SortableHeader
+                      label="Filière / Formation"
+                      sortKey="nom"
+                      currentSortKey={triFormationColonne}
+                      direction={triFormationDirection}
+                      onSort={handleTriFormation}
+                    />
+                    <SortableHeader
+                      label="Effectif"
+                      sortKey="effectif"
+                      currentSortKey={triFormationColonne}
+                      direction={triFormationDirection}
+                      onSort={handleTriFormation}
+                      align="center"
+                    />
+                    <SortableHeader
+                      label="Part (%)"
+                      sortKey="partEffectif"
+                      currentSortKey={triFormationColonne}
+                      direction={triFormationDirection}
+                      onSort={handleTriFormation}
+                      align="center"
+                    />
+                    <SortableHeader
+                      label="CA Contrats"
+                      sortKey="caContrats"
+                      currentSortKey={triFormationColonne}
+                      direction={triFormationDirection}
+                      onSort={handleTriFormation}
+                      align="right"
+                    />
+                    <SortableHeader
+                      label="Total Encaissé"
+                      sortKey="encaisse"
+                      currentSortKey={triFormationColonne}
+                      direction={triFormationDirection}
+                      onSort={handleTriFormation}
+                      align="right"
+                    />
+                    <SortableHeader
+                      label="Reste à Recouvrer"
+                      sortKey="resteARecouvrer"
+                      currentSortKey={triFormationColonne}
+                      direction={triFormationDirection}
+                      onSort={handleTriFormation}
+                      align="right"
+                    />
+                    <SortableHeader
+                      label="Taux Recouvrement"
+                      sortKey="tauxRecouvrement"
+                      currentSortKey={triFormationColonne}
+                      direction={triFormationDirection}
+                      onSort={handleTriFormation}
+                      className="min-w-[140px]"
+                    />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -929,11 +1121,36 @@ export function CentreVentilationView({
               <table className="w-full text-left text-xs">
                 <thead className="border-b border-slate-200 bg-slate-50/70 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                   <tr>
-                    <th className="p-3.5">Date</th>
-                    <th className="p-3.5">Type &amp; Statut</th>
-                    <th className="p-3.5">Motif de l&apos;opération</th>
+                    <SortableHeader
+                      label="Date"
+                      sortKey="date"
+                      currentSortKey={triMouvementColonne}
+                      direction={triMouvementDirection}
+                      onSort={handleTriMouvement}
+                    />
+                    <SortableHeader
+                      label="Type & Statut"
+                      sortKey="type"
+                      currentSortKey={triMouvementColonne}
+                      direction={triMouvementDirection}
+                      onSort={handleTriMouvement}
+                    />
+                    <SortableHeader
+                      label="Motif de l'opération"
+                      sortKey="motif"
+                      currentSortKey={triMouvementColonne}
+                      direction={triMouvementDirection}
+                      onSort={handleTriMouvement}
+                    />
                     <th className="p-3.5">Apprenant / Formation</th>
-                    <th className="p-3.5 text-right">Montant</th>
+                    <SortableHeader
+                      label="Montant"
+                      sortKey="montant"
+                      currentSortKey={triMouvementColonne}
+                      direction={triMouvementDirection}
+                      onSort={handleTriMouvement}
+                      align="right"
+                    />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -1066,14 +1283,41 @@ export function CentreVentilationView({
               <table className="w-full text-left text-xs">
                 <thead className="border-b border-slate-200 bg-slate-50/70 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                   <tr>
-                    <th className="p-3.5">Titre de l&apos;Ouvrage</th>
-                    <th className="p-3.5 text-center">Quantité Vendue</th>
-                    <th className="p-3.5 text-right">Chiffre d&apos;Affaires</th>
-                    <th className="p-3.5 text-center">Part dans les ventes</th>
+                    <SortableHeader
+                      label="Titre de l'Ouvrage"
+                      sortKey="titre"
+                      currentSortKey={triLivreColonne}
+                      direction={triLivreDirection}
+                      onSort={handleTriLivre}
+                    />
+                    <SortableHeader
+                      label="Quantité Vendue"
+                      sortKey="quantite"
+                      currentSortKey={triLivreColonne}
+                      direction={triLivreDirection}
+                      onSort={handleTriLivre}
+                      align="center"
+                    />
+                    <SortableHeader
+                      label="Chiffre d'Affaires"
+                      sortKey="montant"
+                      currentSortKey={triLivreColonne}
+                      direction={triLivreDirection}
+                      onSort={handleTriLivre}
+                      align="right"
+                    />
+                    <SortableHeader
+                      label="Part dans les ventes"
+                      sortKey="part"
+                      currentSortKey={triLivreColonne}
+                      direction={triLivreDirection}
+                      onSort={handleTriLivre}
+                      align="center"
+                    />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
-                  {livresParOuvrage.map((livre) => {
+                  {livresParOuvrageAffiches.map((livre) => {
                     const part =
                       livresCaTotal > 0
                         ? Math.round((livre.montantTotal / livresCaTotal) * 100)
@@ -1185,10 +1429,35 @@ export function CentreVentilationView({
               <table className="w-full text-left text-xs">
                 <thead className="border-b border-slate-200 bg-slate-50/70 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                   <tr>
-                    <th className="p-3.5">Candidat / Apprenant</th>
-                    <th className="p-3.5">Filière / Formation</th>
-                    <th className="p-3.5">Date d&apos;Ouverture</th>
-                    <th className="p-3.5 text-center">Statut du Dossier</th>
+                    <SortableHeader
+                      label="Candidat / Apprenant"
+                      sortKey="candidat"
+                      currentSortKey={triDossierColonne}
+                      direction={triDossierDirection}
+                      onSort={handleTriDossier}
+                    />
+                    <SortableHeader
+                      label="Filière / Formation"
+                      sortKey="filiere"
+                      currentSortKey={triDossierColonne}
+                      direction={triDossierDirection}
+                      onSort={handleTriDossier}
+                    />
+                    <SortableHeader
+                      label="Date d'Ouverture"
+                      sortKey="date"
+                      currentSortKey={triDossierColonne}
+                      direction={triDossierDirection}
+                      onSort={handleTriDossier}
+                    />
+                    <SortableHeader
+                      label="Statut du Dossier"
+                      sortKey="statut"
+                      currentSortKey={triDossierColonne}
+                      direction={triDossierDirection}
+                      onSort={handleTriDossier}
+                      align="center"
+                    />
                     <th className="p-3.5">Observations</th>
                   </tr>
                 </thead>

@@ -1,6 +1,6 @@
 /**
- * Convertit un montant entier en toutes lettres en français (grammaire usuelle d'Afrique centrale / francophonie).
- * Exemple : 150000 -> "Cent cinquante mille francs CFA"
+ * Utilitaire de conversion des nombres entiers en toutes lettres (Français)
+ * Conçu pour les montants financiers en Francs CFA (XAF).
  */
 
 const UNITES = [
@@ -28,14 +28,14 @@ const UNITES = [
 
 const DIZAINES = [
   "",
-  "dix",
+  "",
   "vingt",
   "trente",
   "quarante",
   "cinquante",
   "soixante",
   "soixante-dix",
-  "quatre-vingt",
+  "quatre-vingts",
   "quatre-vingt-dix",
 ];
 
@@ -50,21 +50,20 @@ function convertirMoinsDeCent(n: number): string {
     return `soixante-${UNITES[10 + reste]}`;
   }
 
-  if (dizaine === 8) {
-    if (reste === 0) return "quatre-vingts";
-    return `quatre-vingt-${UNITES[reste]}`;
-  }
-
   if (dizaine === 9) {
     return `quatre-vingt-${UNITES[10 + reste]}`;
   }
 
-  if (reste === 1) {
-    return `${DIZAINES[dizaine]}-et-un`;
+  if (dizaine === 8 && reste === 0) {
+    return "quatre-vingts";
   }
 
   if (reste === 0) {
     return DIZAINES[dizaine];
+  }
+
+  if (reste === 1 && dizaine < 8) {
+    return `${DIZAINES[dizaine]}-et-un`;
   }
 
   return `${DIZAINES[dizaine]}-${UNITES[reste]}`;
@@ -77,57 +76,63 @@ function convertirMoinsDeMille(n: number): string {
   const centaine = Math.floor(n / 100);
   const reste = n % 100;
 
-  let prefix = "";
+  let prefixe = "";
   if (centaine === 1) {
-    prefix = "cent";
+    prefixe = "cent";
   } else if (centaine > 1) {
-    prefix = reste === 0 ? `${UNITES[centaine]} cents` : `${UNITES[centaine]} cent`;
+    prefixe = `${UNITES[centaine]} cent${reste === 0 ? "s" : ""}`;
   }
 
-  if (reste === 0) return prefix;
-  return `${prefix} ${convertirMoinsDeCent(reste)}`;
+  if (reste === 0) return prefixe;
+  return `${prefixe} ${convertirMoinsDeCent(reste)}`;
 }
 
 export function nombreEnLettres(montant: number): string {
-  if (!montant || isNaN(montant) || montant === 0) {
-    return "Zéro franc CFA";
-  }
+  if (isNaN(montant) || montant === 0) return "zéro";
 
-  const positif = Math.abs(Math.round(montant));
-  if (positif === 0) return "Zéro franc CFA";
+  const n = Math.floor(Math.abs(montant));
+  if (n === 0) return "zéro";
 
-  const milliards = Math.floor(positif / 1_000_000_000);
-  const millions = Math.floor((positif % 1_000_000_000) / 1_000_000);
-  const milliers = Math.floor((positif % 1_000_000) / 1_000);
-  const unites = positif % 1_000;
+  const milliards = Math.floor(n / 1_000_000_000);
+  const millions = Math.floor((n % 1_000_000_000) / 1_000_000);
+  const milliers = Math.floor((n % 1_000_000) / 1_000);
+  const unites = n % 1_000;
 
-  const morceaux: string[] = [];
+  const parties: string[] = [];
 
   if (milliards > 0) {
-    const txt = convertirMoinsDeMille(milliards);
-    morceaux.push(milliards > 1 ? `${txt} milliards` : `${txt} milliard`);
+    parties.push(
+      milliards === 1 ? "un milliard" : `${convertirMoinsDeMille(milliards)} milliards`,
+    );
   }
 
   if (millions > 0) {
-    const txt = convertirMoinsDeMille(millions);
-    morceaux.push(millions > 1 ? `${txt} millions` : `${txt} million`);
+    parties.push(
+      millions === 1 ? "un million" : `${convertirMoinsDeMille(millions)} millions`,
+    );
   }
 
   if (milliers > 0) {
     if (milliers === 1) {
-      morceaux.push("mille");
+      parties.push("mille");
     } else {
-      morceaux.push(`${convertirMoinsDeMille(milliers)} mille`);
+      parties.push(`${convertirMoinsDeMille(milliers)} mille`);
     }
   }
 
   if (unites > 0) {
-    morceaux.push(convertirMoinsDeMille(unites));
+    parties.push(convertirMoinsDeMille(unites));
   }
 
-  let texte = morceaux.join(" ").trim();
-  // Mettre la première lettre en majuscule
-  texte = texte.charAt(0).toUpperCase() + texte.slice(1);
+  return parties.join(" ").trim();
+}
 
-  return `${texte} francs CFA`;
+/**
+ * Formate un montant en toutes lettres avec devise Francs CFA
+ * Ex: 75000 -> "Soixante-quinze mille Francs CFA"
+ */
+export function montantEnLettresFCFA(montant: number): string {
+  const texte = nombreEnLettres(montant);
+  const premiereLettre = texte.charAt(0).toUpperCase();
+  return `${premiereLettre}${texte.slice(1)} Francs CFA`;
 }

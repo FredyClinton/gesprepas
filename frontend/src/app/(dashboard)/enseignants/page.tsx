@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { AccessRestricted } from "@/shared/ui";
 import { EnseignantsListView } from "./EnseignantsListView";
 
 export default async function EnseignantsPage() {
@@ -11,10 +12,10 @@ export default async function EnseignantsPage() {
     utilisateur.role !== "CHEF_CENTRE"
   ) {
     return (
-      <main className="text-brand-gray p-8 text-sm">
-        Cet écran est réservé au Directeur Académique, au Chef de Département et au
-        Chef de Centre.
-      </main>
+      <AccessRestricted
+        title="Accès Corps Enseignant"
+        message="Cet écran est réservé au Directeur Académique, au Chef de Département et au Chef de Centre."
+      />
     );
   }
 

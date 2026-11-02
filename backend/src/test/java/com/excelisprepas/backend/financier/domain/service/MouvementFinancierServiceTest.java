@@ -492,5 +492,39 @@ class MouvementFinancierServiceTest {
             assertThat(resultat).isNotNull();
             assertThat(resultat.getMontant()).isEqualByComparingTo("19000");
         }
+
+        @Test
+        @DisplayName("l'achat de livres n'est pas déduit du contrat et n'entame pas le solde disponible")
+        void achatLivresNeDoitPasEtreDeduitDuContratLorsDuVersementScolarite() {
+            UUID motifScolariteId = UUID.randomUUID();
+            Motif motifScolarite = new Motif(motifScolariteId, "Scolarité", TypeMotif.ENTREE);
+            UUID motifLivreId = UUID.fromString("00000000-0000-0000-0000-000000000012");
+            Motif motifLivre = new Motif(motifLivreId, "Achat Livres", TypeMotif.ENTREE);
+
+            when(motifRepository.findById(motifScolariteId)).thenReturn(Optional.of(motifScolarite));
+            when(motifRepository.findById(motifLivreId)).thenReturn(Optional.of(motifLivre));
+            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
+            when(centreRepository.findById(centreId)).thenReturn(Optional.of(mock(com.excelisprepas.backend.centre.domain.model.Centre.class)));
+
+            UUID apprenantId = UUID.randomUUID();
+            Apprenant apprenant = new Apprenant(apprenantId, "Mbida", "Jean", LocalDate.of(2005, 5, 5), date,
+                    centreId, sessionId, null, null, null, null, null, BigDecimal.valueOf(50000), false, null);
+            when(apprenantRepository.findById(apprenantId)).thenReturn(Optional.of(apprenant));
+
+            // Achat de livre antérieur de 20 000 FCFA
+            Entree achatLivre = new Entree(UUID.randomUUID(), sessionId, motifLivreId, new BigDecimal("20000"),
+                    date, saisiParUtilisateurId, centreId, apprenantId, null, null);
+            achatLivre.appliquerDecision(StatutMouvement.VALIDE);
+            when(entreeRepository.findByApprenantId(apprenantId)).thenReturn(List.of(achatLivre));
+            when(entreeRepository.save(any(Entree.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            // Paiement de l'intégralité du contrat de scolarité (50 000 FCFA)
+            // Ne doit pas échouer avec MontantDepasseContratException car le livre ne compte pas dans dejaPaye
+            Entree resultat = service.saisirEntree(sessionId, motifScolariteId, new BigDecimal("50000"),
+                    date, saisiParUtilisateurId, centreId, apprenantId, null);
+
+            assertThat(resultat).isNotNull();
+            assertThat(resultat.getMontant()).isEqualByComparingTo("50000");
+        }
     }
 }

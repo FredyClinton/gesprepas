@@ -17,11 +17,13 @@ import {
   modifierEntree,
   supprimerEntree,
   ajusterActiviteBilan,
+  validerMouvement,
   type AjusterActiviteBilanInput,
   type ModifierEntreeInput,
   type SaisirSortieInput,
   type SoumettreBilanCaissierInput,
   type ValiderBilanChefCentreInput,
+  type ValiderMouvementInput,
 } from "./client";
 import type { TypeMotif } from "../domain/types";
 
@@ -197,5 +199,19 @@ export function useMouvementsFinanciers(
     queryKey: ["mouvements-financiers", sessionId, centreId],
     queryFn: () => (sessionId ? listMouvementsFinanciers(sessionId, centreId) : Promise.resolve([])),
     enabled: Boolean(sessionId),
+  });
+}
+
+export function useValiderMouvement() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ValiderMouvementInput) => validerMouvement(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
+      queryClient.invalidateQueries({ queryKey: ["bilan-consolide"] });
+      queryClient.invalidateQueries({ queryKey: ["mouvements-financiers"] });
+      queryClient.invalidateQueries({ queryKey: ["apprenants"] });
+      queryClient.invalidateQueries({ queryKey: ["versements-apprenant"] });
+    },
   });
 }

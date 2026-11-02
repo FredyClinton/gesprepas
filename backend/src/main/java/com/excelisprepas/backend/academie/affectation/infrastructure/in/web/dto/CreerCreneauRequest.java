@@ -4,6 +4,7 @@ import com.excelisprepas.backend.academie.affectation.domain.model.Jour;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
+import java.time.LocalTime;
 import java.util.UUID;
 
 public record CreerCreneauRequest(
@@ -14,6 +15,12 @@ public record CreerCreneauRequest(
         @NotNull(message = "La matière est obligatoire") UUID matiereId,
         @NotNull(message = "Le jour est obligatoire") Jour jour,
         @Positive(message = "La séance doit être strictement positive") int seance,
-        @Positive(message = "La semaine doit être strictement positive") int semaine
+        @Positive(message = "La semaine doit être strictement positive") int semaine,
+        UUID enseignantId,
+        LocalTime heureDebut,
+        LocalTime heureFin
 ) {
+    public CreerCreneauRequest(UUID centreId, UUID sessionId, UUID formationId, UUID salleId, UUID matiereId, Jour jour, int seance, int semaine) {
+        this(centreId, sessionId, formationId, salleId, matiereId, jour, seance, semaine, null, null, null);
+    }
 }

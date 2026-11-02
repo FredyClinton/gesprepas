@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Printer,
@@ -16,6 +17,7 @@ import {
 import { usePersonnelList } from "@/modules/personnel";
 import { useUtilisateurs } from "@/modules/utilisateurs";
 import { ROLE_LABELS, type Role } from "@/types/roles";
+import { PrintDocumentHeader } from "@/shared/ui";
 
 export interface FichePaiePersonnelData {
   ficheId: string;
@@ -40,6 +42,34 @@ export function FichePaiePersonnelModal({
   onClose,
 }: FichePaiePersonnelModalProps) {
   const printContentRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (fiche) {
+      document.body.classList.add("print-modal-open");
+    }
+    return () => {
+      document.body.classList.remove("print-modal-open");
+    };
+  }, [fiche]);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    }
+    if (fiche) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [fiche, onClose]);
 
   const { data: personnelList = [] } = usePersonnelList();
   const { data: utilisateurs = [] } = useUtilisateurs();
@@ -55,7 +85,7 @@ export function FichePaiePersonnelModal({
     return (u?.role as Role) || null;
   }, [fiche, utilisateurs]);
 
-  if (!fiche) return null;
+  if (!fiche || !mounted) return null;
 
   const handlePrint = () => {
     window.print();
@@ -63,11 +93,20 @@ export function FichePaiePersonnelModal({
 
   const difference = fiche.montantPaye - fiche.salaireReference;
 
-  return (
-    <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm duration-200 print:static print:block print:p-0 print:m-0 print:bg-white print:overflow-visible print:h-auto print:max-h-none print:w-auto print:inset-auto print:z-auto">
-      <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl print:static print:block print:max-h-none print:h-auto print:w-full print:max-w-none print:overflow-visible print:rounded-none print:border-none print:shadow-none print:m-0 print:p-0">
+  return createPortal(
+    <div
+      className="printable-modal print-portrait fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm duration-200 overflow-y-auto"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <style dangerouslySetInnerHTML={{ __html: "@page { size: A4 portrait; margin: 8mm 8mm; }" }} />
+      <div
+        className="printable-dialog relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Top Bar (Hidden on print) */}
-        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-6 py-4 print:hidden">
+        <div className="no-print print:hidden flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-6 py-4">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-600 text-white shadow-sm">
               <FileText className="h-4 w-4" />
@@ -105,26 +144,13 @@ export function FichePaiePersonnelModal({
         >
           <div className="mx-auto max-w-2xl rounded-xl border border-slate-200 bg-white p-8 font-sans text-slate-900 shadow-sm print:border-none print:shadow-none print:p-4">
             {/* Header */}
-            <div className="mb-6 border-b-2 border-slate-900 pb-5">
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="text-2xl font-black tracking-tight text-orange-600">
-                    EXCELIS PREPAS
-                  </span>
-                  <p className="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
-                    Direction des Affaires Administratives & Financières
-                  </p>
-                </div>
-                <div className="text-right">
-                  <span className="inline-block rounded bg-slate-900 px-3 py-1 text-xs font-bold tracking-wider text-white uppercase">
-                    BULLETIN DE SALAIRE
-                  </span>
-                  <p className="mt-1 font-mono text-[11px] text-slate-500">
-                    Réf: {fiche.referenceBordereau}
-                  </p>
-                </div>
-              </div>
-            </div>
+            <PrintDocumentHeader
+              titre="BULLETIN DE SALAIRE"
+              sousTitre="Direction des Affaires Administratives & Financières"
+              reference={fiche.referenceBordereau}
+              orientation="portrait"
+              className="mb-6"
+            />
 
             {/* Collaborator & Session Details */}
             <div className="mb-6 grid grid-cols-2 gap-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-xs">
@@ -297,7 +323,8 @@ export function FichePaiePersonnelModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

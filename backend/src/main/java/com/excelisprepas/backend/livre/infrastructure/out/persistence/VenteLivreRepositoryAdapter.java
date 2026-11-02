@@ -65,6 +65,13 @@ public class VenteLivreRepositoryAdapter implements VenteLivreRepositoryPort {
     }
 
     @Override
+    public List<VenteLivre> findByApprenantId(UUID apprenantId) {
+        return jpaVenteLivreRepository.findByApprenantIdOrderByDateVenteDescCreatedAtDesc(apprenantId).stream()
+                .map(mapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public void deleteAll(List<VenteLivre> ventes) {
         List<VenteLivreEntity> entities = ventes.stream()
                 .map(mapper::toEntity)

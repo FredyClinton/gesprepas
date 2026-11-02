@@ -31,13 +31,12 @@ import {
   TrendingDown,
   Wallet,
   Coins,
-  BarChart3,
   CheckCircle2,
-  Clock,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
-import { Button, Card, Input, Modal } from "@/shared/ui";
+import { Button, Card, Input, Modal, SortableHeader } from "@/shared/ui";
+import { compareStrings, compareNumbers, type SortDirection } from "@/shared/lib/sort-utils";
 import { messageErreurApi } from "@/shared/lib/api-client";
 import {
   useCentres,
@@ -49,6 +48,7 @@ import {
   useRouvrirCentre,
   useRejoindreSession,
   relocalisationSchema,
+  ComparatifSessionsCentreGraphique,
   type Centre,
   type RelocalisationFormValues,
 } from "@/modules/centres-sessions";
@@ -194,7 +194,7 @@ export function CentreDetailView({
 
   if (chargementCentres) {
     return (
-      <div className="mx-auto max-w-7xl">
+      <div className="w-full">
         <p className="text-slate-400 p-12 text-center text-sm">
           Chargement du centre...
         </p>
@@ -204,7 +204,7 @@ export function CentreDetailView({
 
   if (!centre) {
     return (
-      <div className="mx-auto max-w-7xl">
+      <div className="w-full">
         <Card className="p-10 text-center rounded-2xl border border-slate-200">
           <p className="text-slate-800 text-lg font-bold">
             Centre introuvable
@@ -223,7 +223,7 @@ export function CentreDetailView({
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 pb-12 animate-in fade-in duration-200">
+    <div className="w-full space-y-6 pb-12 animate-in fade-in duration-200">
       {/* Fil d'Ariane */}
       {!masquerRetour && (
         <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -338,81 +338,6 @@ export function CentreDetailView({
         </div>
       </Card>
 
-      {/* 4 Cartes KPI Synthèse */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* KPI 1 : Sessions */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center gap-3.5 hover:shadow-sm transition-all">
-          <div className="h-12 w-12 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 shrink-0">
-            <CalendarRange size={22} />
-          </div>
-          <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Sessions
-            </p>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="text-2xl font-extrabold text-slate-900">
-                {centre.sessionIds.length}
-              </span>
-              <span className="text-xs text-slate-400">rejointe(s)</span>
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 2 : Formations */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center gap-3.5 hover:shadow-sm transition-all">
-          <div className="h-12 w-12 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center text-brand-orange shrink-0">
-            <GraduationCap size={22} />
-          </div>
-          <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Formations
-            </p>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="text-2xl font-extrabold text-slate-900">
-                {formationsDuCentre.length}
-              </span>
-              <span className="text-xs text-slate-400">filière(s)</span>
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 3 : Salles */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center gap-3.5 hover:shadow-sm transition-all">
-          <div className="h-12 w-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
-            <DoorOpen size={22} />
-          </div>
-          <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Salles
-            </p>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="text-2xl font-extrabold text-slate-900">
-                {sallesDuCentre.length}
-              </span>
-              <span className="text-xs text-slate-400">aménagée(s)</span>
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 4 : Personnel */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center gap-3.5 hover:shadow-sm transition-all">
-          <div className="h-12 w-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-            <Users size={22} />
-          </div>
-          <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Personnel
-            </p>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="text-2xl font-extrabold text-slate-900">
-                {personnelDuCentre.length}
-              </span>
-              <span className="text-xs text-slate-400">collaborateur(s)</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Navigation par Onglets moderne */}
       <div className="flex items-center gap-2 border-b border-slate-200/80 pb-px">
         <button
@@ -464,27 +389,104 @@ export function CentreDetailView({
 
       {/* Contenu des Onglets */}
       {onglet === "informations" && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-start">
-          <div className="space-y-6">
-            <SessionsRejointes
-              centreId={centre.id}
-              sessionIds={centre.sessionIds}
-              peutRejoindreSession={peutRejoindreSession}
-            />
-            <InformationsDuCentre
-              centre={centre}
-              peutRelocaliser={peutRelocaliser}
-            />
+        <div className="space-y-6">
+          {/* Synthèse Infrastructure du Centre */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/* KPI 1 : Sessions */}
+            <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center gap-3.5 hover:shadow-sm transition-all">
+              <div className="h-12 w-12 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 shrink-0">
+                <CalendarRange size={22} />
+              </div>
+              <div>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Sessions
+                </p>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="text-2xl font-extrabold text-slate-900">
+                    {centre.sessionIds.length}
+                  </span>
+                  <span className="text-xs text-slate-400">rejointe(s)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* KPI 2 : Formations */}
+            <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center gap-3.5 hover:shadow-sm transition-all">
+              <div className="h-12 w-12 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center text-brand-orange shrink-0">
+                <GraduationCap size={22} />
+              </div>
+              <div>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Formations
+                </p>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="text-2xl font-extrabold text-slate-900">
+                    {formationsDuCentre.length}
+                  </span>
+                  <span className="text-xs text-slate-400">filière(s)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* KPI 3 : Salles */}
+            <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center gap-3.5 hover:shadow-sm transition-all">
+              <div className="h-12 w-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                <DoorOpen size={22} />
+              </div>
+              <div>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Salles
+                </p>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="text-2xl font-extrabold text-slate-900">
+                    {sallesDuCentre.length}
+                  </span>
+                  <span className="text-xs text-slate-400">aménagée(s)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* KPI 4 : Personnel */}
+            <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center gap-3.5 hover:shadow-sm transition-all">
+              <div className="h-12 w-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                <Users size={22} />
+              </div>
+              <div>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Personnel
+                </p>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="text-2xl font-extrabold text-slate-900">
+                    {personnelDuCentre.length}
+                  </span>
+                  <span className="text-xs text-slate-400">collaborateur(s)</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <FormationsEtSalles
-            centreId={centre.id}
-            sessionId={sessionActive?.id}
-            rejointSessionActive={rejointSessionActive}
-            peutGererAcademique={peutGererAcademique}
-            peutAbonnerFormations={droitAbonnerFormations}
-            peutGererSalles={droitGererSalles}
-          />
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-start">
+            <div className="space-y-6">
+              <SessionsRejointes
+                centreId={centre.id}
+                sessionIds={centre.sessionIds}
+                peutRejoindreSession={peutRejoindreSession}
+              />
+              <InformationsDuCentre
+                centre={centre}
+                peutRelocaliser={peutRelocaliser}
+              />
+            </div>
+
+            <FormationsEtSalles
+              centreId={centre.id}
+              sessionId={sessionActive?.id}
+              rejointSessionActive={rejointSessionActive}
+              peutGererAcademique={peutGererAcademique}
+              peutAbonnerFormations={droitAbonnerFormations}
+              peutGererSalles={droitGererSalles}
+            />
+          </div>
         </div>
       )}
 
@@ -502,7 +504,7 @@ export function CentreDetailView({
   );
 }
 
-// ── Onglet Performances : Comparatif des tailles & finances inter-sessions ──
+// ── Onglet Performances : Synthèse, Évolution & Répartition par filière ──
 function PerformancesDuCentre({
   centre,
   sessionActiveId,
@@ -564,13 +566,22 @@ function PerformancesDuCentre({
           ? Math.min(100, Math.round((montantEncaisse / montantSouscrit) * 100))
           : 0;
 
-      // Ventilation par filière
+      // Ventilation par filière ordonnée par effectif décroissant
       const parFormation = formations
         .map((f) => {
-          const nb = apprenantsSession.filter((a) => a.formationId === f.id).length;
-          return { formation: f, effectif: nb };
+          const apprenantsF = apprenantsSession.filter((a) => a.formationId === f.id);
+          const nb = apprenantsF.length;
+          const preInscritsF = apprenantsF.filter((a) => a.preInscrit).length;
+          const definitifsF = nb - preInscritsF;
+          return {
+            formation: f,
+            effectif: nb,
+            definitifs: definitifsF,
+            preInscrits: preInscritsF,
+          };
         })
-        .filter((item) => item.effectif > 0);
+        .filter((item) => item.effectif > 0)
+        .sort((a, b) => b.effectif - a.effectif);
 
       return {
         session: s,
@@ -587,36 +598,94 @@ function PerformancesDuCentre({
     });
   }, [sessionsTriees, allApprenants, centre.id, mouvementsParSession, formations]);
 
-  // Comparatif Session la plus récente (N) vs précédente (N-1)
-  const sessionN = statsParSession[0];
-  const sessionNMoins1 = statsParSession[1];
+  // 1. Session de référence pour la synthèse : session active en priorité, sinon plus récente
+  const sessionActiveData = useMemo(() => {
+    if (sessionActiveId) {
+      const active = statsParSession.find((s) => s.session.id === sessionActiveId);
+      if (active) return active;
+    }
+    return statsParSession[0] ?? null;
+  }, [statsParSession, sessionActiveId]);
+
+  // Session chronologiquement précédente pour calcul des deltas
+  const sessionPrecedente = useMemo(() => {
+    if (!sessionActiveData) return null;
+    const idx = statsParSession.findIndex((s) => s.session.id === sessionActiveData.session.id);
+    return idx >= 0 && idx + 1 < statsParSession.length ? statsParSession[idx + 1] : null;
+  }, [statsParSession, sessionActiveData]);
 
   const diffEffectif =
-    sessionN && sessionNMoins1
-      ? sessionN.effectifTotal - sessionNMoins1.effectifTotal
+    sessionActiveData && sessionPrecedente
+      ? sessionActiveData.effectifTotal - sessionPrecedente.effectifTotal
       : null;
   const pctDiffEffectif =
-    sessionNMoins1 && sessionNMoins1.effectifTotal > 0
-      ? Math.round((diffEffectif! / sessionNMoins1.effectifTotal) * 100)
+    sessionPrecedente && sessionPrecedente.effectifTotal > 0 && diffEffectif !== null
+      ? Math.round((diffEffectif / sessionPrecedente.effectifTotal) * 100)
       : null;
 
   const diffSouscrit =
-    sessionN && sessionNMoins1
-      ? sessionN.montantSouscrit - sessionNMoins1.montantSouscrit
-      : null;
-  const pctDiffSouscrit =
-    sessionNMoins1 && sessionNMoins1.montantSouscrit > 0
-      ? Math.round((diffSouscrit! / sessionNMoins1.montantSouscrit) * 100)
+    sessionActiveData && sessionPrecedente
+      ? sessionActiveData.montantSouscrit - sessionPrecedente.montantSouscrit
       : null;
 
   const diffEncaisse =
-    sessionN && sessionNMoins1
-      ? sessionN.montantEncaisse - sessionNMoins1.montantEncaisse
+    sessionActiveData && sessionPrecedente
+      ? sessionActiveData.montantEncaisse - sessionPrecedente.montantEncaisse
       : null;
-  const pctDiffEncaisse =
-    sessionNMoins1 && sessionNMoins1.montantEncaisse > 0
-      ? Math.round((diffEncaisse! / sessionNMoins1.montantEncaisse) * 100)
-      : null;
+
+  // Tri interactif du tableau comparatif inter-sessions
+  type TriSessionColonne = "session" | "statut" | "effectif" | "definitifs" | "souscrit" | "encaisse" | "taux";
+  const [triSessionColonne, setTriSessionColonne] = useState<TriSessionColonne>("session");
+  const [triSessionDirection, setTriSessionDirection] = useState<SortDirection>("desc");
+
+  function handleTriSession(colonne: TriSessionColonne) {
+    if (triSessionColonne === colonne) {
+      setTriSessionDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTriSessionColonne(colonne);
+      setTriSessionDirection(colonne === "session" || colonne === "statut" ? "asc" : "desc");
+    }
+  }
+
+  const statsParSessionTriees = useMemo(() => {
+    return [...statsParSession].sort((a, b) => {
+      let res = 0;
+      switch (triSessionColonne) {
+        case "session":
+          res = compareStrings(a.session.annee, b.session.annee);
+          break;
+        case "statut":
+          res = compareStrings(a.session.statut, b.session.statut);
+          break;
+        case "effectif":
+          res = compareNumbers(a.effectifTotal, b.effectifTotal);
+          break;
+        case "definitifs":
+          res = compareNumbers(a.definitifs, b.definitifs);
+          break;
+        case "souscrit":
+          res = compareNumbers(a.montantSouscrit, b.montantSouscrit);
+          break;
+        case "encaisse":
+          res = compareNumbers(a.montantEncaisse, b.montantEncaisse);
+          break;
+        case "taux":
+          res = compareNumbers(a.tauxRecouvrement, b.tauxRecouvrement);
+          break;
+      }
+      return triSessionDirection === "asc" ? res : -res;
+    });
+  }, [statsParSession, triSessionColonne, triSessionDirection]);
+
+  // Session sélectionnée pour la ventilation par filière
+  const [sessionFiliereId, setSessionFiliereId] = useState<string>("");
+  const sessionFiliereCourante = useMemo(() => {
+    if (sessionFiliereId) {
+      const trouvee = statsParSession.find((s) => s.session.id === sessionFiliereId);
+      if (trouvee) return trouvee;
+    }
+    return sessionActiveData;
+  }, [statsParSession, sessionFiliereId, sessionActiveData]);
 
   const chargement = chargementSessions || chargementApprenants || chargementMouvements;
 
@@ -646,302 +715,339 @@ function PerformancesDuCentre({
     );
   }
 
-  const maxEffectif = Math.max(1, ...statsParSession.map((s) => s.effectifTotal));
-  const maxSouscrit = Math.max(1, ...statsParSession.map((s) => s.montantSouscrit));
+  const estSessionActive = sessionActiveData?.session.id === sessionActiveId;
+  const pctDefinitifs =
+    sessionActiveData && sessionActiveData.effectifTotal > 0
+      ? Math.round((sessionActiveData.definitifs / sessionActiveData.effectifTotal) * 100)
+      : 0;
 
   return (
     <div className="space-y-6">
-      {/* ── 1. Cartes Synthèse Comparative (Session N vs N-1) ── */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* KPI 1 : Effectif promotion */}
-        <Card className="p-4 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
-          <div className="flex items-start justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Effectif Promotion ({sessionN?.session.annee})
-            </span>
-            <div className="h-9 w-9 rounded-xl bg-orange-50 text-brand-orange flex items-center justify-center shrink-0">
-              <Users size={18} />
-            </div>
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-slate-900 tabular-nums">
-              {sessionN?.effectifTotal ?? 0}
-            </span>
-            <span className="text-xs text-slate-400 font-medium">élèves inscrits</span>
-          </div>
-          {diffEffectif !== null && (
-            <div className="mt-2.5 flex items-center gap-1.5 text-xs font-bold">
-              {diffEffectif >= 0 ? (
-                <span className="inline-flex items-center gap-0.5 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/70">
-                  <TrendingUp size={13} />
-                  +{diffEffectif} élève{diffEffectif > 1 ? "s" : ""} ({pctDiffEffectif! >= 0 ? `+${pctDiffEffectif}%` : `${pctDiffEffectif}%`})
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-0.5 text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200/70">
-                  <TrendingDown size={13} />
-                  {diffEffectif} élève{Math.abs(diffEffectif) > 1 ? "s" : ""} ({pctDiffEffectif}%)
-                </span>
-              )}
-              <span className="text-[11px] text-slate-400">vs {sessionNMoins1?.session.annee}</span>
-            </div>
-          )}
-        </Card>
-
-        {/* KPI 2 : Contrats souscrits */}
-        <Card className="p-4 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
-          <div className="flex items-start justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Volume Souscrit ({sessionN?.session.annee})
-            </span>
-            <div className="h-9 w-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
-              <Wallet size={18} />
-            </div>
-          </div>
-          <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="text-2xl font-black text-slate-900 tabular-nums">
-              {FCFA.format(sessionN?.montantSouscrit ?? 0)}
-            </span>
-            <span className="text-xs text-slate-400 font-bold">F</span>
-          </div>
-          {diffSouscrit !== null && (
-            <div className="mt-2.5 flex items-center gap-1.5 text-xs font-bold">
-              {diffSouscrit >= 0 ? (
-                <span className="inline-flex items-center gap-0.5 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/70">
-                  <TrendingUp size={13} />
-                  +{FCFA.format(diffSouscrit)} F
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-0.5 text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200/70">
-                  <TrendingDown size={13} />
-                  {FCFA.format(diffSouscrit)} F
-                </span>
-              )}
-              <span className="text-[11px] text-slate-400">vs {sessionNMoins1?.session.annee}</span>
-            </div>
-          )}
-        </Card>
-
-        {/* KPI 3 : Recouvrement encaissé */}
-        <Card className="p-4 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
-          <div className="flex items-start justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Encaissé Réel ({sessionN?.session.annee})
-            </span>
-            <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-              <Coins size={18} />
-            </div>
-          </div>
-          <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="text-2xl font-black text-slate-900 tabular-nums">
-              {FCFA.format(sessionN?.montantEncaisse ?? 0)}
-            </span>
-            <span className="text-xs text-slate-400 font-bold">F</span>
-          </div>
-          <div className="mt-2.5 flex items-center justify-between text-xs font-bold">
-            <span className="text-emerald-700 font-black">
-              Taux : {sessionN?.tauxRecouvrement ?? 0}%
-            </span>
-            <span className="text-slate-400 font-medium">
-              Reste : {FCFA.format(sessionN?.soldeRestant ?? 0)} F
-            </span>
-          </div>
-        </Card>
-
-        {/* KPI 4 : Taux de Confirmation */}
-        <Card className="p-4 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
-          <div className="flex items-start justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Inscriptions Définitives
-            </span>
-            <div className="h-9 w-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center shrink-0">
-              <CheckCircle2 size={18} />
-            </div>
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-slate-900 tabular-nums">
-              {sessionN?.definitifs ?? 0}
-            </span>
-            <span className="text-xs text-slate-400 font-medium">
-              / {sessionN?.effectifTotal ?? 0} élèves
-            </span>
-          </div>
-          <div className="mt-2.5 flex items-center justify-between text-xs font-bold">
-            <span className="text-purple-700">
-              {sessionN?.effectifTotal
-                ? Math.round((sessionN.definitifs / sessionN.effectifTotal) * 100)
-                : 0}
-              % confirmés
-            </span>
-            <span className="text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200/60 text-[11px]">
-              {sessionN?.preInscrits ?? 0} pré-inscrits
-            </span>
-          </div>
-        </Card>
-      </div>
-
-      {/* ── 2. Visualisation Graphique Comparatif Inter-Saisons ── */}
-      <Card className="rounded-2xl border border-slate-200/80 shadow-xs p-6 bg-white space-y-6">
-        <div>
-          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <BarChart3 size={18} className="text-brand-orange" />
-            <span>Comparatif Visuel des Saisons (Tailles &amp; Trésorerie)</span>
-          </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Mise en perspective de l&rsquo;évolution des effectifs et du volume financier au fil des années académiques.
-          </p>
-        </div>
-
-        <div className="space-y-5">
-          {statsParSession.map((item) => {
-            const pctBarreEffectif = Math.round((item.effectifTotal / maxEffectif) * 100);
-            const pctBarreSouscrit = Math.round((item.montantSouscrit / maxSouscrit) * 100);
-            const estSessionActive = item.session.id === sessionActiveId;
-
-            return (
-              <div
-                key={item.session.id}
-                className={`p-4 rounded-xl border transition-all ${
-                  estSessionActive
-                    ? "bg-orange-50/30 border-brand-orange/30 shadow-2xs"
-                    : "bg-slate-50/50 border-slate-200/70"
-                }`}
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200/50">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-slate-900">
-                      Session {item.session.annee}
-                    </span>
-                    {estSessionActive && (
-                      <span className="rounded-full bg-brand-orange text-white text-[10px] font-black px-2 py-0.5 uppercase tracking-wide">
-                        Active
-                      </span>
-                    )}
-                    <span
-                      className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                        item.session.statut === "EN_COURS"
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          : "bg-slate-100 text-slate-600 border border-slate-200"
-                      }`}
-                    >
-                      {item.session.statut === "EN_COURS" ? "En cours" : "Clôturée"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-4 text-xs font-bold text-slate-600">
-                    <span>
-                      Effectif : <strong className="text-slate-900">{item.effectifTotal}</strong> élève{item.effectifTotal > 1 ? "s" : ""}
-                    </span>
-                    <span>·</span>
-                    <span>
-                      Souscrit : <strong className="text-slate-900">{FCFA.format(item.montantSouscrit)} F</strong>
-                    </span>
-                    <span>·</span>
-                    <span>
-                      Encaissé : <strong className="text-emerald-700">{FCFA.format(item.montantEncaisse)} F</strong>
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-3 space-y-2.5">
-                  {/* Jauge Effectif */}
-                  <div>
-                    <div className="flex justify-between text-[11px] font-semibold text-slate-500 mb-1">
-                      <span>Progression Effectif ({item.effectifTotal} élèves)</span>
-                      <span>{pctBarreEffectif}% du pic historique</span>
-                    </div>
-                    <div className="h-2 w-full bg-slate-200/70 rounded-full overflow-hidden flex gap-0.5">
-                      <div
-                        className="h-full bg-brand-orange rounded-l-full transition-all duration-500"
-                        style={{
-                          width: `${item.effectifTotal > 0 ? (item.definitifs / item.effectifTotal) * pctBarreEffectif : 0}%`,
-                        }}
-                        title={`${item.definitifs} définitifs`}
-                      />
-                      <div
-                        className="h-full bg-amber-400 rounded-r-full transition-all duration-500"
-                        style={{
-                          width: `${item.effectifTotal > 0 ? (item.preInscrits / item.effectifTotal) * pctBarreEffectif : 0}%`,
-                        }}
-                        title={`${item.preInscrits} pré-inscrits`}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Jauge Financière (Encaissé vs Souscrit) */}
-                  <div>
-                    <div className="flex justify-between text-[11px] font-semibold text-slate-500 mb-1">
-                      <span>
-                        Recouvrement Réel : {FCFA.format(item.montantEncaisse)} F / {FCFA.format(item.montantSouscrit)} F
-                      </span>
-                      <span className="font-bold text-emerald-700">{item.tauxRecouvrement}% recouvré</span>
-                    </div>
-                    <div className="h-2 w-full bg-slate-200/70 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                        style={{ width: `${item.tauxRecouvrement}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-
-      {/* ── 3. Tableau Analytique Détaillé Inter-Sessions ── */}
-      <Card className="rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden bg-white">
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+      {/* ── NIVEAU A. Synthèse de la session active ── */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-              <CalendarRange size={18} className="text-purple-600" />
-              <span>Historique Comparatif Détaillé</span>
-            </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Toutes les données consolidées session par session pour ce centre
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+              <span>Synthèse de la session {sessionActiveData ? sessionActiveData.session.annee : ""}</span>
+              {estSessionActive && (
+                <span className="rounded-full bg-brand-orange text-white text-[10px] font-black px-2 py-0.5 uppercase tracking-wide">
+                  Active
+                </span>
+              )}
+            </h2>
+            <p className="text-xs text-slate-400">
+              Indicateurs essentiels de pilotage pour la session en cours
             </p>
           </div>
-          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
-            {statsParSession.length} session{statsParSession.length > 1 ? "s" : ""}
-          </span>
+          {sessionPrecedente && (
+            <span className="text-xs text-slate-500 self-start sm:self-auto">
+              Référence précédente : <strong className="text-slate-700">Session {sessionPrecedente.session.annee}</strong>
+            </span>
+          )}
         </div>
 
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Indicateur 1 : Effectif actuel */}
+          <Card className="p-4 bg-white border border-slate-200/80 rounded-2xl shadow-xs flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Effectif actuel
+                </span>
+                <div className="h-8 w-8 rounded-lg bg-orange-50 text-brand-orange flex items-center justify-center shrink-0">
+                  <Users size={16} />
+                </div>
+              </div>
+              <div className="mt-2 flex items-baseline gap-1.5">
+                <span className="text-2xl font-black text-slate-900 tabular-nums">
+                  {sessionActiveData?.effectifTotal ?? 0}
+                </span>
+                <span className="text-xs text-slate-500 font-medium">
+                  élève{(sessionActiveData?.effectifTotal ?? 0) > 1 ? "s" : ""}
+                </span>
+              </div>
+            </div>
+            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
+              {diffEffectif !== null && sessionPrecedente ? (
+                diffEffectif >= 0 ? (
+                  <span className="inline-flex items-center gap-1 font-bold text-emerald-700">
+                    <TrendingUp size={13} />
+                    +{diffEffectif} ({pctDiffEffectif! >= 0 ? `+${pctDiffEffectif}%` : `${pctDiffEffectif}%`})
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 font-bold text-rose-700">
+                    <TrendingDown size={13} />
+                    {diffEffectif} ({pctDiffEffectif}%)
+                  </span>
+                )
+              ) : (
+                <span className="text-slate-400 font-medium">Session de référence</span>
+              )}
+              {sessionPrecedente && (
+                <span className="text-[11px] text-slate-400">vs {sessionPrecedente.session.annee}</span>
+              )}
+            </div>
+          </Card>
+
+          {/* Indicateur 2 : Inscriptions définitives & préinscriptions */}
+          <Card className="p-4 bg-white border border-slate-200/80 rounded-2xl shadow-xs flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Inscriptions
+                </span>
+                <div className="h-8 w-8 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center shrink-0">
+                  <CheckCircle2 size={16} />
+                </div>
+              </div>
+              <div className="mt-2 flex items-baseline gap-1.5">
+                <span className="text-2xl font-black text-slate-900 tabular-nums">
+                  {sessionActiveData?.definitifs ?? 0}
+                </span>
+                <span className="text-xs text-slate-500 font-medium">
+                  définitif{(sessionActiveData?.definitifs ?? 0) > 1 ? "s" : ""}
+                </span>
+              </div>
+              {/* Mini barre proportionnelle définitifs / préinscrits */}
+              <div className="mt-2.5 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden flex gap-0.5">
+                <div
+                  className="h-full bg-emerald-500 rounded-l-full transition-all duration-300"
+                  style={{ width: `${pctDefinitifs}%` }}
+                  title={`${sessionActiveData?.definitifs ?? 0} définitifs (${pctDefinitifs}%)`}
+                />
+                <div
+                  className="h-full bg-amber-400 rounded-r-full transition-all duration-300"
+                  style={{ width: `${100 - pctDefinitifs}%` }}
+                  title={`${sessionActiveData?.preInscrits ?? 0} préinscrits`}
+                />
+              </div>
+            </div>
+            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
+              <span className="font-bold text-emerald-700">
+                {pctDefinitifs}% confirmés
+              </span>
+              <span className="text-amber-800 font-semibold">
+                {sessionActiveData?.preInscrits ?? 0} pré-inscrit{(sessionActiveData?.preInscrits ?? 0) > 1 ? "s" : ""}
+              </span>
+            </div>
+          </Card>
+
+          {/* Indicateur 3 : Montant souscrit */}
+          <Card className="p-4 bg-white border border-slate-200/80 rounded-2xl shadow-xs flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Montant souscrit
+                </span>
+                <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+                  <Wallet size={16} />
+                </div>
+              </div>
+              <div className="mt-2 flex items-baseline gap-1.5">
+                <span className="text-2xl font-black text-slate-900 tabular-nums">
+                  {FCFA.format(sessionActiveData?.montantSouscrit ?? 0)}
+                </span>
+                <span className="text-xs text-slate-500 font-bold">F CFA</span>
+              </div>
+            </div>
+            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
+              {diffSouscrit !== null && sessionPrecedente ? (
+                diffSouscrit >= 0 ? (
+                  <span className="inline-flex items-center gap-1 font-bold text-emerald-700">
+                    <TrendingUp size={13} />
+                    +{FCFA.format(diffSouscrit)} F
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 font-bold text-rose-700">
+                    <TrendingDown size={13} />
+                    {FCFA.format(diffSouscrit)} F
+                  </span>
+                )
+              ) : (
+                <span className="text-slate-400 font-medium">Total des contrats</span>
+              )}
+              {sessionPrecedente && (
+                <span className="text-[11px] text-slate-400">vs {sessionPrecedente.session.annee}</span>
+              )}
+            </div>
+          </Card>
+
+          {/* Indicateur 4 : Montant encaissé & Taux de recouvrement */}
+          <Card className="p-4 bg-white border border-slate-200/80 rounded-2xl shadow-xs flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Montant encaissé
+                </span>
+                <div className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                  <Coins size={16} />
+                </div>
+              </div>
+              <div className="mt-2 flex items-baseline gap-1.5">
+                <span className="text-2xl font-black text-slate-900 tabular-nums">
+                  {FCFA.format(sessionActiveData?.montantEncaisse ?? 0)}
+                </span>
+                <span className="text-xs text-slate-500 font-bold">F CFA</span>
+              </div>
+              {/* Mini barre de recouvrement */}
+              <div className="mt-2.5 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+                  style={{ width: `${sessionActiveData?.tauxRecouvrement ?? 0}%` }}
+                />
+              </div>
+            </div>
+            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
+              {diffEncaisse !== null && sessionPrecedente ? (
+                diffEncaisse >= 0 ? (
+                  <span className="inline-flex items-center gap-1 font-bold text-emerald-700">
+                    <TrendingUp size={13} />
+                    +{FCFA.format(diffEncaisse)} F
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 font-bold text-rose-700">
+                    <TrendingDown size={13} />
+                    {FCFA.format(diffEncaisse)} F
+                  </span>
+                )
+              ) : (
+                <span className="font-bold text-emerald-700">
+                  {sessionActiveData?.tauxRecouvrement ?? 0}% recouvré
+                </span>
+              )}
+              <span className="text-slate-500 font-medium">
+                Reste : {FCFA.format(sessionActiveData?.soldeRestant ?? 0)} F
+              </span>
+            </div>
+          </Card>
+        </div>
+      </div>
+
+      {/* ── NIVEAU B. Visualisation Graphique : Comparatif des performances inter-sessions ── */}
+      {sessionsTriees.length > 0 && (
+        <ComparatifSessionsCentreGraphique
+          nomCentre={centre.nom}
+          centreId={centre.id}
+          sessions={sessionsTriees}
+          sessionActiveId={sessionActiveId}
+          allApprenants={allApprenants}
+          mouvementsParSession={mouvementsParSession}
+        />
+      )}
+
+      {/* ── NIVEAU C. Historique détaillé des sessions ── */}
+      <Card className="rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden bg-white">
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+              <CalendarRange size={18} className="text-brand-orange" />
+              <span>Historique chiffré des sessions</span>
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Consolidation des effectifs, contrats souscrits et recouvrements par session académique
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+              {statsParSession.length} session{statsParSession.length > 1 ? "s" : ""}
+            </span>
+          </div>
+        </div>
+
+        {/* Tableau compact comparatif */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="border-b border-slate-200 bg-slate-50 text-slate-700">
               <tr>
-                <th className="p-3.5 font-bold uppercase tracking-wider">Session</th>
-                <th className="p-3.5 font-bold uppercase tracking-wider text-center">Statut</th>
-                <th className="p-3.5 font-bold uppercase tracking-wider text-center">Effectif Total</th>
-                <th className="p-3.5 font-bold uppercase tracking-wider text-center">Définitifs / Pré-inscrits</th>
-                <th className="p-3.5 font-bold uppercase tracking-wider text-right">Contrats Souscrits</th>
-                <th className="p-3.5 font-bold uppercase tracking-wider text-right">Encaissé Réel</th>
-                <th className="p-3.5 font-bold uppercase tracking-wider text-center">Taux Recouvrement</th>
-                <th className="p-3.5 font-bold uppercase tracking-wider text-center">Évolution Effectif</th>
+                <SortableHeader
+                  label="Session"
+                  columnKey="session"
+                  currentSortColumn={triSessionColonne}
+                  currentSortDirection={triSessionDirection}
+                  onSort={handleTriSession}
+                  align="left"
+                />
+                <SortableHeader
+                  label="Statut"
+                  columnKey="statut"
+                  currentSortColumn={triSessionColonne}
+                  currentSortDirection={triSessionDirection}
+                  onSort={handleTriSession}
+                  align="center"
+                />
+                <SortableHeader
+                  label="Effectif"
+                  columnKey="effectif"
+                  currentSortColumn={triSessionColonne}
+                  currentSortDirection={triSessionDirection}
+                  onSort={handleTriSession}
+                  align="center"
+                />
+                <SortableHeader
+                  label="Définitifs / Préinscriptions"
+                  columnKey="definitifs"
+                  currentSortColumn={triSessionColonne}
+                  currentSortDirection={triSessionDirection}
+                  onSort={handleTriSession}
+                  align="center"
+                />
+                <SortableHeader
+                  label="Montant souscrit"
+                  columnKey="souscrit"
+                  currentSortColumn={triSessionColonne}
+                  currentSortDirection={triSessionDirection}
+                  onSort={handleTriSession}
+                  align="right"
+                />
+                <SortableHeader
+                  label="Montant encaissé"
+                  columnKey="encaisse"
+                  currentSortColumn={triSessionColonne}
+                  currentSortDirection={triSessionDirection}
+                  onSort={handleTriSession}
+                  align="right"
+                />
+                <SortableHeader
+                  label="Taux de recouvrement"
+                  columnKey="taux"
+                  currentSortColumn={triSessionColonne}
+                  currentSortDirection={triSessionDirection}
+                  onSort={handleTriSession}
+                  align="center"
+                />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {statsParSession.map((row, i) => {
-                const sessionPrecedente = statsParSession[i + 1];
-                const evol = sessionPrecedente
-                  ? row.effectifTotal - sessionPrecedente.effectifTotal
+              {statsParSessionTriees.map((row) => {
+                const idxChrono = statsParSession.findIndex((s) => s.session.id === row.session.id);
+                const sessionPrec = idxChrono >= 0 ? statsParSession[idxChrono + 1] : null;
+                const evol = sessionPrec
+                  ? row.effectifTotal - sessionPrec.effectifTotal
                   : null;
+                const estLigneActive = row.session.id === sessionActiveId;
 
                 return (
-                  <tr key={row.session.id} className="hover:bg-slate-50/70 transition-colors">
+                  <tr
+                    key={row.session.id}
+                    className={`transition-colors ${
+                      estLigneActive
+                        ? "bg-orange-50/30 hover:bg-orange-50/50"
+                        : "hover:bg-slate-50/70"
+                    }`}
+                  >
                     <td className="p-3.5 font-bold text-slate-900">
                       <div className="flex items-center gap-2">
                         <span>{row.session.annee}</span>
-                        {row.session.id === sessionActiveId && (
+                        {estLigneActive && (
                           <span className="rounded bg-brand-orange text-white text-[9px] font-black px-1.5 py-0.2 uppercase">
-                            Actuelle
+                            Active
                           </span>
                         )}
                       </div>
                     </td>
                     <td className="p-3.5 text-center">
                       <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${
                           row.session.statut === "EN_COURS"
                             ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                             : "bg-slate-100 text-slate-600 border border-slate-200"
@@ -951,12 +1057,27 @@ function PerformancesDuCentre({
                       </span>
                     </td>
                     <td className="p-3.5 text-center font-black text-slate-900 text-sm tabular-nums">
-                      {row.effectifTotal}
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span>{row.effectifTotal}</span>
+                        {evol !== null && (
+                          evol >= 0 ? (
+                            <span className="text-[11px] font-bold text-emerald-700">
+                              (+{evol})
+                            </span>
+                          ) : (
+                            <span className="text-[11px] font-bold text-rose-700">
+                              ({evol})
+                            </span>
+                          )
+                        )}
+                      </div>
                     </td>
-                    <td className="p-3.5 text-center text-[11px]">
-                      <span className="font-bold text-emerald-800">{row.definitifs} déf.</span>
-                      <span className="text-slate-300 mx-1">/</span>
-                      <span className="font-bold text-amber-800">{row.preInscrits} pré.</span>
+                    <td className="p-3.5 text-center text-xs">
+                      <div className="flex items-center justify-center gap-1">
+                        <span className="font-bold text-emerald-800">{row.definitifs} déf.</span>
+                        <span className="text-slate-300">/</span>
+                        <span className="font-semibold text-amber-800">{row.preInscrits} pré.</span>
+                      </div>
                     </td>
                     <td className="p-3.5 text-right font-black text-slate-900 tabular-nums">
                       {FCFA.format(row.montantSouscrit)} F
@@ -965,32 +1086,17 @@ function PerformancesDuCentre({
                       {FCFA.format(row.montantEncaisse)} F
                     </td>
                     <td className="p-3.5 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <div className="h-1.5 w-12 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="h-1.5 w-14 bg-slate-100 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-emerald-500 rounded-full"
                             style={{ width: `${row.tauxRecouvrement}%` }}
                           />
                         </div>
-                        <span className="font-bold text-slate-700 text-xs tabular-nums">
+                        <span className="font-bold text-slate-700 text-xs tabular-nums w-8 text-right">
                           {row.tauxRecouvrement}%
                         </span>
                       </div>
-                    </td>
-                    <td className="p-3.5 text-center">
-                      {evol === null ? (
-                        <span className="text-slate-400 text-xs font-medium">-</span>
-                      ) : evol >= 0 ? (
-                        <span className="inline-flex items-center gap-0.5 text-emerald-700 font-bold text-xs">
-                          <TrendingUp size={13} />
-                          +{evol}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-0.5 text-rose-700 font-bold text-xs">
-                          <TrendingDown size={13} />
-                          {evol}
-                        </span>
-                      )}
                     </td>
                   </tr>
                 );
@@ -1000,62 +1106,102 @@ function PerformancesDuCentre({
         </div>
       </Card>
 
-      {/* ── 4. Ventilation des Effectifs Actuels par Filière ── */}
-      {sessionN && sessionN.parFormation.length > 0 && (
-        <Card className="rounded-2xl border border-slate-200/80 shadow-xs p-5 bg-white space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <GraduationCap size={18} className="text-brand-orange" />
-                <span>Répartition des Effectifs par Filière ({sessionN.session.annee})</span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Ventilation des élèves inscrits dans ce centre pour la session active
-              </p>
-            </div>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-orange-50 text-brand-orange border border-orange-200/60">
-              {sessionN.parFormation.length} filière{sessionN.parFormation.length > 1 ? "s" : ""} active{sessionN.parFormation.length > 1 ? "s" : ""}
+      {/* ── NIVEAU C. Répartition par filière ── */}
+      <Card className="rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden bg-white">
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+              <GraduationCap size={18} className="text-brand-orange" />
+              <span>Répartition par filière</span>
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Ventilation des effectifs par formation pour la session sélectionnée
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <span className="text-xs font-semibold text-slate-500">Session :</span>
+            <select
+              value={sessionFiliereCourante?.session.id || ""}
+              onChange={(e) => setSessionFiliereId(e.target.value)}
+              aria-label="Sélectionner une session"
+              className="text-xs font-bold bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-800 hover:bg-slate-100 focus:outline-none focus:ring-1 focus:ring-brand-orange transition-colors"
+            >
+              {statsParSession.map((item) => (
+                <option key={item.session.id} value={item.session.id}>
+                  Session {item.session.annee} {item.session.id === sessionActiveId ? "(Active)" : ""}
+                </option>
+              ))}
+            </select>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-orange-50 text-brand-orange border border-orange-200/60">
+              {sessionFiliereCourante?.parFormation.length ?? 0} filière{(sessionFiliereCourante?.parFormation.length ?? 0) > 1 ? "s" : ""}
             </span>
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {sessionN.parFormation.map(({ formation, effectif }) => {
-              const part =
-                sessionN.effectifTotal > 0
-                  ? Math.round((effectif / sessionN.effectifTotal) * 100)
-                  : 0;
-
-              return (
-                <div
-                  key={formation.id}
-                  className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:border-brand-orange/40 transition-colors"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-bold text-xs text-slate-900 truncate">
-                      {formation.nom}
-                    </p>
-                    <span className="text-xs font-black text-brand-orange tabular-nums">
-                      {effectif} élève{effectif > 1 ? "s" : ""}
-                    </span>
-                  </div>
-
-                  <div className="mt-2.5 flex items-center gap-2">
-                    <div className="h-1.5 flex-1 bg-slate-200 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-brand-orange rounded-full"
-                        style={{ width: `${part}%` }}
-                      />
-                    </div>
-                    <span className="text-[11px] font-bold text-slate-500 tabular-nums">
-                      {part}%
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+        {/* Tableau sobre des filières */}
+        {!sessionFiliereCourante || sessionFiliereCourante.parFormation.length === 0 ? (
+          <div className="p-8 text-center text-xs text-slate-400">
+            Aucun élève inscrit dans les filières de ce centre pour cette session.
           </div>
-        </Card>
-      )}
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-slate-200 bg-slate-50 text-slate-700">
+                <tr>
+                  <th className="p-3 font-bold text-center w-12">#</th>
+                  <th className="p-3 font-bold">Filière</th>
+                  <th className="p-3 font-bold text-center">Effectif</th>
+                  <th className="p-3 font-bold text-center">Définitifs / Préinscriptions</th>
+                  <th className="p-3 font-bold text-left min-w-[200px]">
+                    Part de l&rsquo;effectif ({sessionFiliereCourante.effectifTotal} élèves)
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {sessionFiliereCourante.parFormation.map((item, index) => {
+                  const part =
+                    sessionFiliereCourante.effectifTotal > 0
+                      ? Math.round((item.effectif / sessionFiliereCourante.effectifTotal) * 100)
+                      : 0;
+
+                  return (
+                    <tr key={item.formation.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="p-3.5 text-center text-slate-400 font-bold tabular-nums">
+                        {index + 1}
+                      </td>
+                      <td className="p-3.5 font-bold text-slate-900">
+                        {item.formation.nom}
+                      </td>
+                      <td className="p-3.5 text-center font-black text-slate-900 text-sm tabular-nums">
+                        {item.effectif}
+                      </td>
+                      <td className="p-3.5 text-center">
+                        <span className="font-bold text-emerald-800">{item.definitifs} déf.</span>
+                        <span className="text-slate-300 mx-1">/</span>
+                        <span className="font-semibold text-amber-800">{item.preInscrits} pré.</span>
+                      </td>
+                      <td className="p-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="h-2 flex-1 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-brand-orange rounded-full transition-all duration-300"
+                              style={{ width: `${part}%` }}
+                            />
+                          </div>
+                          <span className="font-bold text-xs text-slate-700 tabular-nums w-10 text-right">
+                            {part}%
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

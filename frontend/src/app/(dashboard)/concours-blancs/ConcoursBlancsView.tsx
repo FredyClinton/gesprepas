@@ -1,20 +1,13 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import {
   Award,
-  Calendar,
-  Clock,
   Plus,
-  Building2,
-  BookOpen,
   CheckCircle2,
+  Clock,
   Layers,
   ChevronRight,
-  Eye,
-  FileSpreadsheet,
-  Printer,
   Sparkles,
   Lock,
   Unlock,
@@ -23,12 +16,12 @@ import {
   Trash2,
   AlertTriangle,
   Star,
+  FileSpreadsheet,
 } from "lucide-react";
 import { useSessionActive, useCentres } from "@/modules/centres-sessions";
 import { useFormations } from "@/modules/academique";
 import { useMatieres } from "@/modules/matieres";
 import { useDepartements } from "@/modules/departement";
-import { useApprenants } from "@/modules/apprenants";
 import {
   useConcoursBlancs,
   useChangerStatutConcoursBlanc,
@@ -40,6 +33,7 @@ import {
   ProgrammerConcoursBlancModal,
   ContenuEpreuveModal,
   BordereauResultatsView,
+  SaisieNotesInlineView,
   ExporterBordereauModal,
 } from "@/modules/concours-blancs";
 import { messageErreurApi } from "@/shared/lib/api-client";
@@ -51,22 +45,34 @@ interface ConcoursBlancsViewProps {
   userId?: string;
 }
 
+function formatDate(dateStr?: string | null) {
+  if (!dateStr) return "Date non définie";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString("fr-FR", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
 export function ConcoursBlancsView({
   userRole,
   userCentreId,
   userDepartementId,
   userId,
 }: ConcoursBlancsViewProps) {
-  const router = useRouter();
   const { data: sessionActive } = useSessionActive();
   const { data: formations = [] } = useFormations();
   const { data: centres = [] } = useCentres();
   const { data: matieres = [] } = useMatieres();
   const { data: departements = [] } = useDepartements();
-  const { data: apprenants = [] } = useApprenants();
 
   const estDA = userRole === "DIRECTEUR_ACADEMIQUE" || userRole === "DIRECTEUR";
-  const estChefCentre = userRole === "CHEF_CENTRE";
   const estChefDept = userRole === "CHEF_DEPARTEMENT";
 
   // Départements dont l'utilisateur connecté est le chef
@@ -97,7 +103,9 @@ export function ConcoursBlancsView({
   const concoursBlancs = useMemo(() => {
     if (estDA || !userCentreId) return tousConcoursBlancs;
     return tousConcoursBlancs.filter(
-      (cb) => cb.tousLesCentres || (cb.centreIds && cb.centreIds.includes(userCentreId)),
+      (cb) =>
+        cb.tousLesCentres ||
+        (cb.centreIds && cb.centreIds.includes(userCentreId)),
     );
   }, [tousConcoursBlancs, estDA, userCentreId]);
 
@@ -120,24 +128,25 @@ export function ConcoursBlancsView({
 
   // Modales
   const [modalProgrammerOuvert, setModalProgrammerOuvert] = useState(false);
-  const [concoursAModifier, setConcoursAModifier] = useState<ConcoursBlanc | null>(null);
+  const [concoursAModifier, setConcoursAModifier] =
+    useState<ConcoursBlanc | null>(null);
   const [modalContenuOuvert, setModalContenuOuvert] = useState(false);
-  const [epreuvePourContenu, setEpreuvePourContenu] = useState<EpreuveConcoursBlanc | null>(null);
+  const [epreuvePourContenu, setEpreuvePourContenu] =
+    useState<EpreuveConcoursBlanc | null>(null);
 
-  const [modalSaisieOuvert, setModalSaisieOuvert] = useState(false);
   const [formationSaisieId, setFormationSaisieId] = useState("");
-  const [centreSaisieId, setCentreSaisieId] = useState(userCentreId || "");
+  const [centreSaisieId, setCentreSaisieId] = useState("");
 
-  // Synchronisation du centre de saisie
-  React.useEffect(() => {
-    if (userCentreId && !estDA) {
-      setCentreSaisieId(userCentreId);
-    } else if (centresConcoursActif.length > 0) {
-      if (!centreSaisieId || !centresConcoursActif.some((c) => c.id === centreSaisieId)) {
-        setCentreSaisieId(centresConcoursActif[0].id);
-      }
+  const effectiveCentreId = useMemo(() => {
+    if (userCentreId && !estDA) return userCentreId;
+    if (
+      centreSaisieId &&
+      centresConcoursActif.some((c) => c.id === centreSaisieId)
+    ) {
+      return centreSaisieId;
     }
-  }, [userCentreId, estDA, centresConcoursActif, centreSaisieId]);
+    return centresConcoursActif[0]?.id || centres[0]?.id || "";
+  }, [userCentreId, estDA, centreSaisieId, centresConcoursActif, centres]);
 
   const [modalExportOuvert, setModalExportOuvert] = useState(false);
   const [formationExportId, setFormationExportId] = useState<string>("");
@@ -146,57 +155,35 @@ export function ConcoursBlancsView({
     text: string;
   } | null>(null);
 
-  // Apprenants du centre actif pour la saisie des notes
-  const apprenantsCentre = useMemo(() => {
-    if (!centreSaisieId) return [];
-    return apprenants.filter(
-      (a) =>
-        a.centreId === centreSaisieId &&
-        (!sessionActive?.id || a.sessionId === sessionActive.id),
-    );
-  }, [apprenants, centreSaisieId, sessionActive]);
-
-  const ouvrirSaisieNotes = (cbId: string, fId: string, cId?: string) => {
-    if (estChefDept) return; // Protection absolue : les chefs de département ne remplissent pas les notes
-    const targetCentre = cId && cId !== "TOUS" ? cId : centreSaisieId || userCentreId || "";
-    router.push(
-      `/concours-blancs/${cbId}/saisie?formationId=${fId}${targetCentre ? `&centreId=${targetCentre}` : ""}`,
-    );
-  };
-
   const ouvrirContenuEpreuve = (ep: EpreuveConcoursBlanc) => {
     setEpreuvePourContenu(ep);
     setModalContenuOuvert(true);
   };
 
-  const centreConnecte = centres.find((c) => c.id === userCentreId);
-
-  // Onglet actif : résultats consolidés ou épreuves par filière
-  const [ongletActif, setOngletActif] = useState<"resultats" | "epreuves">("resultats");
+  // Onglet actif : palmarès par défaut, ou saisie directe des notes
+  const [ongletActif, setOngletActif] = useState<
+    "resultats" | "saisie" | "epreuves"
+  >("resultats");
   const [menuAdminOuvert, setMenuAdminOuvert] = useState(false);
 
   return (
-    <div className="mx-auto flex h-full max-w-[1600px] flex-col gap-5 p-4 sm:p-6">
-      {/* ── En-tête Principal ── */}
-      <div className="flex shrink-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+    <div className="space-y-6">
+      {/* ── En-tête Principal de la page ── */}
+      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-orange text-white shadow-xs">
-              <Award size={22} />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900">
-                Concours Blancs & Évaluations
-              </h1>
-              <p className="text-xs text-slate-500">
-                Session {sessionActive?.annee?.toString() || "2025-2026"}
-                {centreConnecte ? ` · Centre ${centreConnecte.nom}` : ""}
-              </p>
-            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              Concours Blancs & Évaluations
+            </h1>
+            <span className="text-brand-orange rounded-full border border-orange-200 bg-orange-50 px-2.5 py-0.5 text-xs font-semibold">
+              Session {sessionActive?.annee || "En cours"}
+            </span>
           </div>
+          <p className="mt-1 text-sm text-slate-500">
+            Organisation des sessions, saisie des notes par centre et palmarès consolidé.
+          </p>
         </div>
 
-        {/* Bouton de programmation réservé au DA */}
         {estDA && sessionActive && (
           <button
             type="button"
@@ -204,88 +191,46 @@ export function ConcoursBlancsView({
               setConcoursAModifier(null);
               setModalProgrammerOuvert(true);
             }}
-            className="inline-flex items-center gap-2 rounded-xl bg-brand-orange px-4 py-2.5 text-xs font-bold text-white hover:bg-brand-orange/90 shadow-xs transition-colors cursor-pointer shrink-0 self-start sm:self-auto"
+            className="bg-brand-orange hover:bg-brand-orange/90 shadow-brand-orange/20 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white shadow-md transition-all active:scale-[0.98] cursor-pointer"
           >
-            <Plus size={15} />
+            <Plus className="h-4 w-4" />
             <span>Nouveau Concours Blanc</span>
           </button>
         )}
       </div>
 
-      {/* ── Sélecteur Visuel & Chronologique des Concours Blancs ── */}
-      {concoursBlancs.length > 0 && (
-        <div className="flex items-stretch gap-3 overflow-x-auto pb-1.5 scrollbar-thin">
-          {concoursBlancs.map((cb) => {
-            const actif = (concoursActif?.id ?? "") === cb.id;
-            const dateStr = new Date(cb.dateEpreuve).toLocaleDateString("fr-FR", {
-              day: "numeric",
-              month: "short",
-            });
-
-            return (
-              <button
-                key={cb.id}
-                type="button"
-                onClick={() => setConcoursActifId(cb.id)}
-                className={`group flex min-w-[240px] flex-col justify-between rounded-2xl border p-3.5 text-left transition-all cursor-pointer shrink-0 ${
-                  actif
-                    ? "border-brand-orange bg-white shadow-xs ring-2 ring-brand-orange/20"
-                    : "border-slate-200/90 bg-white/75 hover:bg-white hover:border-slate-300 shadow-2xs"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs font-black tabular-nums ${
-                        actif
-                          ? "bg-brand-orange text-white shadow-xs"
-                          : "bg-slate-100 text-slate-700 group-hover:bg-slate-200/70"
-                      }`}
-                    >
-                      N°{cb.numero}
-                    </span>
-                    <span className="text-xs font-bold text-slate-900 line-clamp-1">{cb.titre}</span>
-                  </div>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider shrink-0 ${
-                      cb.statut === "PUBLIE"
-                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200/60"
-                        : cb.statut === "EN_COURS"
-                          ? "bg-amber-50 text-amber-800 border border-amber-200/60"
-                          : cb.statut === "CLOTURE"
-                            ? "bg-slate-100 text-slate-700 border border-slate-200"
-                            : "bg-blue-50 text-blue-800 border border-blue-200/60"
-                    }`}
-                  >
-                    {cb.statut === "CLOTURE" ? "CLÔTURÉ" : cb.statut.replace("_", " ")}
-                  </span>
-                </div>
-
-                <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100">
-                  <span className="flex items-center gap-1">
-                    <Calendar size={12} className={actif ? "text-brand-orange" : "text-slate-400"} />
-                    <span className="font-medium text-slate-700">{dateStr}</span>
-                    <span className="text-slate-400">· Sem. {cb.semaine}</span>
-                  </span>
-                  <span className="text-slate-500 font-semibold">
-                    {cb.epreuves?.length || 0} épr.
-                  </span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ── Contenu Principal ── */}
+      {/* ── Vue Master-Detail (comme les Bordereaux) ── */}
       {isLoading ? (
-        <div className="p-16 text-center text-slate-400 text-xs bg-white rounded-2xl border border-slate-200">
-          Chargement des concours blancs...
+        <div className="flex flex-col lg:flex-row items-start gap-5">
+          <div className="w-full lg:w-72 xl:w-80 shrink-0 space-y-3">
+            <div className="h-4 w-1/3 animate-pulse rounded bg-slate-200" />
+            <div className="animate-pulse space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+              <div className="h-4 w-1/2 rounded bg-slate-200" />
+              <div className="h-3 w-3/4 rounded bg-slate-200" />
+            </div>
+            <div className="animate-pulse space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+              <div className="h-4 w-1/2 rounded bg-slate-200" />
+              <div className="h-3 w-3/4 rounded bg-slate-200" />
+            </div>
+          </div>
+          <div className="w-full flex-1 min-w-0 space-y-4">
+            <div className="animate-pulse space-y-4 rounded-xl border border-slate-200 bg-white p-6">
+              <div className="h-6 w-1/3 rounded bg-slate-200" />
+              <div className="h-4 w-1/2 rounded bg-slate-200" />
+            </div>
+          </div>
         </div>
-      ) : !concoursActif ? (
-        <div className="p-16 text-center text-slate-400 text-xs bg-white rounded-2xl border border-dashed border-slate-200 space-y-3">
-          <Award size={32} className="mx-auto text-slate-300" />
-          <p className="font-bold text-slate-600">Aucun concours blanc programmé pour cette session.</p>
+      ) : concoursBlancs.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-16 text-center">
+          <div className="text-brand-orange mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-50">
+            <Award className="h-8 w-8" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-900">
+            Aucun concours blanc programmé pour cette session
+          </h3>
+          <p className="mt-1 mb-6 max-w-md text-sm text-slate-500">
+            Programmez une session d&rsquo;évaluation pour définir les matières, coefficients, organiser le passage des épreuves et compiler les classements.
+          </p>
           {estDA && (
             <button
               type="button"
@@ -293,509 +238,717 @@ export function ConcoursBlancsView({
                 setConcoursAModifier(null);
                 setModalProgrammerOuvert(true);
               }}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-brand-orange px-4 py-2 text-xs font-bold text-white hover:bg-brand-orange/90 cursor-pointer shadow-xs"
+              className="bg-brand-orange hover:bg-brand-orange/90 shadow-brand-orange/20 flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-md transition-all cursor-pointer"
             >
-              <Plus size={14} />
+              <Plus className="h-4 w-4" />
               <span>Programmer le premier Concours Blanc</span>
             </button>
           )}
         </div>
       ) : (
-        <div className="space-y-4">
-          {/* ── Cockpit de Session & Stepper de Cycle de Vie ERP ── */}
-          <div className="flex flex-col gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
-            {/* Ligne 1 : Méta-données & Stepper visuel d'état */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
-                <div className="flex items-center gap-1.5 font-bold text-slate-900">
-                  <Calendar size={14} className="text-brand-orange" />
-                  <span>
-                    {new Date(concoursActif.dateEpreuve).toLocaleDateString("fr-FR", {
-                      weekday: "long",
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
-                    })}
-                  </span>
-                </div>
+        <div className="flex flex-col lg:flex-row items-start gap-5">
+          {/* Colonne de gauche : Liste des Concours Blancs */}
+          <div className="w-full lg:w-72 xl:w-80 shrink-0 space-y-3">
+            <h3 className="px-1 text-xs font-bold tracking-wider text-slate-400 uppercase">
+              Concours Blancs ({concoursBlancs.length})
+            </h3>
 
-                <span className="text-slate-300 hidden sm:inline">|</span>
+            <div className="space-y-2.5">
+              {concoursBlancs.map((cb) => {
+                const isSelected = concoursActif?.id === cb.id;
+                const isPublie = cb.statut === "PUBLIE";
+                const isEnCours = cb.statut === "EN_COURS";
+                const isCloture = cb.statut === "CLOTURE";
 
-                <span className="text-slate-500 font-medium">
-                  Semaine {concoursActif.semaine} (Séances S{concoursActif.seanceDebut} à S{concoursActif.seanceFin})
-                </span>
+                return (
+                  <div
+                    key={cb.id}
+                    onClick={() => setConcoursActifId(cb.id)}
+                    className={`cursor-pointer rounded-xl border p-3.5 text-left transition-all ${
+                      isSelected
+                        ? "border-brand-orange bg-orange-50/50 shadow-2xs ring-1 ring-brand-orange"
+                        : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50"
+                    }`}
+                  >
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="font-mono text-xs font-bold text-slate-900">
+                        {cb.titre || `Concours Blanc N°${cb.numero}`}
+                      </span>
+                      {isPublie ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                          <CheckCircle2 className="h-2.5 w-2.5 text-emerald-600" />
+                          Publié
+                        </span>
+                      ) : isEnCours ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200/80 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                          <Clock className="h-2.5 w-2.5 text-amber-600" />
+                          En cours
+                        </span>
+                      ) : isCloture ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                          <Lock className="h-2.5 w-2.5 text-slate-500" />
+                          Clôturé
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                          Programmé
+                        </span>
+                      )}
+                    </div>
 
-                <span className="text-slate-300 hidden sm:inline">|</span>
+                    <div className="mb-2 text-xs text-slate-500">
+                      Épreuves : {formatDate(cb.dateEpreuve)} • Sem. {cb.semaine}
+                    </div>
 
-                <span className="inline-flex items-center gap-1 font-semibold text-slate-700 bg-slate-50 border border-slate-200/80 px-2 py-0.5 rounded-lg text-[11px]">
-                  <Building2 size={12} className="text-brand-orange" />
-                  {concoursActif.tousLesCentres
-                    ? "Tous les centres"
-                    : `${concoursActif.centreIds?.length || 0} centre(s)`}
-                </span>
+                    <div className="flex items-center justify-between border-t border-slate-100 pt-1.5 text-xs">
+                      <span className="text-slate-500">
+                        {cb.tousLesCentres
+                          ? "Tous les centres"
+                          : `${cb.centreIds?.length || 0} centre(s)`}
+                      </span>
+                      <span className="font-medium text-slate-700">
+                        {cb.epreuves?.length || 0} épreuve(s)
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
-                {concoursActif.saisieNotesBloqueeCentre ? (
-                  <span className="inline-flex items-center gap-1 rounded-lg bg-rose-50 border border-rose-200 px-2.5 py-0.5 text-[11px] font-bold text-rose-800">
-                    <Lock size={12} />
-                    Saisie centres verrouillée
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
-                    <Unlock size={12} />
-                    Saisie centres active
-                  </span>
-                )}
-              </div>
+          {/* Colonne de droite : Concours Blanc Actif (Surface unifiée) */}
+          {concoursActif && (
+            <div className="w-full flex-1 min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+              {/* 1. En-tête simplifié du Concours Blanc */}
+              <div className="border-b border-slate-100 p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <h2 className="font-mono text-base font-bold text-slate-900">
+                        {concoursActif.titre || `Concours Blanc N°${concoursActif.numero}`}
+                      </h2>
+                      {concoursActif.statut === "PUBLIE" ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+                          <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                          Résultats publiés
+                        </span>
+                      ) : concoursActif.statut === "EN_COURS" ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200/80 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                          <Clock className="h-3 w-3 text-amber-600" />
+                          Session en cours
+                        </span>
+                      ) : concoursActif.statut === "CLOTURE" ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                          <Lock className="h-3 w-3 text-slate-500" />
+                          Session clôturée
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                          Session programmée
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Épreuves déroulées le{" "}
+                      <span className="font-medium text-slate-700">
+                        {formatDate(concoursActif.dateEpreuve)}
+                      </span>{" "}
+                      • Semaine {concoursActif.semaine}
+                    </p>
+                  </div>
 
-              {/* Action d'administration DA */}
-              <div className="flex items-center gap-2 self-start lg:self-auto">
-                {estDA && (
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setMenuAdminOuvert(!menuAdminOuvert)}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shadow-2xs"
-                    >
-                      <span>Pilotage session</span>
-                      <ChevronRight
-                        size={13}
-                        className={`transition-transform duration-200 ${menuAdminOuvert ? "rotate-90" : ""}`}
-                      />
-                    </button>
+                  {/* Actions d'en-tête */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* Menu Pilotage Session DA */}
+                    {estDA && (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setMenuAdminOuvert(!menuAdminOuvert)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
+                        >
+                          <span>Pilotage</span>
+                          <ChevronRight
+                            size={12}
+                            className={`transition-transform duration-200 ${
+                              menuAdminOuvert ? "rotate-90" : ""
+                            }`}
+                          />
+                        </button>
 
-                    {/* Dropdown Menu compact */}
-                    {menuAdminOuvert && (
-                      <div
-                        className="absolute right-0 top-full mt-1.5 z-30 w-64 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg space-y-0.5 text-xs"
-                        onMouseLeave={() => setMenuAdminOuvert(false)}
-                      >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setConcoursAModifier(concoursActif);
-                          setModalProgrammerOuvert(true);
-                          setMenuAdminOuvert(false);
-                        }}
-                        className="w-full flex items-center gap-2 p-2 rounded-lg text-slate-700 hover:bg-slate-50 font-medium text-left cursor-pointer"
-                      >
-                        <Pencil size={13} className="text-slate-400" />
-                        <span>Modifier date, centres & matières</span>
-                      </button>
+                        {menuAdminOuvert && (
+                          <div
+                            className="absolute right-0 top-full mt-1 z-30 w-64 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg space-y-0.5 text-xs"
+                            onMouseLeave={() => setMenuAdminOuvert(false)}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setConcoursAModifier(concoursActif);
+                                setModalProgrammerOuvert(true);
+                                setMenuAdminOuvert(false);
+                              }}
+                              className="w-full flex items-center gap-2 p-2 rounded-lg text-slate-700 hover:bg-slate-50 font-medium text-left cursor-pointer"
+                            >
+                              <Pencil size={13} className="text-slate-400" />
+                              <span>Modifier dates & centres</span>
+                            </button>
 
-                      <button
-                        type="button"
-                        disabled={verrouillerCentresMutation.isPending}
-                        onClick={() => {
-                          verrouillerCentresMutation.mutate({
-                            id: concoursActif.id,
-                            bloquer: !concoursActif.saisieNotesBloqueeCentre,
-                            role: userRole,
-                          });
-                          setMenuAdminOuvert(false);
-                        }}
-                        className="w-full flex items-center gap-2 p-2 rounded-lg text-slate-700 hover:bg-slate-50 font-medium text-left cursor-pointer"
-                      >
-                        {concoursActif.saisieNotesBloqueeCentre ? (
-                          <>
-                            <Unlock size={13} className="text-emerald-600" />
-                            <span>Déverrouiller saisie des centres</span>
-                          </>
-                        ) : (
-                          <>
-                            <Lock size={13} className="text-amber-600" />
-                            <span>Verrouiller saisie des centres</span>
-                          </>
+                            <button
+                              type="button"
+                              disabled={verrouillerCentresMutation.isPending}
+                              onClick={() => {
+                                verrouillerCentresMutation.mutate({
+                                  id: concoursActif.id,
+                                  bloquer:
+                                    !concoursActif.saisieNotesBloqueeCentre,
+                                  role: userRole,
+                                });
+                                setMenuAdminOuvert(false);
+                              }}
+                              className="w-full flex items-center gap-2 p-2 rounded-lg text-slate-700 hover:bg-slate-50 font-medium text-left cursor-pointer"
+                            >
+                              {concoursActif.saisieNotesBloqueeCentre ? (
+                                <>
+                                  <Unlock
+                                    size={13}
+                                    className="text-emerald-600"
+                                  />
+                                  <span>Déverrouiller saisie des centres</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Lock size={13} className="text-amber-600" />
+                                  <span>Verrouiller saisie des centres</span>
+                                </>
+                              )}
+                            </button>
+
+                            <div className="my-1 border-t border-slate-100" />
+
+                            {concoursActif.statut === "PROGRAMME" && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  changerStatutMutation.mutate({
+                                    id: concoursActif.id,
+                                    statut: "EN_COURS",
+                                  });
+                                  setMenuAdminOuvert(false);
+                                }}
+                                className="w-full flex items-center gap-2 p-2 rounded-lg text-amber-800 hover:bg-amber-50 font-bold text-left cursor-pointer"
+                              >
+                                <CheckCircle2 size={13} />
+                                <span>Démarrer les épreuves (EN COURS)</span>
+                              </button>
+                            )}
+
+                            {concoursActif.statut === "EN_COURS" && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  changerStatutMutation.mutate({
+                                    id: concoursActif.id,
+                                    statut: "PUBLIE",
+                                  });
+                                  setMenuAdminOuvert(false);
+                                }}
+                                className="w-full flex items-center gap-2 p-2 rounded-lg text-emerald-800 hover:bg-emerald-50 font-bold text-left cursor-pointer"
+                              >
+                                <CheckCircle2 size={13} />
+                                <span>Publier les résultats</span>
+                              </button>
+                            )}
+
+                            {concoursActif.statut === "PUBLIE" && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  changerStatutMutation.mutate({
+                                    id: concoursActif.id,
+                                    statut: "CLOTURE",
+                                  });
+                                  setMenuAdminOuvert(false);
+                                }}
+                                className="w-full flex items-center gap-2 p-2 rounded-lg text-slate-700 hover:bg-slate-100 font-bold text-left cursor-pointer"
+                              >
+                                <Lock size={13} />
+                                <span>Clôturer définitivement</span>
+                              </button>
+                            )}
+
+                            {concoursActif.statut === "CLOTURE" && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  changerStatutMutation.mutate({
+                                    id: concoursActif.id,
+                                    statut: "PUBLIE",
+                                  });
+                                  setMenuAdminOuvert(false);
+                                }}
+                                className="w-full flex items-center gap-2 p-2 rounded-lg text-emerald-800 hover:bg-emerald-50 font-bold text-left cursor-pointer"
+                              >
+                                <Unlock size={13} />
+                                <span>Rouvrir le concours (PUBLIÉ)</span>
+                              </button>
+                            )}
+
+                            <div className="my-1 border-t border-slate-100" />
+
+                            <button
+                              type="button"
+                              disabled={supprimerMutation.isPending}
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    `Êtes-vous sûr de vouloir supprimer définitivement le « ${concoursActif.titre} » ainsi que toutes ses notes ?`,
+                                  )
+                                ) {
+                                  supprimerMutation.mutate(concoursActif.id, {
+                                    onSuccess: () => setConcoursActifId(""),
+                                  });
+                                  setMenuAdminOuvert(false);
+                                }
+                              }}
+                              className="w-full flex items-center gap-2 p-2 rounded-lg text-red-700 hover:bg-red-50 font-bold text-left cursor-pointer"
+                            >
+                              <Trash2 size={13} />
+                              <span>Supprimer ce concours</span>
+                            </button>
+                          </div>
                         )}
-                      </button>
+                      </div>
+                    )}
 
+                    {/* Bouton Recalculer / Compiler DA */}
+                    {estDA && (
                       <button
                         type="button"
                         disabled={compilerMutation.isPending}
                         onClick={() => {
                           setToastCompilation(null);
                           compilerMutation.mutate(
-                            {
-                              id: concoursActif.id,
-                              role: userRole,
-                            },
+                            { id: concoursActif.id, role: userRole },
                             {
                               onSuccess: () => {
                                 setToastCompilation({
                                   type: "success",
-                                  text: "Classements recalculés et mis à jour avec succès !",
+                                  text: "Classements recalculés avec succès !",
                                 });
-                                setTimeout(() => setToastCompilation(null), 5000);
+                                setTimeout(
+                                  () => setToastCompilation(null),
+                                  5000,
+                                );
                               },
                               onError: (err) => {
                                 setToastCompilation({
                                   type: "error",
-                                  text: messageErreurApi(err, "Erreur lors du recalcul des classements."),
+                                  text: messageErreurApi(
+                                    err,
+                                    "Erreur lors du recalcul des classements.",
+                                  ),
                                 });
-                                setTimeout(() => setToastCompilation(null), 5000);
+                                setTimeout(
+                                  () => setToastCompilation(null),
+                                  5000,
+                                );
                               },
                             },
                           );
-                          setMenuAdminOuvert(false);
                         }}
-                        className="w-full flex items-center gap-2 p-2 rounded-lg text-brand-orange hover:bg-orange-50 font-bold text-left cursor-pointer"
+                        title="Recalculer les moyennes pondérées et les classements"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
                       >
-                        <RefreshCw size={13} className={compilerMutation.isPending ? "animate-spin" : ""} />
-                        <span>Recalculer les classements (Compiler)</span>
-                      </button>
-
-                      <div className="my-1 border-t border-slate-100" />
-
-                      {/* Statuts du concours */}
-                      {concoursActif.statut === "PROGRAMME" && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            changerStatutMutation.mutate({
-                              id: concoursActif.id,
-                              statut: "EN_COURS",
-                            });
-                            setMenuAdminOuvert(false);
-                          }}
-                          className="w-full flex items-center gap-2 p-2 rounded-lg text-amber-800 hover:bg-amber-50 font-bold text-left cursor-pointer"
-                        >
-                          <CheckCircle2 size={13} />
-                          <span>Démarrer les épreuves (Passer EN COURS)</span>
-                        </button>
-                      )}
-
-                      {concoursActif.statut === "EN_COURS" && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            changerStatutMutation.mutate({
-                              id: concoursActif.id,
-                              statut: "PUBLIE",
-                            });
-                            setMenuAdminOuvert(false);
-                          }}
-                          className="w-full flex items-center gap-2 p-2 rounded-lg text-emerald-800 hover:bg-emerald-50 font-bold text-left cursor-pointer"
-                        >
-                          <CheckCircle2 size={13} />
-                          <span>Publier les résultats</span>
-                        </button>
-                      )}
-
-                      {concoursActif.statut === "PUBLIE" && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            changerStatutMutation.mutate({
-                              id: concoursActif.id,
-                              statut: "CLOTURE",
-                            });
-                            setMenuAdminOuvert(false);
-                          }}
-                          className="w-full flex items-center gap-2 p-2 rounded-lg text-slate-700 hover:bg-slate-100 font-bold text-left cursor-pointer"
-                        >
-                          <Lock size={13} />
-                          <span>Clôturer définitivement</span>
-                        </button>
-                      )}
-
-                      {concoursActif.statut === "CLOTURE" && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            changerStatutMutation.mutate({
-                              id: concoursActif.id,
-                              statut: "PUBLIE",
-                            });
-                            setMenuAdminOuvert(false);
-                          }}
-                          className="w-full flex items-center gap-2 p-2 rounded-lg text-emerald-800 hover:bg-emerald-50 font-bold text-left cursor-pointer"
-                        >
-                          <Unlock size={13} />
-                          <span>Rouvrir le concours (Passer PUBLIÉ)</span>
-                        </button>
-                      )}
-
-                      <div className="my-1 border-t border-slate-100" />
-
-                      <button
-                        type="button"
-                        disabled={supprimerMutation.isPending}
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              `Êtes-vous sûr de vouloir supprimer définitivement le « ${concoursActif.titre} » ainsi que toutes ses notes ?`,
-                            )
-                          ) {
-                            supprimerMutation.mutate(concoursActif.id, {
-                              onSuccess: () => setConcoursActifId(""),
-                            });
-                            setMenuAdminOuvert(false);
+                        <RefreshCw
+                          size={13}
+                          className={
+                            compilerMutation.isPending
+                              ? "animate-spin text-brand-orange"
+                              : "text-slate-500"
                           }
-                        }}
-                        className="w-full flex items-center gap-2 p-2 rounded-lg text-red-700 hover:bg-red-50 font-bold text-left cursor-pointer"
-                      >
-                        <Trash2 size={13} />
-                        <span>Supprimer ce concours</span>
+                        />
+                        <span>Compiler</span>
                       </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Stepper horizontal de cycle de vie académique */}
-          <div className="pt-3 border-t border-slate-100 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2 text-xs">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 shrink-0">
-              Cycle de vie :
-            </span>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-1">
-              {[
-                {
-                  label: "1. Épreuves",
-                  desc: "Passation écrite",
-                  atteint: true,
-                  actif: concoursActif.statut === "PROGRAMME" || concoursActif.statut === "EN_COURS",
-                },
-                {
-                  label: "2. Saisie Copies",
-                  desc: concoursActif.saisieNotesBloqueeCentre ? "Verrouillée" : "Centres actifs",
-                  atteint: concoursActif.statut !== "PROGRAMME",
-                  actif: concoursActif.statut === "EN_COURS" && !concoursActif.saisieNotesBloqueeCentre,
-                },
-                {
-                  label: "3. Compilation",
-                  desc: "Pondération & Rangs",
-                  atteint: concoursActif.statut === "PUBLIE" || concoursActif.statut === "CLOTURE",
-                  actif: concoursActif.saisieNotesBloqueeCentre && concoursActif.statut !== "PUBLIE" && concoursActif.statut !== "CLOTURE",
-                },
-                {
-                  label: "4. Palmarès Publié",
-                  desc: concoursActif.statut === "CLOTURE" ? "Session archivée" : "Officiel",
-                  atteint: concoursActif.statut === "PUBLIE" || concoursActif.statut === "CLOTURE",
-                  actif: concoursActif.statut === "PUBLIE",
-                },
-              ].map((step, idx) => (
-                <div
-                  key={idx}
-                  className={`flex flex-col p-2.5 rounded-xl border transition-all ${
-                    step.actif
-                      ? "border-brand-orange bg-orange-50/50 shadow-2xs"
-                      : step.atteint
-                        ? "border-emerald-200 bg-emerald-50/40 text-slate-700"
-                        : "border-slate-100 bg-slate-50/50 text-slate-600"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className={`font-bold text-[11px] ${step.actif ? "text-brand-orange" : step.atteint ? "text-emerald-800" : "text-slate-600"}`}>
-                      {step.label}
-                    </span>
-                    {step.atteint && !step.actif && (
-                      <CheckCircle2 size={12} className="text-emerald-700" />
                     )}
-                    {step.actif && (
-                      <span className="flex h-2 w-2 rounded-full bg-brand-orange animate-pulse" />
-                    )}
-                  </div>
-                  <span className="text-[10px] text-slate-600 mt-0.5">{step.desc}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
 
-          {/* Bannière de confirmation de recompilation */}
-          {toastCompilation && (
-            <div
-              className={`flex items-center gap-2 rounded-xl p-3 text-xs font-bold ${
-                toastCompilation.type === "success"
-                  ? "border border-emerald-200 bg-emerald-50 text-emerald-800"
-                  : "border border-red-200 bg-red-50 text-red-800"
-              }`}
-            >
-              {toastCompilation.type === "success" ? (
-                <CheckCircle2 size={16} className="shrink-0 text-emerald-600" />
-              ) : (
-                <AlertTriangle size={16} className="shrink-0 text-red-600" />
-              )}
-              <span>{toastCompilation.text}</span>
-            </div>
-          )}
-
-          {/* ── Deux Onglets Clairs : Résultats vs Épreuves ── */}
-          <div className="flex items-center gap-1 border-b border-slate-200 text-xs font-bold">
-            <button
-              type="button"
-              onClick={() => setOngletActif("resultats")}
-              className={`flex items-center gap-2 px-4 py-2.5 border-b-2 transition-all cursor-pointer ${
-                ongletActif === "resultats"
-                  ? "border-brand-orange text-brand-orange font-black"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <Sparkles size={14} />
-              <span>Palmarès & Résultats (Bordereau Consolidé)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setOngletActif("epreuves")}
-              className={`flex items-center gap-2 px-4 py-2.5 border-b-2 transition-all cursor-pointer ${
-                ongletActif === "epreuves"
-                  ? "border-brand-orange text-brand-orange font-black"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <Layers size={14} />
-              <span>Matières & Sujets par Filière ({concoursActif.epreuves?.length || 0})</span>
-            </button>
-          </div>
-
-          {/* ── Contenu Onglet 1 : Palmarès & Résultats ── */}
-          {ongletActif === "resultats" && (
-            <BordereauResultatsView
-              concoursBlanc={concoursActif}
-              formations={formations}
-              centres={centresConcoursActif.length > 0 ? centresConcoursActif : centres}
-              matieres={matieres}
-              centreIdFiltre={userCentreId || undefined}
-              verrouillerCentre={Boolean(userCentreId && !estDA)}
-              role={userRole}
-              userCentreId={userCentreId || undefined}
-              onOuvrirExportModal={(fId) => {
-                setFormationExportId(fId || "");
-                setModalExportOuvert(true);
-              }}
-              onSaisieNotes={(fId, cId) => ouvrirSaisieNotes(concoursActif.id, fId, cId)}
-            />
-          )}
-
-          {/* ── Contenu Onglet 2 : Épreuves & Sujets par Filière ── */}
-          {ongletActif === "epreuves" && (
-            <div className="space-y-4">
-              {(!concoursActif.epreuves || concoursActif.epreuves.length === 0) ? (
-                <div className="p-8 text-center bg-white rounded-2xl border border-dashed border-amber-200 space-y-2">
-                  <p className="text-xs font-bold text-amber-900">
-                    Aucune matière n&rsquo;est encore rattachée à ce concours blanc.
-                  </p>
-                  {estDA && (
+                    {/* Bouton Exporter */}
                     <button
                       type="button"
-                      onClick={() => {
-                        setConcoursAModifier(concoursActif);
-                        setModalProgrammerOuvert(true);
-                      }}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-brand-orange px-3.5 py-1.5 text-xs font-bold text-white hover:bg-brand-orange/90 shadow-xs cursor-pointer"
+                      onClick={() => setModalExportOuvert(true)}
+                      title="Imprimer ou exporter le bordereau"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
                     >
-                      <Pencil size={13} />
-                      <span>Configurer les matières</span>
+                      <FileSpreadsheet size={13} className="text-brand-orange" />
+                      <span>Bordereau PDF</span>
                     </button>
-                  )}
+                  </div>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {formations.map((f) => {
-                    const epreuvesFiliere = concoursActif.epreuves.filter(
-                      (e) => e.formationId === f.id,
-                    );
-                    if (epreuvesFiliere.length === 0) return null;
 
-                    const totalCoef = epreuvesFiliere.reduce((acc, ep) => acc + (ep.coefficient || 1), 0);
-                    const totalMinutes = epreuvesFiliere.reduce((acc, ep) => acc + (ep.dureeMinutes || 0), 0);
-                    const heuresTotal = Math.floor(totalMinutes / 60);
-                    const minutesReste = totalMinutes % 60;
-                    const sujetsPrets = epreuvesFiliere.filter((ep) => Boolean(ep.contenuEvaluation)).length;
+                {/* Synthèse globale en ligne (affichée une seule fois) */}
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-3 text-xs">
+                  <div className="flex flex-wrap items-center gap-3 text-slate-600">
+                    <div>
+                      <span className="text-slate-400">Centres : </span>
+                      <span className="font-semibold text-slate-800">
+                        {concoursActif.tousLesCentres
+                          ? "Tous les centres"
+                          : `${concoursActif.centreIds?.length || 0} centre(s)`}
+                      </span>
+                    </div>
+                    <span className="text-slate-200">•</span>
+                    <div>
+                      <span className="text-slate-400">Épreuves : </span>
+                      <span className="font-semibold text-slate-800">
+                        {concoursActif.epreuves?.length || 0} matière(s)
+                      </span>
+                    </div>
+                    <span className="text-slate-200">•</span>
+                    <div>
+                      <span className="text-slate-400">État de la saisie : </span>
+                      {concoursActif.saisieNotesBloqueeCentre ? (
+                        <span className="font-semibold text-rose-700">
+                          Verrouillée
+                        </span>
+                      ) : (
+                        <span className="font-semibold text-emerald-700">
+                          Ouverte
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-                    return (
-                      <div
-                        key={f.id}
-                        className="rounded-2xl border border-slate-200/90 bg-white p-4 space-y-3.5 shadow-2xs hover:shadow-xs transition-shadow"
-                      >
-                        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                          <div>
-                            <span className="font-black text-xs text-slate-900 uppercase tracking-wide block">
-                              {f.nom}
-                            </span>
-                            <span className="text-[11px] text-slate-500 font-medium">
-                              {heuresTotal > 0 ? `${heuresTotal}h${minutesReste > 0 ? `${minutesReste}m` : ""}` : `${minutesReste}m`} d&rsquo;épreuves · Coef Total {totalCoef}
-                            </span>
-                          </div>
-                          <span
-                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                              sujetsPrets === epreuvesFiliere.length
-                                ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                                : "bg-amber-50 text-amber-800 border border-amber-200"
-                            }`}
-                          >
-                            {sujetsPrets}/{epreuvesFiliere.length} sujets prêts
-                          </span>
-                        </div>
+              {/* 2. Barre d'onglets de navigation métier */}
+              <div className="flex items-center gap-2 border-b border-slate-200 px-4 pt-1 bg-slate-50/50">
+                <button
+                  type="button"
+                  onClick={() => setOngletActif("resultats")}
+                  className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition-all cursor-pointer ${
+                    ongletActif === "resultats"
+                      ? "border-brand-orange text-brand-orange"
+                      : "border-transparent text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <Sparkles size={13} />
+                  <span>Consultation des résultats</span>
+                </button>
 
-                        {/* Liste des épreuves */}
-                        <div className="space-y-2">
-                          {epreuvesFiliere.map((ep) => {
-                            const aContenu = Boolean(ep.contenuEvaluation);
-                            const estMaMatiere = estChefDept && mesMatiereIds.has(ep.matiereId);
-                            const peutEditer = estDA || estMaMatiere;
-                            const depAssocie = departements.find((d) => d.matiereId === ep.matiereId);
+                {!estChefDept && (
+                  <button
+                    type="button"
+                    onClick={() => setOngletActif("saisie")}
+                    className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition-all cursor-pointer ${
+                      ongletActif === "saisie"
+                        ? "border-brand-orange text-brand-orange"
+                        : "border-transparent text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <Pencil size={13} />
+                    <span>Saisie des notes</span>
+                  </button>
+                )}
 
-                            return (
-                              <button
-                                key={ep.id}
-                                type="button"
-                                onClick={() => ouvrirContenuEpreuve(ep)}
-                                className={`w-full text-left p-2.5 rounded-xl border transition-all flex items-center justify-between group cursor-pointer ${
-                                  estMaMatiere
-                                    ? "bg-amber-50/70 hover:bg-amber-100/80 border-amber-300 ring-1 ring-amber-200 shadow-2xs"
-                                    : "bg-slate-50/70 hover:bg-white border-slate-200/70 hover:border-brand-orange/40 shadow-2xs"
-                                }`}
-                              >
-                                <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                                  {peutEditer ? (
-                                    <BookOpen size={14} className="text-brand-orange shrink-0" />
-                                  ) : (
-                                    <Lock size={13} className="text-slate-400 shrink-0" />
-                                  )}
-                                  <div className="min-w-0">
-                                    <span className="font-bold text-xs text-slate-900 group-hover:text-brand-orange block truncate">
-                                      {ep.intitule}
-                                    </span>
-                                    {estChefDept && estMaMatiere && (
-                                      <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-800 block">
-                                        <Star size={10} className="fill-amber-600 text-amber-600 shrink-0" />
-                                        Mon département
-                                      </span>
-                                    )}
-                                    {estChefDept && !estMaMatiere && depAssocie && (
-                                      <span className="text-[10px] text-slate-400 block font-medium truncate">
-                                        Dép. {depAssocie.nom}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
+                <button
+                  type="button"
+                  onClick={() => setOngletActif("epreuves")}
+                  className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition-all cursor-pointer ${
+                    ongletActif === "epreuves"
+                      ? "border-brand-orange text-brand-orange"
+                      : "border-transparent text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <Layers size={13} />
+                  <span>
+                    Matières & Épreuves ({concoursActif.epreuves?.length || 0})
+                  </span>
+                </button>
+              </div>
 
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <span className="text-[11px] text-slate-500 font-mono tabular-nums font-semibold">
-                                    {ep.dureeMinutes}m · coef {ep.coefficient}
-                                  </span>
-                                  <span
-                                    className={`rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${
-                                      aContenu
-                                        ? "bg-emerald-100 text-emerald-800 border border-emerald-200/60"
-                                        : "bg-amber-100 text-amber-800 border border-amber-200/60"
-                                    }`}
-                                  >
-                                    {aContenu ? "Sujet OK" : "À définir"}
-                                  </span>
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
+              {/* Toast info compilation */}
+              {toastCompilation && (
+                <div
+                  className={`m-4 flex items-center gap-2 rounded-lg p-2.5 text-xs font-semibold ${
+                    toastCompilation.type === "success"
+                      ? "border border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "border border-red-200 bg-red-50 text-red-800"
+                  }`}
+                >
+                  {toastCompilation.type === "success" ? (
+                    <CheckCircle2
+                      size={14}
+                      className="shrink-0 text-emerald-600"
+                    />
+                  ) : (
+                    <AlertTriangle
+                      size={14}
+                      className="shrink-0 text-red-600"
+                    />
+                  )}
+                  <span>{toastCompilation.text}</span>
                 </div>
               )}
+
+              {/* 3. Corps selon l'onglet actif */}
+              <div>
+                {/* MODE 1 : Consultation des résultats */}
+                {ongletActif === "resultats" && (
+                  <BordereauResultatsView
+                    concoursBlanc={concoursActif}
+                    formations={formations}
+                    centres={
+                      centresConcoursActif.length > 0
+                        ? centresConcoursActif
+                        : centres
+                    }
+                    matieres={matieres}
+                    formationIdActive={
+                      formationSaisieId || formations[0]?.id
+                    }
+                    centreIdFiltre={effectiveCentreId}
+                    verrouillerCentre={Boolean(userCentreId && !estDA)}
+                    role={userRole}
+                    userCentreId={userCentreId || undefined}
+                    onOuvrirExportModal={(fId) => {
+                      setFormationExportId(fId || "");
+                      setModalExportOuvert(true);
+                    }}
+                    onSaisieNotes={(fId, cId) => {
+                      if (fId) setFormationSaisieId(fId);
+                      if (cId && cId !== "TOUS") setCentreSaisieId(cId);
+                      setOngletActif("saisie");
+                    }}
+                  />
+                )}
+
+                {/* MODE 2 : Saisie des notes en ligne */}
+                {ongletActif === "saisie" && !estChefDept && (
+                  <SaisieNotesInlineView
+                    concoursBlanc={concoursActif}
+                    formationId={
+                      formationSaisieId || formations[0]?.id || ""
+                    }
+                    centreId={effectiveCentreId}
+                    centres={
+                      centresConcoursActif.length > 0
+                        ? centresConcoursActif
+                        : centres
+                    }
+                    formations={formations}
+                    userRole={userRole}
+                    userCentreId={userCentreId || undefined}
+                    onChangerFormation={(fId) => setFormationSaisieId(fId)}
+                    onChangerCentre={(cId) => setCentreSaisieId(cId)}
+                    onPasserConsultation={() => setOngletActif("resultats")}
+                  />
+                )}
+
+                {/* MODE 3 : Matières & Épreuves */}
+                {ongletActif === "epreuves" && (
+                  <div className="p-5 space-y-4">
+                    {!concoursActif.epreuves ||
+                    concoursActif.epreuves.length === 0 ? (
+                      <div className="p-8 text-center bg-white rounded-xl border border-dashed border-slate-200 space-y-2">
+                        <p className="text-xs font-medium text-slate-600">
+                          Aucune matière n&rsquo;est encore rattachée à ce concours blanc.
+                        </p>
+                        {estDA && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setConcoursAModifier(concoursActif);
+                              setModalProgrammerOuvert(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-orange px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-orange/90 cursor-pointer"
+                          >
+                            <Pencil size={13} />
+                            <span>Configurer les matières</span>
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {formations.map((f) => {
+                          const epreuvesFiliere =
+                            concoursActif.epreuves.filter(
+                              (e) => e.formationId === f.id,
+                            );
+                          if (epreuvesFiliere.length === 0) return null;
+
+                          const totalCoef = epreuvesFiliere.reduce(
+                            (acc, ep) => acc + (ep.coefficient || 1),
+                            0,
+                          );
+                          const totalMinutes = epreuvesFiliere.reduce(
+                            (acc, ep) => acc + (ep.dureeMinutes || 0),
+                            0,
+                          );
+                          const heuresTotal = Math.floor(totalMinutes / 60);
+                          const minutesReste = totalMinutes % 60;
+                          const sujetsPrets = epreuvesFiliere.filter((ep) =>
+                            Boolean(ep.contenuEvaluation),
+                          ).length;
+                          const toutPret =
+                            sujetsPrets === epreuvesFiliere.length;
+
+                          return (
+                            <div
+                              key={f.id}
+                              className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs"
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs">
+                                <div className="flex items-center gap-3">
+                                  <span className="font-bold text-slate-900">
+                                    {f.nom}
+                                  </span>
+                                  <span className="text-slate-400">·</span>
+                                  <span className="text-slate-600">
+                                    {heuresTotal > 0
+                                      ? `${heuresTotal}h${minutesReste > 0 ? `${minutesReste}m` : ""}`
+                                      : `${minutesReste}m`}{" "}
+                                    d&rsquo;épreuves
+                                  </span>
+                                  <span className="text-slate-400">·</span>
+                                  <span className="text-slate-600 font-medium">
+                                    Coef. total {totalCoef}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`text-[11px] font-semibold px-2 py-0.5 rounded ${
+                                      toutPret
+                                        ? "text-emerald-700 bg-emerald-50 border border-emerald-200/60"
+                                        : "text-amber-700 bg-amber-50 border border-amber-200/60"
+                                    }`}
+                                  >
+                                    {sujetsPrets}/{epreuvesFiliere.length}{" "}
+                                    sujets prêts
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-left text-xs border-collapse">
+                                  <thead>
+                                    <tr className="border-b border-slate-200 bg-slate-50/50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                                      <th className="px-4 py-2">Matière</th>
+                                      <th className="px-3 py-2 text-center w-24">
+                                        Durée
+                                      </th>
+                                      <th className="px-3 py-2 text-center w-20">
+                                        Coef.
+                                      </th>
+                                      <th className="px-3 py-2 text-center w-20">
+                                        Barème
+                                      </th>
+                                      <th className="px-3 py-2 text-center w-32">
+                                        État du sujet
+                                      </th>
+                                      <th className="px-4 py-2 text-right w-28">
+                                        Action
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {epreuvesFiliere.map((ep) => {
+                                      const aContenu = Boolean(
+                                        ep.contenuEvaluation,
+                                      );
+                                      const estMaMatiere =
+                                        estChefDept &&
+                                        mesMatiereIds.has(ep.matiereId);
+                                      const peutEditer =
+                                        estDA || estMaMatiere;
+                                      const depAssocie = departements.find(
+                                        (d) => d.matiereId === ep.matiereId,
+                                      );
+
+                                      return (
+                                        <tr
+                                          key={ep.id}
+                                          className={`hover:bg-slate-50/70 transition-colors ${
+                                            estMaMatiere
+                                              ? "bg-amber-50/30"
+                                              : ""
+                                          }`}
+                                        >
+                                          <td className="px-4 py-2.5">
+                                            <div className="flex items-center gap-2">
+                                              <span className="font-semibold text-slate-900">
+                                                {ep.intitule}
+                                              </span>
+                                              {estChefDept && estMaMatiere && (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded">
+                                                  <Star
+                                                    size={10}
+                                                    className="fill-amber-600 text-amber-600"
+                                                  />
+                                                  Mon département
+                                                </span>
+                                              )}
+                                              {depAssocie && !estMaMatiere && (
+                                                <span className="text-[11px] text-slate-400">
+                                                  ({depAssocie.nom})
+                                                </span>
+                                              )}
+                                            </div>
+                                          </td>
+                                          <td className="px-3 py-2.5 text-center text-slate-600 tabular-nums font-mono">
+                                            {ep.dureeMinutes} min
+                                          </td>
+                                          <td className="px-3 py-2.5 text-center text-slate-800 font-bold tabular-nums font-mono">
+                                            {ep.coefficient}
+                                          </td>
+                                          <td className="px-3 py-2.5 text-center text-slate-600 tabular-nums font-mono">
+                                            /{ep.noteMax}
+                                          </td>
+                                          <td className="px-3 py-2.5 text-center">
+                                            {aContenu ? (
+                                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/50">
+                                                <CheckCircle2 size={11} />
+                                                Prêt
+                                              </span>
+                                            ) : (
+                                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                                                En attente
+                                              </span>
+                                            )}
+                                          </td>
+                                          <td className="px-4 py-2.5 text-right">
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                ouvrirContenuEpreuve(ep)
+                                              }
+                                              className={`text-xs font-semibold hover:underline cursor-pointer ${
+                                                peutEditer
+                                                  ? "text-brand-orange font-bold"
+                                                  : "text-slate-600"
+                                              }`}
+                                            >
+                                              {peutEditer
+                                                ? aContenu
+                                                  ? "Modifier"
+                                                  : "Renseigner"
+                                                : "Consulter"}
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -833,10 +986,14 @@ export function ConcoursBlancsView({
           )}
           mesMatiereIds={mesMatiereIds}
           peutEditer={
-            estDA || (estChefDept && mesMatiereIds.has(epreuvePourContenu.matiereId))
+            estDA ||
+            (estChefDept &&
+              mesMatiereIds.has(epreuvePourContenu.matiereId))
           }
           departementNom={
-            departements.find((d) => d.matiereId === epreuvePourContenu.matiereId)?.nom
+            departements.find(
+              (d) => d.matiereId === epreuvePourContenu.matiereId,
+            )?.nom
           }
           estChefDept={estChefDept}
           role={userRole}
@@ -850,7 +1007,9 @@ export function ConcoursBlancsView({
           onClose={() => setModalExportOuvert(false)}
           concoursBlanc={concoursActif}
           formations={formations}
-          centres={centresConcoursActif.length > 0 ? centresConcoursActif : centres}
+          centres={
+            centresConcoursActif.length > 0 ? centresConcoursActif : centres
+          }
           formationIdActive={formationExportId || formations[0]?.id || ""}
           centreIdFiltre={userCentreId || undefined}
           sessionAnnee={sessionActive?.annee?.toString() || "2026"}

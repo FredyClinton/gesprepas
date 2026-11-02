@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { AccessRestricted } from "@/shared/ui";
 import { DepartementsListView } from "./DepartementsListView";
 
 export default async function DepartementsPage() {
@@ -11,11 +12,13 @@ export default async function DepartementsPage() {
       utilisateur.role !== "DIRECTEUR_ACADEMIQUE")
   ) {
     return (
-      <main className="p-8 text-sm text-brand-gray">
-        Cet écran est réservé au Directeur et au Directeur Académique.
-      </main>
+      <AccessRestricted
+        title="Accès Direction"
+        message="Cet écran est réservé au Directeur et au Directeur Académique."
+      />
     );
   }
 
   return <DepartementsListView />;
 }
+

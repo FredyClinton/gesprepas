@@ -53,19 +53,19 @@ const STATUT_CONFIG: Record<
 > = {
   OUVERT: {
     label: "Dossier Ouvert",
-    badge: "bg-amber-50 text-amber-700 border-amber-200",
-    bg: "bg-amber-500",
+    badge: "bg-amber-50 text-amber-800 border border-amber-200",
+    bg: "bg-amber-600",
     icon: Clock,
   },
   COMPLET: {
     label: "Dossier Complet",
-    badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    bg: "bg-emerald-500",
+    badge: "bg-emerald-50 text-emerald-800 border border-emerald-200",
+    bg: "bg-emerald-600",
     icon: CheckCircle2,
   },
   CLOTURE: {
     label: "Dossier Clôturé",
-    badge: "bg-slate-100 text-slate-700 border-slate-300",
+    badge: "bg-slate-100 text-slate-700 border border-slate-200",
     bg: "bg-slate-500",
     icon: Lock,
   },
@@ -215,7 +215,7 @@ export function DossierDetailView({ dossierId }: DossierDetailViewProps) {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-12">
+    <div className="w-full space-y-6 pb-12">
       {/* ── Navigation Breadcrumb ── */}
       <div className="flex items-center justify-between">
         <Link

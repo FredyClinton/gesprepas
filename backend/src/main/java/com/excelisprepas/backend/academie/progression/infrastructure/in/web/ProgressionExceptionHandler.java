@@ -16,6 +16,11 @@ public class ProgressionExceptionHandler {
         return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
+    @ExceptionHandler(AccesCentreInterditException.class)
+    public ResponseEntity<ApiErrorResponse> gererAccesCentreInterdit(AccesCentreInterditException ex) {
+        return construireReponse(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
     @ExceptionHandler(FormationIntrouvableException.class)
     public ResponseEntity<ApiErrorResponse> gererFormationIntrouvable(FormationIntrouvableException ex) {
         return construireReponse(HttpStatus.NOT_FOUND, ex.getMessage());

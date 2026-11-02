@@ -17,6 +17,7 @@ import type { Formation } from "@/modules/academique";
 import type { Centre } from "@/modules/centres-sessions";
 import type { ConcoursBlanc } from "../types/concours-blanc.types";
 import { useBordereauConcoursBlanc } from "../hooks/useConcoursBlancs";
+import { PrintDocumentHeader, VisaDirecteurAcademique } from "@/shared/ui";
 
 interface ExporterBordereauModalProps {
   isOpen: boolean;
@@ -119,31 +120,18 @@ function BordereauFiliereSheet({
       }}
     >
       {/* Cartouche officiel EXCELIS PRÉPAS */}
-      <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4 mb-4">
-        <div>
-          <h1 className="text-xl font-black uppercase tracking-wider text-slate-900">
-            EXCELIS PRÉPAS
-          </h1>
-          <p className="text-xs font-bold text-brand-orange uppercase">
-            Préparation aux Grandes Écoles d&rsquo;Ingénieurs & de Santé
-          </p>
-          <p className="text-[11px] text-slate-500">
-            Session Académique {sessionAnnee} · {centre?.nom ? `Centre ${centre.nom}` : "Tous Centres Réunis"}
-          </p>
-        </div>
-
-        <div className="text-right">
-          <div className="inline-block rounded-lg bg-brand-orange px-3 py-1 text-xs font-black text-white uppercase tracking-wider mb-1">
-            {concoursBlanc.titre}
-          </div>
+      <PrintDocumentHeader
+        orientation="landscape"
+        titre={concoursBlanc.titre}
+        sousTitre="Préparation aux Grandes Écoles d'Ingénieurs & de Santé"
+        session={sessionAnnee}
+        centre={centre?.nom ? centre.nom : "Tous Centres Réunis"}
+        extraMeta={
           <div className="text-xs font-bold text-slate-800">
-            Filière : <span className="uppercase text-brand-orange">{formation.nom}</span>
+            Filière : <span className="uppercase text-brand-orange">{formation.nom}</span> • Date de l&rsquo;épreuve : {concoursBlanc.dateEpreuve} ({concoursBlanc.jour})
           </div>
-          <div className="text-[11px] text-slate-500">
-            Date de l&rsquo;épreuve : {concoursBlanc.dateEpreuve} ({concoursBlanc.jour})
-          </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Titre du bordereau */}
       <div className="text-center my-3">
@@ -180,8 +168,8 @@ function BordereauFiliereSheet({
                     )}
                   </th>
                 ))}
-                <th className="py-2 px-2 text-center w-20 bg-slate-200/60 font-black">
-                  Total
+                <th className="py-2 px-2 text-right w-24 bg-slate-200/80 font-black">
+                  Total (pts)
                 </th>
               </tr>
             </thead>
@@ -258,11 +246,11 @@ function BordereauFiliereSheet({
                         noteVal > 0;
 
                       return (
-                        <td key={ep.id} className="py-1.5 px-2 text-center border-r border-slate-300 font-mono">
+                        <td key={ep.id} className="py-1.5 px-2 text-right border-r border-slate-300 font-mono">
                           {statut === "NOTE" ? (
                             noteVal !== null && noteVal !== undefined ? (
-                              <span className={estMeilleur ? "font-black text-amber-700 underline inline-flex items-center gap-0.5 justify-center" : ""}>
-                                {noteVal}
+                              <span className={estMeilleur ? "font-black text-amber-700 underline inline-flex items-center gap-0.5 justify-end" : ""}>
+                                {noteVal.toFixed(2)}
                                 {estMeilleur && <Star size={9} className="inline fill-amber-600 text-amber-600" />}
                               </span>
                             ) : (
@@ -274,11 +262,13 @@ function BordereauFiliereSheet({
                         </td>
                       );
                     })}
-                    <td className="py-1.5 px-2 text-center font-mono font-bold bg-slate-50">
+                    <td className="py-1.5 px-2 text-right font-mono font-bold bg-slate-100/60">
                       {estAbsent ? (
                         <span className="text-[10px] font-black text-rose-700">ABS</span>
+                      ) : c.totalPondere !== null && c.totalPondere !== undefined ? (
+                        `${c.totalPondere.toFixed(2)} pts`
                       ) : (
-                        c.totalPondere ?? "-"
+                        "-"
                       )}
                     </td>
                   </tr>
@@ -295,30 +285,11 @@ function BordereauFiliereSheet({
         <span>Indique la meilleure note obtenue dans la matière sur l&rsquo;ensemble des centres.</span>
       </p>
 
-      {/* Bloc officiel de signature des visas */}
-      <div
-        className="grid grid-cols-2 gap-12 mt-8 pt-4 border-t border-slate-300 text-xs"
-        style={{
-          breakInside: "avoid",
-          pageBreakInside: "avoid",
-        }}
-      >
-        <div className="text-center">
-          <p className="font-bold text-slate-800 uppercase tracking-wider mb-12">
-            VISA DU CHEF DE DÉPARTEMENT
-          </p>
-          <div className="border-t border-dashed border-slate-400 w-48 mx-auto" />
-          <p className="text-[10px] text-slate-400 mt-1">Signature & Date</p>
-        </div>
-
-        <div className="text-center">
-          <p className="font-bold text-slate-800 uppercase tracking-wider mb-12">
-            VISA DE LA DIRECTION ACADÉMIQUE
-          </p>
-          <div className="border-t border-dashed border-slate-400 w-48 mx-auto" />
-          <p className="text-[10px] text-slate-400 mt-1">Signature & Cachet</p>
-        </div>
-      </div>
+      {/* Bloc officiel de signature - Uniquement le Directeur académique */}
+      <VisaDirecteurAcademique
+        align="right"
+        sousTitre="Signature & Cachet officiel"
+      />
     </div>
   );
 }
@@ -384,13 +355,14 @@ export function ExporterBordereauModal({
   const modalContent = (
     <div
       id="printable-bordereau-modal"
-      className="printable-modal fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150 print:static print:block print:p-0 print:m-0 print:bg-white print:overflow-visible print:h-auto print:max-h-none print:w-full print:inset-auto print:z-auto"
+      className="printable-modal print-landscape fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150 print:static print:block print:p-0 print:m-0 print:bg-white print:overflow-visible print:h-auto print:max-h-none print:w-full print:inset-auto print:z-auto"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
     >
+      <style dangerouslySetInnerHTML={{ __html: "@page { size: A4 landscape; margin: 6mm 8mm; }" }} />
       <div
-        className="relative w-full max-w-6xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 flex flex-col max-h-[95vh] overflow-hidden print:static print:block print:max-h-none print:h-auto print:w-full print:max-w-none print:overflow-visible print:rounded-none print:border-none print:shadow-none print:m-0 print:p-0"
+        className="printable-dialog relative w-full max-w-6xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 flex flex-col max-h-[95vh] overflow-hidden print:static print:block print:max-h-none print:h-auto print:w-full print:max-w-none print:overflow-visible print:rounded-none print:border-none print:shadow-none print:m-0 print:p-0"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Barre d'actions en haut (Masquée à l'impression) */}

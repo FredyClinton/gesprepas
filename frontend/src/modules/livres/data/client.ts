@@ -106,3 +106,10 @@ export function getStatsVentesLivres(
   });
 }
 
+export function listerVentesApprenant(
+  apprenantId: string,
+): Promise<import("../domain/types").VenteLivre[]> {
+  const q = new URLSearchParams({ apprenantId });
+  return apiFetch<import("../domain/types").VenteLivre[]>(`/api/livres/ventes?${q.toString()}`);
+}
+

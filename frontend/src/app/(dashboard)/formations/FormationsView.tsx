@@ -261,7 +261,7 @@ export function FormationsView() {
   }, [formations, formationPourMatieres]);
 
   return (
-    <main className="space-y-6 max-w-7xl mx-auto px-4 py-8">
+    <div className="w-full space-y-6">
       {/* Header section */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200/80 pb-6">
         <div>
@@ -733,7 +733,7 @@ export function FormationsView() {
           </div>
         </div>
       </Modal>
-    </main>
+    </div>
   );
 }
 

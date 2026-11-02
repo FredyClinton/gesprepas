@@ -90,6 +90,17 @@ public class VenteLivreController {
         return ResponseEntity.status(HttpStatus.CREATED).body(convertir(creees));
     }
 
+    @Operation(summary = "Lister les ventes de livres d'un apprenant",
+               description = "Historique détaillé des achats de livres effectués par un élève.")
+    @PreAuthorize("hasAuthority('FINANCIER_CONSULTER')")
+    @GetMapping(params = "apprenantId")
+    public ResponseEntity<List<VenteLivreResponse>> listerVentesParApprenant(
+            @Parameter(description = "Identifiant de l'apprenant", required = true)
+            @RequestParam UUID apprenantId) {
+        List<VenteLivre> ventes = listerVentesLivresUseCase.listerVentesParApprenant(apprenantId);
+        return ResponseEntity.ok(convertir(ventes));
+    }
+
     @Operation(summary = "Lister les ventes de livres",
                description = "Historique détaillé des ventes. Le Chef de Centre ne voit que les ventes de son centre.")
     @PreAuthorize("hasAuthority('FINANCIER_CONSULTER')")

@@ -1,16 +1,20 @@
 import { auth } from "@/auth";
+import { AccessRestricted } from "@/shared/ui";
 import { InscriptionApprenantView } from "./InscriptionApprenantView";
 
 export default async function InscriptionPage() {
     const session = await auth();
     const utilisateur = session!.user;
 
-    const rolesAutorises = ["CHEF_CENTRE", "DIRECTEUR", "DIRECTEUR_ACADEMIQUE", "ADMIN"];
+    const rolesAutorises = ["CAISSIER", "DIRECTEUR", "DIRECTEUR_ACADEMIQUE", "ADMIN"];
     if (!rolesAutorises.includes(utilisateur.role)) {
         return (
-            <main className="text-slate-500 p-8 text-sm">
-                Cet écran est réservé aux Chefs de Centre et à la Direction.
-            </main>
+            <AccessRestricted
+                title="Accès Inscription"
+                message="Cet écran est réservé aux Caissiers et à la Direction. Le Chef de Centre dispose d'une vue de consultation sur les apprenants."
+                redirectHref="/apprenants"
+                redirectLabel="Consulter les apprenants"
+            />
         );
     }
 

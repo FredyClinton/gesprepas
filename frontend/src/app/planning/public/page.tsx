@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useMemo, useState, useCallback } from "react";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import {
   useAffectations,
@@ -29,7 +30,7 @@ import {
   type Progression,
   type InfoProgressionAffectation,
 } from "@/modules/progression";
-import { Modal } from "@/shared/ui";
+import { Modal, LogoEmblem } from "@/shared/ui";
 import {
   useConcoursBlancs,
   ContenuEpreuveModal,
@@ -227,9 +228,9 @@ function PlanningPublicContenu() {
       {/* En-tête de la page publique */}
       <header className="shrink-0 border-b border-slate-200 bg-white px-4 sm:px-8 py-5 shadow-xs">
         <div className="mx-auto max-w-[1600px] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-orange text-white font-black text-xl shadow-xs">
-              E
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xs">
+              <LogoEmblem className="h-full w-auto object-contain" priority />
             </div>
             <div>
               <h1 className="text-xl font-bold text-brand-anthracite">

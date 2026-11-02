@@ -9,6 +9,12 @@ import java.util.UUID;
 public record EntreeResponse(
         UUID id, UUID sessionId, UUID motifId, BigDecimal montant, LocalDate date,
         UUID saisiParUtilisateurId, StatutMouvement statut, UUID centreId, UUID apprenantId, UUID formationId,
-        UUID dossierConcoursId
+        UUID dossierConcoursId,
+        String livreTitre
 ) {
+    public EntreeResponse(UUID id, UUID sessionId, UUID motifId, BigDecimal montant, LocalDate date,
+                          UUID saisiParUtilisateurId, StatutMouvement statut, UUID centreId, UUID apprenantId, UUID formationId,
+                          UUID dossierConcoursId) {
+        this(id, sessionId, motifId, montant, date, saisiParUtilisateurId, statut, centreId, apprenantId, formationId, dossierConcoursId, null);
+    }
 }

@@ -1,5 +1,7 @@
 package com.excelisprepas.backend.academie.affectation.domain.model;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -22,9 +24,19 @@ public class Affectation {
     private StatutPaiement statutPaiement;
     private java.math.BigDecimal coutApplique;
     private UUID fichePaieId;
+    private LocalDate dateSeance;
+    private LocalTime heureDebut;
+    private LocalTime heureFin;
 
     public Affectation(UUID id, UUID centreId, UUID sessionId, UUID formationId, UUID salleId, UUID matiereId,
                        UUID enseignantId, Jour jour, int seance, int semaine, StatutAffectation statut) {
+        this(id, centreId, sessionId, formationId, salleId, matiereId, enseignantId, jour, seance, semaine, statut,
+                null, horaireDebutParDefaut(seance), horaireFinParDefaut(seance));
+    }
+
+    public Affectation(UUID id, UUID centreId, UUID sessionId, UUID formationId, UUID salleId, UUID matiereId,
+                       UUID enseignantId, Jour jour, int seance, int semaine, StatutAffectation statut,
+                       LocalDate dateSeance, LocalTime heureDebut, LocalTime heureFin) {
         this.id = Objects.requireNonNull(id, "id ne peut pas être nul");
         this.centreId = Objects.requireNonNull(centreId, "centreId ne peut pas être nul");
         this.sessionId = Objects.requireNonNull(sessionId, "sessionId ne peut pas être nul");
@@ -37,11 +49,16 @@ public class Affectation {
         this.semaine = validerPositif(semaine, "semaine");
         this.statut = Objects.requireNonNull(statut, "statut ne peut pas être nul");
         this.statutPaiement = StatutPaiement.NON_PAYEE;
+        this.dateSeance = dateSeance;
+        this.heureDebut = heureDebut != null ? heureDebut : horaireDebutParDefaut(seance);
+        this.heureFin = heureFin != null ? heureFin : horaireFinParDefaut(seance);
+        validerHoraires();
     }
 
     private Affectation(UUID id, UUID centreId, UUID sessionId, UUID formationId, UUID salleId, UUID matiereId,
                         UUID enseignantId, Jour jour, int seance, int semaine, StatutAffectation statut,
-                        StatutPaiement statutPaiement, java.math.BigDecimal coutApplique, UUID fichePaieId) {
+                        StatutPaiement statutPaiement, java.math.BigDecimal coutApplique, UUID fichePaieId,
+                        LocalDate dateSeance, LocalTime heureDebut, LocalTime heureFin) {
         this.id = id;
         this.centreId = centreId;
         this.sessionId = sessionId;
@@ -56,12 +73,54 @@ public class Affectation {
         this.statutPaiement = statutPaiement != null ? statutPaiement : StatutPaiement.NON_PAYEE;
         this.coutApplique = coutApplique;
         this.fichePaieId = fichePaieId;
+        this.dateSeance = dateSeance;
+        this.heureDebut = heureDebut != null ? heureDebut : horaireDebutParDefaut(seance);
+        this.heureFin = heureFin != null ? heureFin : horaireFinParDefaut(seance);
+        validerHoraires();
     }
 
     public static Affectation reconstituer(UUID id, UUID centreId, UUID sessionId, UUID formationId, UUID salleId, UUID matiereId,
                                            UUID enseignantId, Jour jour, int seance, int semaine, StatutAffectation statut,
                                            StatutPaiement statutPaiement, java.math.BigDecimal coutApplique, UUID fichePaieId) {
-        return new Affectation(id, centreId, sessionId, formationId, salleId, matiereId, enseignantId, jour, seance, semaine, statut, statutPaiement, coutApplique, fichePaieId);
+        return new Affectation(id, centreId, sessionId, formationId, salleId, matiereId, enseignantId, jour, seance, semaine, statut,
+                statutPaiement, coutApplique, fichePaieId, null, null, null);
+    }
+
+    public static Affectation reconstituer(UUID id, UUID centreId, UUID sessionId, UUID formationId, UUID salleId, UUID matiereId,
+                                           UUID enseignantId, Jour jour, int seance, int semaine, StatutAffectation statut,
+                                           StatutPaiement statutPaiement, java.math.BigDecimal coutApplique, UUID fichePaieId,
+                                           LocalDate dateSeance, LocalTime heureDebut, LocalTime heureFin) {
+        return new Affectation(id, centreId, sessionId, formationId, salleId, matiereId, enseignantId, jour, seance, semaine, statut,
+                statutPaiement, coutApplique, fichePaieId, dateSeance, heureDebut, heureFin);
+    }
+
+    public static LocalTime horaireDebutParDefaut(int seance) {
+        return switch (seance) {
+            case 1 -> LocalTime.of(8, 0);
+            case 2 -> LocalTime.of(10, 45);
+            case 3 -> LocalTime.of(14, 0);
+            case 4 -> LocalTime.of(16, 45);
+            default -> LocalTime.of(8, 0).plusMinutes(Math.max(0, seance - 1) * 165L);
+        };
+    }
+
+    public static LocalTime horaireFinParDefaut(int seance) {
+        return switch (seance) {
+            case 1 -> LocalTime.of(10, 30);
+            case 2 -> LocalTime.of(13, 15);
+            case 3 -> LocalTime.of(16, 30);
+            case 4 -> LocalTime.of(19, 15);
+            default -> horaireDebutParDefaut(seance).plusMinutes(150);
+        };
+    }
+
+    private void validerHoraires() {
+        if (this.heureFin != null && this.heureDebut != null) {
+            if (this.heureFin.isBefore(this.heureDebut) || this.heureFin.equals(this.heureDebut)) {
+                throw new IllegalArgumentException(
+                        "L'heure de fin (" + this.heureFin + ") doit être strictement postérieure à l'heure de début (" + this.heureDebut + ")");
+            }
+        }
     }
 
     private static int validerPositif(int valeur, String nomChamp) {
@@ -89,8 +148,6 @@ public class Affectation {
         this.statut = StatutAffectation.EFFECTUEE;
     }
 
-    // Rétro-action : permet d'annuler un marquage "effectuée" fait par erreur, en
-    // revenant à ASSIGNEE (l'enseignant reste assigné, seul le statut change).
     public void annulerEffectuee() {
         if (statut != StatutAffectation.EFFECTUEE) {
             throw new IllegalStateException(
@@ -99,9 +156,6 @@ public class Affectation {
         this.statut = StatutAffectation.ASSIGNEE;
     }
 
-    // Libère le créneau d'un enseignant suspendu (ou retiré autrement) : redevient
-    // PLANIFIEE, prêt à être réassigné. Une séance déjà EFFECTUEE n'est jamais
-    // touchée par cette opération.
     public void desassignerEnseignant() {
         if (statut != StatutAffectation.ASSIGNEE) {
             throw new IllegalStateException(
@@ -117,7 +171,6 @@ public class Affectation {
                     "Impossible de modifier la matière : le créneau est " + statut);
         }
         this.matiereId = Objects.requireNonNull(nouvelleMatiereId, "matiereId ne peut pas être nul");
-        // Changer de matière invalide l'assignation existante (décision du 30/08/2026).
         this.enseignantId = null;
         this.statut = StatutAffectation.PLANIFIEE;
     }
@@ -150,6 +203,21 @@ public class Affectation {
             throw new IllegalStateException("La séance doit être PROGRAMMEE pour être marquée PAYEE (statut actuel: " + this.statutPaiement + ")");
         }
         this.statutPaiement = StatutPaiement.PAYEE;
+    }
+
+    public void setHoraires(LocalTime heureDebut, LocalTime heureFin) {
+        if (heureDebut != null && heureFin != null) {
+            if (heureFin.isBefore(heureDebut) || heureFin.equals(heureDebut)) {
+                throw new IllegalArgumentException(
+                        "L'heure de fin (" + heureFin + ") doit être strictement postérieure à l'heure de début (" + heureDebut + ")");
+            }
+            this.heureDebut = heureDebut;
+            this.heureFin = heureFin;
+        }
+    }
+
+    public void setDateSeance(LocalDate dateSeance) {
+        this.dateSeance = dateSeance;
     }
 
     public UUID getId() {
@@ -206,6 +274,18 @@ public class Affectation {
 
     public UUID getFichePaieId() {
         return fichePaieId;
+    }
+
+    public LocalDate getDateSeance() {
+        return dateSeance;
+    }
+
+    public LocalTime getHeureDebut() {
+        return heureDebut != null ? heureDebut : horaireDebutParDefaut(this.seance);
+    }
+
+    public LocalTime getHeureFin() {
+        return heureFin != null ? heureFin : horaireFinParDefaut(this.seance);
     }
 
     @Override

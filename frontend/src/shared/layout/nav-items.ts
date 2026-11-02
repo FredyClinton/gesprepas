@@ -68,9 +68,9 @@ const NAV_SUPERVISEUR_DOSSIERS: NavItem[] = [
 const NAV_CHEF_CENTRE: NavItem[] = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
   { href: "/mon-centre", label: "Mon centre", icon: MapPin },
-  { href: "/inscription", label: "Inscription", icon: UserPlus },
   { href: "/apprenants", label: "Apprenants", icon: Users },
   { href: "/planification", label: "Planification", icon: CalendarClock },
+  { href: "/progression", label: "Progression", icon: TrendingUp },
   { href: "/concours-blancs", label: "Concours blancs", icon: ClipboardList },
   { href: "/dossiers", label: "Dossiers", icon: FolderOpen },
   { href: "/finances", label: "Finances", icon: Wallet },
@@ -126,7 +126,10 @@ const NAV_COMPTABLE: NavItem[] = [
 
 const NAV_CAISSIER: NavItem[] = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
-  { href: "/finances", label: "Finances", icon: Wallet },
+  { href: "/inscription", label: "Inscription", icon: UserPlus },
+  { href: "/apprenants", label: "Apprenants", icon: Users },
+  { href: "/finances", label: "Finances & Caisse", icon: Wallet },
+  { href: "/livres", label: "Livres & Supports", icon: BookOpen },
   {
     href: "/bilan-journalier",
     label: "Bilan Journalier",

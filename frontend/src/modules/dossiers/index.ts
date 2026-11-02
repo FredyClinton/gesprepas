@@ -43,6 +43,8 @@ export {
   useReactiverPieceRequise,
 } from "./data/queries";
 
+export { listConcoursDuDossier } from "./data/client";
+
 export {
   useCreerDossierInscription,
   type CreerDossierInscriptionInput,
@@ -54,3 +56,6 @@ export { EnregistrerPaiementDossierModal } from "./components/EnregistrerPaiemen
 export { CreerConcoursModal } from "./components/CreerConcoursModal";
 export { CreerModifierPieceModal } from "./components/CreerModifierPieceModal";
 export { GererPiecesConcoursModal } from "./components/GererPiecesConcoursModal";
+export { ProgressionPiecesDossierCell } from "./components/ProgressionPiecesDossierCell";
+export { DateLimiteDepotDossierCell } from "./components/DateLimiteDepotDossierCell";
+export { calculerCompteARebours, type CompteARebours } from "./domain/countdown";

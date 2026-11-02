@@ -52,4 +52,60 @@ export type Affectation = {
   statutPaiement?: StatutPaiementAffectation;
   coutApplique?: number | null;
   fichePaieId?: string | null;
+  dateSeance?: string | null;
+  heureDebut?: string | null;
+  heureFin?: string | null;
 };
+
+export type ConflitHoraireResponse = {
+  conflit: boolean;
+  message?: string | null;
+  affectationExistanteId?: string | null;
+  dateSeance?: string | null;
+  heureDebut?: string | null;
+  heureFin?: string | null;
+  centreId?: string | null;
+  centreNom?: string | null;
+  formationId?: string | null;
+  formationNom?: string | null;
+  matiereId?: string | null;
+  matiereNom?: string | null;
+};
+
+export function horaireDebutParDefaut(seance: number): string {
+  switch (seance) {
+    case 1:
+      return "08:00";
+    case 2:
+      return "10:45";
+    case 3:
+      return "14:00";
+    case 4:
+      return "16:45";
+    default: {
+      const minutes = 8 * 60 + Math.max(0, seance - 1) * 165;
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+  }
+}
+
+export function horaireFinParDefaut(seance: number): string {
+  switch (seance) {
+    case 1:
+      return "10:30";
+    case 2:
+      return "13:15";
+    case 3:
+      return "16:30";
+    case 4:
+      return "19:15";
+    default: {
+      const minutes = 8 * 60 + Math.max(0, seance - 1) * 165 + 150;
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+  }
+}

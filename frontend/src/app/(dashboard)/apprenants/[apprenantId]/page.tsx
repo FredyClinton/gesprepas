@@ -3,6 +3,7 @@ import { ApprenantDetailView } from "./ApprenantDetailView";
 
 const ROLES_AUTORISES = [
   "CHEF_CENTRE",
+  "CAISSIER",
   "DIRECTEUR",
   "DIRECTEUR_ACADEMIQUE",
   "SUPERVISEUR_DOSSIERS",

@@ -30,10 +30,16 @@ export function messageErreurApi(
   if (
     erreur instanceof ApiError &&
     erreur.status < 500 &&
-    typeof (erreur.body as { message?: unknown } | undefined)?.message ===
-      "string"
+    erreur.body &&
+    typeof erreur.body === "object"
   ) {
-    return (erreur.body as { message: string }).message;
+    const b = erreur.body as Record<string, unknown>;
+    if (typeof b.message === "string" && b.message.trim()) {
+      return b.message;
+    }
+    if (typeof b.detail === "string" && b.detail.trim()) {
+      return b.detail;
+    }
   }
   return repli;
 }

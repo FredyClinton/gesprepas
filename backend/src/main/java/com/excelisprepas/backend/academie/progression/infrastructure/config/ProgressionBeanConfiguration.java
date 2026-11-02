@@ -1,11 +1,13 @@
 package com.excelisprepas.backend.academie.progression.infrastructure.config;
 
+import com.excelisprepas.backend.abonnement.domain.port.out.CentreFormationAbonnementRepositoryPort;
 import com.excelisprepas.backend.academie.formation.domain.port.out.FormationRepositoryPort;
 import com.excelisprepas.backend.academie.matiere.domain.port.out.MatiereRepositoryPort;
 import com.excelisprepas.backend.academie.progression.domain.port.in.*;
 import com.excelisprepas.backend.academie.progression.domain.port.out.ProgressionRepositoryPort;
 import com.excelisprepas.backend.academie.progression.domain.service.ProgressionService;
 import com.excelisprepas.backend.academie.quota.domain.port.out.QuotaHebdomadaireRepositoryPort;
+import com.excelisprepas.backend.auth.domain.port.out.ContexteUtilisateurPort;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,8 +20,11 @@ public class ProgressionBeanConfiguration {
                                                  FormationRepositoryPort formationRepository,
                                                  MatiereRepositoryPort matiereRepository,
                                                  SessionAcademiqueRepositoryPort sessionRepository,
-                                                 QuotaHebdomadaireRepositoryPort quotaRepository) {
-        return new ProgressionService(progressionRepository, formationRepository, matiereRepository, sessionRepository, quotaRepository);
+                                                 QuotaHebdomadaireRepositoryPort quotaRepository,
+                                                 CentreFormationAbonnementRepositoryPort abonnementRepository,
+                                                 ContexteUtilisateurPort contexteUtilisateurPort) {
+                            return new ProgressionService(progressionRepository, formationRepository, matiereRepository, sessionRepository,
+                                quotaRepository, abonnementRepository, contexteUtilisateurPort);
     }
 
     @Bean

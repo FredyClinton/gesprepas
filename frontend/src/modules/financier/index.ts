@@ -20,6 +20,8 @@ export type {
   SaisirSortieInput,
   SoumettreBilanCaissierInput,
   ValiderBilanChefCentreInput,
+  ValiderMouvementInput,
+  ValidationMouvementResponse,
   MouvementFinancier,
 } from "./data/client";
 
@@ -34,6 +36,8 @@ export {
   useSoumettreBilanCaissier,
   useValiderBilanChefCentre,
   useValiderBilanControleur,
+  useValiderMouvement,
+  useAjusterActiviteBilan,
   useMouvementsFinanciers,
   useModifierEntree,
   useSupprimerEntree,
@@ -44,4 +48,13 @@ export { ModifierVersementModal } from "./components/ModifierVersementModal";
 export { SaisirSortieModal } from "./components/SaisirSortieModal";
 export { FicheBilanPrintModal } from "./components/FicheBilanPrintModal";
 export { FicheSyntheseNationalePrintModal } from "./components/FicheSyntheseNationalePrintModal";
+export { DernieresTransactionsModal } from "./components/DernieresTransactionsModal";
+export { RecuPaiementModal, type DonneesRecuPaiement } from "./components/RecuPaiementModal";
 export type { VersementItem } from "./components/ModifierVersementModal";
+export {
+  ComparatifRecouvrementView,
+  type ItemComparatifRecouvrement,
+  type ComparatifRecouvrementProps,
+} from "./components/ComparatifRecouvrementView";
+
+

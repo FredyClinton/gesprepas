@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { AccessRestricted } from "@/shared/ui";
 import { DossiersView } from "./DossiersView";
 
 const ROLES_AUTORISES = new Set([
@@ -15,9 +16,10 @@ export default async function DossiersPage() {
 
   if (!role || !ROLES_AUTORISES.has(role)) {
     return (
-      <main className="text-brand-gray p-8 text-sm">
-        Cet écran est réservé aux Superviseurs de dossiers, Chargés de dossiers et Chefs de Centre.
-      </main>
+      <AccessRestricted
+        title="Accès Dossiers Concours"
+        message="Cet écran est réservé aux Superviseurs de dossiers, Chargés de dossiers et Chefs de Centre."
+      />
     );
   }
 

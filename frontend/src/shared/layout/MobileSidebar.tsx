@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useCallback, useRef, useState } from "react";
+import { useEffect, useCallback, useRef, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { Logo } from "@/shared/ui";
 import { usePathname } from "next/navigation";
 import { LogOut, X, MapPin, Shield } from "lucide-react";
 import { signOut } from "next-auth/react";
@@ -11,6 +12,8 @@ import type { Role } from "@/types/roles";
 import { ROLE_LABELS } from "@/types/roles";
 
 import { getNavItems } from "./nav-items";
+
+const emptySubscribe = () => () => {};
 
 type MobileSidebarProps = {
   role: Role;
@@ -27,12 +30,11 @@ export function MobileSidebar({
 }: MobileSidebarProps) {
   const pathname = usePathname();
   const navBarItems = getNavItems(role);
-  const [mounted, setMounted] = useState(false);
-
-  // Mount check for createPortal (SSR safety)
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
 
   // Close only when pathname actually changes (not on initial render)
   const prevPathnameRef = useRef(pathname);
@@ -86,27 +88,26 @@ export function MobileSidebar({
 
       {/* Slide-over Drawer */}
       <aside
-        className="fixed inset-y-0 left-0 z-[9999] flex w-72 max-w-[85vw] flex-col bg-[#1a1a1a] shadow-2xl transition-transform duration-250 ease-out"
+        className="fixed inset-y-0 left-0 z-[9999] flex w-72 max-w-[85vw] flex-col bg-brand-anthracite shadow-2xl transition-transform duration-250 ease-out"
         style={{
           transform: "translateX(0)",
           boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.75)",
         }}
         aria-label="Menu principal de navigation"
       >
-        {/* Drawer Header */}
+        {/* Drawer Header avec Logo Officiel */}
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-          <div>
-            <h1 className="text-[#f7931e] text-lg font-bold tracking-tight">
-              EXCELIS PRÉPAS
-            </h1>
-            <p className="text-white/60 text-[10px] font-bold tracking-widest uppercase">
-              ERP Gesprepas
-            </p>
-          </div>
+          <Link href="/" onClick={onClose} className="flex items-center">
+            <Logo
+              variant="white"
+              className="h-8 w-auto object-contain"
+              priority
+            />
+          </Link>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white/80 transition-all hover:bg-white/20 hover:text-white active:scale-95"
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white/80 transition-all hover:bg-white/20 hover:text-white active:scale-95 cursor-pointer"
             aria-label="Fermer le menu"
           >
             <X size={20} />
@@ -116,16 +117,16 @@ export function MobileSidebar({
         {/* User / Role info badge */}
         <div className="border-b border-white/10 bg-white/[0.04] px-5 py-3">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f7931e]/20 text-[#f7931e]">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-orange/20 text-brand-orange">
               <Shield size={16} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-white truncate">
+              <p className="text-xs font-semibold text-white truncate">
                 {ROLE_LABELS[role]}
               </p>
               {centreName && (
                 <p className="flex items-center gap-1 text-[11px] text-white/60 truncate">
-                  <MapPin size={11} className="shrink-0 text-[#f7931e]" />
+                  <MapPin size={11} className="shrink-0 text-brand-orange" />
                   <span className="truncate">{centreName}</span>
                 </p>
               )}
@@ -143,9 +144,9 @@ export function MobileSidebar({
                 key={href}
                 href={href}
                 onClick={onClose}
-                className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-bold transition-all ${
+                className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all ${
                   actif
-                    ? "bg-[#f7931e] text-white shadow-md shadow-[#f7931e]/20"
+                    ? "bg-brand-orange text-white font-semibold shadow-md shadow-brand-orange/20"
                     : "text-white/75 hover:bg-white/10 hover:text-white"
                 }`}
               >

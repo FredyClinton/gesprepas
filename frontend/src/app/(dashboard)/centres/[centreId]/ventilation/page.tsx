@@ -15,11 +15,13 @@ export default async function CentreVentilationPage({
 
   if (
     utilisateur.role !== "DIRECTEUR" &&
-    utilisateur.role !== "DIRECTEUR_ACADEMIQUE"
+    utilisateur.role !== "DIRECTEUR_ACADEMIQUE" &&
+    utilisateur.role !== "COMPTABLE" &&
+    !(utilisateur.role === "CHEF_CENTRE" && utilisateur.centreId === centreId)
   ) {
     return (
       <main className="text-brand-gray p-8 text-sm">
-        Cet écran de pilotage et de ventilation est réservé à la direction.
+        Cet écran de pilotage et de ventilation est réservé à la direction et aux chefs de centre.
       </main>
     );
   }

@@ -210,7 +210,7 @@ export function BordereauPersonnelPlanifieModal({
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-5xl rounded-2xl bg-white shadow-2xl border border-brand-gray/15 flex flex-col max-h-[92vh] overflow-hidden"
+        className="relative w-full max-w-7xl rounded-2xl bg-white shadow-2xl border border-brand-gray/15 flex flex-col max-h-[92vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

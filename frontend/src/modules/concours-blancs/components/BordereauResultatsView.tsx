@@ -2,21 +2,22 @@
 
 import React, { useState, useMemo } from "react";
 import {
-  Award,
   TrendingUp,
   TrendingDown,
   Minus,
-  Star,
   Download,
   Printer,
   FileSpreadsheet,
   Building2,
-  Filter,
   Pencil,
   ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
   RefreshCw,
   CheckCircle2,
   AlertTriangle,
+  Search,
+  X,
 } from "lucide-react";
 import type { Formation } from "@/modules/academique";
 import type { Centre } from "@/modules/centres-sessions";
@@ -42,11 +43,21 @@ interface BordereauResultatsViewProps {
   onSaisieNotes?: (formationId: string, centreId?: string) => void;
 }
 
+type SortKey =
+  | "rang"
+  | "rangCentre"
+  | "deltaRang"
+  | "nomComplet"
+  | "centre"
+  | "etablissement"
+  | "totalPondere"
+  | "moyennePonderee"
+  | `epreuve_${string}`;
+
 export function BordereauResultatsView({
   concoursBlanc,
   formations,
   centres,
-  matieres,
   formationIdActive,
   centreIdFiltre: initCentreId,
   verrouillerCentre = false,
@@ -62,6 +73,12 @@ export function BordereauResultatsView({
     initCentreId || "TOUS",
   );
   const [menuExportOuvert, setMenuExportOuvert] = useState(false);
+  const [rechercheCandidat, setRechercheCandidat] = useState("");
+  const [filtreStatutCandidat, setFiltreStatutCandidat] = useState<
+    "TOUS" | "CLASSES" | "TOP10" | "ABSENTS"
+  >("TOUS");
+  const [sortKey, setSortKey] = useState<SortKey>("rang");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [messageCompilation, setMessageCompilation] = useState<{
     type: "success" | "error";
     text: string;
@@ -88,65 +105,234 @@ export function BordereauResultatsView({
 
   const formation = formations.find((f) => f.id === formationId);
 
-  // Fonction utilitaire : sont considérées comme absentes les personnes ayant manqué la totalité des épreuves
+  // Fonction utilitaire : absent(e) si aucune note enregistrée
   const estCandidatAbsent = (c: { notes?: { statut: string; note?: number | null }[] }) => {
     if (!c.notes || c.notes.length === 0) return true;
-    return !c.notes.some((n) => n.statut === "NOTE" && n.note !== null && n.note !== undefined);
+    return !c.notes.some(
+      (n) => n.statut === "NOTE" && n.note !== null && n.note !== undefined,
+    );
   };
 
-  // Tri systématique et robuste des candidats par rang (rang centre ou général selon le filtre actif)
-  // Les candidats classés passent en premier, les absents (sans rang) en bas par ordre alphabétique
+  // Gestion du tri interactif
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      if (
+        key === "totalPondere" ||
+        key === "moyennePonderee" ||
+        key.startsWith("epreuve_") ||
+        key === "deltaRang"
+      ) {
+        setSortOrder("desc");
+      } else {
+        setSortOrder("asc");
+      }
+    }
+  };
+
+  // Tri robuste de tous les candidats retournés par le bordereau
   const candidatsTries = useMemo(() => {
     if (!bordereau?.candidats) return [];
     const estFiltreCentre = filtreEffective && filtreEffective !== "TOUS";
+
     return [...bordereau.candidats].sort((a, b) => {
-      const rA = estFiltreCentre ? a.rangCentre : a.rang;
-      const rB = estFiltreCentre ? b.rangCentre : b.rang;
-      if (rA !== null && rA !== undefined && rB !== null && rB !== undefined) {
-        if (rA !== rB) return rA - rB;
-      } else if (rA !== null && rA !== undefined) {
-        return -1;
-      } else if (rB !== null && rB !== undefined) {
-        return 1;
+      const aAbs = estCandidatAbsent(a);
+      const bAbs = estCandidatAbsent(b);
+
+      // Les absents vont toujours en bas, sauf s'ils sont tous les deux absents
+      if (aAbs && !bAbs) return 1;
+      if (!aAbs && bAbs) return -1;
+      if (aAbs && bAbs) {
+        return (a.nomComplet || "").localeCompare(b.nomComplet || "");
       }
 
-      const tA = a.totalPondere ?? 0;
-      const tB = b.totalPondere ?? 0;
-      if (tA !== tB) return tB - tA;
+      let comparison = 0;
 
+      if (sortKey === "rang") {
+        const rA = estFiltreCentre ? (a.rangCentre ?? 9999) : (a.rang ?? 9999);
+        const rB = estFiltreCentre ? (b.rangCentre ?? 9999) : (b.rang ?? 9999);
+        comparison = rA - rB;
+      } else if (sortKey === "rangCentre") {
+        const rA = a.rangCentre ?? 9999;
+        const rB = b.rangCentre ?? 9999;
+        comparison = rA - rB;
+      } else if (sortKey === "deltaRang") {
+        const dA = a.deltaRang ?? -999;
+        const dB = b.deltaRang ?? -999;
+        comparison = dA - dB;
+      } else if (sortKey === "nomComplet") {
+        comparison = (a.nomComplet || "").localeCompare(b.nomComplet || "");
+      } else if (sortKey === "centre") {
+        const nomA = centres.find((c) => c.id === a.centreId)?.nom || "";
+        const nomB = centres.find((c) => c.id === b.centreId)?.nom || "";
+        comparison = nomA.localeCompare(nomB);
+      } else if (sortKey === "etablissement") {
+        const etabA = a.etablissementOrigine || "";
+        const etabB = b.etablissementOrigine || "";
+        comparison = etabA.localeCompare(etabB);
+      } else if (sortKey === "totalPondere") {
+        const tA = a.totalPondere ?? 0;
+        const tB = b.totalPondere ?? 0;
+        comparison = tA - tB;
+      } else if (sortKey === "moyennePonderee") {
+        const mA = a.moyennePonderee ?? 0;
+        const mB = b.moyennePonderee ?? 0;
+        comparison = mA - mB;
+      } else if (sortKey.startsWith("epreuve_")) {
+        const epId = sortKey.replace("epreuve_", "");
+        const nA = a.notes?.find((n) => n.epreuveId === epId)?.note ?? -1;
+        const nB = b.notes?.find((n) => n.epreuveId === epId)?.note ?? -1;
+        comparison = nA - nB;
+      }
+
+      if (comparison !== 0) {
+        return sortOrder === "asc" ? comparison : -comparison;
+      }
+
+      // Tie-breaker stable : ordre alphabétique
       return (a.nomComplet || "").localeCompare(b.nomComplet || "");
     });
-  }, [bordereau?.candidats, filtreEffective]);
+  }, [bordereau?.candidats, filtreEffective, sortKey, sortOrder, centres]);
 
+  // Effectifs globaux
+  const totalInscrits = bordereau?.candidats?.length ?? 0;
   const nbAbsents = useMemo(() => {
     if (!bordereau?.candidats) return 0;
     return bordereau.candidats.filter(estCandidatAbsent).length;
   }, [bordereau?.candidats]);
-  const nbPresents = (bordereau?.candidats?.length ?? 0) - nbAbsents;
+  const nbPresents = totalInscrits - nbAbsents;
 
-  // Statistiques calculées pour le Cockpit Académique
-  const statsSession = useMemo(() => {
+  // Filtrage selon le statut et la barre de recherche
+  const candidatsFiltres = useMemo(() => {
+    let list = candidatsTries;
+
+    if (filtreStatutCandidat === "CLASSES") {
+      list = list.filter((c) => !estCandidatAbsent(c));
+    } else if (filtreStatutCandidat === "ABSENTS") {
+      list = list.filter((c) => estCandidatAbsent(c));
+    } else if (filtreStatutCandidat === "TOP10") {
+      list = list.filter((c) => !estCandidatAbsent(c)).slice(0, 10);
+    }
+
+    if (rechercheCandidat.trim()) {
+      const q = rechercheCandidat.toLowerCase().trim();
+      list = list.filter((c) => {
+        const nom = (c.nomComplet || "").toLowerCase();
+        const etab = (c.etablissementOrigine || "").toLowerCase();
+        const centreNom = (
+          centres.find((ct) => ct.id === c.centreId)?.nom || ""
+        ).toLowerCase();
+        return nom.includes(q) || etab.includes(q) || centreNom.includes(q);
+      });
+    }
+
+    return list;
+  }, [candidatsTries, filtreStatutCandidat, rechercheCandidat, centres]);
+
+  // Pagination et navigation fluide
+  const [lignesParPage, setLignesParPage] = useState<number | "TOUS">(50);
+  const currentFilterKey = `${formationId}_${centreIdFiltre}_${rechercheCandidat}_${filtreStatutCandidat}_${sortKey}_${sortOrder}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(currentFilterKey);
+  const [pageCourante, setPageCourante] = useState<number>(1);
+
+  if (prevFilterKey !== currentFilterKey) {
+    setPrevFilterKey(currentFilterKey);
+    setPageCourante(1);
+  }
+
+  const totalPages = useMemo(() => {
+    if (lignesParPage === "TOUS" || candidatsFiltres.length === 0) return 1;
+    return Math.ceil(candidatsFiltres.length / lignesParPage);
+  }, [candidatsFiltres.length, lignesParPage]);
+
+  const candidatsAffiches = useMemo(() => {
+    if (lignesParPage === "TOUS") return candidatsFiltres;
+    const debut = (pageCourante - 1) * lignesParPage;
+    return candidatsFiltres.slice(debut, debut + lignesParPage);
+  }, [candidatsFiltres, pageCourante, lignesParPage]);
+
+  // Synthèse calculée STRICTEMENT sur les candidats affichés dans le tableau (périmètre visible)
+  const syntheseTableau = useMemo(() => {
+    if (!bordereau || candidatsFiltres.length === 0) {
+      return {
+        nbPresentsAffiches: 0,
+        statsParEpreuve: {} as Record<string, { moyenne: number; noteMax: number; nbNotes: number }>,
+        moyenneTotalPoints: null as number | null,
+        moyenneGenerale: null as number | null,
+      };
+    }
+
+    const presentsAffiches = candidatsFiltres.filter((c) => !estCandidatAbsent(c));
+    const nbPresentsAffiches = presentsAffiches.length;
+
+    // Stats par épreuve
+    const statsParEpreuve: Record<string, { moyenne: number; noteMax: number; nbNotes: number }> = {};
+    bordereau.epreuves.forEach((ep) => {
+      const notesEpreuve = presentsAffiches
+        .map((c) => c.notes.find((n) => n.epreuveId === ep.id))
+        .filter((n) => n && n.statut === "NOTE" && n.note !== null && n.note !== undefined)
+        .map((n) => n!.note!);
+
+      if (notesEpreuve.length > 0) {
+        const somme = notesEpreuve.reduce((a, b) => a + b, 0);
+        const max = Math.max(...notesEpreuve);
+        statsParEpreuve[ep.id] = {
+          moyenne: Number((somme / notesEpreuve.length).toFixed(2)),
+          noteMax: max,
+          nbNotes: notesEpreuve.length,
+        };
+      }
+    });
+
+    // Moyenne des totaux de points
+    const totaux = presentsAffiches
+      .map((c) => c.totalPondere)
+      .filter((t): t is number => t !== null && t !== undefined);
+    const moyenneTotalPoints =
+      totaux.length > 0
+        ? Number((totaux.reduce((a, b) => a + b, 0) / totaux.length).toFixed(2))
+        : null;
+
+    // Moyenne générale sur 20 des candidats affichés
+    const moyennes = presentsAffiches
+      .map((c) => c.moyennePonderee)
+      .filter((m): m is number => m !== null && m !== undefined);
+    const moyenneGenerale =
+      moyennes.length > 0
+        ? Number((moyennes.reduce((a, b) => a + b, 0) / moyennes.length).toFixed(2))
+        : null;
+
+    return {
+      nbPresentsAffiches,
+      statsParEpreuve,
+      moyenneTotalPoints,
+      moyenneGenerale,
+    };
+  }, [bordereau, candidatsFiltres]);
+
+  // Indicateurs globaux de pilotage (sur l'ensemble de la promotion ou du centre filtré)
+  const statsPilotage = useMemo(() => {
     if (!bordereau || candidatsTries.length === 0) {
       return {
-        totalInscrits: 0,
-        nbPresents: 0,
-        nbAbsents: 0,
         tauxPresence: 0,
+        tauxReussite: 0,
+        nbReussite: 0,
         moyenneGenerale: null as number | null,
         majorCandidat: null as (typeof candidatsTries)[0] | null,
-        statsParEpreuve: {} as Record<string, { moyenne: number; noteMax: number; nbNotes: number }>,
+        coefTotal: 0,
       };
     }
 
     const presents = candidatsTries.filter((c) => !estCandidatAbsent(c));
-    const totalInscrits = candidatsTries.length;
-    const absentsCount = totalInscrits - presents.length;
-    const tauxPresence = totalInscrits > 0 ? Math.round((presents.length / totalInscrits) * 100) : 0;
+    const tauxPresence = totalInscrits > 0 ? Math.round((nbPresents / totalInscrits) * 100) : 0;
 
-    // Major de promotion (1er candidat présent)
-    const major = presents[0] || null;
+    // Taux de réussite (moyenne générale >= 10/20)
+    const admis = presents.filter((c) => (c.moyennePonderee ?? 0) >= 10);
+    const tauxReussite = presents.length > 0 ? Math.round((admis.length / presents.length) * 100) : 0;
 
-    // Moyenne générale de la filière (calculée sur moyennes pondérées ou totales)
+    // Moyenne générale globale
     const candidatsAvecMoyenne = presents.filter(
       (c) => c.moyennePonderee !== null && c.moyennePonderee !== undefined,
     );
@@ -160,62 +346,44 @@ export function BordereauResultatsView({
           )
         : null;
 
-    // Statistiques par épreuve pour le footer du tableau
-    const statsParEpreuve: Record<string, { moyenne: number; noteMax: number; nbNotes: number }> = {};
-    bordereau.epreuves.forEach((ep) => {
-      const notesEpreuve = presents
-        .map((c) => c.notes.find((n) => n.epreuveId === ep.id))
-        .filter((n) => n && n.statut === "NOTE" && n.note !== null && n.note !== undefined)
-        .map((n) => n!.note!);
-
-      if (notesEpreuve.length > 0) {
-        const som = notesEpreuve.reduce((a, b) => a + b, 0);
-        const max = Math.max(...notesEpreuve);
-        statsParEpreuve[ep.id] = {
-          moyenne: Number((som / notesEpreuve.length).toFixed(2)),
-          noteMax: max,
-          nbNotes: notesEpreuve.length,
-        };
-      }
+    // Major de promotion (1er classé parmi les présents)
+    const presentsTriesParRang = [...presents].sort((a, b) => {
+      const rA = a.rang ?? 9999;
+      const rB = b.rang ?? 9999;
+      if (rA !== rB) return rA - rB;
+      return (b.totalPondere ?? 0) - (a.totalPondere ?? 0);
     });
+    const major = presentsTriesParRang[0] || null;
+
+    const coefTotal = bordereau.epreuves.reduce((acc, ep) => acc + (ep.coefficient || 1), 0);
 
     return {
-      totalInscrits,
-      nbPresents: presents.length,
-      nbAbsents: absentsCount,
       tauxPresence,
+      tauxReussite,
+      nbReussite: admis.length,
       moyenneGenerale,
       majorCandidat: major,
-      statsParEpreuve,
+      coefTotal,
     };
-  }, [bordereau, candidatsTries]);
-
-  // Vérification si tous les coefficients sont identiques
-  const tousMemeCoef = useMemo(() => {
-    if (!bordereau || bordereau.epreuves.length <= 1) return true;
-    const premier = bordereau.epreuves[0].coefficient;
-    return bordereau.epreuves.every((ep) => ep.coefficient === premier);
-  }, [bordereau]);
+  }, [bordereau, candidatsTries, totalInscrits, nbPresents]);
 
   // Export Excel direct (.csv avec encodage UTF-8 BOM lisible directement dans Microsoft Excel)
   const exporterExcel = () => {
-    if (!bordereau || candidatsTries.length === 0) return;
+    if (!bordereau || candidatsFiltres.length === 0) return;
 
     const sep = ";";
     const headers = [
-      "Rang",
+      "Rang Général",
       "Rang Centre",
-      "Évol.",
+      "Évolution",
       "Nom et Prénom",
       "Centre",
       "Établissement",
-      ...bordereau.epreuves.map((e) =>
-        !tousMemeCoef ? `${e.intitule} (Coef ${e.coefficient})` : e.intitule,
-      ),
-      "Total",
+      ...bordereau.epreuves.map((e) => `${e.intitule} (Coef ${e.coefficient} / ${e.noteMax})`),
+      "Total Pondéré (pts)",
     ];
 
-    const rows = candidatsTries.map((c) => {
+    const rows = candidatsFiltres.map((c) => {
       const deltaStr =
         c.deltaRang !== null && c.deltaRang !== undefined
           ? c.deltaRang > 0
@@ -230,7 +398,7 @@ export function BordereauResultatsView({
         if (!n) return "-";
         if (n.statut !== "NOTE") return n.statut;
         return n.note !== null && n.note !== undefined
-          ? n.note.toString().replace(".", ",")
+          ? n.note.toFixed(2).replace(".", ",")
           : "-";
       });
 
@@ -243,7 +411,7 @@ export function BordereauResultatsView({
         `"${ctreNom.replace(/"/g, '""')}"`,
         `"${(c.etablissementOrigine || "").replace(/"/g, '""')}"`,
         ...notesCols,
-        estAbs ? "ABS" : (c.totalPondere ? c.totalPondere.toString().replace(".", ",") : "0"),
+        estAbs ? "ABS" : (c.totalPondere ? c.totalPondere.toFixed(2).replace(".", ",") : "0"),
       ].join(sep);
     });
 
@@ -261,117 +429,33 @@ export function BordereauResultatsView({
     document.body.removeChild(link);
   };
 
+  // Helper pour l'icône de tri
+  const renderSortIcon = (key: SortKey) => {
+    if (sortKey !== key) {
+      return <ChevronsUpDown size={12} className="text-slate-300 group-hover:text-slate-500" />;
+    }
+    return sortOrder === "asc" ? (
+      <ChevronUp size={13} className="text-brand-orange" />
+    ) : (
+      <ChevronDown size={13} className="text-brand-orange" />
+    );
+  };
+
   return (
-    <div className="space-y-4">
-      {/* ── Cockpit KPIs du Bordereau : 4 Cartes Métier Rigoureuses ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* KPI 1 : Participation */}
-        <div className="flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
-            <span>Participation</span>
-            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
-              <Award size={13} />
-            </span>
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="font-mono text-2xl font-black text-slate-900 tabular-nums">
-              {statsSession.tauxPresence}%
-            </span>
-            <span className="text-xs text-slate-500">
-              ({statsSession.nbPresents}/{statsSession.totalInscrits} présents)
-            </span>
-          </div>
-          <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 border-t border-slate-100 pt-1.5">
-            <span>Absents :</span>
-            <span className="font-bold text-rose-600">{statsSession.nbAbsents}</span>
-          </div>
-        </div>
-
-        {/* KPI 2 : Épreuves & Coefficients */}
-        <div className="flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
-            <span>Épreuves Écrites</span>
-            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-orange-50 text-brand-orange">
-              <FileSpreadsheet size={13} />
-            </span>
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="font-mono text-2xl font-black text-slate-900 tabular-nums">
-              {bordereau?.epreuves?.length || 0}
-            </span>
-            <span className="text-xs text-slate-500">matières évaluées</span>
-          </div>
-          <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 border-t border-slate-100 pt-1.5">
-            <span>Régime :</span>
-            <span className="font-bold text-slate-700">
-              {tousMemeCoef ? "Coefficients identiques" : "Coefficients pondérés"}
-            </span>
-          </div>
-        </div>
-
-        {/* KPI 3 : Moyenne Générale */}
-        <div className="flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
-            <span>Moyenne Filière</span>
-            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-              <TrendingUp size={13} />
-            </span>
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="font-mono text-2xl font-black text-slate-900 tabular-nums">
-              {statsSession.moyenneGenerale !== null ? statsSession.moyenneGenerale : "—"}
-            </span>
-            <span className="text-xs text-slate-500">/ 20</span>
-          </div>
-          <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 border-t border-slate-100 pt-1.5">
-            <span>Candidats classés :</span>
-            <span className="font-bold text-slate-700">{statsSession.nbPresents}</span>
-          </div>
-        </div>
-
-        {/* KPI 4 : Major de Promotion */}
-        <div className="flex flex-col justify-between rounded-2xl border border-amber-200/90 bg-amber-50/30 p-4 shadow-2xs">
-          <div className="flex items-center justify-between text-xs font-semibold text-amber-900">
-            <span>Major de Promotion</span>
-            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
-              <Star size={13} className="fill-amber-600" />
-            </span>
-          </div>
-          <div className="mt-2">
-            <div className="font-bold text-sm text-slate-900 line-clamp-1">
-              {statsSession.majorCandidat ? statsSession.majorCandidat.nomComplet : "En attente"}
-            </div>
-            <div className="flex items-baseline gap-1.5 mt-0.5 text-xs text-amber-800">
-              <span className="font-mono font-bold tabular-nums">
-                {statsSession.majorCandidat?.totalPondere ?? "—"} pts
-              </span>
-              <span className="text-slate-500 text-[11px]">
-                {statsSession.majorCandidat?.moyennePonderee ? `(Moy. ${statsSession.majorCandidat.moyennePonderee}/20)` : ""}
-              </span>
-            </div>
-          </div>
-          <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 border-t border-amber-100 pt-1.5">
-            <span>Centre :</span>
-            <span className="font-bold text-slate-700 truncate max-w-[130px]">
-              {statsSession.majorCandidat
-                ? centres.find((c) => c.id === statsSession.majorCandidat?.centreId)?.nom || "—"
-                : "—"}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Barre de sélection de filière et de filtre par centre */}
-      <div className="flex flex-col justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-4 shadow-2xs sm:flex-row sm:items-center">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold tracking-wider text-slate-500 uppercase">
-              Filière :
+    <div className="space-y-2">
+      {/* ── B. Barre d'outils unifiée sur une seule ligne ── */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-2xs">
+        {/* Filtres et Recherche */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 min-w-0">
+          {/* Sélecteur de Filière */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              Filière
             </span>
             <select
               value={formationId}
               onChange={(e) => setFormationId(e.target.value)}
-              className="focus:border-brand-orange cursor-pointer rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 outline-none"
+              className="cursor-pointer rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-bold text-slate-800 outline-none focus:border-brand-orange"
             >
               {formations.map((f) => (
                 <option key={f.id} value={f.id}>
@@ -381,30 +465,25 @@ export function BordereauResultatsView({
             </select>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Filter size={14} className="text-slate-400" />
-            <span className="text-xs font-bold tracking-wider text-slate-500 uppercase">
-              Centre :
+          <span className="text-slate-300">|</span>
+
+          {/* Sélecteur de Centre */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              Centre
             </span>
             {verrouillerCentre ? (
-              <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700">
-                <span>
-                  {centres.find((c) => c.id === initCentreId)?.nom ||
-                    "Mon centre"}
-                </span>
-                <span className="text-[10px] font-normal text-slate-400">
-                  (Verrouillé)
-                </span>
-              </div>
+              <span className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                <Building2 size={12} className="text-slate-400" />
+                {centres.find((c) => c.id === initCentreId)?.nom || "Mon centre"}
+              </span>
             ) : (
               <select
                 value={centreIdFiltre}
                 onChange={(e) => setCentreIdFiltre(e.target.value)}
-                className="focus:border-brand-orange cursor-pointer rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 outline-none"
+                className="cursor-pointer rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-800 outline-none focus:border-brand-orange"
               >
-                <option value="TOUS">
-                  Tous les centres (Classement Général)
-                </option>
+                <option value="TOUS">Tous les centres (Général)</option>
                 {centres.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.nom}
@@ -413,10 +492,89 @@ export function BordereauResultatsView({
               </select>
             )}
           </div>
+
+          <span className="text-slate-300">|</span>
+
+          {/* Barre de Recherche rapide */}
+          <div className="relative w-44 sm:w-56 shrink-0">
+            <Search
+              size={13}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+            />
+            <input
+              type="text"
+              value={rechercheCandidat}
+              onChange={(e) => setRechercheCandidat(e.target.value)}
+              placeholder="Rechercher nom, lycée..."
+              className="w-full rounded-md border border-slate-300 bg-white py-1 pl-7 pr-6 text-xs text-slate-800 placeholder:text-slate-400 focus:border-brand-orange focus:outline-none"
+            />
+            {rechercheCandidat && (
+              <button
+                type="button"
+                onClick={() => setRechercheCandidat("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                title="Effacer la recherche"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
+          {/* Filtres de statut compacts */}
+          <div className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 p-0.5 text-[11px] font-semibold shrink-0">
+            <button
+              type="button"
+              onClick={() => setFiltreStatutCandidat("TOUS")}
+              className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                filtreStatutCandidat === "TOUS"
+                  ? "bg-slate-900 text-white font-bold"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Tous ({totalInscrits})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFiltreStatutCandidat("CLASSES")}
+              className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                filtreStatutCandidat === "CLASSES"
+                  ? "bg-slate-900 text-white font-bold"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Classés ({nbPresents})
+            </button>
+            {nbPresents >= 10 && (
+              <button
+                type="button"
+                onClick={() => setFiltreStatutCandidat("TOP10")}
+                className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                  filtreStatutCandidat === "TOP10"
+                    ? "bg-slate-900 text-white font-bold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Top 10
+              </button>
+            )}
+            {nbAbsents > 0 && (
+              <button
+                type="button"
+                onClick={() => setFiltreStatutCandidat("ABSENTS")}
+                className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                  filtreStatutCandidat === "ABSENTS"
+                    ? "bg-rose-700 text-white font-bold"
+                    : "text-slate-600 hover:text-rose-700"
+                }`}
+              >
+                Absents ({nbAbsents})
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Actions Contextuelles Unifiées : 1 Bouton Saisie + 1 Menu Export */}
-        <div className="relative flex items-center gap-2">
+        {/* Actions Métier : Saisie, Compilation, Exporter */}
+        <div className="flex items-center gap-2 shrink-0">
           {onSaisieNotes && !estChefDept && (
             <button
               type="button"
@@ -427,23 +585,22 @@ export function BordereauResultatsView({
                 )
               }
               disabled={estVerrouilleSaisie}
-              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-bold shadow-2xs transition-all ${
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
                 estVerrouilleSaisie
-                  ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
-                  : "border-brand-orange bg-brand-orange hover:bg-brand-orange/90 text-white"
+                  ? "cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400"
+                  : "bg-brand-orange hover:bg-brand-orange/90 text-white shadow-2xs"
               }`}
               title={
                 estVerrouilleSaisie
-                  ? "Saisie des notes verrouillée"
+                  ? "Saisie des notes verrouillée pour ce concours"
                   : `Saisir ou modifier les notes pour la filière ${formation?.nom || ""}`
               }
             >
-              <Pencil size={14} />
+              <Pencil size={13} />
               <span>Saisir les notes</span>
             </button>
           )}
 
-          {/* Bouton Compiler les notes / Recalculer le classement */}
           {estDA && (
             <button
               type="button"
@@ -463,42 +620,42 @@ export function BordereauResultatsView({
                     onError: (err) => {
                       setMessageCompilation({
                         type: "error",
-                        text: messageErreurApi(err, "Erreur lors de la compilation des notes."),
+                        text: messageErreurApi(
+                          err,
+                          "Erreur lors de la compilation des notes.",
+                        ),
                       });
                       setTimeout(() => setMessageCompilation(null), 5000);
                     },
                   },
                 );
               }}
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-800 shadow-2xs transition-all hover:bg-slate-50 hover:text-brand-orange disabled:opacity-50"
-              title="Compiler et recalculer le classement général et par centre"
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-orange transition-colors cursor-pointer disabled:opacity-50"
+              title="Recalculer les moyennes pondérées et les classements"
             >
               <RefreshCw
-                size={14}
+                size={13}
                 className={
                   compilerMutation.isPending
                     ? "animate-spin text-brand-orange"
-                    : "text-slate-500"
+                    : "text-slate-400"
                 }
               />
-              <span>
-                {compilerMutation.isPending ? "Compilation..." : "Compiler les notes"}
-              </span>
+              <span>Compiler</span>
             </button>
           )}
 
-          {/* Menu d'Export Unique */}
           {!estChefDept && (
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setMenuExportOuvert(!menuExportOuvert)}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs transition-all hover:bg-slate-50"
+                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
               >
-                <Download size={14} className="text-slate-500" />
+                <Download size={13} className="text-slate-400" />
                 <span>Exporter</span>
                 <ChevronDown
-                  size={13}
+                  size={12}
                   className={`text-slate-400 transition-transform duration-200 ${
                     menuExportOuvert ? "rotate-180" : ""
                   }`}
@@ -507,7 +664,7 @@ export function BordereauResultatsView({
 
               {menuExportOuvert && (
                 <div
-                  className="absolute top-full right-0 z-30 mt-1.5 w-52 space-y-0.5 rounded-xl border border-slate-200 bg-white p-1.5 text-xs shadow-lg"
+                  className="absolute top-full right-0 z-30 mt-1 w-52 space-y-0.5 rounded-lg border border-slate-200 bg-white p-1 text-xs shadow-lg"
                   onMouseLeave={() => setMenuExportOuvert(false)}
                 >
                   <button
@@ -516,9 +673,9 @@ export function BordereauResultatsView({
                       exporterExcel();
                       setMenuExportOuvert(false);
                     }}
-                    className="flex w-full cursor-pointer items-center gap-2 rounded-lg p-2 text-left font-semibold text-slate-700 transition-colors hover:bg-emerald-50 hover:text-emerald-800"
+                    className="flex w-full items-center gap-2 rounded p-1.5 text-left font-medium text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors cursor-pointer"
                   >
-                    <FileSpreadsheet size={15} className="text-emerald-600" />
+                    <FileSpreadsheet size={14} className="text-emerald-600" />
                     <span>Tableau Excel (.csv)</span>
                   </button>
 
@@ -529,10 +686,10 @@ export function BordereauResultatsView({
                         onOuvrirExportModal(formationId);
                         setMenuExportOuvert(false);
                       }}
-                      className="hover:text-brand-orange flex w-full cursor-pointer items-center gap-2 rounded-lg p-2 text-left font-semibold text-slate-700 transition-colors hover:bg-orange-50"
+                      className="flex w-full items-center gap-2 rounded p-1.5 text-left font-medium text-slate-700 hover:bg-orange-50 hover:text-brand-orange transition-colors cursor-pointer"
                     >
-                      <Printer size={15} className="text-brand-orange" />
-                      <span>Fiche Officielle PDF</span>
+                      <Printer size={14} className="text-brand-orange" />
+                      <span>Fiche Officielle (PDF)</span>
                     </button>
                   )}
                 </div>
@@ -542,108 +699,181 @@ export function BordereauResultatsView({
         </div>
       </div>
 
-      {/* Bannière de confirmation de compilation */}
+      {/* Bannière de notification de compilation */}
       {messageCompilation && (
         <div
-          className={`flex items-center gap-2 rounded-xl p-3 text-xs font-bold ${
+          className={`flex items-center gap-2 rounded-lg p-2 text-xs font-semibold ${
             messageCompilation.type === "success"
               ? "border border-emerald-200 bg-emerald-50 text-emerald-800"
               : "border border-red-200 bg-red-50 text-red-800"
           }`}
         >
           {messageCompilation.type === "success" ? (
-            <CheckCircle2 size={16} className="shrink-0 text-emerald-600" />
+            <CheckCircle2 size={14} className="shrink-0 text-emerald-600" />
           ) : (
-            <AlertTriangle size={16} className="shrink-0 text-red-600" />
+            <AlertTriangle size={14} className="shrink-0 text-red-600" />
           )}
           <span>{messageCompilation.text}</span>
         </div>
       )}
 
-      {/* Tableau du bordereau officiel */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs">
-        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-5 py-3">
-          <div className="flex items-center gap-2.5">
-            <div className="bg-brand-orange flex h-7 w-7 items-center justify-center rounded-lg text-xs font-black text-white">
-              {concoursBlanc.numero}
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">
-                Bordereau des Notes — {formation?.nom}
-              </h3>
-              {centreIdFiltre !== "TOUS" && (
-                <p className="text-brand-orange text-[11px] font-semibold">
-                  Classement restreint au centre{" "}
-                  {centres.find((c) => c.id === centreIdFiltre)?.nom}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 text-xs font-bold">
-            <span className="text-slate-600">
-              {nbPresents} candidat{nbPresents > 1 ? "s" : ""} classé{nbPresents > 1 ? "s" : ""}
-            </span>
-            {nbAbsents > 0 && (
-              <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700 border border-rose-200">
-                {nbAbsents} absent{nbAbsents > 1 ? "s" : ""}
-              </span>
-            )}
-          </div>
-        </div>
-
+      {/* ── C. Bordereau de Notes Officiel (Tableau Métier Dominant) ── */}
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xs">
         {isLoading ? (
           <div className="p-12 text-center text-xs text-slate-400">
-            Chargement des résultats et calcul du classement...
+            Chargement des résultats et des classements...
           </div>
         ) : !bordereau || candidatsTries.length === 0 ? (
           <div className="p-12 text-center text-xs text-slate-400">
             Aucun résultat enregistré pour cette filière dans ce concours blanc.
           </div>
+        ) : candidatsFiltres.length === 0 ? (
+          <div className="p-12 text-center text-xs space-y-2">
+            <p className="text-slate-600 font-medium">
+              Aucun candidat ne correspond à vos filtres actifs.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setRechercheCandidat("");
+                setFiltreStatutCandidat("TOUS");
+              }}
+              className="text-xs font-bold text-brand-orange hover:underline cursor-pointer"
+            >
+              Réinitialiser les filtres pour afficher tous les candidats
+            </button>
+          </div>
         ) : (
           <div className="overflow-x-auto relative">
             <table className="w-full border-collapse text-left text-xs">
-              <thead>
-                <tr className="border-b border-b-slate-300 bg-slate-100/95 text-[11px] font-bold tracking-wider text-slate-700 uppercase">
-                  <th className="sticky left-0 z-20 w-14 bg-slate-100 px-3 py-3 text-center border-r border-slate-200">
-                    Rang
-                  </th>
-                  <th
-                    className="w-16 bg-slate-200/40 px-2 py-3 text-center text-slate-600"
-                    title="Rang au sein du centre"
-                  >
-                    Rang Ctre
-                  </th>
-                  <th
-                    className="w-14 px-2 py-3 text-center"
-                    title="Progression par rapport au dernier concours blanc"
-                  >
-                    Évol.
-                  </th>
-                  <th className="sticky left-14 z-20 min-w-[200px] bg-slate-100 px-4 py-3 border-r border-slate-200 shadow-xs">
-                    Noms & Prénoms
-                  </th>
-                  <th className="min-w-[110px] px-3 py-3">Centre</th>
-                  <th className="min-w-[140px] px-3 py-3">Établissement</th>
-                  {bordereau.epreuves.map((ep) => (
-                    <th
-                      key={ep.id}
-                      className="min-w-[120px] border-l border-slate-200 px-3 py-3 text-center"
+              <thead className="sticky top-0 z-20 bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-700 tracking-wider uppercase select-none shadow-xs">
+                <tr>
+                  {/* Colonne Rang Général (Sticky Left) */}
+                  <th className="sticky left-0 z-30 w-12 bg-slate-50 px-2 py-2 text-center border-b border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => handleSort("rang")}
+                      className="group inline-flex items-center justify-center gap-1 w-full font-bold uppercase text-slate-700 hover:text-slate-900 cursor-pointer"
+                      title="Trier par Rang Général"
                     >
-                      <div className="line-clamp-1">{ep.intitule}</div>
-                      <div className="text-[10px] font-normal text-slate-500 lowercase">
-                        /{ep.noteMax}
-                        {!tousMemeCoef ? ` · coef ${ep.coefficient}` : ""}
+                      <span>Rang</span>
+                      {renderSortIcon("rang")}
+                    </button>
+                  </th>
+
+                  {/* Colonne Rang Centre */}
+                  <th className="w-14 px-2 py-2 text-center border-b border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => handleSort("rangCentre")}
+                      className="group inline-flex items-center justify-center gap-1 w-full font-semibold uppercase text-slate-600 hover:text-slate-900 cursor-pointer"
+                      title="Trier par Rang au sein du Centre"
+                    >
+                      <span>R. Ctre</span>
+                      {renderSortIcon("rangCentre")}
+                    </button>
+                  </th>
+
+                  {/* Colonne Évolution */}
+                  <th className="w-12 px-1.5 py-2 text-center border-b border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => handleSort("deltaRang")}
+                      className="group inline-flex items-center justify-center gap-0.5 w-full font-semibold uppercase text-slate-600 hover:text-slate-900 cursor-pointer"
+                      title="Trier par Progression (Delta)"
+                    >
+                      <span>Évol.</span>
+                      {renderSortIcon("deltaRang")}
+                    </button>
+                  </th>
+
+                  {/* Colonne Nom & Prénom (Sticky Left 12) */}
+                  <th className="sticky left-12 z-30 min-w-[200px] bg-slate-50 px-3 py-2 text-left border-b border-slate-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
+                    <button
+                      type="button"
+                      onClick={() => handleSort("nomComplet")}
+                      className="group inline-flex items-center gap-1 font-bold uppercase text-slate-700 hover:text-slate-900 cursor-pointer"
+                      title="Trier par Nom alphabétique"
+                    >
+                      <span>Noms & Prénoms</span>
+                      {renderSortIcon("nomComplet")}
+                    </button>
+                  </th>
+
+                  {/* Colonne Centre */}
+                  <th className="min-w-[110px] px-3 py-2 border-b border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => handleSort("centre")}
+                      className="group inline-flex items-center gap-1 font-semibold uppercase text-slate-600 hover:text-slate-900 cursor-pointer"
+                      title="Trier par Centre"
+                    >
+                      <span>Centre</span>
+                      {renderSortIcon("centre")}
+                    </button>
+                  </th>
+
+                  {/* Colonne Établissement d'origine */}
+                  <th className="min-w-[130px] px-3 py-2 border-b border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => handleSort("etablissement")}
+                      className="group inline-flex items-center gap-1 font-semibold uppercase text-slate-600 hover:text-slate-900 cursor-pointer"
+                      title="Trier par Établissement"
+                    >
+                      <span>Établissement</span>
+                      {renderSortIcon("etablissement")}
+                    </button>
+                  </th>
+
+                  {/* Colonnes Matières / Épreuves */}
+                  {bordereau.epreuves.map((ep) => {
+                    const epreuveSortKey: SortKey = `epreuve_${ep.id}`;
+                    return (
+                      <th
+                        key={ep.id}
+                        className="min-w-[105px] px-2.5 py-1.5 text-right border-b border-slate-200"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => handleSort(epreuveSortKey)}
+                          className="group inline-flex flex-col items-end w-full cursor-pointer"
+                          title={`Trier par note en ${ep.intitule}`}
+                        >
+                          <div className="inline-flex items-center gap-1 font-bold text-slate-800 uppercase line-clamp-1">
+                            <span>{ep.intitule}</span>
+                            {renderSortIcon(epreuveSortKey)}
+                          </div>
+                          <span className="text-[10px] font-normal text-slate-400 normal-case">
+                            /{ep.noteMax} · c.{ep.coefficient}
+                          </span>
+                        </button>
+                      </th>
+                    );
+                  })}
+
+                  {/* Colonne Total Pondéré (pts) (Sticky Right) */}
+                  <th className="sticky right-0 z-30 w-24 bg-slate-50 px-3 py-2 text-right border-b border-slate-200 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]">
+                    <button
+                      type="button"
+                      onClick={() => handleSort("totalPondere")}
+                      className="group inline-flex flex-col items-end w-full cursor-pointer"
+                      title="Trier par Total des points"
+                    >
+                      <div className="inline-flex items-center gap-1 font-bold uppercase text-slate-900">
+                        <span>Total</span>
+                        {renderSortIcon("totalPondere")}
                       </div>
-                    </th>
-                  ))}
-                  <th className="sticky right-0 z-20 w-28 border-l border-slate-200 bg-slate-100 px-3 py-3 text-center shadow-xs">
-                    Total
+                      <span className="text-[10px] font-normal text-slate-400 normal-case">
+                        pts
+                      </span>
+                    </button>
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {candidatsTries.map((c, idx) => {
+
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {candidatsAffiches.map((c, idx) => {
                   const estAbsent = estCandidatAbsent(c);
                   const delta = c.deltaRang;
 
@@ -652,35 +882,39 @@ export function BordereauResultatsView({
                       key={c.id || idx}
                       className={`group transition-colors ${
                         estAbsent
-                          ? "bg-rose-50/15 text-slate-500 hover:bg-rose-50/30"
+                          ? "bg-rose-50/15 text-slate-400 hover:bg-rose-50/25"
                           : c.rang === 1
-                            ? "bg-amber-50/40 font-medium hover:bg-amber-50/60"
-                            : c.rang === 2
-                              ? "bg-slate-100/40 hover:bg-slate-100/70"
-                              : c.rang === 3
-                                ? "bg-orange-50/30 hover:bg-orange-50/50"
-                                : "hover:bg-slate-50/70"
+                            ? "bg-amber-50/25 font-medium hover:bg-amber-50/40"
+                            : "hover:bg-slate-50/70"
                       }`}
                     >
-                      {/* Rang Général (Sticky Left 0) */}
-                      <td className="sticky left-0 z-10 bg-inherit px-3 py-2.5 text-center border-r border-slate-200 group-hover:bg-slate-50">
+                      {/* Rang Général (Sticky Left) */}
+                      <td
+                        className={`sticky left-0 z-10 px-2 py-1.5 text-center transition-colors ${
+                          estAbsent
+                            ? "bg-rose-50 group-hover:bg-rose-100/70"
+                            : c.rang === 1
+                              ? "bg-amber-50/80 group-hover:bg-amber-100/70"
+                              : "bg-white group-hover:bg-slate-50"
+                        }`}
+                      >
                         {estAbsent ? (
                           <span
-                            className="inline-flex h-5 items-center justify-center rounded-md px-1.5 text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-200"
-                            title="Absent(e) à la totalité des épreuves"
+                            className="inline-flex items-center justify-center rounded px-1.5 py-0.2 text-[10px] font-bold uppercase bg-rose-100 text-rose-700"
+                            title="Absent(e)"
                           >
                             ABS
                           </span>
                         ) : (
                           <span
-                            className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-black tabular-nums ${
+                            className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold tabular-nums ${
                               c.rang === 1
-                                ? "bg-amber-400 text-slate-950 shadow-xs ring-2 ring-amber-300"
+                                ? "bg-amber-400 text-slate-950 font-black shadow-2xs"
                                 : c.rang === 2
-                                  ? "bg-slate-300 text-slate-800 shadow-2xs"
+                                  ? "bg-slate-200 text-slate-800 font-bold"
                                   : c.rang === 3
-                                    ? "bg-amber-700 text-white shadow-2xs"
-                                    : "font-bold text-slate-600"
+                                    ? "bg-amber-700/80 text-white font-bold"
+                                    : "text-slate-600"
                             }`}
                           >
                             {c.rang ?? "-"}
@@ -689,74 +923,74 @@ export function BordereauResultatsView({
                       </td>
 
                       {/* Rang Centre */}
-                      <td className="bg-slate-50/60 px-2 py-2.5 text-center text-xs font-bold text-slate-600 tabular-nums">
+                      <td className="px-2 py-1.5 text-center text-xs font-semibold text-slate-600 tabular-nums">
                         {estAbsent ? (
-                          <span className="text-[10px] font-bold text-rose-600">ABS</span>
+                          <span className="text-[10px] text-rose-500 font-medium">ABS</span>
                         ) : (
                           c.rangCentre ?? "-"
                         )}
                       </td>
 
-                      {/* Évolution (Delta vs concours précédent) */}
-                      <td className="px-2 py-2.5 text-center">
+                      {/* Évolution (Delta) */}
+                      <td className="px-1.5 py-1.5 text-center">
                         {delta !== null && delta !== undefined ? (
                           delta > 0 ? (
                             <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-emerald-600 tabular-nums">
-                              <TrendingUp size={12} />+{delta}
+                              <TrendingUp size={11} />+{delta}
                             </span>
                           ) : delta < 0 ? (
                             <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-red-600 tabular-nums">
-                              <TrendingDown size={12} />
+                              <TrendingDown size={11} />
                               {delta}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center text-[11px] font-bold text-slate-400">
-                              <Minus size={12} />
+                            <span className="inline-flex items-center text-[11px] font-medium text-slate-400">
+                              <Minus size={11} />
                             </span>
                           )
                         ) : (
-                          <span className="text-[10px] text-slate-300">—</span>
+                          <span className="text-[11px] text-slate-300 font-medium">—</span>
                         )}
                       </td>
 
-                      {/* Noms et Prénoms (Sticky Left 14) */}
-                      <td className="sticky left-14 z-10 bg-inherit px-4 py-2.5 border-r border-slate-200 group-hover:bg-slate-50 shadow-xs">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900 line-clamp-1">
+                      {/* Noms et Prénoms (Sticky Left 12) */}
+                      <td
+                        className={`sticky left-12 z-10 px-3 py-1.5 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)] transition-colors ${
+                          estAbsent
+                            ? "bg-rose-50 group-hover:bg-rose-100/70"
+                            : c.rang === 1
+                              ? "bg-amber-50/80 group-hover:bg-amber-100/70"
+                              : "bg-white group-hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-slate-900 line-clamp-1">
                             {c.nomComplet}
                           </span>
                           {c.horsListe && (
-                            <span className="rounded-full bg-amber-100 px-1.5 py-0.2 text-[9px] font-bold text-amber-800 shrink-0">
+                            <span className="rounded bg-amber-100 px-1 py-0.2 text-[9px] font-bold text-amber-800 shrink-0">
                               HL
-                            </span>
-                          )}
-                          {c.rang === 1 && (
-                            <span className="rounded-full bg-amber-100 text-amber-800 px-1.5 py-0.2 text-[9px] font-black shrink-0">
-                              1er
                             </span>
                           )}
                         </div>
                       </td>
 
                       {/* Centre EXCELIS */}
-                      <td className="px-3 py-2.5 text-xs font-semibold text-slate-700">
+                      <td className="px-3 py-1.5 text-xs text-slate-600 truncate max-w-[130px]">
                         {centres.find((ct) => ct.id === c.centreId)?.nom || "—"}
                       </td>
 
                       {/* Établissement d'origine */}
-                      <td className="px-3 py-2.5 text-xs text-slate-500">
+                      <td className="px-3 py-1.5 text-xs text-slate-500 truncate max-w-[150px]">
                         {c.etablissementOrigine || "—"}
                       </td>
 
-                      {/* Notes par Épreuve (avec micro-teintes et étoile Major) */}
+                      {/* Notes par Épreuve (Sobres, rigoureuses, lisibles) */}
                       {bordereau.epreuves.map((ep) => {
-                        const noteObj = c.notes.find(
-                          (n) => n.epreuveId === ep.id,
-                        );
+                        const noteObj = c.notes.find((n) => n.epreuveId === ep.id);
                         const noteVal = noteObj?.note;
                         const statut = noteObj?.statut ?? "NOTE";
-                        const maxNoteEpreuve =
-                          bordereau.meilleuresNotesParEpreuve[ep.id];
+                        const maxNoteEpreuve = bordereau.meilleuresNotesParEpreuve[ep.id];
                         const estMeilleureNote =
                           statut === "NOTE" &&
                           noteVal !== null &&
@@ -765,61 +999,29 @@ export function BordereauResultatsView({
                           noteVal >= maxNoteEpreuve &&
                           noteVal > 0;
 
-                        // Teinte contextuelle de la note
-                        const noteBas = noteVal !== null && noteVal !== undefined && noteVal < 5;
-                        const noteFaible = noteVal !== null && noteVal !== undefined && noteVal >= 5 && noteVal < 10;
-                        const noteExcellente = noteVal !== null && noteVal !== undefined && noteVal >= 14;
-
                         return (
-                          <td
-                            key={ep.id}
-                            className={`border-l border-slate-200 px-3 py-2.5 text-center ${
-                              noteBas
-                                ? "bg-rose-50/40"
-                                : noteFaible
-                                  ? "bg-amber-50/20"
-                                  : noteExcellente
-                                    ? "bg-emerald-50/20"
-                                    : ""
-                            }`}
-                          >
+                          <td key={ep.id} className="px-2.5 py-1.5 text-right font-mono text-xs tabular-nums">
                             {statut === "NOTE" ? (
                               noteVal !== null && noteVal !== undefined ? (
-                                <div className="inline-flex items-center justify-center gap-1">
-                                  <span
-                                    className={`font-mono tabular-nums font-bold ${
-                                      estMeilleureNote
-                                        ? "text-sm font-black text-amber-600"
-                                        : noteBas
-                                          ? "text-rose-700 font-black"
-                                          : noteFaible
-                                            ? "text-amber-700"
-                                            : noteExcellente
-                                              ? "text-emerald-700 font-black"
-                                              : "text-slate-800"
-                                    }`}
-                                  >
-                                    {noteVal}
-                                  </span>
-                                  {estMeilleureNote && (
-                                    <span title="Major de la promotion pour cette discipline">
-                                      <Star
-                                        size={12}
-                                        className="shrink-0 fill-amber-400 text-amber-500"
-                                      />
-                                    </span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="font-mono text-slate-300">
-                                  -
+                                <span
+                                  className={
+                                    estMeilleureNote
+                                      ? "font-black text-amber-900 font-mono"
+                                      : noteVal < 5
+                                        ? "font-semibold text-rose-600"
+                                        : "font-medium text-slate-800"
+                                  }
+                                >
+                                  {noteVal.toFixed(2)}
                                 </span>
+                              ) : (
+                                <span className="text-slate-300">—</span>
                               )
                             ) : (
                               <span
-                                className={`rounded px-1.5 py-0.5 text-[10px] font-black uppercase ${
+                                className={`rounded px-1 py-0.2 text-[10px] font-bold uppercase ${
                                   statut === "ABS"
-                                    ? "border border-red-200 bg-red-50 text-red-700"
+                                    ? "bg-rose-50 text-rose-700"
                                     : "bg-slate-100 text-slate-600"
                                 }`}
                               >
@@ -830,14 +1032,22 @@ export function BordereauResultatsView({
                         );
                       })}
 
-                      {/* Total Pondéré (Sticky Right) */}
-                      <td className="sticky right-0 z-10 border-l border-slate-200 bg-slate-50 px-3 py-2.5 text-center font-mono font-bold text-slate-900 tabular-nums shadow-xs group-hover:bg-slate-100">
+                      {/* Total Pondéré (pts) (Sticky Right) */}
+                      <td
+                        className={`sticky right-0 z-10 px-3 py-1.5 text-right font-mono font-bold text-slate-900 tabular-nums shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)] transition-colors ${
+                          estAbsent
+                            ? "bg-rose-50 group-hover:bg-rose-100/70"
+                            : c.rang === 1
+                              ? "bg-amber-50/80 group-hover:bg-amber-100/70"
+                              : "bg-white group-hover:bg-slate-50"
+                        }`}
+                      >
                         {estAbsent ? (
-                          <span className="font-bold text-[11px] text-rose-600">ABS</span>
+                          <span className="font-semibold text-[11px] text-rose-600">ABS</span>
                         ) : c.totalPondere !== null && c.totalPondere !== undefined ? (
-                          c.totalPondere
+                          c.totalPondere.toFixed(2)
                         ) : (
-                          "-"
+                          "—"
                         )}
                       </td>
                     </tr>
@@ -845,29 +1055,29 @@ export function BordereauResultatsView({
                 })}
               </tbody>
 
-              {/* Ligne de synthèse officielle en bas de tableau (Moyenne & Max par épreuve) */}
+              {/* Ligne de synthèse officielle en bas de tableau */}
               <tfoot>
-                <tr className="border-t-2 border-slate-300 bg-slate-100/90 text-xs font-bold text-slate-800">
+                <tr className="border-t-2 border-slate-300 bg-slate-100/95 text-xs font-bold text-slate-900 sticky bottom-0 z-20 shadow-2xs">
                   <td
                     colSpan={6}
-                    className="sticky left-0 z-10 bg-slate-100 px-4 py-3 text-right uppercase tracking-wider text-[11px] text-slate-600 border-r border-slate-200"
+                    className="sticky left-0 z-10 bg-slate-100 px-3 py-2 text-right uppercase tracking-wider text-[11px] text-slate-700 font-bold shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]"
                   >
-                    Moyennes & Performances de l&rsquo;épreuve :
+                    Moyennes & Performances ({syntheseTableau.nbPresentsAffiches} candidats) :
                   </td>
                   {bordereau.epreuves.map((ep) => {
-                    const st = statsSession.statsParEpreuve[ep.id];
+                    const st = syntheseTableau.statsParEpreuve[ep.id];
                     return (
                       <td
                         key={ep.id}
-                        className="border-l border-slate-200 px-3 py-2.5 text-center font-mono tabular-nums"
+                        className="px-2.5 py-1.5 text-right font-mono tabular-nums"
                       >
                         {st ? (
-                          <div className="flex flex-col items-center">
-                            <span className="text-slate-900 font-black">
-                              {st.moyenne}
+                          <div className="flex flex-col items-end">
+                            <span className="text-slate-900 font-bold">
+                              {st.moyenne.toFixed(2)}
                             </span>
-                            <span className="text-[10px] font-semibold text-amber-700">
-                              max {st.noteMax}
+                            <span className="text-[10px] font-semibold text-slate-500">
+                              max {st.noteMax.toFixed(2)}
                             </span>
                           </div>
                         ) : (
@@ -876,14 +1086,149 @@ export function BordereauResultatsView({
                       </td>
                     );
                   })}
-                  <td className="sticky right-0 z-10 border-l border-slate-200 bg-slate-200/80 px-3 py-3 text-center font-mono font-black text-slate-900 tabular-nums">
-                    {statsSession.moyenneGenerale ? `${statsSession.moyenneGenerale}/20` : "—"}
+                  {/* Total Moyen des points (Sticky Right) */}
+                  <td className="sticky right-0 z-10 bg-slate-200 px-3 py-1.5 text-right font-mono font-bold text-slate-900 tabular-nums shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]">
+                    {syntheseTableau.moyenneTotalPoints !== null
+                      ? syntheseTableau.moyenneTotalPoints.toFixed(2)
+                      : "—"}
                   </td>
                 </tr>
               </tfoot>
             </table>
           </div>
         )}
+      </div>
+
+      {/* ── D. Bande de Synthèse Compacte (Indicateurs Secondaires après le tableau) ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+          {/* Participation */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              Participation :
+            </span>
+            <span className="font-mono font-bold text-slate-900 tabular-nums">
+              {statsPilotage.tauxPresence}%
+            </span>
+            <span className="text-slate-400">
+              ({nbPresents}/{totalInscrits})
+            </span>
+            {nbAbsents > 0 && (
+              <span className="text-rose-600 font-semibold text-[11px]">
+                · {nbAbsents} abs.
+              </span>
+            )}
+          </div>
+
+          <span className="text-slate-300">·</span>
+
+          {/* Épreuves */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              Épreuves :
+            </span>
+            <span className="font-bold text-slate-800">
+              {bordereau?.epreuves?.length || 0} matières
+            </span>
+            <span className="text-slate-400">· Coef. {statsPilotage.coefTotal}</span>
+          </div>
+
+          <span className="text-slate-300">·</span>
+
+          {/* Taux de Réussite */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              Taux réussite (≥10) :
+            </span>
+            <span className="font-mono font-bold text-slate-900 tabular-nums">
+              {statsPilotage.tauxReussite}%
+            </span>
+            <span className="text-slate-400">
+              ({statsPilotage.nbReussite}/{nbPresents})
+            </span>
+          </div>
+
+          <span className="text-slate-300">·</span>
+
+          {/* Moyenne Filière */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              Moyenne filière :
+            </span>
+            <span className="font-mono font-bold text-slate-900 tabular-nums">
+              {statsPilotage.moyenneGenerale !== null
+                ? `${statsPilotage.moyenneGenerale.toFixed(2)}/20`
+                : "—"}
+            </span>
+          </div>
+
+          {/* Major Promo */}
+          {statsPilotage.majorCandidat && (
+            <>
+              <span className="text-slate-300">·</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">
+                  Major {filtreEffective !== "TOUS" ? "Centre" : "Promo"} :
+                </span>
+                <span className="font-bold text-slate-900">
+                  {statsPilotage.majorCandidat.nomComplet}
+                </span>
+                <span className="font-mono text-amber-800 font-bold tabular-nums">
+                  ({statsPilotage.majorCandidat.totalPondere?.toFixed(2)} pts)
+                </span>
+                <span className="text-slate-400 text-[11px]">
+                  · {centres.find((c) => c.id === statsPilotage.majorCandidat?.centreId)?.nom || ""}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Navigation et affichage des lignes */}
+        <div className="flex items-center gap-2 ml-auto text-[11px] text-slate-500 font-medium">
+          <span>
+            {candidatsAffiches.length} sur {candidatsFiltres.length} candidat
+            {candidatsFiltres.length > 1 ? "s" : ""}
+          </span>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={pageCourante === 1}
+                onClick={() => setPageCourante((p) => Math.max(1, p - 1))}
+                className="px-1.5 py-0.5 rounded border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                title="Page précédente"
+              >
+                ‹
+              </button>
+              <span className="font-mono font-semibold">
+                {pageCourante}/{totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={pageCourante === totalPages}
+                onClick={() => setPageCourante((p) => Math.min(totalPages, p + 1))}
+                className="px-1.5 py-0.5 rounded border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                title="Page suivante"
+              >
+                ›
+              </button>
+            </div>
+          )}
+          <select
+            value={lignesParPage}
+            onChange={(e) => {
+              const val = e.target.value === "TOUS" ? "TOUS" : Number(e.target.value);
+              setLignesParPage(val);
+            }}
+            className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] text-slate-600 outline-none cursor-pointer"
+          >
+            <option value={25}>25 / page</option>
+            <option value={50}>50 / page</option>
+            <option value={100}>100 / page</option>
+            <option value="TOUS">Tous</option>
+          </select>
+        </div>
       </div>
     </div>
   );

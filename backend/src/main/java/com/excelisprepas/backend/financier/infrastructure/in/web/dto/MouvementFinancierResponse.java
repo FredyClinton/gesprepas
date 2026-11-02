@@ -18,6 +18,12 @@ public record MouvementFinancierResponse(
         UUID centreId,
         UUID apprenantId, // uniquement pour ENTREE
         UUID formationId, // uniquement pour ENTREE
-        String ordonnateur // uniquement pour SORTIE
+        String ordonnateur, // uniquement pour SORTIE
+        String details // détail spécifique (ex: titre du livre pour vente de livre)
 ) {
+    public MouvementFinancierResponse(UUID id, String type, UUID sessionId, UUID motifId, BigDecimal montant,
+                                      LocalDate date, UUID saisiParUtilisateurId, StatutMouvement statut,
+                                      UUID centreId, UUID apprenantId, UUID formationId, String ordonnateur) {
+        this(id, type, sessionId, motifId, montant, date, saisiParUtilisateurId, statut, centreId, apprenantId, formationId, ordonnateur, null);
+    }
 }

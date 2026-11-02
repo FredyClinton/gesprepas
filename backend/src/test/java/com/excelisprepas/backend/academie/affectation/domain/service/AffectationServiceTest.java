@@ -1,5 +1,6 @@
 package com.excelisprepas.backend.academie.affectation.domain.service;
 
+import com.excelisprepas.backend.academie.affectation.domain.exception.ConflitHoraireEnseignantException;
 import com.excelisprepas.backend.academie.affectation.domain.exception.EnseignantSuspenduException;
 import com.excelisprepas.backend.academie.affectation.domain.exception.SeanceNonEncorePasseeException;
 import com.excelisprepas.backend.academie.affectation.domain.model.Affectation;
@@ -31,6 +32,7 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -456,6 +458,288 @@ class AffectationServiceTest {
             // Then
             assertThatThrownBy(assignation).isInstanceOf(EnseignantSuspenduException.class);
             verify(affectationRepository, never()).save(any(Affectation.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("Contrôle des conflits d'emploi du temps des enseignants")
+    class ConflitsHorairesEnseignants {
+
+        private UUID enseignantId;
+        private Enseignant enseignant;
+        private Departement departement;
+        private LocalDate dateLundi;
+
+        @BeforeEach
+        void setupConflits() {
+            enseignantId = UUID.randomUUID();
+            enseignant = new Enseignant(enseignantId, "Kamga", "Paul", "ENS-042", new BigDecimal("6000"));
+            departement = new Departement(UUID.randomUUID(), "Mathématiques", matiereId);
+            dateLundi = LocalDate.of(2026, 11, 2); // Un lundi
+
+            when(enseignantRepository.findByIdWithLock(enseignantId)).thenReturn(Optional.of(enseignant));
+            when(enseignantRepository.findById(enseignantId)).thenReturn(Optional.of(enseignant));
+            when(departementRepository.findByMatiereId(matiereId)).thenReturn(Optional.of(departement));
+            when(rosterRepository.existsByEnseignantIdAndSessionIdAndDepartementId(
+                    enseignantId, sessionId, departement.getId())).thenReturn(true);
+            when(centreRepository.findById(centreId)).thenReturn(Optional.of(
+                    new Centre(centreId, "Centre B", "Akwa", "Douala")));
+            when(formationRepository.findById(formationId)).thenReturn(Optional.of(
+                    new Formation(formationId, "Terminale C", java.util.Set.of(matiereId))));
+            when(matiereRepository.findById(matiereId)).thenReturn(Optional.of(
+                    new Matiere(matiereId, "Mathématiques")));
+            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(
+                    SessionAcademique.reconstituer(sessionId, "2026-2027",
+                            dateLundi, dateLundi.plusMonths(9), StatutSession.EN_COURS)));
+            when(affectationRepository.save(any(Affectation.class))).thenAnswer(i -> i.getArgument(0));
+        }
+
+        private Affectation creerAffectationExistante(UUID affCentreId, UUID affFormationId, LocalDate date, LocalTime debut, LocalTime fin, StatutAffectation statut) {
+            return Affectation.reconstituer(
+                    UUID.randomUUID(), affCentreId, sessionId, affFormationId,
+                    salleId, matiereId, enseignantId, Jour.LUNDI, 1, 1, statut,
+                    null, null, null, date, debut, fin
+            );
+        }
+
+        @Test
+        @DisplayName("1. Deux séances exactement identiques déclenchent un conflit")
+        void deuxSeancesExactementIdentiques_declencheConflit() {
+            Affectation existante = creerAffectationExistante(centreId, formationId, dateLundi,
+                    LocalTime.of(8, 0), LocalTime.of(10, 0), StatutAffectation.ASSIGNEE);
+            when(affectationRepository.findByEnseignantId(enseignantId)).thenReturn(List.of(existante));
+
+            Affectation nouvelle = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
+                    salleId, matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE,
+                    dateLundi, LocalTime.of(8, 0), LocalTime.of(10, 0));
+            when(affectationRepository.findById(nouvelle.getId())).thenReturn(Optional.of(nouvelle));
+
+            assertThatThrownBy(() -> service.assignerEnseignant(nouvelle.getId(), enseignantId, LocalTime.of(8, 0), LocalTime.of(10, 0)))
+                    .isInstanceOf(ConflitHoraireEnseignantException.class)
+                    .hasMessageContaining("Impossible d'affecter cet enseignant : il est déjà programmé le 02/11/2026 de 08h00 à 10h00 au centre Centre B, classe Terminale C");
+        }
+
+        @Test
+        @DisplayName("2a. Chevauchement partiel au début (07h00 - 08h30 vs 08h00 - 10h00)")
+        void chevauchementPartielDebut_declencheConflit() {
+            Affectation existante = creerAffectationExistante(centreId, formationId, dateLundi,
+                    LocalTime.of(8, 0), LocalTime.of(10, 0), StatutAffectation.ASSIGNEE);
+            when(affectationRepository.findByEnseignantId(enseignantId)).thenReturn(List.of(existante));
+
+            Affectation nouvelle = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
+                    salleId, matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE,
+                    dateLundi, LocalTime.of(7, 0), LocalTime.of(8, 30));
+            when(affectationRepository.findById(nouvelle.getId())).thenReturn(Optional.of(nouvelle));
+
+            assertThatThrownBy(() -> service.assignerEnseignant(nouvelle.getId(), enseignantId, LocalTime.of(7, 0), LocalTime.of(8, 30)))
+                    .isInstanceOf(ConflitHoraireEnseignantException.class);
+        }
+
+        @Test
+        @DisplayName("2b. Chevauchement partiel à la fin (08h30 - 10h30 vs 08h00 - 10h00)")
+        void chevauchementPartielFin_declencheConflit() {
+            Affectation existante = creerAffectationExistante(centreId, formationId, dateLundi,
+                    LocalTime.of(8, 0), LocalTime.of(10, 0), StatutAffectation.ASSIGNEE);
+            when(affectationRepository.findByEnseignantId(enseignantId)).thenReturn(List.of(existante));
+
+            Affectation nouvelle = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
+                    salleId, matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE,
+                    dateLundi, LocalTime.of(8, 30), LocalTime.of(10, 30));
+            when(affectationRepository.findById(nouvelle.getId())).thenReturn(Optional.of(nouvelle));
+
+            assertThatThrownBy(() -> service.assignerEnseignant(nouvelle.getId(), enseignantId, LocalTime.of(8, 30), LocalTime.of(10, 30)))
+                    .isInstanceOf(ConflitHoraireEnseignantException.class);
+        }
+
+        @Test
+        @DisplayName("3a. Séance entièrement incluse (08h15 - 09h45 vs 08h00 - 10h00)")
+        void seanceEntierementIncluse_declencheConflit() {
+            Affectation existante = creerAffectationExistante(centreId, formationId, dateLundi,
+                    LocalTime.of(8, 0), LocalTime.of(10, 0), StatutAffectation.ASSIGNEE);
+            when(affectationRepository.findByEnseignantId(enseignantId)).thenReturn(List.of(existante));
+
+            Affectation nouvelle = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
+                    salleId, matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE,
+                    dateLundi, LocalTime.of(8, 15), LocalTime.of(9, 45));
+            when(affectationRepository.findById(nouvelle.getId())).thenReturn(Optional.of(nouvelle));
+
+            assertThatThrownBy(() -> service.assignerEnseignant(nouvelle.getId(), enseignantId, LocalTime.of(8, 15), LocalTime.of(9, 45)))
+                    .isInstanceOf(ConflitHoraireEnseignantException.class);
+        }
+
+        @Test
+        @DisplayName("3b. Séance englobante (07h30 - 10h30 vs 08h00 - 10h00)")
+        void seanceEnglobante_declencheConflit() {
+            Affectation existante = creerAffectationExistante(centreId, formationId, dateLundi,
+                    LocalTime.of(8, 0), LocalTime.of(10, 0), StatutAffectation.ASSIGNEE);
+            when(affectationRepository.findByEnseignantId(enseignantId)).thenReturn(List.of(existante));
+
+            Affectation nouvelle = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
+                    salleId, matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE,
+                    dateLundi, LocalTime.of(7, 30), LocalTime.of(10, 30));
+            when(affectationRepository.findById(nouvelle.getId())).thenReturn(Optional.of(nouvelle));
+
+            assertThatThrownBy(() -> service.assignerEnseignant(nouvelle.getId(), enseignantId, LocalTime.of(7, 30), LocalTime.of(10, 30)))
+                    .isInstanceOf(ConflitHoraireEnseignantException.class);
+        }
+
+        @Test
+        @DisplayName("4. Deux séances consécutives sans chevauchement sont autorisées (10h00 - 12h00 après 08h00 - 10h00)")
+        void deuxSeancesConsecutives_sansChevauchement_autorise() {
+            Affectation existante = creerAffectationExistante(centreId, formationId, dateLundi,
+                    LocalTime.of(8, 0), LocalTime.of(10, 0), StatutAffectation.ASSIGNEE);
+            when(affectationRepository.findByEnseignantId(enseignantId)).thenReturn(List.of(existante));
+
+            // Séance suivante débutant à l'heure exacte de fin de la précédente : 10h00 à 12h00
+            Affectation nouvelleSuivante = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
+                    salleId, matiereId, null, Jour.LUNDI, 2, 1, StatutAffectation.PLANIFIEE,
+                    dateLundi, LocalTime.of(10, 0), LocalTime.of(12, 0));
+            when(affectationRepository.findById(nouvelleSuivante.getId())).thenReturn(Optional.of(nouvelleSuivante));
+
+            Affectation resultatSuivant = service.assignerEnseignant(nouvelleSuivante.getId(), enseignantId, LocalTime.of(10, 0), LocalTime.of(12, 0));
+            assertThat(resultatSuivant.getEnseignantId()).isEqualTo(enseignantId);
+
+            // Séance précédente se terminant à l'heure exacte de début : 06h00 à 08h00
+            Affectation nouvellePrecedente = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
+                    salleId, matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE,
+                    dateLundi, LocalTime.of(6, 0), LocalTime.of(8, 0));
+            when(affectationRepository.findById(nouvellePrecedente.getId())).thenReturn(Optional.of(nouvellePrecedente));
+
+            Affectation resultatPrecedent = service.assignerEnseignant(nouvellePrecedente.getId(), enseignantId, LocalTime.of(6, 0), LocalTime.of(8, 0));
+            assertThat(resultatPrecedent.getEnseignantId()).isEqualTo(enseignantId);
+        }
+
+        @Test
+        @DisplayName("5. Deux séances le même jour dans deux centres différents déclenchent un conflit")
+        void memeJourDeuxCentresDifferents_declencheConflit() {
+            UUID centreA = UUID.randomUUID();
+            UUID formationTerminaleC = UUID.randomUUID();
+            when(centreRepository.findById(centreA)).thenReturn(Optional.of(new Centre(centreA, "Centre A", "Rue 1", "Yaoundé")));
+            when(formationRepository.findById(formationTerminaleC)).thenReturn(Optional.of(new Formation(formationTerminaleC, "Terminale C", java.util.Set.of(matiereId))));
+
+            Affectation existanteCentreA = creerAffectationExistante(centreA, formationTerminaleC, dateLundi,
+                    LocalTime.of(8, 0), LocalTime.of(10, 0), StatutAffectation.ASSIGNEE);
+            when(affectationRepository.findByEnseignantId(enseignantId)).thenReturn(List.of(existanteCentreA));
+
+            // Tentative d'affectation au Centre B de 08h30 à 10h30
+            Affectation nouvelleCentreB = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
+                    salleId, matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE,
+                    dateLundi, LocalTime.of(8, 30), LocalTime.of(10, 30));
+            when(affectationRepository.findById(nouvelleCentreB.getId())).thenReturn(Optional.of(nouvelleCentreB));
+
+            assertThatThrownBy(() -> service.assignerEnseignant(nouvelleCentreB.getId(), enseignantId, LocalTime.of(8, 30), LocalTime.of(10, 30)))
+                    .isInstanceOf(ConflitHoraireEnseignantException.class)
+                    .hasMessageContaining("Centre A")
+                    .hasMessageContaining("Terminale C");
+        }
+
+        @Test
+        @DisplayName("6. Deux séances à des dates différentes sont autorisées même avec des horaires identiques")
+        void datesDifferentes_memeHoraires_autorise() {
+            Affectation existanteLundi = creerAffectationExistante(centreId, formationId, dateLundi,
+                    LocalTime.of(8, 0), LocalTime.of(10, 0), StatutAffectation.ASSIGNEE);
+            when(affectationRepository.findByEnseignantId(enseignantId)).thenReturn(List.of(existanteLundi));
+
+            // Nouvelle séance le mardi (date différente) avec les mêmes horaires (08h00 - 10h00)
+            LocalDate dateMardi = dateLundi.plusDays(1);
+            Affectation nouvelleMardi = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
+                    salleId, matiereId, null, Jour.MARDI, 1, 1, StatutAffectation.PLANIFIEE,
+                    dateMardi, LocalTime.of(8, 0), LocalTime.of(10, 0));
+            when(affectationRepository.findById(nouvelleMardi.getId())).thenReturn(Optional.of(nouvelleMardi));
+
+            Affectation resultat = service.assignerEnseignant(nouvelleMardi.getId(), enseignantId, LocalTime.of(8, 0), LocalTime.of(10, 0));
+            assertThat(resultat.getEnseignantId()).isEqualTo(enseignantId);
+        }
+
+        @Test
+        @DisplayName("7. La modification d'une séance existante exclut la séance actuellement modifiée")
+        void modificationSeanceExistante_exclutSeanceCourante() {
+            Affectation seanceCourante = creerAffectationExistante(centreId, formationId, dateLundi,
+                    LocalTime.of(8, 0), LocalTime.of(10, 0), StatutAffectation.ASSIGNEE);
+            when(affectationRepository.findByEnseignantId(enseignantId)).thenReturn(List.of(seanceCourante));
+            when(affectationRepository.findById(seanceCourante.getId())).thenReturn(Optional.of(seanceCourante));
+
+            // Réassignation du même enseignant sur la même séance (mise à jour)
+            Affectation resultat = service.assignerEnseignant(seanceCourante.getId(), enseignantId, LocalTime.of(8, 0), LocalTime.of(10, 0));
+            assertThat(resultat.getId()).isEqualTo(seanceCourante.getId());
+        }
+
+        @Test
+        @DisplayName("8. Le changement d'enseignant vérifie l'emploi du temps du nouvel enseignant")
+        void changementEnseignant_valideEmploiDuTempsNouvelEnseignant() {
+            UUID enseignant2Id = UUID.randomUUID();
+            Enseignant enseignant2 = new Enseignant(enseignant2Id, "Ngo", "Marie", "ENS-099", new BigDecimal("5500"));
+            when(enseignantRepository.findByIdWithLock(enseignant2Id)).thenReturn(Optional.of(enseignant2));
+            when(enseignantRepository.findById(enseignant2Id)).thenReturn(Optional.of(enseignant2));
+            when(rosterRepository.existsByEnseignantIdAndSessionIdAndDepartementId(
+                    enseignant2Id, sessionId, departement.getId())).thenReturn(true);
+
+            // Enseignant 2 a déjà un cours le lundi de 09h00 à 11h00
+            Affectation seanceOccupéeEns2 = Affectation.reconstituer(
+                    UUID.randomUUID(), centreId, sessionId, formationId,
+                    salleId, matiereId, enseignant2Id, Jour.LUNDI, 2, 1, StatutAffectation.ASSIGNEE,
+                    null, null, null, dateLundi, LocalTime.of(9, 0), LocalTime.of(11, 0)
+            );
+            when(affectationRepository.findByEnseignantId(enseignant2Id)).thenReturn(List.of(seanceOccupéeEns2));
+
+            // On tente d'assigner Enseignant 2 sur une séance qui a lieu de 08h00 à 10h00
+            Affectation creneau = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
+                    salleId, matiereId, enseignantId, Jour.LUNDI, 1, 1, StatutAffectation.ASSIGNEE,
+                    dateLundi, LocalTime.of(8, 0), LocalTime.of(10, 0));
+            when(affectationRepository.findById(creneau.getId())).thenReturn(Optional.of(creneau));
+
+            assertThatThrownBy(() -> service.assignerEnseignant(creneau.getId(), enseignant2Id, LocalTime.of(8, 0), LocalTime.of(10, 0)))
+                    .isInstanceOf(ConflitHoraireEnseignantException.class);
+        }
+
+        @Test
+        @DisplayName("9. Vérifie l'acquisition du verrou pessimiste pour la protection contre les accès concurrents")
+        void protectionAccesConcurrents_verifieVerrouPessimiste() {
+            Affectation nouvelle = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
+                    salleId, matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE,
+                    dateLundi, LocalTime.of(8, 0), LocalTime.of(10, 0));
+            when(affectationRepository.findById(nouvelle.getId())).thenReturn(Optional.of(nouvelle));
+            when(affectationRepository.findByEnseignantId(enseignantId)).thenReturn(List.of());
+
+            service.assignerEnseignant(nouvelle.getId(), enseignantId);
+
+            // Vérifie que findByIdWithLock a été appelé pour sérialiser les transactions concurrentes
+            verify(enseignantRepository).findByIdWithLock(enseignantId);
+        }
+
+        @Test
+        @DisplayName("10. Les séances annulées sont ignorées dans la détection des conflits")
+        void seancesAnnulees_ignorees() {
+            Affectation annulee = creerAffectationExistante(centreId, formationId, dateLundi,
+                    LocalTime.of(8, 0), LocalTime.of(10, 0), StatutAffectation.ANNULEE);
+            when(affectationRepository.findByEnseignantId(enseignantId)).thenReturn(List.of(annulee));
+
+            Affectation nouvelle = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
+                    salleId, matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE,
+                    dateLundi, LocalTime.of(8, 0), LocalTime.of(10, 0));
+            when(affectationRepository.findById(nouvelle.getId())).thenReturn(Optional.of(nouvelle));
+
+            Affectation resultat = service.assignerEnseignant(nouvelle.getId(), enseignantId, LocalTime.of(8, 0), LocalTime.of(10, 0));
+            assertThat(resultat.getEnseignantId()).isEqualTo(enseignantId);
+        }
+
+        @Test
+        @DisplayName("11. Refuse si l'heure de fin n'est pas strictement postérieure à l'heure de début")
+        void heureFinNonStrictementPosterieure_refuse() {
+            Affectation nouvelle = new Affectation(UUID.randomUUID(), centreId, sessionId, formationId,
+                    salleId, matiereId, null, Jour.LUNDI, 1, 1, StatutAffectation.PLANIFIEE,
+                    dateLundi, LocalTime.of(10, 0), LocalTime.of(12, 0));
+            when(affectationRepository.findById(nouvelle.getId())).thenReturn(Optional.of(nouvelle));
+
+            // fin == debut
+            assertThatThrownBy(() -> service.assignerEnseignant(nouvelle.getId(), enseignantId, LocalTime.of(10, 0), LocalTime.of(10, 0)))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("doit être strictement postérieure");
+
+            // fin < debut
+            assertThatThrownBy(() -> service.assignerEnseignant(nouvelle.getId(), enseignantId, LocalTime.of(11, 0), LocalTime.of(10, 0)))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("doit être strictement postérieure");
         }
     }
 

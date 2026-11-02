@@ -1,8 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState, useMemo } from "react";
 import type { AuditLogItem } from "@/types/audit";
 import { Pagination } from "@/shared/ui/Pagination";
+import { SortableHeader } from "@/shared/ui";
+import { compareStrings, compareDates, type SortDirection } from "@/shared/lib/sort-utils";
 import {
   Eye,
   CheckCircle2,
@@ -33,6 +35,45 @@ export function AuditLogsTable({
   isLoading,
   onSelectLog,
 }: AuditLogsTableProps) {
+  type TriAuditColonne = "date" | "utilisateur" | "module" | "action" | "centre" | "statut";
+  const [triColonne, setTriColonne] = useState<TriAuditColonne>("date");
+  const [triDirection, setTriDirection] = useState<SortDirection>("desc");
+
+  function handleTri(colonne: TriAuditColonne) {
+    if (triColonne === colonne) {
+      setTriDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTriColonne(colonne);
+      setTriDirection(colonne === "date" ? "desc" : "asc");
+    }
+  }
+
+  const logsTries = useMemo(() => {
+    return [...logs].sort((a, b) => {
+      let res = 0;
+      switch (triColonne) {
+        case "date":
+          res = compareDates(a.createdAt, b.createdAt);
+          break;
+        case "utilisateur":
+          res = compareStrings(a.utilisateurNom || "", b.utilisateurNom || "");
+          break;
+        case "module":
+          res = compareStrings(a.module || "", b.module || "");
+          break;
+        case "action":
+          res = compareStrings(a.typeAction || "", b.typeAction || "");
+          break;
+        case "centre":
+          res = compareStrings(a.centreNom || "", b.centreNom || "");
+          break;
+        case "statut":
+          res = compareStrings(a.statut || "", b.statut || "");
+          break;
+      }
+      return triDirection === "asc" ? res : -res;
+    });
+  }, [logs, triColonne, triDirection]);
   const getModuleBadgeClass = (module: string) => {
     switch (module) {
       case "FINANCE":
@@ -89,13 +130,55 @@ export function AuditLogsTable({
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="border-b border-brand-gray/15 bg-brand-gray/5 text-brand-gray uppercase tracking-wider font-semibold">
-              <th className="py-3.5 px-4">Date & Heure</th>
-              <th className="py-3.5 px-4">Utilisateur</th>
-              <th className="py-3.5 px-3">Module</th>
-              <th className="py-3.5 px-3">Action</th>
+              <SortableHeader
+                label="Date & Heure"
+                columnKey="date"
+                currentSortColumn={triColonne}
+                currentSortDirection={triDirection}
+                onSort={handleTri}
+                align="left"
+              />
+              <SortableHeader
+                label="Utilisateur"
+                columnKey="utilisateur"
+                currentSortColumn={triColonne}
+                currentSortDirection={triDirection}
+                onSort={handleTri}
+                align="left"
+              />
+              <SortableHeader
+                label="Module"
+                columnKey="module"
+                currentSortColumn={triColonne}
+                currentSortDirection={triDirection}
+                onSort={handleTri}
+                align="left"
+              />
+              <SortableHeader
+                label="Action"
+                columnKey="action"
+                currentSortColumn={triColonne}
+                currentSortDirection={triDirection}
+                onSort={handleTri}
+                align="left"
+              />
               <th className="py-3.5 px-4 min-w-[220px]">Description</th>
-              <th className="py-3.5 px-3">Centre</th>
-              <th className="py-3.5 px-3">Statut</th>
+              <SortableHeader
+                label="Centre"
+                columnKey="centre"
+                currentSortColumn={triColonne}
+                currentSortDirection={triDirection}
+                onSort={handleTri}
+                align="left"
+              />
+              <SortableHeader
+                label="Statut"
+                columnKey="statut"
+                currentSortColumn={triColonne}
+                currentSortDirection={triDirection}
+                onSort={handleTri}
+                align="left"
+              />
               <th className="py-3.5 px-4 text-right">Détails</th>
             </tr>
           </thead>
@@ -148,7 +231,7 @@ export function AuditLogsTable({
               </tr>
             ) : (
               // Liste des lignes
-              logs.map((item) => {
+              logsTries.map((item) => {
                 const { date, time } = formatDate(item.createdAt);
                 const isSuccess = item.statut === "SUCCES";
 

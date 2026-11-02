@@ -15,7 +15,7 @@ import {
   AlertCircle,
   EyeOff,
 } from "lucide-react";
-import { Button } from "@/shared/ui";
+import { Button, PrintDocumentHeader, VisaDirecteurAcademique } from "@/shared/ui";
 import type { Formation } from "@/modules/academique";
 import { useMatieres, type Matiere } from "@/modules/matieres";
 import {
@@ -272,15 +272,16 @@ export function ExporterProgressionModal({
   const modalContent = (
     <div
       id="printable-progression-modal"
-      className="printable-progression-modal bg-brand-anthracite/60 animate-in fade-in fixed inset-0 z-50 flex items-center justify-center p-3 backdrop-blur-xs duration-150 sm:p-5 print:static print:inset-auto print:z-auto print:m-0 print:block print:h-auto print:max-h-none print:w-full print:overflow-visible print:bg-white print:p-0"
+      className="printable-modal print-landscape bg-brand-anthracite/60 animate-in fade-in fixed inset-0 z-50 flex items-center justify-center p-3 backdrop-blur-xs duration-150 sm:p-5 print:static print:inset-auto print:z-auto print:m-0 print:block print:h-auto print:max-h-none print:w-full print:overflow-visible print:bg-white print:p-0"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
       role="dialog"
       aria-modal="true"
     >
+      <style dangerouslySetInnerHTML={{ __html: "@page { size: A4 landscape; margin: 6mm 8mm; }" }} />
       <div
-        className="relative flex h-[92vh] max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl print:static print:m-0 print:block print:h-auto print:max-h-none print:w-full print:max-w-none print:overflow-visible print:rounded-none print:border-none print:p-0 print:shadow-none"
+        className="printable-dialog relative flex h-[92vh] max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl print:static print:m-0 print:block print:h-auto print:max-h-none print:w-full print:max-w-none print:overflow-visible print:rounded-none print:border-none print:p-0 print:shadow-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Barre de contrôle supérieure (Masquée à l'impression) */}
@@ -510,59 +511,31 @@ export function ExporterProgressionModal({
                       </span>
                     </span>
                     <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-slate-500 uppercase">
-                      Format A4 Paysage
+                      
                     </span>
                   </div>
 
                   {/* Cartouche officiel EXCELIS PRÉPAS pour cette feuille */}
-                  <div className="border-brand-orange mb-2.5 rounded-xl border-2 bg-orange-50/20 p-2.5 print:mb-2 print:p-2">
-                    <div className="mb-2 flex items-start justify-between border-b border-orange-200 pb-1.5">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-base font-black tracking-tight text-slate-900 uppercase sm:text-lg">
-                            EXCELIS PRÉPAS
-                          </span>
-                          <span className="text-brand-orange text-xs font-bold">
-                            — FICHE DE PROGRESSION PÉDAGOGIQUE
-                          </span>
-                        </div>
-                        <p className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">
-                          Classes Préparatoires aux Grandes Écoles & Concours
-                          d'Excellence
-                        </p>
-                      </div>
-
-                      <div className="text-right text-xs">
-                        <p className="font-black text-slate-900">
-                          SESSION {sessionAnnee}
-                        </p>
-                        <p className="text-[10px] font-medium text-slate-500">
-                          Édité le {new Date().toLocaleDateString("fr-FR")}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-700">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase">
-                          FORMATION :
-                        </span>{" "}
-                        <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-black text-slate-900 uppercase">
-                          {formation.nom}
+                  <PrintDocumentHeader
+                    orientation="landscape"
+                    titre="FICHE DE PROGRESSION PÉDAGOGIQUE"
+                    sousTitre="Classes Préparatoires aux Grandes Écoles & Concours d'Excellence"
+                    session={sessionAnnee}
+                    className="mb-3"
+                    extraMeta={
+                      <div className="flex flex-wrap items-center justify-end gap-2 text-xs font-semibold text-slate-700">
+                        <span>
+                          FORMATION :{" "}
+                          <strong className="text-slate-900 uppercase">
+                            {formation.nom}
+                          </strong>
                         </span>
-                      </div>
-                      <div className="flex items-center gap-2">
                         <span className="bg-brand-orange rounded px-2 py-0.5 text-[11px] font-black text-white uppercase">
                           Semaine {semaine}
                         </span>
-                        <span className="text-[10px] font-medium text-slate-500">
-                          ({matieresActives.length} discipline
-                          {matieresActives.length > 1 ? "s" : ""} active
-                          {matieresActives.length > 1 ? "s" : ""})
-                        </span>
                       </div>
-                    </div>
-                  </div>
+                    }
+                  />
 
                   {/* Tableau grille de la semaine */}
                   {matieresActives.length === 0 ? (
@@ -761,33 +734,11 @@ export function ExporterProgressionModal({
                     </div>
                   )}
 
-                  {/* Bloc de signature officiel EXCELIS pour cette feuille */}
-                  <div
-                    className="mt-6 grid grid-cols-2 gap-8 border-t-2 border-slate-200 pt-3 text-xs print:mt-3 print:pt-2"
-                    style={{
-                      breakInside: "avoid",
-                      pageBreakInside: "avoid",
-                    }}
-                  >
-                    <div>
-                      <p className="mb-4 text-[11px] font-bold text-slate-700 uppercase">
-                        Visa du Chef de Département / Enseignants :
-                      </p>
-                      <p className="text-[10px] text-slate-400 italic">
-                        Date et signature :
-                        ........................................
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="mb-4 text-[11px] font-bold text-slate-700 uppercase">
-                        Visa de la Direction Académique :
-                      </p>
-                      <p className="text-[10px] text-slate-400 italic">
-                        Cachet & Approbation :
-                        ........................................
-                      </p>
-                    </div>
-                  </div>
+                  {/* Bloc de signature officiel EXCELIS - Uniquement le Directeur académique */}
+                  <VisaDirecteurAcademique
+                    align="right"
+                    sousTitre="Cachet & Approbation officielle"
+                  />
                 </div>
               );
             })}

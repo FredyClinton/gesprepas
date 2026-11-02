@@ -6,4 +6,8 @@ export { iconButtonClass } from "./iconButtonClass";
 export { Modal } from "./Modal";
 export { Skeleton, SkeletonText, SkeletonCard, SkeletonTable } from "./Skeleton";
 export { ApprenantCombobox, type ApprenantItem } from "./ApprenantCombobox";
-
+export { Logo, LogoEmblem } from "./Logo";
+export { SortableHeader } from "./SortableHeader";
+export { AccessRestricted } from "./AccessRestricted";
+export { PrintDocumentHeader } from "./PrintDocumentHeader";
+export { VisaDirecteurAcademique } from "./VisaDirecteurAcademique";

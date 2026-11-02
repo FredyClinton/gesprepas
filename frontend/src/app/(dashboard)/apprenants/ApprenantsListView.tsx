@@ -29,9 +29,13 @@ import { useSessionActive } from "@/modules/centres-sessions";
 import { useDossiers, type Dossier } from "@/modules/dossiers";
 import {
   useMouvementsFinanciers,
+  useMotifs,
   EnregistrerVersementModal,
+  RecuPaiementModal,
+  type DonneesRecuPaiement,
 } from "@/modules/financier";
 
+const MOTIF_ACHAT_LIVRES_ID = "00000000-0000-0000-0000-000000000012";
 const TAILLE_PAGE = 10;
 const FORMATEUR_FCFA = new Intl.NumberFormat("fr-FR");
 
@@ -60,19 +64,35 @@ function getInitials(prenom: string, nom: string) {
   return (p + n).toUpperCase() || "E";
 }
 
-type ColonneTri = "nom" | "formation" | "paiement" | "dossier" | "date";
+type ColonneTri = "nom" | "formation" | "etablissement" | "paiement" | "dossier" | "date";
 type DirectionTri = "asc" | "desc";
 
-export function ApprenantsListView({ centreId }: { centreId: string }) {
+export function ApprenantsListView({
+  centreId,
+  userRole,
+  initialRecherche = "",
+}: {
+  centreId: string;
+  userRole?: string;
+  initialRecherche?: string;
+}) {
+  const peutInscrire =
+    userRole === "CAISSIER" ||
+    userRole === "DIRECTEUR" ||
+    userRole === "DIRECTEUR_ACADEMIQUE" ||
+    userRole === "ADMIN";
+  const peutEncaisser = userRole === "CAISSIER" || userRole === "ADMIN";
+
   const { data: apprenants, isLoading: chargementApprenants } = useApprenants();
   const { data: formations = [] } = useFormations();
   const { data: sessionActive } = useSessionActive();
+  const { data: motifs = [] } = useMotifs("ENTREE");
   const { data: mouvements = [], isLoading: chargementMouvements } =
     useMouvementsFinanciers(sessionActive?.id, centreId);
   const { data: dossiers = [], isLoading: chargementDossiers } =
     useDossiers(sessionActive?.id, centreId);
 
-  const [recherche, setRecherche] = useState("");
+  const [recherche, setRecherche] = useState(initialRecherche);
   const [filtreFormation, setFiltreFormation] = useState("");
   const [filtreEtablissement, setFiltreEtablissement] = useState("");
   const [filtrePaiement, setFiltrePaiement] = useState<"TOUS" | "SOLDE" | "RESTANT">("TOUS");
@@ -86,7 +106,8 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
   // État de sélection pour export
   const [selectionIds, setSelectionIds] = useState<Set<string>>(new Set());
 
-  // État modal encaissement rapide
+  // État modal encaissement rapide et reçu
+  const [recuAImprimer, setRecuAImprimer] = useState<DonneesRecuPaiement | null>(null);
   const [versementApprenant, setVersementApprenant] = useState<{
     id: string;
     nomComplet: string;
@@ -142,15 +163,29 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
   }, [apprenants, centreId, sessionActive]);
 
   // Calcul groupé des montants payés par apprenant pour éviter les requêtes N+1
+  // Les achats de livres sont des ventes annexes et ne sont pas déduits du contrat de scolarité
   const paiementsParApprenant = useMemo(() => {
+    const isLivre = (motifId?: string) => {
+      if (!motifId) return false;
+      if (motifId === MOTIF_ACHAT_LIVRES_ID) return true;
+      const m = motifs.find((item) => item.id === motifId);
+      return m?.nom ? m.nom.toLowerCase().includes("livre") : false;
+    };
+
     const map = new Map<string, number>();
     mouvements
-      .filter((m) => m.type === "ENTREE" && m.statut !== "REJETE" && m.apprenantId)
+      .filter(
+        (m) =>
+          m.type === "ENTREE" &&
+          m.statut !== "REJETE" &&
+          m.apprenantId &&
+          !isLivre(m.motifId),
+      )
       .forEach((m) => {
         map.set(m.apprenantId!, (map.get(m.apprenantId!) || 0) + m.montant);
       });
     return map;
-  }, [mouvements]);
+  }, [mouvements, motifs]);
 
   // Indexation des dossiers de concours par apprenant
   const dossiersParApprenant = useMemo(() => {
@@ -227,6 +262,10 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
         const nomFA = formations.find((f) => f.id === a.formationId)?.nom || "";
         const nomFB = formations.find((f) => f.id === b.formationId)?.nom || "";
         comparaison = nomFA.localeCompare(nomFB, "fr-FR");
+      } else if (triColonne === "etablissement") {
+        const etabA = (a.etablissementOrigine || "").toLowerCase();
+        const etabB = (b.etablissementOrigine || "").toLowerCase();
+        comparaison = etabA.localeCompare(etabB, "fr-FR");
       } else if (triColonne === "paiement") {
         const soldeA = Math.max(0, (a.montantContrat || 0) - (paiementsParApprenant.get(a.id) || 0));
         const soldeB = Math.max(0, (b.montantContrat || 0) - (paiementsParApprenant.get(b.id) || 0));
@@ -367,7 +406,7 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
   const chargement = chargementApprenants || chargementMouvements || chargementDossiers;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       {/* ── Titre et Action Inscription ── */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -399,14 +438,16 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
             </span>
           </Button>
 
-          <Link href="/inscription">
-            <Button type="button" className="bg-brand-orange hover:bg-brand-orange/90 text-white shadow-xs">
-              <span className="flex items-center gap-1.5 text-xs font-bold">
-                <UserPlus size={15} />
-                Inscrire un apprenant
-              </span>
-            </Button>
-          </Link>
+          {peutInscrire && (
+            <Link href="/inscription">
+              <Button type="button" className="bg-brand-orange hover:bg-brand-orange/90 text-white shadow-xs">
+                <span className="flex items-center gap-1.5 text-xs font-bold">
+                  <UserPlus size={15} />
+                  Inscrire un apprenant
+                </span>
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -484,9 +525,9 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
       </div>
 
       {/* ── Filtres de Recherche et Recouvrement ── */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          {/* Champ Recherche */}
+      <div className="flex flex-col gap-3.5 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
+        {/* Ligne 1 : Champ Recherche et Réinitialisation */}
+        <div className="flex items-center gap-3">
           <div className="flex flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5">
             <Search size={15} className="text-slate-400 shrink-0" />
             <input
@@ -501,17 +542,33 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
                 type="button"
                 onClick={() => changerRecherche("")}
                 className="text-slate-400 hover:text-slate-600 p-0.5"
+                title="Effacer la recherche"
               >
                 <X size={14} />
               </button>
             )}
           </div>
 
+          {/* Réinitialiser */}
+          {aDesFiltresActifs && (
+            <button
+              type="button"
+              onClick={reinitialiserFiltres}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-orange hover:bg-orange-50 px-3 py-2 rounded-xl border border-orange-200 transition-colors shrink-0"
+            >
+              <X size={13} />
+              <span>Réinitialiser filtres</span>
+            </button>
+          )}
+        </div>
+
+        {/* Ligne 2 : Grille responsive des 4 filtres métier */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
           {/* Filtre Formations */}
           <select
             value={filtreFormation}
             onChange={(e) => changerFiltreFormation(e.target.value)}
-            className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 outline-none shadow-2xs focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
+            className="w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none shadow-2xs focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
           >
             <option value="" className="bg-white text-slate-800">
               Toutes les formations ({formations.length})
@@ -527,10 +584,10 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
           <select
             value={filtreEtablissement}
             onChange={(e) => changerFiltreEtablissement(e.target.value)}
-            className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 outline-none shadow-2xs focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
+            className="w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none shadow-2xs focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
           >
             <option value="" className="bg-white text-slate-800">
-              Tous les lycées ({listeEtablissements.length})
+              Tous les établissements ({listeEtablissements.length})
             </option>
             {listeEtablissements.map((etab) => (
               <option key={etab} value={etab} className="bg-white text-slate-800">
@@ -543,7 +600,7 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
           <select
             value={filtrePaiement}
             onChange={(e) => changerFiltrePaiement(e.target.value as "TOUS" | "SOLDE" | "RESTANT")}
-            className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 outline-none shadow-2xs focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
+            className="w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none shadow-2xs focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
           >
             <option value="TOUS">Tous les paiements</option>
             <option value="SOLDE">Soldés (100%)</option>
@@ -556,25 +613,14 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
             onChange={(e) =>
               changerFiltreAdmission(e.target.value as "TOUS" | "DEFINITIF" | "PRE_INSCRIT")
             }
-            className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 outline-none shadow-2xs focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
+            className="w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none shadow-2xs focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
           >
-            <option value="TOUS">Tous les types d&rsquo;admission</option>
+            <option value="TOUS">Tous types d&rsquo;admission</option>
             <option value="DEFINITIF">Inscriptions définitives</option>
             <option value="PRE_INSCRIT">Pré-inscrits (Acomptes)</option>
           </select>
-
-          {/* Réinitialiser */}
-          {aDesFiltresActifs && (
-            <button
-              type="button"
-              onClick={reinitialiserFiltres}
-              className="inline-flex items-center gap-1 text-xs font-bold text-brand-orange hover:underline px-2 py-1 shrink-0"
-            >
-              <X size={13} />
-              <span>Réinitialiser</span>
-            </button>
-          )}
         </div>
+
 
         {/* Info compteur résultats et sélection */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs text-slate-500">
@@ -602,7 +648,7 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
             )}
             {filtreEtablissement && (
               <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
-                Lycée : {filtreEtablissement}
+                Établissement : {filtreEtablissement}
               </span>
             )}
             {filtreAdmission !== "TOUS" && (
@@ -664,8 +710,25 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
                   </div>
                 </th>
                 <th
-                  onClick={() => basculerTri("paiement")}
+                  onClick={() => basculerTri("etablissement")}
                   className="p-3.5 text-xs font-bold tracking-wider uppercase cursor-pointer hover:text-brand-orange transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Établissement</span>
+                    {triColonne === "etablissement" ? (
+                      triDirection === "asc" ? (
+                        <ArrowUp size={13} className="text-brand-orange" />
+                      ) : (
+                        <ArrowDown size={13} className="text-brand-orange" />
+                      )
+                    ) : (
+                      <ArrowUpDown size={13} className="text-slate-400" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => basculerTri("paiement")}
+                  className="p-3.5 text-xs font-bold tracking-wider uppercase cursor-pointer hover:text-brand-orange transition-colors min-w-[240px] w-[240px]"
                 >
                   <div className="flex items-center gap-1.5">
                     <span>Suivi Recouvrement</span>
@@ -722,6 +785,9 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
                       <Skeleton className="h-4 w-28" />
                     </td>
                     <td className="p-3.5">
+                      <Skeleton className="h-4 w-28" />
+                    </td>
+                    <td className="p-3.5">
                       <div className="space-y-1.5">
                         <Skeleton className="h-2 w-28 rounded-full" />
                         <Skeleton className="h-3 w-36" />
@@ -737,7 +803,7 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
                 ))}
               {!chargement && apprenantsFiltres.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="text-slate-400 p-8 text-center text-xs">
+                  <td colSpan={7} className="text-slate-400 p-8 text-center text-xs">
                     Aucun apprenant ne correspond aux critères de recherche.
                   </td>
                 </tr>
@@ -756,7 +822,9 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
                     montantPaye={montantPaye}
                     dossier={dossier}
                     estSelectionne={estSelectionne}
+                    peutEncaisser={peutEncaisser}
                     onToggleSelect={() => toggleSelectApprenant(a.id)}
+                    onFiltrerEtablissement={changerFiltreEtablissement}
                     onEncaisser={(soldeRestant) =>
                       setVersementApprenant({
                         id: a.id,
@@ -800,6 +868,18 @@ export function ApprenantsListView({ centreId }: { centreId: string }) {
           sessionId={sessionActive.id}
           formationId={versementApprenant.formationId}
           soldeRestant={versementApprenant.soldeRestant}
+          onSuccessRecu={(recu) => {
+            setRecuAImprimer(recu);
+          }}
+        />
+      )}
+
+      {/* ── Modal Reçu Officiel Deux Volets ── */}
+      {recuAImprimer && (
+        <RecuPaiementModal
+          isOpen={Boolean(recuAImprimer)}
+          onClose={() => setRecuAImprimer(null)}
+          recu={recuAImprimer}
         />
       )}
     </div>
@@ -812,16 +892,20 @@ function LigneApprenant({
   montantPaye,
   dossier,
   estSelectionne,
+  peutEncaisser,
   onToggleSelect,
   onEncaisser,
+  onFiltrerEtablissement,
 }: {
   apprenant: Apprenant;
   nomFormation?: string;
   montantPaye: number;
   dossier?: Dossier;
   estSelectionne: boolean;
+  peutEncaisser?: boolean;
   onToggleSelect: () => void;
   onEncaisser: (soldeRestant: number) => void;
+  onFiltrerEtablissement?: (etab: string) => void;
 }) {
   const montantContrat = apprenant.montantContrat || 0;
   const soldeRestant = Math.max(0, montantContrat - montantPaye);
@@ -844,7 +928,7 @@ function LigneApprenant({
         />
       </td>
 
-      {/* 1. Identité, Contact & Lycée d'origine regroupés */}
+      {/* 1. Identité & Contact */}
       <td className="p-3.5">
         <div className="flex items-center gap-3">
           <Link
@@ -870,25 +954,13 @@ function LigneApprenant({
               )}
             </div>
             <div className="flex flex-wrap items-center gap-y-0.5 gap-x-2 text-xs text-slate-400 mt-0.5">
-              {apprenant.contactApprenant && (
+              {apprenant.contactApprenant ? (
                 <span className="inline-flex items-center gap-1 text-slate-500 font-medium">
                   <Phone size={11} className="text-slate-400" />
                   {apprenant.contactApprenant}
                 </span>
-              )}
-              {apprenant.contactApprenant && apprenant.etablissementOrigine && (
-                <span className="text-slate-300">·</span>
-              )}
-              {apprenant.etablissementOrigine ? (
-                <span
-                  className="inline-flex items-center gap-1 text-slate-600 truncate max-w-[180px]"
-                  title={apprenant.etablissementOrigine}
-                >
-                  <Building2 size={11} className="text-slate-400 shrink-0" />
-                  {apprenant.etablissementOrigine}
-                </span>
               ) : (
-                <span className="italic text-slate-400">Lycée non précisé</span>
+                <span className="italic text-slate-400 text-[11px]">Aucun contact</span>
               )}
             </div>
           </div>
@@ -911,8 +983,27 @@ function LigneApprenant({
         </div>
       </td>
 
-      {/* 3. Mini-jauge de recouvrement contextuelle */}
+      {/* 3. Établissement d'origine (colonne dédiée) */}
       <td className="p-3.5">
+        {apprenant.etablissementOrigine ? (
+          <button
+            type="button"
+            onClick={() => onFiltrerEtablissement?.(apprenant.etablissementOrigine!)}
+            title={`Filtrer par : ${apprenant.etablissementOrigine}`}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-orange-50 hover:text-brand-orange hover:border-brand-orange/40 border border-slate-200/80 px-2.5 py-1 rounded-lg truncate max-w-[190px] transition-all cursor-pointer group/etab"
+          >
+            <Building2 size={12} className="text-brand-orange shrink-0 group-hover/etab:scale-110 transition-transform" />
+            <span className="truncate">{apprenant.etablissementOrigine}</span>
+          </button>
+        ) : (
+          <span className="text-[11px] font-medium text-slate-400 italic">
+            Non renseigné
+          </span>
+        )}
+      </td>
+
+      {/* 3. Mini-jauge de recouvrement contextuelle */}
+      <td className="p-3.5 min-w-[240px] w-[240px]">
         {soldeRestant <= 0 ? (
           <div>
             <div className="flex items-center gap-1.5">
@@ -921,17 +1012,17 @@ function LigneApprenant({
                 Soldé (100%)
               </span>
             </div>
-            <div className="mt-1.5 h-1.5 w-28 bg-emerald-100 rounded-full overflow-hidden">
+            <div className="mt-1.5 h-1.5 w-36 bg-emerald-100 rounded-full overflow-hidden">
               <div className="h-full bg-emerald-500 rounded-full w-full" />
             </div>
-            <p className="text-[10px] text-slate-400 mt-1 font-medium">
+            <p className="text-[10px] text-slate-400 mt-1 font-medium whitespace-nowrap">
               Total : {FORMATEUR_FCFA.format(montantContrat)} F
             </p>
           </div>
         ) : montantPaye > 0 ? (
           <div>
             <div className="flex items-center gap-2">
-              <div className="h-1.5 w-24 bg-slate-100 rounded-full overflow-hidden">
+              <div className="h-1.5 w-36 bg-slate-100 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-amber-500 rounded-full transition-all duration-300"
                   style={{ width: `${pctRegle}%` }}
@@ -941,7 +1032,7 @@ function LigneApprenant({
                 {pctRegle}%
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 mt-1">
+            <p className="text-[11px] text-slate-500 mt-1 whitespace-nowrap">
               Payé <strong className="text-slate-800">{FORMATEUR_FCFA.format(montantPaye)} F</strong>
               {" · "}
               Reste <strong className="text-brand-orange font-bold">{FORMATEUR_FCFA.format(soldeRestant)} F</strong>
@@ -952,8 +1043,8 @@ function LigneApprenant({
             <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
               0% versé
             </span>
-            <div className="mt-1.5 h-1.5 w-24 bg-slate-100 rounded-full" />
-            <p className="text-[11px] text-brand-orange font-bold mt-1">
+            <div className="mt-1.5 h-1.5 w-36 bg-slate-100 rounded-full" />
+            <p className="text-[11px] text-brand-orange font-bold mt-1 whitespace-nowrap">
               Reste : {FORMATEUR_FCFA.format(montantContrat)} F
             </p>
           </div>
@@ -986,12 +1077,12 @@ function LigneApprenant({
       {/* 5. Actions Rapides */}
       <td className="p-3.5 text-right">
         <div className="inline-flex items-center gap-1.5 justify-end">
-          {soldeRestant > 0 && (
+          {peutEncaisser && soldeRestant > 0 && (
             <button
               type="button"
               onClick={() => onEncaisser(soldeRestant)}
               title="Encaisser un versement"
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-xs font-bold text-emerald-800 hover:bg-emerald-100 shadow-2xs transition-all cursor-pointer"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-brand-orange/30 bg-orange-50 text-xs font-bold text-brand-orange hover:bg-orange-100 shadow-2xs transition-all cursor-pointer"
             >
               <Coins size={13} />
               <span>Encaisser</span>

@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { AccessRestricted } from "@/shared/ui";
 import { ProgressionView } from "./ProgressionView";
 
 // Écran dédié au suivi pédagogique (thèmes/contenus dispensés) - Chef de
@@ -10,6 +11,8 @@ export default async function ProgressionPage() {
   const utilisateur = session!.user;
 
   switch (utilisateur.role) {
+    case "CHEF_CENTRE":
+      return <ProgressionView role="CHEF_CENTRE" />;
     case "CHEF_DEPARTEMENT":
       return (
         <ProgressionView
@@ -22,10 +25,11 @@ export default async function ProgressionPage() {
       return <ProgressionView role="DIRECTEUR_ACADEMIQUE" />;
     default:
       return (
-        <main className="text-brand-gray p-8 text-sm">
-          Cet écran est réservé au Directeur Académique et au Chef de
-          Département.
-        </main>
+        <AccessRestricted
+          title="Accès Suivi Pédagogique"
+          message="Cet écran est réservé au Directeur Académique, aux Chefs de Département et aux Chefs de Centre."
+        />
       );
   }
 }
+

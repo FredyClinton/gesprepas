@@ -41,7 +41,8 @@ import { useCentres, useSessionActive } from "@/modules/centres-sessions";
 import { useFormations } from "@/modules/academique";
 import { useAffectations } from "@/modules/affectation";
 import { semaineCouranteDepuis } from "@/shared/lib/semaine";
-import { Button, Modal, Card } from "@/shared/ui";
+import { Button, Modal, Card, SortableHeader } from "@/shared/ui";
+import { compareStrings, compareNumbers, type SortDirection } from "@/shared/lib/sort-utils";
 import { messageErreurApi } from "@/shared/lib/api-client";
 
 import { DepartementDrawer } from "./DepartementDrawer";
@@ -177,11 +178,27 @@ export function DepartementsListView() {
   const [erreurAction, setErreurAction] = useState<string | null>(null);
   const [nouveauNomRenommer, setNouveauNomRenommer] = useState("");
 
-  // Filtrage des départements
+  // Tri des départements
+  type TriDepartementColonne = "nom" | "chef" | "equipe" | "formations" | "seances";
+  const [triColonne, setTriColonne] = useState<TriDepartementColonne>("nom");
+  const [triDirection, setTriDirection] = useState<SortDirection>("asc");
+
+  function handleTri(colonne: TriDepartementColonne) {
+    if (triColonne === colonne) {
+      setTriDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTriColonne(colonne);
+      setTriDirection(
+        colonne === "equipe" || colonne === "formations" || colonne === "seances" ? "desc" : "asc",
+      );
+    }
+  }
+
+  // Filtrage et Tri des départements
   const departementsFiltres = useMemo(() => {
     const q = recherche.trim().toLowerCase();
 
-    return departements.filter((d) => {
+    const filtered = departements.filter((d) => {
       const matiere = matieresParId.get(d.matiereId);
       const chef = chefsParDepartementId.get(d.id);
       const enseignantIds = rostersParDepartementId.get(d.id) ?? [];
@@ -216,6 +233,36 @@ export function DepartementsListView() {
         correspondEnseignant
       );
     });
+
+    return [...filtered].sort((a, b) => {
+      let cmp = 0;
+      if (triColonne === "nom") {
+        cmp = compareStrings(a.nom, b.nom);
+      } else if (triColonne === "chef") {
+        const chefA = chefsParDepartementId.get(a.id);
+        const chefB = chefsParDepartementId.get(b.id);
+        const nomA = chefA ? `${chefA.nom} ${chefA.prenom}` : "";
+        const nomB = chefB ? `${chefB.nom} ${chefB.prenom}` : "";
+        cmp = compareStrings(nomA, nomB);
+      } else if (triColonne === "equipe") {
+        const eqA = rostersParDepartementId.get(a.id)?.length || 0;
+        const eqB = rostersParDepartementId.get(b.id)?.length || 0;
+        cmp = compareNumbers(eqA, eqB);
+      } else if (triColonne === "formations") {
+        const fA = formations.filter((f) => f.matiereIds?.includes(a.matiereId)).length;
+        const fB = formations.filter((f) => f.matiereIds?.includes(b.matiereId)).length;
+        cmp = compareNumbers(fA, fB);
+      } else if (triColonne === "seances") {
+        const cA = affectations.filter(
+          (aff) => aff.matiereId === a.matiereId && aff.semaine === semaineCourante,
+        ).length;
+        const cB = affectations.filter(
+          (aff) => aff.matiereId === b.matiereId && aff.semaine === semaineCourante,
+        ).length;
+        cmp = compareNumbers(cA, cB);
+      }
+      return triDirection === "asc" ? cmp : -cmp;
+    });
   }, [
     departements,
     recherche,
@@ -225,6 +272,10 @@ export function DepartementsListView() {
     rostersParDepartementId,
     enseignantsParId,
     affectations,
+    triColonne,
+    triDirection,
+    formations,
+    semaineCourante,
   ]);
 
   // Métriques de synthèse ERP
@@ -393,7 +444,7 @@ export function DepartementsListView() {
     chargementDepartements || chargementMatieres || chargementRosters;
 
   return (
-    <div className="mx-auto flex max-w-[1600px] flex-col gap-5 p-6">
+    <div className="flex w-full flex-col gap-5">
       {/* ── En-tête ERP ── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -582,11 +633,41 @@ export function DepartementsListView() {
           <table className="w-full text-left text-sm divide-y divide-slate-100">
             <thead className="border-b border-slate-200 bg-slate-50/80 text-slate-600 text-xs font-semibold uppercase tracking-wider">
               <tr>
-                <th className="py-3 px-4">Département & Discipline</th>
-                <th className="py-3 px-4">Direction pédagogique</th>
-                <th className="py-3 px-4">Équipe</th>
-                <th className="py-3 px-4">Formations</th>
-                <th className="py-3 px-4">Séances S{semaineCourante}</th>
+                <SortableHeader
+                  label="Département & Discipline"
+                  sortKey="nom"
+                  currentSortKey={triColonne}
+                  direction={triDirection}
+                  onSort={handleTri}
+                />
+                <SortableHeader
+                  label="Direction pédagogique"
+                  sortKey="chef"
+                  currentSortKey={triColonne}
+                  direction={triDirection}
+                  onSort={handleTri}
+                />
+                <SortableHeader
+                  label="Équipe"
+                  sortKey="equipe"
+                  currentSortKey={triColonne}
+                  direction={triDirection}
+                  onSort={handleTri}
+                />
+                <SortableHeader
+                  label="Formations"
+                  sortKey="formations"
+                  currentSortKey={triColonne}
+                  direction={triDirection}
+                  onSort={handleTri}
+                />
+                <SortableHeader
+                  label={`Séances S${semaineCourante}`}
+                  sortKey="seances"
+                  currentSortKey={triColonne}
+                  direction={triDirection}
+                  onSort={handleTri}
+                />
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -766,7 +847,7 @@ export function DepartementsListView() {
                             onClick={() => setDrawerDepartement(dep)}
                             className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
                           >
-                            <span>Gérer l'équipe</span>
+                            <span>Gérer l&apos;équipe</span>
                             <ChevronRight size={13} className="text-slate-400" />
                           </button>
 

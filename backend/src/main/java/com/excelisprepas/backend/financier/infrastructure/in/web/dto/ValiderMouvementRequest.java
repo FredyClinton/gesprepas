@@ -7,6 +7,6 @@ import java.util.UUID;
 
 public record ValiderMouvementRequest(
         @NotNull(message = "La décision est obligatoire") StatutMouvement decision,
-        @NotNull(message = "Le validateur est obligatoire") UUID validateurUtilisateurId
+        UUID validateurUtilisateurId
 ) {
 }

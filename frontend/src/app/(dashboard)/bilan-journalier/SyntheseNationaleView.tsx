@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Calendar,
   ChevronLeft,
@@ -20,6 +20,8 @@ import { useSessionActive } from "@/modules/centres-sessions";
 import { useBilanConsolideDuJour } from "@/modules/financier/data/queries";
 import { FicheSyntheseNationalePrintModal } from "@/modules/financier/components/FicheSyntheseNationalePrintModal";
 import type { BilanCentreResume } from "@/modules/financier/domain/types";
+import { SortableHeader } from "@/shared/ui";
+import { compareStrings, compareNumbers, type SortDirection } from "@/shared/lib/sort-utils";
 
 const FCFA = new Intl.NumberFormat("fr-FR");
 
@@ -59,6 +61,20 @@ export function SyntheseNationaleView({
   const [modalPrintOuverte, setModalPrintOuverte] = useState(false);
   const [activeTabDetail, setActiveTabDetail] = useState<"entrees" | "sorties" | "effectifs">("entrees");
 
+  // Tri du tableau des centres
+  type ColonneTriSynthese = "centre" | "caissier" | "statut" | "entrees" | "sorties" | "net" | "effectif";
+  const [triColonne, setTriColonne] = useState<ColonneTriSynthese>("centre");
+  const [triDirection, setTriDirection] = useState<SortDirection>("asc");
+
+  function handleTri(colonne: ColonneTriSynthese) {
+    if (triColonne === colonne) {
+      setTriDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTriColonne(colonne);
+      setTriDirection("asc");
+    }
+  }
+
   const estAujourdhui = date === new Date().toISOString().slice(0, 10);
 
   const toggleExpand = (centreId: string) => {
@@ -76,7 +92,31 @@ export function SyntheseNationaleView({
   const centresClotures = consolide?.centresCloturesCount ?? 0;
   const centresTotal = consolide?.centresTotalCount ?? (consolide?.centres.length || 0);
 
-  const centres = consolide?.centres || [];
+  const centres = useMemo(() => {
+    const list = consolide?.centres || [];
+    return [...list].sort((a, b) => {
+      let cmp = 0;
+      if (triColonne === "centre") {
+        cmp = compareStrings(a.centreNom, b.centreNom);
+      } else if (triColonne === "caissier") {
+        cmp = compareStrings(
+          a.nomCaissier || a.nomChefCentre || "",
+          b.nomCaissier || b.nomChefCentre || "",
+        );
+      } else if (triColonne === "statut") {
+        cmp = compareStrings(a.statut, b.statut);
+      } else if (triColonne === "entrees") {
+        cmp = compareNumbers(a.totalEntrees, b.totalEntrees);
+      } else if (triColonne === "sorties") {
+        cmp = compareNumbers(a.totalSorties, b.totalSorties);
+      } else if (triColonne === "net") {
+        cmp = compareNumbers(a.netAVerser, b.netAVerser);
+      } else if (triColonne === "effectif") {
+        cmp = compareNumbers(a.effectifTotalCentre, b.effectifTotalCentre);
+      }
+      return triDirection === "asc" ? cmp : -cmp;
+    });
+  }, [consolide?.centres, triColonne, triDirection]);
   const entreesNationales = consolide?.entreesNationalesDetaillees || [];
   const sortiesNationales = consolide?.sortiesNationalesDetaillees || [];
   const effectifsNationaux = consolide?.effectifsNationauxParFormation || [];
@@ -129,7 +169,7 @@ export function SyntheseNationaleView({
               <ChevronLeft className="h-4 w-4" />
             </button>
             <div className="flex items-center gap-2 px-3 py-1 text-sm font-semibold text-slate-800">
-              <Calendar className="h-4 w-4 text-[#0e4a56]" />
+              <Calendar className="h-4 w-4 text-brand-orange" />
               <span>{formaterDateFr(date)}</span>
             </div>
             <button
@@ -167,11 +207,11 @@ export function SyntheseNationaleView({
           )}
         </div>
 
-        {/* Bouton d'action Générer Rapport Officiel (Bouton pétrole Image 1) */}
+        {/* Bouton d'action Générer Rapport Officiel */}
         <div>
           <button
             onClick={() => setModalPrintOuverte(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#0e4a56] hover:bg-[#0b3c48] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition-all cursor-pointer"
+            className="inline-flex items-center gap-2 rounded-xl bg-brand-orange hover:bg-brand-orange/90 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition-all cursor-pointer"
             type="button"
           >
             <Printer className="h-4 w-4" />
@@ -180,87 +220,93 @@ export function SyntheseNationaleView({
         </div>
       </div>
 
-      {/* ── BENTO GRID ÉPURÉ (Style Image 1) ── */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* 1. Solde Net Consolidé (Carte Héroïque Foncée Pétrole) */}
-        <div className="relative flex flex-col justify-between rounded-2xl bg-[#0e4a56] p-6 text-white shadow-sm transition-all hover:shadow-md">
-          <div>
-            <span className="text-[11px] font-semibold tracking-wider uppercase text-teal-200/80">
-              SOLDE NET CONSOLIDÉ
+      {/* ── SYNTHÈSE NATIONALE HORIZONTALE ── */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {/* 1. Solde Net Consolidé */}
+        <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold tracking-wider uppercase text-slate-500">
+              Solde Net Consolidé
             </span>
-            <div className="mt-2 text-3xl font-extrabold tracking-tight tabular-nums text-white">
-              {FCFA.format(netConsolide)}{" "}
-              <span className="text-sm font-medium text-teal-200">XAF</span>
-            </div>
+            <span className="rounded-md bg-orange-50 px-1.5 py-0.5 text-[10px] font-bold text-brand-orange border border-orange-200/60">
+              Réseau
+            </span>
           </div>
-          <p className="mt-4 text-xs font-normal text-teal-100/70">
-            Total net à centraliser
-          </p>
+          <div className="mt-1">
+            <div className="text-xl font-bold tracking-tight tabular-nums text-slate-900">
+              {FCFA.format(netConsolide)}{" "}
+              <span className="text-xs font-normal text-slate-400">XAF</span>
+            </div>
+            <p className="mt-0.5 text-xs text-slate-500 font-medium">
+              Total net à centraliser
+            </p>
+          </div>
         </div>
 
         {/* 2. Total Entrées Réseau */}
-        <div className="flex flex-col justify-between rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-all hover:shadow-md">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-50 text-teal-600">
-              <Coins className="h-3.5 w-3.5" />
-            </div>
-            <span className="text-[11px] font-semibold tracking-wider uppercase text-slate-400">
-              TOTAL ENTRÉES RÉSEAU
+        <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold tracking-wider uppercase text-slate-500">
+              Total Entrées Réseau
             </span>
+            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+              <Coins className="h-3 w-3" />
+            </div>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">
-              {FCFA.format(totalEntrees)}{" "}
+          <div className="mt-1">
+            <div className="text-xl font-bold tracking-tight text-emerald-700 tabular-nums">
+              +{FCFA.format(totalEntrees)}{" "}
               <span className="text-xs font-normal text-slate-400">XAF</span>
             </div>
-            <p className="mt-1 text-xs text-slate-500 font-normal">
+            <p className="mt-0.5 text-xs text-slate-500 font-medium">
               {nbOperationsEntrees} opération{nbOperationsEntrees > 1 ? "s" : ""}
             </p>
           </div>
         </div>
 
         {/* 3. Total Sorties Réseau */}
-        <div className="flex flex-col justify-between rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-all hover:shadow-md">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-rose-50 text-rose-500">
-              <RefreshCw className="h-3.5 w-3.5" />
-            </div>
-            <span className="text-[11px] font-semibold tracking-wider uppercase text-slate-400">
-              TOTAL SORTIES RÉSEAU
+        <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold tracking-wider uppercase text-slate-500">
+              Total Sorties Réseau
             </span>
+            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-50 text-rose-500">
+              <RefreshCw className="h-3 w-3" />
+            </div>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">
-              {FCFA.format(totalSorties)}{" "}
+          <div className="mt-1">
+            <div className="text-xl font-bold tracking-tight text-rose-700 tabular-nums">
+              -{FCFA.format(totalSorties)}{" "}
               <span className="text-xs font-normal text-slate-400">XAF</span>
             </div>
-            <p className="mt-1 text-xs text-slate-500 font-normal">
+            <p className="mt-0.5 text-xs text-slate-500 font-medium">
               {nbOperationsSorties} opération{nbOperationsSorties > 1 ? "s" : ""}
             </p>
           </div>
         </div>
 
         {/* 4. Total Effectif Réseau & Clôtures */}
-        <div className="flex flex-col justify-between rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-all hover:shadow-md">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-              <Users className="h-3.5 w-3.5" />
-            </div>
-            <span className="text-[11px] font-semibold tracking-wider uppercase text-slate-400">
-              EFFECTIFS DU RÉSEAU
+        <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold tracking-wider uppercase text-slate-500">
+              Effectifs du Réseau
             </span>
+            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+              <Users className="h-3 w-3" />
+            </div>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">
+          <div className="mt-1">
+            <div className="text-xl font-bold tracking-tight text-slate-900 tabular-nums">
               {totalEffectif}{" "}
               <span className="text-xs font-normal text-slate-400">élèves</span>
             </div>
-            <p className="mt-1 text-xs text-slate-500 font-normal">
+            <p className="mt-0.5 text-xs text-slate-500 font-medium">
               +{totalNouveaux} inscrits • {centresClotures}/{centresTotal} clôturés
             </p>
           </div>
         </div>
       </div>
+
 
       {/* ── TABLEAU DES CAISSES (Data Grid Moderne Style Image 1) ── */}
       <div className="rounded-2xl border border-slate-100 bg-white shadow-[0_2px_16px_rgba(0,0,0,0.03)] overflow-hidden">
@@ -278,7 +324,7 @@ export function SyntheseNationaleView({
 
         {isLoading ? (
           <div className="p-12 text-center text-slate-500 text-sm">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-[#0e4a56] border-t-transparent mb-2" />
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-brand-orange border-t-transparent mb-2" />
             <p>Chargement des données consolidées...</p>
           </div>
         ) : isError ? (
@@ -295,13 +341,74 @@ export function SyntheseNationaleView({
               <thead>
                 <tr className="bg-slate-50/75 text-slate-500 font-semibold border-b border-slate-100">
                   <th className="py-3.5 pl-6 pr-2 w-10 text-slate-400 font-normal">#</th>
-                  <th className="py-3.5 px-4 font-semibold text-slate-700">Centre</th>
-                  <th className="py-3.5 px-4 font-semibold text-slate-700">Caissier</th>
-                  <th className="py-3.5 px-4 font-semibold text-slate-700 text-center">Statut</th>
-                  <th className="py-3.5 px-4 font-semibold text-slate-700 text-right">Entrées du Jour</th>
-                  <th className="py-3.5 px-4 font-semibold text-slate-700 text-right">Sorties du Jour</th>
-                  <th className="py-3.5 px-4 font-semibold text-slate-700 text-right">Net Caisse</th>
-                  <th className="py-3.5 px-4 font-semibold text-slate-700 text-center">Effectif (Actif)</th>
+                  <SortableHeader
+                    columnKey="centre"
+                    currentSortKey={triColonne}
+                    direction={triDirection}
+                    onSort={handleTri}
+                    className="py-3.5 px-4"
+                  >
+                    Centre
+                  </SortableHeader>
+                  <SortableHeader
+                    columnKey="caissier"
+                    currentSortKey={triColonne}
+                    direction={triDirection}
+                    onSort={handleTri}
+                    className="py-3.5 px-4"
+                  >
+                    Caissier
+                  </SortableHeader>
+                  <SortableHeader
+                    columnKey="statut"
+                    currentSortKey={triColonne}
+                    direction={triDirection}
+                    onSort={handleTri}
+                    align="center"
+                    className="py-3.5 px-4 text-center"
+                  >
+                    Statut
+                  </SortableHeader>
+                  <SortableHeader
+                    columnKey="entrees"
+                    currentSortKey={triColonne}
+                    direction={triDirection}
+                    onSort={handleTri}
+                    align="right"
+                    className="py-3.5 px-4 text-right"
+                  >
+                    Entrées du Jour
+                  </SortableHeader>
+                  <SortableHeader
+                    columnKey="sorties"
+                    currentSortKey={triColonne}
+                    direction={triDirection}
+                    onSort={handleTri}
+                    align="right"
+                    className="py-3.5 px-4 text-right"
+                  >
+                    Sorties du Jour
+                  </SortableHeader>
+                  <SortableHeader
+                    columnKey="net"
+                    currentSortKey={triColonne}
+                    direction={triDirection}
+                    onSort={handleTri}
+                    align="right"
+                    className="py-3.5 px-4 text-right"
+                  >
+                    Net Caisse
+                  </SortableHeader>
+                  <SortableHeader
+                    columnKey="effectif"
+                    currentSortKey={triColonne}
+                    direction={triDirection}
+                    onSort={handleTri}
+                    align="center"
+                    className="py-3.5 px-4 text-center"
+                  >
+                    Effectif (Actif)
+                  </SortableHeader>
                   <th className="py-3.5 pl-4 pr-6 font-semibold text-slate-700 text-center">Actions</th>
                 </tr>
               </thead>
@@ -355,7 +462,7 @@ export function SyntheseNationaleView({
                               e.stopPropagation();
                               onSelectCentre(c.centreId);
                             }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-[#0e4a56] hover:bg-slate-50 hover:border-slate-300 transition-all shadow-2xs cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-brand-orange hover:text-brand-anthracite hover:bg-slate-50 hover:border-slate-300 transition-all shadow-2xs cursor-pointer"
                             title="Consulter le journal de ce centre"
                             type="button"
                           >
@@ -395,7 +502,7 @@ export function SyntheseNationaleView({
                               <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-2xs">
                                 <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-100">
                                   <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                                    <GraduationCap className="h-3.5 w-3.5 text-[#0e4a56]" />
+                                    <GraduationCap className="h-3.5 w-3.5 text-brand-orange" />
                                     <span>Recettes par Filière / Livres</span>
                                   </span>
                                   <span className="text-[10px] text-slate-400 font-semibold">
@@ -469,7 +576,7 @@ export function SyntheseNationaleView({
                               <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-2xs">
                                 <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-100">
                                   <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                                    <Users className="h-3.5 w-3.5 text-teal-600" />
+                                    <Users className="h-3.5 w-3.5 text-brand-orange" />
                                     <span>Effectifs par Filière</span>
                                   </span>
                                   <span className="text-[10px] text-slate-400 font-semibold">
@@ -519,7 +626,7 @@ export function SyntheseNationaleView({
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 mb-4">
           <div>
             <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <PieChart className="h-4 w-4 text-[#0e4a56]" />
+              <PieChart className="h-4 w-4 text-brand-orange" />
               <span>Ventilation Consolidée du Réseau</span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -590,7 +697,7 @@ export function SyntheseNationaleView({
                   <div className="mt-3">
                     <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-[#0e4a56] rounded-full"
+                        className="h-full bg-brand-orange rounded-full"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -666,7 +773,7 @@ export function SyntheseNationaleView({
                   <div className="mt-3">
                     <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-teal-600 rounded-full"
+                        className="h-full bg-brand-orange rounded-full"
                         style={{ width: `${pct}%` }}
                       />
                     </div>

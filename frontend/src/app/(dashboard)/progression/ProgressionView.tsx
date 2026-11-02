@@ -12,6 +12,9 @@ import {
   GraduationCap,
 } from "lucide-react";
 
+import { SortableHeader } from "@/shared/ui";
+import { compareStrings, compareNumbers, type SortDirection } from "@/shared/lib/sort-utils";
+
 import {
   SelecteurSemaine,
   useAjouterSemaine,
@@ -43,12 +46,16 @@ import {
 import { semaineCouranteDepuis } from "@/shared/lib/semaine";
 
 type Props =
+  | { role: "CHEF_CENTRE" }
   | { role: "CHEF_DEPARTEMENT"; departementId: string | null; chefId?: string }
   | { role: "DIRECTEUR_ACADEMIQUE" };
 
 const TOUS_DEPARTEMENTS_VALEUR = "__TOUS__";
 
 export function ProgressionView(props: Props) {
+  if (props.role === "CHEF_CENTRE") {
+    return <ProgressionDirecteurAcademique role="CHEF_CENTRE" />;
+  }
   if (props.role === "CHEF_DEPARTEMENT") {
     return (
       <ProgressionChefDepartement
@@ -57,7 +64,7 @@ export function ProgressionView(props: Props) {
       />
     );
   }
-  return <ProgressionDirecteurAcademique />;
+  return <ProgressionDirecteurAcademique role="DIRECTEUR_ACADEMIQUE" />;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -616,7 +623,12 @@ function ProgressionChefDepartement({
 // DIRECTEUR ACADÉMIQUE
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ProgressionDirecteurAcademique() {
+function ProgressionDirecteurAcademique({
+  role = "DIRECTEUR_ACADEMIQUE",
+}: {
+  role?: "DIRECTEUR_ACADEMIQUE" | "CHEF_CENTRE";
+}) {
+  const readOnly = role === "CHEF_CENTRE";
   const { data: sessionActive } = useSessionActive();
   const sessionId = sessionActive?.id;
   const { data: semainesPersistantes = [] } = useSemaines(sessionId);
@@ -727,6 +739,41 @@ function ProgressionDirecteurAcademique() {
       };
     });
   }, [departements, affectations, progressionsSession]);
+
+  // Tri interactif du tableau de couverture départementale
+  type TriProgDepColonne = "nom" | "effectuees" | "dispensees" | "pourcentage";
+  const [triProgDepColonne, setTriProgDepColonne] = useState<TriProgDepColonne>("nom");
+  const [triProgDepDirection, setTriProgDepDirection] = useState<SortDirection>("asc");
+
+  function handleTriProgDep(colonne: TriProgDepColonne) {
+    if (triProgDepColonne === colonne) {
+      setTriProgDepDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTriProgDepColonne(colonne);
+      setTriProgDepDirection(colonne === "nom" ? "asc" : "desc");
+    }
+  }
+
+  const statsProgressionParDepartementTriees = useMemo(() => {
+    return [...statsProgressionParDepartement].sort((a, b) => {
+      let res = 0;
+      switch (triProgDepColonne) {
+        case "nom":
+          res = compareStrings(a.departementNom, b.departementNom);
+          break;
+        case "effectuees":
+          res = compareNumbers(a.effectuees, b.effectuees);
+          break;
+        case "dispensees":
+          res = compareNumbers(a.dispensees, b.dispensees);
+          break;
+        case "pourcentage":
+          res = compareNumbers(a.pourcentage, b.pourcentage);
+          break;
+      }
+      return triProgDepDirection === "asc" ? res : -res;
+    });
+  }, [statsProgressionParDepartement, triProgDepColonne, triProgDepDirection]);
 
 
   // Filière active
@@ -928,16 +975,18 @@ function ProgressionDirecteurAcademique() {
               toutes
             />
 
-            <button
-              type="button"
-              onClick={() => void handleAjouterNouvelleSemaine()}
-              disabled={ajouterSemaineMutation.isPending}
-              title="Ajouter une nouvelle semaine au syllabus"
-              className="inline-flex items-center gap-1 rounded-xl border border-dashed border-slate-300 bg-white px-2.5 py-1.5 text-xs sm:text-sm font-bold text-slate-700 shadow-2xs hover:border-brand-orange hover:bg-orange-50 hover:text-brand-orange transition-colors cursor-pointer shrink-0"
-            >
-              <Plus size={13} className="text-brand-orange" />
-              <span>+ Semaine</span>
-            </button>
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={() => void handleAjouterNouvelleSemaine()}
+                disabled={ajouterSemaineMutation.isPending}
+                title="Ajouter une nouvelle semaine au syllabus"
+                className="inline-flex items-center gap-1 rounded-xl border border-dashed border-slate-300 bg-white px-2.5 py-1.5 text-xs sm:text-sm font-bold text-slate-700 shadow-2xs hover:border-brand-orange hover:bg-orange-50 hover:text-brand-orange transition-colors cursor-pointer shrink-0"
+              >
+                <Plus size={13} className="text-brand-orange" />
+                <span>+ Semaine</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -1015,13 +1064,18 @@ function ProgressionDirecteurAcademique() {
           semaineSelectionnee={semaineSelectionnee}
           onChangerSemaine={setSemaineSelectionnee}
           barreNavigation={barreNavigation}
-          onSupprimer={supprimer}
-          onOuvrirSaisieLot={(mId) => {
-            setMatierePourLot(mId || matieresFiliereActive[0]?.id || "");
-            setSaisieLotOuverte(true);
-          }}
-          onOuvrirDuplication={() => setDuplicationOuverte(true)}
-          onOuvrirAjout={() => ouvrirAjout()}
+          readOnly={readOnly}
+          onSupprimer={readOnly ? undefined : supprimer}
+          onOuvrirSaisieLot={
+            readOnly
+              ? undefined
+              : (mId) => {
+                  setMatierePourLot(mId || matieresFiliereActive[0]?.id || "");
+                  setSaisieLotOuverte(true);
+                }
+          }
+          onOuvrirDuplication={readOnly ? undefined : () => setDuplicationOuverte(true)}
+          onOuvrirAjout={readOnly ? undefined : () => ouvrirAjout()}
         />
       )}
 
@@ -1044,14 +1098,42 @@ function ProgressionDirecteurAcademique() {
               <table className="w-full text-left text-xs">
                 <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
                   <tr>
-                    <th className="p-3">Département</th>
-                    <th className="p-3 text-center">Séances effectuées</th>
-                    <th className="p-3 text-center">Séances documentées</th>
-                    <th className="w-48 p-3">Couverture</th>
+                    <SortableHeader
+                      label="Département"
+                      columnKey="nom"
+                      currentSortColumn={triProgDepColonne}
+                      currentSortDirection={triProgDepDirection}
+                      onSort={handleTriProgDep}
+                      align="left"
+                    />
+                    <SortableHeader
+                      label="Séances effectuées"
+                      columnKey="effectuees"
+                      currentSortColumn={triProgDepColonne}
+                      currentSortDirection={triProgDepDirection}
+                      onSort={handleTriProgDep}
+                      align="center"
+                    />
+                    <SortableHeader
+                      label="Séances documentées"
+                      columnKey="dispensees"
+                      currentSortColumn={triProgDepColonne}
+                      currentSortDirection={triProgDepDirection}
+                      onSort={handleTriProgDep}
+                      align="center"
+                    />
+                    <SortableHeader
+                      label="Couverture"
+                      columnKey="pourcentage"
+                      currentSortColumn={triProgDepColonne}
+                      currentSortDirection={triProgDepDirection}
+                      onSort={handleTriProgDep}
+                      align="left"
+                    />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {statsProgressionParDepartement.map((item) => (
+                  {statsProgressionParDepartementTriees.map((item) => (
                     <tr key={item.departementId} className="hover:bg-slate-50/60 transition-colors">
                       <td className="p-3">
                         <span className="font-bold text-slate-900">
@@ -1098,57 +1180,59 @@ function ProgressionDirecteurAcademique() {
       )}
 
       {/* ── Modales Actionnables ── */}
-      {sessionId && formationSelectionnee && (
-        <SaisieLotModal
-          isOpen={saisieLotOuverte}
-          onClose={() => setSaisieLotOuverte(false)}
-          formationId={formationSelectionnee.id}
-          formationNom={formationSelectionnee.nom}
-          matiereId={matierePourLot || matieresFiliereActive[0]?.id || ""}
-          sessionId={sessionId}
-          phaseId={phaseIdFiliereActive}
-          coursExistants={progressionsFiliereActive}
-        />
-      )}
+      {sessionId && !readOnly && (
+        <>
+          {formationSelectionnee && (
+            <SaisieLotModal
+              isOpen={saisieLotOuverte}
+              onClose={() => setSaisieLotOuverte(false)}
+              formationId={formationSelectionnee.id}
+              formationNom={formationSelectionnee.nom}
+              matiereId={matierePourLot || matieresFiliereActive[0]?.id || ""}
+              sessionId={sessionId}
+              phaseId={phaseIdFiliereActive}
+              coursExistants={progressionsFiliereActive}
+            />
+          )}
 
-      {sessionId && formationSelectionnee && (
-        <DupliquerSyllabusModal
-          isOpen={duplicationOuverte}
-          onClose={() => setDuplicationOuverte(false)}
-          formationActuelleId={formationSelectionnee.id}
-          formationActuelleNom={formationSelectionnee.nom}
-          formations={formations}
-          salles={salles}
-          matiereId={matierePourLot || matieresFiliereActive[0]?.id || ""}
-          sessionId={sessionId}
-          toutesProgressions={toutesProgressions}
-          role="DIRECTEUR_ACADEMIQUE"
-          matieres={matieres}
-        />
-      )}
+          {formationSelectionnee && (
+            <DupliquerSyllabusModal
+              isOpen={duplicationOuverte}
+              onClose={() => setDuplicationOuverte(false)}
+              formationActuelleId={formationSelectionnee.id}
+              formationActuelleNom={formationSelectionnee.nom}
+              formations={formations}
+              salles={salles}
+              matiereId={matierePourLot || matieresFiliereActive[0]?.id || ""}
+              sessionId={sessionId}
+              toutesProgressions={toutesProgressions}
+              role="DIRECTEUR_ACADEMIQUE"
+              matieres={matieres}
+            />
+          )}
 
-      {sessionId && (
-        <ProgressionFormModal
-          isOpen={modalOuvert}
-          onClose={() => {
-            setModalOuvert(false);
-            setPrefill(undefined);
-            setProgressionEnEdition(null);
-          }}
-          sessionId={sessionId}
-          formations={formations}
-          salles={salles}
-          matieres={matieres}
-          prefill={prefill}
-          progressionExistante={progressionEnEdition ?? undefined}
-          progressionsExistantes={toutesProgressions}
-        />
-      )}
+          <ProgressionFormModal
+            isOpen={modalOuvert}
+            onClose={() => {
+              setModalOuvert(false);
+              setPrefill(undefined);
+              setProgressionEnEdition(null);
+            }}
+            sessionId={sessionId}
+            formations={formations}
+            salles={salles}
+            matieres={matieres}
+            prefill={prefill}
+            progressionExistante={progressionEnEdition ?? undefined}
+            progressionsExistantes={toutesProgressions}
+          />
 
-      <CatalogueMatieresModal
-        isOpen={catalogueMatieresOuvert}
-        onClose={() => setCatalogueMatieresOuvert(false)}
-      />
+          <CatalogueMatieresModal
+            isOpen={catalogueMatieresOuvert}
+            onClose={() => setCatalogueMatieresOuvert(false)}
+          />
+        </>
+      )}
 
       {sessionId && (
         <ExporterProgressionModal

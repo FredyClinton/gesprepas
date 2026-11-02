@@ -61,4 +61,13 @@ public class AffectationEntity {
 
     @Column(name = "fiche_paie_id")
     private UUID fichePaieId;
+
+    @Column(name = "date_seance")
+    private java.time.LocalDate dateSeance;
+
+    @Column(name = "heure_debut")
+    private java.time.LocalTime heureDebut;
+
+    @Column(name = "heure_fin")
+    private java.time.LocalTime heureFin;
 }

@@ -12,6 +12,10 @@ public interface EnseignantRepositoryPort {
 
     Optional<Enseignant> findById(UUID id);
 
+    default Optional<Enseignant> findByIdWithLock(UUID id) {
+        return findById(id);
+    }
+
     Optional<Enseignant> findByMatricule(String matricule);
 
     boolean existsByMatricule(String matricule);

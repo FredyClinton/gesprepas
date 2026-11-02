@@ -4,6 +4,8 @@ import com.excelisprepas.backend.auth.domain.model.ClaimsAccessToken;
 import com.excelisprepas.backend.auth.domain.model.ContexteUtilisateur;
 import com.excelisprepas.backend.auth.domain.model.Permission;
 import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
+import com.excelisprepas.backend.personnel.domain.model.Utilisateur;
+import com.excelisprepas.backend.personnel.domain.port.out.UtilisateurRepositoryPort;
 import com.excelisprepas.backend.rattachement.domain.model.RattachementCentre;
 import com.excelisprepas.backend.rattachement.domain.port.out.AttributionRoleRepositoryPort;
 import com.excelisprepas.backend.rattachement.domain.port.out.RattachementCentreRepositoryPort;
@@ -34,6 +36,7 @@ class ContexteUtilisateurAdapterTest {
     private SessionAcademiqueRepositoryPort sessionRepository;
     private RattachementCentreRepositoryPort rattachementCentreRepository;
     private AttributionRoleRepositoryPort attributionRoleRepository;
+    private UtilisateurRepositoryPort utilisateurRepository;
     private ContexteUtilisateurAdapter adapter;
 
     @BeforeEach
@@ -41,7 +44,9 @@ class ContexteUtilisateurAdapterTest {
         sessionRepository = mock(SessionAcademiqueRepositoryPort.class);
         rattachementCentreRepository = mock(RattachementCentreRepositoryPort.class);
         attributionRoleRepository = mock(AttributionRoleRepositoryPort.class);
-        adapter = new ContexteUtilisateurAdapter(sessionRepository, rattachementCentreRepository, attributionRoleRepository);
+        utilisateurRepository = mock(UtilisateurRepositoryPort.class);
+        adapter = new ContexteUtilisateurAdapter(
+            sessionRepository, rattachementCentreRepository, attributionRoleRepository, utilisateurRepository);
     }
 
     @AfterEach
@@ -84,32 +89,41 @@ class ContexteUtilisateurAdapterTest {
     }
 
     @Test
-    @DisplayName("courant() sans session en cours renvoie un contexte sans centre ni attribution")
+    @DisplayName("courant() sans session en cours conserve le centre actuel du compte")
     void courantSansSessionEnCours() {
         // Given
         UUID utilisateurId = UUID.randomUUID();
+        UUID centreId = UUID.randomUUID();
         authentifierCommeCaissier(utilisateurId);
         when(sessionRepository.findEnCours()).thenReturn(Optional.empty());
+        when(utilisateurRepository.findById(utilisateurId)).thenReturn(Optional.of(
+            new Utilisateur(utilisateurId, "Chef", "Centre", null, null,
+                "chef@excelis.cm", "hash", RoleUtilisateur.CAISSIER, centreId)));
 
         // When
         ContexteUtilisateur contexte = adapter.courant();
 
         // Then : rien n'est accordé nulle part (CAISSIER est centre-scopé, pas de centre connu)
+        assertThat(contexte.possedePourCentre(Permission.FINANCIER_SAISIR_MOUVEMENT, centreId)).isTrue();
         assertThat(contexte.possedePourCentre(Permission.FINANCIER_SAISIR_MOUVEMENT, UUID.randomUUID())).isFalse();
         assertThat(contexte.possede(Permission.FINANCIER_SAISIR_MOUVEMENT)).isFalse();
     }
 
     @Test
-    @DisplayName("courant() sans rattachement pour la session en cours laisse le centre nul")
-    void courantSansRattachement() {
+    @DisplayName("courant() sans rattachement de session utilise le centre actuel du compte")
+    void courantSansRattachementDeSession() {
         // Given
         UUID utilisateurId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();
+        UUID centreId = UUID.randomUUID();
         authentifierCommeCaissier(utilisateurId);
 
         when(sessionRepository.findEnCours()).thenReturn(Optional.of(uneSessionEnCours(sessionId)));
         when(rattachementCentreRepository.findByUtilisateurIdAndSessionId(utilisateurId, sessionId))
                 .thenReturn(Optional.empty());
+        when(utilisateurRepository.findById(utilisateurId)).thenReturn(Optional.of(
+            new Utilisateur(utilisateurId, "Chef", "Centre", null, null,
+                "chef@excelis.cm", "hash", RoleUtilisateur.CAISSIER, centreId)));
         when(attributionRoleRepository.findByUtilisateurIdAndSessionId(utilisateurId, sessionId))
                 .thenReturn(List.of());
 
@@ -117,6 +131,7 @@ class ContexteUtilisateurAdapterTest {
         ContexteUtilisateur contexte = adapter.courant();
 
         // Then
+        assertThat(contexte.possedePourCentre(Permission.FINANCIER_SAISIR_MOUVEMENT, centreId)).isTrue();
         assertThat(contexte.possedePourCentre(Permission.FINANCIER_SAISIR_MOUVEMENT, UUID.randomUUID())).isFalse();
     }
 

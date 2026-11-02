@@ -79,6 +79,10 @@ public class ContexteUtilisateur {
         return utilisateurId;
     }
 
+    public UUID getCentreId() {
+        return centreId;
+    }
+
     /** Vrai si la permission est accordée quel que soit le centre concerné. */
     public boolean possede(Permission permission) {
         return permissionsGlobales.contains(permission);

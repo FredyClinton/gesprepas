@@ -52,7 +52,10 @@ public final class MatricePermissions {
                 FINANCIER_SAISIR_MOUVEMENT,
                 FINANCIER_MODIFIER_MOUVEMENT,
                 FINANCIER_CONSULTER,
-                FINANCIER_VALIDER_BILAN_CHEF_CENTRE
+                FINANCIER_GERER_LIVRES,
+                INSCRIPTION_GERER,
+                APPRENANT_GERER,
+                APPRENANT_CONSULTER
         ));
 
         matrice.put(CHARGE_DOSSIER, EnumSet.of(
@@ -106,14 +109,10 @@ public final class MatricePermissions {
         ));
 
         matrice.put(CHEF_CENTRE, EnumSet.of(
-                FINANCIER_SAISIR_MOUVEMENT,
-                FINANCIER_MODIFIER_MOUVEMENT,
                 FINANCIER_CONSULTER,
-                FINANCIER_GERER_LIVRES,
                 FINANCIER_VALIDER_BILAN_CHEF_CENTRE,
-                INSCRIPTION_GERER,
-                APPRENANT_GERER,
                 APPRENANT_CONSULTER,
+                PROGRESSION_CONSULTER,
                 ACADEMIE_MARQUER_EFFECTUEE,
                 RAPPORT_CONSULTER,
                 UTILISATEUR_CONSULTER

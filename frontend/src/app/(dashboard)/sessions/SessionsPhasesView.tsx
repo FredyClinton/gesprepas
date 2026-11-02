@@ -283,96 +283,91 @@ export function SessionsPhasesView() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8 pb-12">
-      {/* Header avec switcher d'onglets et bouton d'action */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex min-h-full w-full flex-col gap-4">
+      {/* ── En-tête Sobre & Compact ── */}
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-3">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-orange/10 text-brand-orange shadow-sm">
-              <CalendarRange size={22} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                Sessions & Phases Académiques
-              </h1>
-              <p className="text-sm text-slate-500">
-                Supervision des promotions, cycle de vie des sessions et découpage pédagogique
-              </p>
-            </div>
-          </div>
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
+            Sessions & Phases Académiques
+          </h1>
+          <p className="text-xs text-slate-500">
+            Supervision des promotions, cycle de vie des sessions et jalons pédagogiques
+          </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {ongletActif === "sessions" ? (
-            <Button
+            <button
+              type="button"
               onClick={() => {
                 setErreurAction(null);
                 formSession.reset();
                 setModalCreerSession(true);
               }}
-              className="shadow-sm"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-orange px-3.5 py-2 text-xs font-semibold text-white hover:bg-brand-orange/90 shadow-2xs transition-colors cursor-pointer"
             >
-              <Plus size={18} />
-              Nouvelle session
-            </Button>
+              <Plus size={15} />
+              <span>Nouvelle session</span>
+            </button>
           ) : (
-            <Button
+            <button
+              type="button"
               onClick={() => {
                 setErreurAction(null);
                 formPhase.reset();
                 setModalCreerPhase(true);
               }}
-              className="shadow-sm"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-orange px-3.5 py-2 text-xs font-semibold text-white hover:bg-brand-orange/90 shadow-2xs transition-colors cursor-pointer"
             >
-              <Plus size={18} />
-              Nouvelle phase
-            </Button>
+              <Plus size={15} />
+              <span>Nouvelle phase</span>
+            </button>
           )}
         </div>
       </div>
 
       {/* Alerte d'erreur globale */}
       {erreurAction && (
-        <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          <div className="flex items-center gap-2.5">
-            <AlertTriangle size={18} className="shrink-0 text-red-600" />
+        <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-800">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={15} className="shrink-0 text-red-600" />
             <span>{erreurAction}</span>
           </div>
           <button
             type="button"
             onClick={() => setErreurAction(null)}
-            className="text-red-600 hover:text-red-900"
+            className="text-red-600 hover:text-red-900 cursor-pointer"
           >
-            <X size={16} />
+            <X size={15} />
           </button>
         </div>
       )}
 
       {/* Barre de navigation des onglets */}
-      <div className="flex border-b border-slate-200">
+      <div className="flex border-b border-slate-200 text-xs font-semibold">
         <button
           type="button"
           onClick={() => setOngletActif("sessions")}
-          className={`flex items-center gap-2.5 border-b-2 px-5 py-3 text-sm font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-all cursor-pointer ${
             ongletActif === "sessions"
-              ? "border-brand-orange text-brand-orange"
-              : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
+              ? "border-brand-orange text-brand-orange font-bold"
+              : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
-          <CalendarRange size={18} />
-          Sessions académiques ({sessions.length})
+          <CalendarRange size={14} />
+          <span>Sessions académiques ({sessions.length})</span>
         </button>
         <button
           type="button"
           onClick={() => setOngletActif("phases")}
-          className={`flex items-center gap-2.5 border-b-2 px-5 py-3 text-sm font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-all cursor-pointer ${
             ongletActif === "phases"
-              ? "border-brand-orange text-brand-orange"
-              : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
+              ? "border-brand-orange text-brand-orange font-bold"
+              : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
-          <Layers size={18} />
-          Phases d&rsquo;apprentissage ({phases.length})
+          <Layers size={14} />
+          <span>Phases d&rsquo;apprentissage ({phases.length})</span>
         </button>
       </div>
 
@@ -380,276 +375,250 @@ export function SessionsPhasesView() {
           CONTENU ONGLET 1 : SESSIONS ACADÉMIQUES
       ========================================================================= */}
       {ongletActif === "sessions" && (
-        <div className="space-y-8">
-          {/* Cartes KPI Sessions */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {/* Session Active */}
-            <Card className="p-5 border border-emerald-200 bg-gradient-to-br from-white via-emerald-50/20 to-emerald-50/50 shadow-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-emerald-800">
-                  Session en cours
+        <div className="space-y-4">
+          {/* Synthèse Métier Compacte */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs text-xs">
+            {/* Session en cours */}
+            <div className="sm:px-3 first:pl-1">
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                Session Active
+              </span>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-base font-bold text-slate-900">
+                  {sessionActive ? `Session ${sessionActive.annee}` : "Aucune session active"}
                 </span>
-                <span className="relative flex h-3 w-3">
-                  {sessionActive && (
-                    <>
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
-                    </>
-                  )}
-                </span>
+                {sessionActive && (
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200/60">
+                    En cours
+                  </span>
+                )}
               </div>
-              <p className="mt-2 text-2xl font-black text-slate-900">
-                {sessionActive ? `Session ${sessionActive.annee}` : "Aucune active"}
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-0.5 text-[11px] text-slate-500">
                 {sessionActive
-                  ? `Du ${formaterDate(sessionActive.dateDebut)} au ${formaterDate(sessionActive.dateFin)}`
-                  : "Aucune session n'a le statut EN_COURS actuellement"}
+                  ? `${formaterDate(sessionActive.dateDebut)} → ${formaterDate(sessionActive.dateFin)}`
+                  : "Démarrer une session planifiée"}
               </p>
-            </Card>
+            </div>
 
             {/* Sessions Planifiées */}
-            <Card className="p-5 border border-amber-200 bg-gradient-to-br from-white via-amber-50/20 to-amber-50/40 shadow-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-brand-orange">
-                  Sessions planifiées
+            <div className="sm:px-3 pt-2 sm:pt-0">
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                Planifiées (Futur)
+              </span>
+              <div className="mt-1 flex items-baseline gap-1.5">
+                <span className="text-base font-bold text-slate-900">
+                  {chargementSessions ? "…" : statsSessions.planifiees}
                 </span>
-                <span className="rounded-lg bg-amber-100 p-2 text-brand-orange">
-                  <CalendarClock size={18} />
-                </span>
+                <span className="text-xs text-slate-500">promotion(s) en préparation</span>
               </div>
-              <p className="mt-2 text-2xl font-black text-slate-900">
-                {chargementSessions ? "…" : statsSessions.planifiees}
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                Prêtes à être démarrées pour une future rentrée
-              </p>
-            </Card>
+              <p className="mt-0.5 text-[11px] text-slate-400">Prêtes pour la prochaine rentrée</p>
+            </div>
 
             {/* Sessions Clôturées */}
-            <Card className="p-5 border border-slate-200 shadow-xs bg-white">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Sessions archivées
+            <div className="sm:px-3 pt-2 sm:pt-0">
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                Archivées (Passé)
+              </span>
+              <div className="mt-1 flex items-baseline gap-1.5">
+                <span className="text-base font-bold text-slate-900">
+                  {chargementSessions ? "…" : statsSessions.cloturees}
                 </span>
-                <span className="rounded-lg bg-slate-100 p-2 text-slate-500">
-                  <CalendarCheck size={18} />
-                </span>
+                <span className="text-xs text-slate-500">session(s) archivée(s)</span>
               </div>
-              <p className="mt-2 text-2xl font-black text-slate-800">
-                {chargementSessions ? "…" : statsSessions.cloturees}
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                Sessions passées clôturées pour les audits
-              </p>
-            </Card>
+              <p className="mt-0.5 text-[11px] text-slate-400">Consultables pour audits & historiques</p>
+            </div>
           </div>
 
-          {/* Liste des sessions */}
-          <div className="space-y-4">
-            <h2 className="text-lg font-bold text-slate-900">
-              Toutes les sessions de formation
-            </h2>
-
+          {/* Tableau dense des sessions */}
+          <div className="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
             {chargementSessions ? (
-              <div className="space-y-3">
-                {[1, 2].map((i) => (
-                  <Card key={i} className="animate-pulse p-6">
-                    <div className="h-6 w-1/3 rounded-md bg-slate-200" />
-                    <div className="mt-4 h-4 w-1/2 rounded-md bg-slate-100" />
-                  </Card>
-                ))}
-              </div>
+              <div className="p-10 text-center text-xs text-slate-400">Chargement des sessions...</div>
             ) : sessions.length === 0 ? (
-              <Card className="p-12 text-center border-dashed border-2 border-slate-200">
-                <CalendarRange size={32} className="mx-auto text-slate-400" />
-                <h3 className="mt-3 text-base font-bold text-slate-900">
-                  Aucune session enregistrée
-                </h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  Créez votre première session académique pour lancer l&rsquo;activité pédagogique.
-                </p>
-                <Button
+              <div className="p-10 text-center text-xs text-slate-500 space-y-2">
+                <p className="font-semibold text-slate-700">Aucune session académique enregistrée.</p>
+                <button
+                  type="button"
                   onClick={() => setModalCreerSession(true)}
-                  className="mt-4"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand-orange px-3 py-1.5 text-xs font-semibold text-white cursor-pointer"
                 >
-                  <Plus size={16} />
-                  Créer une session
-                </Button>
-              </Card>
+                  <Plus size={14} />
+                  <span>Créer la première session</span>
+                </button>
+              </div>
             ) : (
-              <div className="grid grid-cols-1 gap-5">
-                {sessions.map((session) => {
-                  const estEnCours = session.statut === "EN_COURS";
-                  const estPlanifiee = session.statut === "PLANIFIEE";
-                  const estCloturee = session.statut === "CLOTUREE";
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                      <th className="px-4 py-2.5">Promotion</th>
+                      <th className="px-3 py-2.5">Période</th>
+                      <th className="px-3 py-2.5 text-center">Durée</th>
+                      <th className="px-3 py-2.5">Centres participants</th>
+                      <th className="px-3 py-2.5 text-center">Statut</th>
+                      <th className="px-4 py-2.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {sessions.map((session) => {
+                      const estEnCours = session.statut === "EN_COURS";
+                      const estPlanifiee = session.statut === "PLANIFIEE";
+                      const estCloturee = session.statut === "CLOTUREE";
 
-                  // Centres rattachés
-                  const centresRattaches = centres.filter((c) =>
-                    c.sessionIds.includes(session.id),
-                  );
+                      const centresRattaches = centres.filter((c) =>
+                        c.sessionIds.includes(session.id),
+                      );
 
-                  // Calcul semaine courante / total
-                  const nbSemainesEstime = semaineTotaleSession(
-                    session.dateDebut,
-                    session.dateFin,
-                  );
-                  const semaineActuelle = estEnCours
-                    ? semaineCouranteDepuis(session.dateDebut, session.dateFin)
-                    : null;
+                      const nbSemainesEstime = semaineTotaleSession(
+                        session.dateDebut,
+                        session.dateFin,
+                      );
+                      const semaineActuelle = estEnCours
+                        ? semaineCouranteDepuis(session.dateDebut, session.dateFin)
+                        : null;
 
-                  return (
-                    <Card
-                      key={session.id}
-                      className={`relative overflow-hidden border transition-all rounded-2xl p-6 ${
-                        estEnCours
-                          ? "border-emerald-300 shadow-md bg-gradient-to-r from-white via-white to-emerald-50/20"
-                          : "border-slate-200/80 bg-white shadow-xs hover:border-slate-300"
-                      }`}
-                    >
-                      <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-                        {/* Section gauche : Info générale */}
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap items-center gap-3">
-                            <h3 className="text-xl font-black tracking-tight text-slate-900">
-                              Session {session.annee}
-                            </h3>
+                      return (
+                        <tr
+                          key={session.id}
+                          className={`hover:bg-slate-50/70 transition-colors ${
+                            estEnCours ? "bg-emerald-50/20" : ""
+                          }`}
+                        >
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900 text-sm">
+                                {session.annee}
+                              </span>
+                              {estEnCours && (
+                                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" title="Session courante" />
+                              )}
+                            </div>
+                          </td>
 
-                            {/* Badge Statut */}
+                          <td className="px-3 py-3 text-slate-600">
+                            <span>{formaterDate(session.dateDebut)}</span>
+                            <span className="text-slate-400 mx-1">→</span>
+                            <span>{formaterDate(session.dateFin)}</span>
+                          </td>
+
+                          <td className="px-3 py-3 text-center text-slate-600 tabular-nums">
+                            <span>{nbSemainesEstime} sem.</span>
+                            {semaineActuelle && (
+                              <span className="ml-1.5 text-[10px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded">
+                                S{semaineActuelle}
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="px-3 py-3">
+                            <div className="flex flex-wrap items-center gap-1 max-w-xs">
+                              {centresRattaches.length === 0 ? (
+                                <span className="text-slate-400 italic">Aucun centre</span>
+                              ) : (
+                                centresRattaches.map((c) => (
+                                  <span
+                                    key={c.id}
+                                    className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-700"
+                                  >
+                                    {c.nom}
+                                  </span>
+                                ))
+                              )}
+                            </div>
+                          </td>
+
+                          <td className="px-3 py-3 text-center">
                             {estEnCours && (
-                              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 uppercase tracking-wide">
-                                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                              <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/60">
                                 En cours
                               </span>
                             )}
                             {estPlanifiee && (
-                              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-brand-orange uppercase tracking-wide">
-                                <Clock size={13} />
+                              <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200/60">
                                 Planifiée
                               </span>
                             )}
                             {estCloturee && (
-                              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 uppercase tracking-wide">
-                                <CheckCircle2 size={13} />
+                              <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold text-slate-600 bg-slate-100">
                                 Clôturée
                               </span>
                             )}
-                          </div>
+                          </td>
 
-                          {/* Période */}
-                          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600">
-                            <span className="flex items-center gap-1.5">
-                              <Calendar size={14} className="text-brand-orange" />
-                              Du <strong className="text-slate-800">{formaterDate(session.dateDebut)}</strong> au{" "}
-                              <strong className="text-slate-800">{formaterDate(session.dateFin)}</strong>
-                            </span>
-                            <span className="text-slate-300">•</span>
-                            <span className="flex items-center gap-1.5">
-                              <Clock size={14} className="text-slate-400" />
-                              {nbSemainesEstime} semaines prévues
-                              {semaineActuelle && (
-                                <span className="ml-1 rounded-md bg-emerald-100 px-2 py-0.5 font-bold text-emerald-800">
-                                  Semaine {semaineActuelle} en cours
-                                </span>
-                              )}
-                            </span>
-                          </div>
+                          <td className="px-4 py-3 text-right">
+                            <div className="inline-flex items-center justify-end gap-1.5">
+                              {/* Semaines de cours */}
+                              <button
+                                type="button"
+                                onClick={() => setSessionPourSemaines(session)}
+                                title="Gérer le calendrier des semaines"
+                                className="rounded px-2 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 cursor-pointer transition-colors"
+                              >
+                                Semaines
+                              </button>
 
-                          {/* Centres rattachés */}
-                          <div className="pt-2 flex flex-wrap items-center gap-2">
-                            <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
-                              <Building2 size={13} />
-                              Centres rattachés ({centresRattaches.length}) :
-                            </span>
-                            {centresRattaches.length === 0 ? (
-                              <span className="text-xs text-slate-400 italic">
-                                Aucun centre rattaché pour l&rsquo;instant
-                              </span>
-                            ) : (
-                              centresRattaches.map((c) => (
-                                <span
-                                  key={c.id}
-                                  className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 border border-slate-200/60"
+                              {/* Modifier la session (si non clôturée) */}
+                              {!estCloturee && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOuvrirModifierSession(session)}
+                                  title="Modifier les dates de la session"
+                                  className="rounded px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors"
                                 >
-                                  {c.nom}
-                                </span>
-                              ))
-                            )}
-                          </div>
-                        </div>
+                                  Modifier
+                                </button>
+                              )}
 
-                        {/* Section droite : Actions de cycle de vie */}
-                        <div className="flex flex-wrap items-center gap-2.5 pt-4 lg:pt-0 border-t lg:border-t-0 border-slate-100">
-                          {/* Gestion des semaines */}
-                          <Button
-                            variant="secondary"
-                            onClick={() => setSessionPourSemaines(session)}
-                            className="text-xs"
-                          >
-                            <CalendarClock size={15} />
-                            Semaines de cours
-                          </Button>
+                              {/* Démarrer la session (si planifiée) */}
+                              {estPlanifiee && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setErreurAction(null);
+                                    setSessionADemarrer(session);
+                                  }}
+                                  title="Démarrer officiellement la promotion"
+                                  className="rounded px-2 py-1 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 cursor-pointer transition-colors"
+                                >
+                                  Démarrer
+                                </button>
+                              )}
 
-                          {/* Modifier la session (si non clôturée) */}
-                          {!estCloturee && (
-                            <Button
-                              variant="secondary"
-                              onClick={() => handleOuvrirModifierSession(session)}
-                              className="text-xs"
-                            >
-                              <Pencil size={15} />
-                              Modifier
-                            </Button>
-                          )}
+                              {/* Clôturer la session (si en cours) */}
+                              {estEnCours && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setErreurAction(null);
+                                    setSessionACloturer(session);
+                                  }}
+                                  title="Clôturer définitivement la session"
+                                  className="rounded px-2 py-1 text-xs font-bold text-amber-700 hover:bg-amber-50 cursor-pointer transition-colors"
+                                >
+                                  Clôturer
+                                </button>
+                              )}
 
-                          {/* Démarrer la session (si planifiée) */}
-                          {estPlanifiee && (
-                            <Button
-                              onClick={() => {
-                                setErreurAction(null);
-                                setSessionADemarrer(session);
-                              }}
-                              className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                            >
-                              <Play size={15} />
-                              Démarrer la session
-                            </Button>
-                          )}
-
-                          {/* Clôturer la session (si en cours) */}
-                          {estEnCours && (
-                            <Button
-                              variant="secondary"
-                              onClick={() => {
-                                setErreurAction(null);
-                                setSessionACloturer(session);
-                              }}
-                              className="text-xs border-amber-300 text-amber-900 hover:bg-amber-50"
-                            >
-                              <CheckCircle2 size={15} className="text-amber-600" />
-                              Clôturer la session
-                            </Button>
-                          )}
-
-                          {/* Supprimer (si planifiée ou clôturée) */}
-                          {!estEnCours && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setErreurAction(null);
-                                setSessionASupprimer(session);
-                              }}
-                              title="Supprimer la session"
-                              className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                  );
-                })}
+                              {/* Supprimer (si planifiée ou clôturée) */}
+                              {!estEnCours && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setErreurAction(null);
+                                    setSessionASupprimer(session);
+                                  }}
+                                  title="Supprimer la session"
+                                  className="rounded p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
@@ -660,50 +629,24 @@ export function SessionsPhasesView() {
           CONTENU ONGLET 2 : PHASES PÉDAGOGIQUES
       ========================================================================= */}
       {ongletActif === "phases" && (
-        <div className="space-y-8">
-          {/* Bannière explicative */}
-          <Card className="p-5 border border-brand-orange/20 bg-gradient-to-r from-amber-50/60 via-white to-white shadow-xs rounded-2xl">
-            <div className="flex items-start gap-3.5">
-              <div className="rounded-xl bg-brand-orange/10 p-2.5 text-brand-orange shrink-0">
-                <Sparkles size={20} />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-sm font-bold text-slate-900">
-                  Structure des phases d&rsquo;apprentissage
-                </h3>
-                <p className="text-xs text-slate-600 leading-relaxed max-w-3xl">
-                  Les phases découpent l&rsquo;année académique en jalons pédagogiques clés
-                  (ex: P1 - Fondamentaux, P2 - Approfondissement, CC - Concours Blancs, Révisions intensives).
-                  Elles permettent le calcul des progressions, des soldes par phase et la traçabilité des évaluations.
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          {/* Séquence visuelle des phases */}
+        <div className="space-y-4">
+          {/* Séquence visuelle compacte */}
           {phases.length > 0 && (
-            <div className="space-y-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                Parcours type séquentiel
+            <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block mb-2">
+                Enchaînement chronologique des phases
               </span>
-              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+              <div className="flex flex-wrap items-center gap-1.5">
                 {phases.map((phase, idx) => (
-                  <div key={phase.id} className="flex items-center gap-2">
-                    <div className="flex flex-col gap-0.5 rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-800 border border-slate-200">
-                      <div className="flex items-center gap-1.5">
-                        <span className="rounded bg-brand-orange text-white px-1.5 py-0.5 text-[10px] font-black">
-                          {phase.code}
-                        </span>
-                        <span>{phase.libelle}</span>
-                      </div>
-                      {phase.dateDebut && phase.dateFin && (
-                        <span className="text-[10px] text-slate-500 font-normal">
-                          {formaterDate(phase.dateDebut)} - {formaterDate(phase.dateFin)}
-                        </span>
-                      )}
+                  <div key={phase.id} className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-800">
+                      <span className="rounded bg-brand-orange text-white px-1 py-0.2 text-[10px] font-bold">
+                        {phase.code}
+                      </span>
+                      <span>{phase.libelle}</span>
                     </div>
                     {idx < phases.length - 1 && (
-                      <ArrowRight size={14} className="text-slate-300" />
+                      <ArrowRight size={13} className="text-slate-400 shrink-0" />
                     )}
                   </div>
                 ))}
@@ -711,135 +654,114 @@ export function SessionsPhasesView() {
             </div>
           )}
 
-          {/* Liste détaillée des phases */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900">
-                Catalogue des phases configurées
-              </h2>
-              <span className="text-xs font-medium text-slate-500">
-                {phases.length} phase{phases.length > 1 ? "s" : ""}
-              </span>
-            </div>
-
+          {/* Tableau dense des phases */}
+          <div className="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
             {chargementPhases ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-                {[1, 2, 3].map((i) => (
-                  <Card key={i} className="animate-pulse p-6">
-                    <div className="h-6 w-1/3 rounded-md bg-slate-200" />
-                    <div className="mt-4 h-4 w-2/3 rounded-md bg-slate-100" />
-                  </Card>
-                ))}
-              </div>
+              <div className="p-10 text-center text-xs text-slate-400">Chargement des phases...</div>
             ) : phases.length === 0 ? (
-              <Card className="p-12 text-center border-dashed border-2 border-slate-200">
-                <Layers size={32} className="mx-auto text-slate-400" />
-                <h3 className="mt-3 text-base font-bold text-slate-900">
-                  Aucune phase configurée
-                </h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  Définissez votre première phase d&rsquo;apprentissage (ex : P1 - Fondamentaux).
-                </p>
-                <Button
+              <div className="p-10 text-center text-xs text-slate-500 space-y-2">
+                <p className="font-semibold text-slate-700">Aucune phase pédagogique configurée.</p>
+                <button
+                  type="button"
                   onClick={() => setModalCreerPhase(true)}
-                  className="mt-4"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand-orange px-3 py-1.5 text-xs font-semibold text-white cursor-pointer"
                 >
-                  <Plus size={16} />
-                  Ajouter une phase
-                </Button>
-              </Card>
+                  <Plus size={14} />
+                  <span>Ajouter une phase</span>
+                </button>
+              </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-                {phases.map((phase) => {
-                  const today = new Date().toISOString().split("T")[0];
-                  const aDesDates = phase.dateDebut && phase.dateFin;
-                  const estEnCours =
-                    aDesDates &&
-                    today >= phase.dateDebut! &&
-                    today <= phase.dateFin!;
-                  const estAVenir = aDesDates && today < phase.dateDebut!;
-                  const estAchevee = aDesDates && today > phase.dateFin!;
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                      <th className="px-4 py-2.5 w-24">Code</th>
+                      <th className="px-4 py-2.5">Intitulé de la phase</th>
+                      <th className="px-4 py-2.5">Période indicative</th>
+                      <th className="px-3 py-2.5 text-center w-28">État</th>
+                      <th className="px-4 py-2.5 text-right w-24">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {phases.map((phase) => {
+                      const today = new Date().toISOString().split("T")[0];
+                      const aDesDates = phase.dateDebut && phase.dateFin;
+                      const estEnCours =
+                        aDesDates &&
+                        today >= phase.dateDebut! &&
+                        today <= phase.dateFin!;
+                      const estAVenir = aDesDates && today < phase.dateDebut!;
+                      const estAchevee = aDesDates && today > phase.dateFin!;
 
-                  return (
-                    <Card
-                      key={phase.id}
-                      className="flex flex-col justify-between border border-slate-200/80 bg-white p-5 shadow-xs hover:border-slate-300 hover:shadow-sm transition-all rounded-2xl"
-                    >
-                      <div>
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className="rounded-lg bg-brand-orange/10 px-2.5 py-1 text-xs font-black text-brand-orange border border-brand-orange/20">
+                      return (
+                        <tr key={phase.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="px-4 py-2.5 font-bold font-mono text-slate-800">
+                            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-brand-orange font-bold">
                               {phase.code}
                             </span>
+                          </td>
+                          <td className="px-4 py-2.5 font-semibold text-slate-900">
+                            {phase.libelle}
+                          </td>
+                          <td className="px-4 py-2.5 text-slate-600">
+                            {aDesDates ? (
+                              <span>
+                                {formaterDate(phase.dateDebut!)}
+                                <span className="text-slate-400 mx-1">→</span>
+                                {formaterDate(phase.dateFin!)}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 italic">Non définie</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2.5 text-center">
                             {estEnCours && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/60">
                                 En cours
                               </span>
                             )}
                             {estAVenir && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">
+                              <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold text-amber-800 bg-amber-50">
                                 À venir
                               </span>
                             )}
                             {estAchevee && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                              <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-slate-500 bg-slate-100">
                                 Achevée
                               </span>
                             )}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => handleOuvrirModifierPhase(phase)}
-                              title="Modifier la phase"
-                              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-800 transition-colors"
-                            >
-                              <Pencil size={15} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setErreurAction(null);
-                                setPhaseASupprimer(phase);
-                              }}
-                              title="Supprimer la phase"
-                              className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </div>
-                        </div>
-
-                        <h4 className="mt-3 text-base font-bold text-slate-900 line-clamp-2">
-                          {phase.libelle}
-                        </h4>
-
-                        {/* Dates de la phase */}
-                        <div className="mt-3.5 flex items-center gap-1.5 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-600 border border-slate-100">
-                          <Calendar size={14} className="text-brand-orange shrink-0" />
-                          <span>
-                            {aDesDates ? (
-                              <>
-                                Du <strong className="text-slate-800">{formaterDate(phase.dateDebut!)}</strong> au{" "}
-                                <strong className="text-slate-800">{formaterDate(phase.dateFin!)}</strong>
-                              </>
-                            ) : (
-                              <span className="italic text-slate-400">Dates non planifiées</span>
+                            {!aDesDates && (
+                              <span className="text-[10px] text-slate-400">-</span>
                             )}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-                        <span>Code système</span>
-                        <span className="font-mono text-[10px] text-slate-500">
-                          {phase.code}
-                        </span>
-                      </div>
-                    </Card>
-                  );
-                })}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            <div className="inline-flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleOuvrirModifierPhase(phase)}
+                                title="Modifier la phase"
+                                className="rounded p-1 text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer transition-colors"
+                              >
+                                <Pencil size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setErreurAction(null);
+                                  setPhaseASupprimer(phase);
+                                }}
+                                title="Supprimer la phase"
+                                className="rounded p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

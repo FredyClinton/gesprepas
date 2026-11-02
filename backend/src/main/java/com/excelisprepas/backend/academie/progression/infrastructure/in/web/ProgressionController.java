@@ -73,18 +73,24 @@ public class ProgressionController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Progression trouvée",
                     content = @Content(schema = @Schema(implementation = ProgressionResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Accès à cette progression interdit", content = @Content),
             @ApiResponse(responseCode = "404", description = "Progression introuvable", content = @Content)
     })
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('PROGRESSION_CONSULTER')")
     public ResponseEntity<ProgressionResponse> recupererProgression(
             @Parameter(description = "Identifiant de la progression") @PathVariable UUID id) {
         return ResponseEntity.ok(versReponse(recupererProgressionUseCase.recupererProgression(id)));
     }
 
     @Operation(summary = "Lister les progressions", description = "Retourne la liste complète des progressions.")
-    @ApiResponse(responseCode = "200", description = "Liste des progressions",
-            content = @Content(array = @ArraySchema(schema = @Schema(implementation = ProgressionResponse.class))))
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Liste des progressions accessibles",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = ProgressionResponse.class)))),
+            @ApiResponse(responseCode = "403", description = "Accès aux progressions interdit", content = @Content)
+    })
     @GetMapping
+    @PreAuthorize("hasAuthority('PROGRESSION_CONSULTER')")
     public ResponseEntity<List<ProgressionResponse>> listerProgressions() {
         List<ProgressionResponse> reponses = listerProgressionsUseCase.listerProgressions().stream()
                 .map(ProgressionController::versReponse)

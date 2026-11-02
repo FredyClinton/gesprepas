@@ -309,6 +309,32 @@ public class ConcoursBlancController {
             }
         }
 
+        // Validation stricte du barème : interdire toute note hors barème (< 0 ou > noteMax)
+        Map<UUID, EpreuveConcoursBlanc> epreuvesMap = cb.getEpreuves().stream()
+                .collect(Collectors.toMap(EpreuveConcoursBlanc::getId, e -> e, (e1, e2) -> e1));
+
+        for (var cand : request.candidats()) {
+            if (cand.notes() != null) {
+                for (var n : cand.notes()) {
+                    if (n.note() != null && (n.statut() == null || n.statut() == com.excelisprepas.backend.academie.concoursblanc.domain.model.StatutNote.NOTE)) {
+                        if (n.note().compareTo(BigDecimal.ZERO) < 0) {
+                            throw new ResponseStatusException(
+                                    HttpStatus.BAD_REQUEST,
+                                    "La note ne peut pas être négative (candidat : " + cand.nomComplet() + ").");
+                        }
+                        EpreuveConcoursBlanc ep = epreuvesMap.get(n.epreuveId());
+                        if (ep != null && ep.getNoteMax() != null && n.note().compareTo(ep.getNoteMax()) > 0) {
+                            throw new ResponseStatusException(
+                                    HttpStatus.BAD_REQUEST,
+                                    "La note " + n.note() + " pour l'épreuve '" + ep.getIntitule()
+                                            + "' dépasse le barème maximal autorisé (" + ep.getNoteMax() + ") pour le candidat "
+                                            + cand.nomComplet() + ".");
+                        }
+                    }
+                }
+            }
+        }
+
         List<ResultatCandidat> domainList = request.candidats().stream().map(c -> {
             UUID resId = c.id() != null ? c.id() : UUID.randomUUID();
             List<NoteEpreuve> notes = c.notes() != null

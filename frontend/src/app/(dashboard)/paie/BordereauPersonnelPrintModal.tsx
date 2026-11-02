@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Printer,
@@ -14,6 +15,7 @@ import type { BordereauPaiePersonnel } from "@/modules/remuneration/domain/types
 import { usePersonnelList } from "@/modules/personnel";
 import { useUtilisateurs } from "@/modules/utilisateurs";
 import { ROLE_LABELS, type Role } from "@/types/roles";
+import { PrintDocumentHeader } from "@/shared/ui";
 
 interface BordereauPersonnelPrintModalProps {
   bordereau: BordereauPaiePersonnel | null;
@@ -26,6 +28,35 @@ export function BordereauPersonnelPrintModal({
   sessionName,
   onClose,
 }: BordereauPersonnelPrintModalProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (bordereau) {
+      document.body.classList.add("print-modal-open");
+    }
+    return () => {
+      document.body.classList.remove("print-modal-open");
+    };
+  }, [bordereau]);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    }
+    if (bordereau) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [bordereau, onClose]);
+
   const { data: personnelList = [] } = usePersonnelList();
   const { data: utilisateurs = [] } = useUtilisateurs();
 
@@ -45,17 +76,26 @@ export function BordereauPersonnelPrintModal({
     return map;
   }, [utilisateurs]);
 
-  if (!bordereau) return null;
+  if (!bordereau || !mounted) return null;
 
   const handlePrint = () => {
     window.print();
   };
 
-  return (
-    <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm duration-200 print:static print:block print:p-0 print:m-0 print:bg-white print:overflow-visible print:h-auto print:max-h-none print:w-auto print:inset-auto print:z-auto">
-      <div className="relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl print:static print:block print:max-h-none print:h-auto print:w-full print:max-w-none print:overflow-visible print:rounded-none print:border-none print:shadow-none print:m-0 print:p-0">
+  return createPortal(
+    <div
+      className="printable-modal print-landscape fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm duration-200 overflow-y-auto"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <style dangerouslySetInnerHTML={{ __html: "@page { size: A4 landscape; margin: 6mm 8mm; }" }} />
+      <div
+        className="printable-dialog relative flex max-h-[92vh] w-full max-w-7xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Modal Top Bar (Hidden on print) */}
-        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-6 py-4 print:hidden">
+        <div className="no-print print:hidden flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-6 py-4">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-600 text-white shadow-sm">
               <ClipboardList className="h-4 w-4" />
@@ -88,31 +128,15 @@ export function BordereauPersonnelPrintModal({
 
         {/* Modal Body / Printable Document */}
         <div className="flex-1 overflow-y-auto p-8 print:p-0 print:overflow-visible print:h-auto print:max-h-none print:block">
-          <div className="mx-auto max-w-4xl rounded-xl border border-slate-200 bg-white p-6 font-sans text-slate-900 shadow-sm print:border-none print:shadow-none print:p-4">
+          <div className="mx-auto max-w-6xl rounded-xl border border-slate-200 bg-white p-6 font-sans text-slate-900 shadow-sm print:border-none print:shadow-none print:p-4">
             {/* Document Header */}
-            <div className="mb-6 border-b-2 border-slate-900 pb-5">
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="text-2xl font-black tracking-tight text-orange-600">
-                    EXCELIS PREPAS
-                  </span>
-                  <p className="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
-                    Classes Préparatoires & Concours d&apos;Excellence
-                  </p>
-                  <p className="text-[10px] text-slate-400">
-                    Direction Générale — Service de la Paie et des Ressources Humaines
-                  </p>
-                </div>
-                <div className="text-right">
-                  <span className="inline-block rounded bg-slate-900 px-2.5 py-1 text-xs font-bold tracking-wide text-white uppercase">
-                    BORDEREAU DE PAIE DU PERSONNEL
-                  </span>
-                  <p className="mt-1 font-mono text-xs text-slate-600">
-                    Réf : {bordereau.reference}
-                  </p>
-                </div>
-              </div>
-            </div>
+            <PrintDocumentHeader
+              orientation="landscape"
+              titre="BORDEREAU DE PAIE DU PERSONNEL"
+              sousTitre="Direction Générale — Service de la Paie et des Ressources Humaines"
+              reference={bordereau.reference}
+              className="mb-6"
+            />
 
             {/* Bordereau Info Grid */}
             <div className="mb-6 grid grid-cols-3 gap-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-xs">
@@ -258,7 +282,8 @@ export function BordereauPersonnelPrintModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

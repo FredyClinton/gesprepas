@@ -5,6 +5,7 @@ import {
   modifierLivre,
   supprimerLivre,
   listerVentesLivres,
+  listerVentesApprenant,
   getStatsVentesLivres,
   enregistrerVenteLivre,
 } from "./client";
@@ -94,16 +95,30 @@ export function useStatsVentesLivres(
   });
 }
 
+export function useVentesApprenant(apprenantId: string | undefined) {
+  return useQuery({
+    queryKey: ["ventes-livres", "apprenant", apprenantId],
+    queryFn: () => listerVentesApprenant(apprenantId!),
+    enabled: Boolean(apprenantId),
+  });
+}
+
 export function useEnregistrerVenteLivre(role?: string, userCentreId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: import("../domain/types").EnregistrerVenteLivreDTO) =>
       enregistrerVenteLivre(payload, role, userCentreId),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: LIVRES_KEYS.all });
       queryClient.invalidateQueries({ queryKey: VENTES_LIVRES_KEYS.all });
       queryClient.invalidateQueries({ queryKey: ["mouvements-financiers"] });
       queryClient.invalidateQueries({ queryKey: ["bilan-journalier"] });
+      queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
+      if (variables?.apprenantId) {
+        queryClient.invalidateQueries({ queryKey: ["versements-apprenant", variables.apprenantId] });
+        queryClient.invalidateQueries({ queryKey: ["ventes-livres", "apprenant", variables.apprenantId] });
+      }
+      queryClient.invalidateQueries({ queryKey: ["apprenants"] });
     },
   });
 }

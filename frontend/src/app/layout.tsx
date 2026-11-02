@@ -7,13 +7,16 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "EXCELIS PRÉPAS",
-  description: "Gestion des centres, apprenants et dossiers d'EXCELIS PRÉPAS",
+  description: "Plateforme de gestion centralisée du réseau EXCELIS PRÉPAS",
+  icons: {
+    icon: "/images/logo-excelis-emblem.png",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="fr" className={`${montserrat.variable} antialiased`}>
-      <body className="bg-brand-white text-brand-black min-h-screen">
+    <html lang="fr" className={`${montserrat.variable} font-sans antialiased`}>
+      <body className="bg-slate-50 text-brand-anthracite min-h-screen font-sans selection:bg-brand-orange/20 selection:text-brand-anthracite">
         <Providers>{children}</Providers>
       </body>
     </html>

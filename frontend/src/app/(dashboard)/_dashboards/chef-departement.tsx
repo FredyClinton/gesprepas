@@ -22,7 +22,8 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 
-import { Card, Skeleton, SkeletonCard } from "@/shared/ui";
+import { Card, Skeleton, SkeletonCard, SortableHeader } from "@/shared/ui";
+import { compareStrings, compareNumbers, type SortDirection } from "@/shared/lib/sort-utils";
 import { messageErreurApi } from "@/shared/lib/api-client";
 import { formatVolumeHoraire } from "@/modules/remuneration/domain/volumeHoraire";
 import { useDepartement, useDepartements } from "@/modules/departement";
@@ -30,7 +31,9 @@ import { useRosterDepartement } from "@/modules/affectation-departementale";
 import {
   useAffectations,
   useAssignerEnseignant,
+  detecterConflitHoraire,
   type Affectation,
+  type ConflitDetecte,
 } from "@/modules/affectation";
 import { useEnseignants, type Enseignant } from "@/modules/personnel";
 import {
@@ -139,13 +142,22 @@ export function ChefDepartementDashboard({ departementId, chefId }: Props) {
   const { data: formations = [] } = useFormations();
   const { data: toutesProgressions = [] } = useProgressions();
 
-  // Affectations de la semaine
+  // Affectations de la semaine pour ce département
   const { data: affectations = [], isLoading: chargementAffectations } =
     useAffectations({
       sessionId: departement ? sessionId : undefined,
       semaine,
       matiereId: departement?.matiereId,
     });
+
+  // Toutes les affectations de la semaine (tous centres et départements)
+  // pour le contrôle global des conflits d'emploi du temps des enseignants.
+  const { data: toutesAffectationsSemaine = [] } = useAffectations({
+    sessionId: departement ? sessionId : undefined,
+    semaine,
+    matiereId: undefined,
+    centreId: undefined,
+  });
 
   // Affectations pour calculs statistiques
   const toutesAffectationsSession = affectations;
@@ -154,6 +166,14 @@ export function ChefDepartementDashboard({ departementId, chefId }: Props) {
   const centresParId = useMemo(() => {
     const map = new Map<string, string>();
     centres.forEach((c) => map.set(c.id, c.nom));
+    return map;
+  }, [centres]);
+
+  const nomsCentres = useMemo(() => {
+    const map: Record<string, string> = {};
+    centres.forEach((c) => {
+      map[c.id] = c.nom;
+    });
     return map;
   }, [centres]);
 
@@ -168,6 +188,22 @@ export function ChefDepartementDashboard({ departementId, chefId }: Props) {
     formations.forEach((f) => map.set(f.id, f.nom));
     return map;
   }, [formations]);
+
+  const nomsFormations = useMemo(() => {
+    const map: Record<string, string> = {};
+    formations.forEach((f) => {
+      map[f.id] = f.nom;
+    });
+    return map;
+  }, [formations]);
+
+  const nomsMatieres = useMemo(() => {
+    const map: Record<string, string> = {};
+    matieres.forEach((m) => {
+      map[m.id] = m.nom;
+    });
+    return map;
+  }, [matieres]);
 
   const enseignantsDuDepartement = useMemo(() => {
     if (!roster || !enseignants) return [];
@@ -321,6 +357,90 @@ export function ChefDepartementDashboard({ departementId, chefId }: Props) {
     formationsParId,
   ]);
 
+  // Tris des tableaux
+  type TriEnseignantDepColonne = "nom" | "matricule" | "seances" | "cumul";
+  const [triEnseignantColonne, setTriEnseignantColonne] = useState<TriEnseignantDepColonne>("nom");
+  const [triEnseignantDirection, setTriEnseignantDirection] = useState<SortDirection>("asc");
+
+  function handleTriEnseignant(colonne: TriEnseignantDepColonne) {
+    if (triEnseignantColonne === colonne) {
+      setTriEnseignantDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTriEnseignantColonne(colonne);
+      setTriEnseignantDirection(colonne === "nom" || colonne === "matricule" ? "asc" : "desc");
+    }
+  }
+
+  const enseignantsDuDepartementTries = useMemo(() => {
+    return [...enseignantsDuDepartement].sort((a, b) => {
+      let res = 0;
+      switch (triEnseignantColonne) {
+        case "nom":
+          res = compareStrings(a.nom + " " + a.prenom, b.nom + " " + b.prenom);
+          break;
+        case "matricule":
+          res = compareStrings(a.matricule || "", b.matricule || "");
+          break;
+        case "seances": {
+          const sA = volumeSemaineParEnseignant.get(a.id) ?? 0;
+          const sB = volumeSemaineParEnseignant.get(b.id) ?? 0;
+          res = compareNumbers(sA, sB);
+          break;
+        }
+        case "cumul": {
+          const cA = volumeSessionParEnseignant.get(a.id) ?? 0;
+          const cB = volumeSessionParEnseignant.get(b.id) ?? 0;
+          res = compareNumbers(cA, cB);
+          break;
+        }
+      }
+      return triEnseignantDirection === "asc" ? res : -res;
+    });
+  }, [enseignantsDuDepartement, triEnseignantColonne, triEnseignantDirection, volumeSemaineParEnseignant, volumeSessionParEnseignant]);
+
+  type TriCreneauColonne = "jour" | "centre" | "salle" | "formation";
+  const [triCreneauColonne, setTriCreneauColonne] = useState<TriCreneauColonne>("jour");
+  const [triCreneauDirection, setTriCreneauDirection] = useState<SortDirection>("asc");
+
+  function handleTriCreneau(colonne: TriCreneauColonne) {
+    if (triCreneauColonne === colonne) {
+      setTriCreneauDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTriCreneauColonne(colonne);
+      setTriCreneauDirection("asc");
+    }
+  }
+
+  const creneauxEnAttenteTries = useMemo(() => {
+    return [...creneauxEnAttenteFiltres].sort((a, b) => {
+      let res = 0;
+      switch (triCreneauColonne) {
+        case "jour":
+          res = compareStrings(a.jour + " " + a.seance, b.jour + " " + b.seance);
+          break;
+        case "centre": {
+          const cA = centresParId.get(a.centreId) ?? "";
+          const cB = centresParId.get(b.centreId) ?? "";
+          res = compareStrings(cA, cB);
+          break;
+        }
+        case "salle": {
+          const sA = sallesParId.get(a.salleId) ?? "";
+          const sB = sallesParId.get(b.salleId) ?? "";
+          res = compareStrings(sA, sB);
+          break;
+        }
+        case "formation": {
+          const fA = formationsParId.get(a.formationId) ?? "";
+          const fB = formationsParId.get(b.formationId) ?? "";
+          res = compareStrings(fA, fB);
+          break;
+        }
+      }
+      return triCreneauDirection === "asc" ? res : -res;
+    });
+  }, [creneauxEnAttenteFiltres, triCreneauColonne, triCreneauDirection, centresParId, sallesParId, formationsParId]);
+
   // État de chargement initial
   if (chargementDepartement || chargementDepartements) {
     return (
@@ -369,7 +489,7 @@ export function ChefDepartementDashboard({ departementId, chefId }: Props) {
   }
 
   return (
-    <div className="mx-auto flex max-w-[1600px] flex-col gap-6 p-6">
+    <div className="w-full space-y-6">
       {/* ── En-tête du Dashboard Chef de Département ── */}
       <div className="flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-4">
@@ -420,10 +540,6 @@ export function ChefDepartementDashboard({ departementId, chefId }: Props) {
                 </span>
               )}
             </div>
-            {/* <p className="mt-1 text-xs text-slate-500">
-              Tableau de bord disciplinaire • Suivi des programmes, charge
-              d&apos;enseignement et assignations.
-            </p> */}
           </div>
         </div>
 
@@ -476,9 +592,6 @@ export function ChefDepartementDashboard({ departementId, chefId }: Props) {
             <p className="mt-0.5 text-2xl font-extrabold text-slate-900">
               {chargementRoster ? "…" : enseignantsDuDepartement.length}
             </p>
-            {/* <p className="text-[11px] text-slate-400">
-              Roster actif de la session
-            </p> */}
           </div>
         </Card>
 
@@ -494,9 +607,6 @@ export function ChefDepartementDashboard({ departementId, chefId }: Props) {
             <p className="mt-0.5 text-2xl font-extrabold text-slate-900">
               {chargementAffectations ? "…" : affectations.length}
             </p>
-            {/* <p className="text-[11px] text-slate-400">
-              {seancesAssignees} séances pourvues
-            </p> */}
           </div>
         </Card>
 
@@ -803,18 +913,44 @@ export function ChefDepartementDashboard({ departementId, chefId }: Props) {
               <table className="w-full text-left text-xs">
                 <thead className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold tracking-wider text-slate-500 uppercase">
                   <tr>
-                    <th className="p-4">Enseignant</th>
-                    <th className="p-4">Matricule</th>
-                    <th className="p-4 text-center">
-                      Séances Semaine {semaine}
-                    </th>
+                    <SortableHeader
+                      label="Enseignant"
+                      columnKey="nom"
+                      currentSortColumn={triEnseignantColonne}
+                      currentSortDirection={triEnseignantDirection}
+                      onSort={handleTriEnseignant}
+                      align="left"
+                    />
+                    <SortableHeader
+                      label="Matricule"
+                      columnKey="matricule"
+                      currentSortColumn={triEnseignantColonne}
+                      currentSortDirection={triEnseignantDirection}
+                      onSort={handleTriEnseignant}
+                      align="left"
+                    />
+                    <SortableHeader
+                      label={`Séances Semaine ${semaine}`}
+                      columnKey="seances"
+                      currentSortColumn={triEnseignantColonne}
+                      currentSortDirection={triEnseignantDirection}
+                      onSort={handleTriEnseignant}
+                      align="center"
+                    />
                     <th className="w-60 p-4">Jauge de Charge</th>
-                    <th className="p-4 text-center">Cumul Session</th>
+                    <SortableHeader
+                      label="Cumul Session"
+                      columnKey="cumul"
+                      currentSortColumn={triEnseignantColonne}
+                      currentSortDirection={triEnseignantDirection}
+                      onSort={handleTriEnseignant}
+                      align="center"
+                    />
                     <th className="p-4 text-center">Diagnostic Charge</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {enseignantsDuDepartement.map((e) => {
+                  {enseignantsDuDepartementTries.map((e) => {
                     const seancesSemaine =
                       volumeSemaineParEnseignant.get(e.id) ?? 0;
                     const seancesSession =
@@ -982,15 +1118,43 @@ export function ChefDepartementDashboard({ departementId, chefId }: Props) {
               <table className="w-full border-collapse text-left text-xs">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/80 text-[10px] font-bold tracking-wider text-slate-500 uppercase">
-                    <th className="p-3.5">Jour &amp; Séance</th>
-                    <th className="p-3.5">Centre</th>
-                    <th className="p-3.5">Salle</th>
-                    <th className="p-3.5">Formation</th>
+                    <SortableHeader
+                      label="Jour & Séance"
+                      columnKey="jour"
+                      currentSortColumn={triCreneauColonne}
+                      currentSortDirection={triCreneauDirection}
+                      onSort={handleTriCreneau}
+                      align="left"
+                    />
+                    <SortableHeader
+                      label="Centre"
+                      columnKey="centre"
+                      currentSortColumn={triCreneauColonne}
+                      currentSortDirection={triCreneauDirection}
+                      onSort={handleTriCreneau}
+                      align="left"
+                    />
+                    <SortableHeader
+                      label="Salle"
+                      columnKey="salle"
+                      currentSortColumn={triCreneauColonne}
+                      currentSortDirection={triCreneauDirection}
+                      onSort={handleTriCreneau}
+                      align="left"
+                    />
+                    <SortableHeader
+                      label="Formation"
+                      columnKey="formation"
+                      currentSortColumn={triCreneauColonne}
+                      currentSortDirection={triCreneauDirection}
+                      onSort={handleTriCreneau}
+                      align="left"
+                    />
                     <th className="p-3.5 text-right">Assigner un enseignant</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {creneauxEnAttenteFiltres.map((c) => (
+                  {creneauxEnAttenteTries.map((c) => (
                     <tr
                       key={c.id}
                       className="transition-colors hover:bg-amber-50/40"
@@ -1023,6 +1187,11 @@ export function ChefDepartementDashboard({ departementId, chefId }: Props) {
                         <AssignerCreneauDropdown
                           creneau={c}
                           enseignants={enseignantsDuDepartement}
+                          toutesAffectations={toutesAffectationsSemaine}
+                          nomsCentres={nomsCentres}
+                          nomsFormations={nomsFormations}
+                          nomsMatieres={nomsMatieres}
+                          dateDebutSession={sessionActive?.dateDebut}
                         />
                       </td>
                     </tr>
@@ -1057,13 +1226,24 @@ function AssignerCreneauDropdown({
   creneau,
   enseignants,
   label = "Assigner",
+  toutesAffectations,
+  nomsCentres,
+  nomsFormations,
+  nomsMatieres,
+  dateDebutSession,
 }: {
   creneau: Affectation;
   enseignants: Enseignant[] | undefined;
   label?: string;
+  toutesAffectations?: Affectation[];
+  nomsCentres?: Record<string, string>;
+  nomsFormations?: Record<string, string>;
+  nomsMatieres?: Record<string, string>;
+  dateDebutSession?: string;
 }) {
   const [ouvert, setOuvert] = useState(false);
   const [recherche, setRecherche] = useState("");
+  const [messageConflit, setMessageConflit] = useState<string | null>(null);
   const assigner = useAssignerEnseignant();
 
   const resultats = useMemo(() => {
@@ -1077,18 +1257,71 @@ function AssignerCreneauDropdown({
     );
   }, [enseignants, recherche]);
 
-  function choisir(enseignantId: string) {
+  const resultatsAvecConflit = useMemo(() => {
+    return resultats.map((e) => {
+      const conflit = detecterConflitHoraire({
+        affectations: toutesAffectations,
+        candidat: {
+          enseignantId: e.id,
+          dateSeance: creneau.dateSeance,
+          semaine: creneau.semaine,
+          jourIndex: ["LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI"].indexOf(
+            creneau.jour,
+          ),
+          heureDebut: creneau.heureDebut,
+          heureFin: creneau.heureFin,
+          seance: creneau.seance,
+          affectationId: creneau.id,
+        },
+        nomsCentres,
+        nomsFormations,
+        nomsMatieres,
+        dateDebutSession,
+      });
+      return {
+        enseignant: e,
+        conflit,
+      };
+    });
+  }, [
+    resultats,
+    toutesAffectations,
+    creneau,
+    nomsCentres,
+    nomsFormations,
+    nomsMatieres,
+    dateDebutSession,
+  ]);
+
+  function choisir(enseignantId: string, conflit?: ConflitDetecte) {
+    if (conflit?.enConflit) {
+      setMessageConflit(conflit.message ?? "Conflit d'horaire détecté.");
+      return;
+    }
+    setMessageConflit(null);
     assigner.mutate(
       { id: creneau.id, enseignantId },
-      { onSuccess: () => setOuvert(false) },
+      {
+        onSuccess: () => {
+          setOuvert(false);
+          setMessageConflit(null);
+        },
+      },
     );
+  }
+
+  function toggleOuvert() {
+    setOuvert((o) => {
+      if (o) setMessageConflit(null);
+      return !o;
+    });
   }
 
   return (
     <div className="relative inline-block text-left">
       <button
         type="button"
-        onClick={() => setOuvert((o) => !o)}
+        onClick={toggleOuvert}
         className={`cursor-pointer rounded-xl px-3 py-1.5 text-xs font-bold shadow-2xs transition-all ${
           creneau.enseignantId
             ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
@@ -1104,9 +1337,12 @@ function AssignerCreneauDropdown({
             type="button"
             aria-label="Fermer le menu"
             className="fixed inset-0 z-40 cursor-default"
-            onClick={() => setOuvert(false)}
+            onClick={() => {
+              setOuvert(false);
+              setMessageConflit(null);
+            }}
           />
-          <div className="absolute right-0 z-50 mt-2 w-72 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
+          <div className="absolute right-0 z-50 mt-2 w-80 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
             <div className="focus-within:border-brand-orange mb-2 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-2.5 py-1.5 transition-colors focus-within:bg-white">
               <Search size={14} className="shrink-0 text-slate-400" />
               <input
@@ -1128,6 +1364,16 @@ function AssignerCreneauDropdown({
               )}
             </div>
 
+            {messageConflit && (
+              <div className="mb-2 rounded-xl border border-rose-200 bg-rose-50 p-2.5 text-xs text-rose-800">
+                <div className="flex items-start gap-1.5 font-bold text-rose-700">
+                  <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+                  <span>Conflit d&apos;horaire</span>
+                </div>
+                <p className="mt-1 text-[11px] leading-tight">{messageConflit}</p>
+              </div>
+            )}
+
             <div className="max-h-56 divide-y divide-slate-100 overflow-y-auto">
               {enseignants === undefined && (
                 <p className="p-3 text-center text-xs text-slate-400">
@@ -1146,22 +1392,35 @@ function AssignerCreneauDropdown({
                     Aucun résultat.
                   </p>
                 )}
-              {resultats.map((e) => {
+              {resultatsAvecConflit.map(({ enseignant: e, conflit }) => {
                 const estAssignéActuellement = creneau.enseignantId === e.id;
+                const estEnConflit = conflit.enConflit;
+                const estDesactive =
+                  assigner.isPending || estAssignéActuellement || estEnConflit;
+
                 return (
                   <button
                     key={e.id}
                     type="button"
-                    onClick={() => choisir(e.id)}
-                    disabled={assigner.isPending || estAssignéActuellement}
+                    onClick={() => choisir(e.id, conflit)}
+                    disabled={estDesactive}
                     className={`flex w-full cursor-pointer items-center justify-between rounded-xl p-2 text-left transition-colors ${
                       estAssignéActuellement
                         ? "cursor-not-allowed bg-slate-50 opacity-60"
-                        : "hover:bg-brand-orange/10"
+                        : estEnConflit
+                          ? "cursor-not-allowed bg-rose-50/70 border border-rose-200/60"
+                          : "hover:bg-brand-orange/10"
                     }`}
+                    title={estEnConflit ? conflit.message : undefined}
                   >
                     <div className="flex min-w-0 items-center gap-2">
-                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-700">
+                      <div
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                          estEnConflit
+                            ? "bg-rose-100 text-rose-700"
+                            : "bg-slate-100 text-slate-700"
+                        }`}
+                      >
                         {e.prenom[0]}
                         {e.nom[0]}
                       </div>
@@ -1172,11 +1431,21 @@ function AssignerCreneauDropdown({
                         <p className="font-mono text-[10px] text-slate-400">
                           {e.matricule}
                         </p>
+                        {estEnConflit && (
+                          <p className="text-[10px] text-rose-600 font-medium truncate">
+                            Occupé : {conflit.details?.centreNom} ({conflit.details?.formationNom})
+                          </p>
+                        )}
                       </div>
                     </div>
                     {estAssignéActuellement ? (
                       <span className="text-[10px] font-bold text-slate-400">
                         Actuel
+                      </span>
+                    ) : estEnConflit ? (
+                      <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-rose-100 px-1.5 py-0.5 text-[9px] font-bold text-rose-700">
+                        <AlertTriangle size={10} />
+                        <span>Conflit</span>
                       </span>
                     ) : (
                       <UserCheck

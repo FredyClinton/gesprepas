@@ -201,6 +201,12 @@ public class VenteLivreService implements EnregistrerVenteLivreUseCase, ListerVe
     }
 
     @Override
+    public List<VenteLivre> listerVentesParApprenant(UUID apprenantId) {
+        Objects.requireNonNull(apprenantId, "L'apprenant est obligatoire");
+        return venteLivreRepositoryPort.findByApprenantId(apprenantId);
+    }
+
+    @Override
     public StatsVentes calculerStats(UUID sessionId, UUID centreId, LocalDate dateDebut, LocalDate dateFin) {
         Objects.requireNonNull(sessionId, "La session est obligatoire");
         List<VenteLivre> ventes = venteLivreRepositoryPort.findWithFilters(sessionId, centreId, null, dateDebut, dateFin);

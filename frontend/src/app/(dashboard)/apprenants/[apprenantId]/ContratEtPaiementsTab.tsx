@@ -1,16 +1,19 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import { Card, Button, Modal } from "@/shared/ui";
 import type { Apprenant, CursusApprenant, ContratApprenant } from "@/modules/apprenants";
 import { usePhases, useFormations, type Phase, type Formation } from "@/modules/academique";
-import { useSessionActive } from "@/modules/centres-sessions";
+import { useSessionActive, useCentres } from "@/modules/centres-sessions";
 import {
   useMotifs,
   useBilanDuJour,
   useSupprimerEntree,
   EnregistrerVersementModal,
   ModifierVersementModal,
+  RecuPaiementModal,
+  type DonneesRecuPaiement,
   type Entree,
   type StatutMouvement,
   type VersementItem,
@@ -34,8 +37,11 @@ import {
   Pencil,
   Trash2,
   Lock,
+  BookOpen,
 } from "lucide-react";
+import { useVentesApprenant } from "@/modules/livres";
 import { NegocierContratPhaseModal } from "./NegocierContratPhaseModal";
+import { FicheContratPrintModal } from "./FicheContratPrintModal";
 
 const FCFA = new Intl.NumberFormat("fr-FR");
 
@@ -46,9 +52,9 @@ const LABELS_STATUT_VERSEMENT: Record<StatutMouvement, string> = {
 };
 
 const CLASSES_STATUT_VERSEMENT: Record<StatutMouvement, string> = {
-  VALIDE: "bg-green-100 text-green-800",
-  EN_ATTENTE: "bg-brand-orange/10 text-brand-orange",
-  REJETE: "bg-red-100 text-red-800",
+  VALIDE: "bg-emerald-50 text-emerald-800 border border-emerald-200",
+  EN_ATTENTE: "bg-amber-50 text-amber-800 border border-amber-200",
+  REJETE: "bg-rose-50 text-rose-800 border border-rose-200",
 };
 
 type LigneVersement = {
@@ -59,6 +65,8 @@ type LigneVersement = {
   montant: number;
   mode: string;
   statut: StatutMouvement;
+  isLivre?: boolean;
+  livreTitre?: string | null;
 };
 
 interface ContratTrace extends ContratApprenant {
@@ -86,13 +94,25 @@ export function ContratEtPaiementsTab({
 }) {
   const { data: phases = [] } = usePhases();
   const { data: formations = [] } = useFormations();
+  const { data: centres = [] } = useCentres();
   const { data: sessionActive } = useSessionActive();
   const { data: motifs } = useMotifs("ENTREE");
   const { data: bilanDuJour } = useBilanDuJour(apprenant.centreId, apprenant.sessionId);
+  const { data: authSession } = useSession();
+  const { data: ventesApprenant = [] } = useVentesApprenant(apprenant.id);
+  const userRole = authSession?.user?.role;
+
+  const peutEncaisser = userRole === "CAISSIER";
+  const peutModifierOperationFinanciere = userRole === "CAISSIER";
+  const peutNegocierContrat =
+    userRole === "CHEF_CENTRE" ||
+    userRole === "DIRECTEUR" ||
+    userRole === "DIRECTEUR_ACADEMIQUE";
 
   const [modalContratOuvert, setModalContratOuvert] = useState(false);
   const [modalVersementOuvert, setModalVersementOuvert] = useState(false);
   const [contratSelectionne, setContratSelectionne] = useState<ContratTrace | null>(null);
+  const [recuAImprimer, setRecuAImprimer] = useState<DonneesRecuPaiement | null>(null);
   const [copieRef, setCopieRef] = useState<string | null>(null);
 
   const [versementAModifier, setVersementAModifier] = useState<VersementItem | null>(null);
@@ -108,6 +128,34 @@ export function ContratEtPaiementsTab({
 
   const montantTotalContrat = cursus?.montantTotalCumule ?? apprenant.montantContrat ?? 0;
   const soldeRestantCalcul = Math.max(montantTotalContrat - montantPaye, 0);
+
+  const nomCentreApprenant =
+    centres.find((c) => c.id === apprenant.centreId)?.nom || "Centre EXCELIS PRÉPAS";
+  const nomFormationApprenant =
+    formations.find((f) => f.id === apprenant.formationId)?.nom || "";
+
+  const imprimerRecuVersement = (v: LigneVersement) => {
+    const userObj = authSession?.user as { prenom?: string; nom?: string } | undefined;
+    const nomCaissier =
+      userObj?.prenom && userObj?.nom
+        ? `${userObj.prenom} ${userObj.nom}`
+        : authSession?.user?.name || "Service Caisse";
+
+    setRecuAImprimer({
+      id: v.id,
+      date: v.date,
+      heure: "12:00",
+      montant: v.montant,
+      nomApprenant: `${apprenant.prenom} ${apprenant.nom}`,
+      contactApprenant: apprenant.contactApprenant,
+      nomFormation: nomFormationApprenant,
+      motif: v.libelle,
+      nomCentre: nomCentreApprenant,
+      nomCaissier,
+      montantContrat: v.isLivre ? undefined : montantTotalContrat,
+      soldeRestant: v.isLivre ? undefined : soldeRestantCalcul,
+    });
+  };
 
   // Liste brute des contrats avec fallback d'admission initial
   const contratsBruts: ContratApprenant[] = useMemo(() => {
@@ -180,15 +228,30 @@ export function ContratEtPaiementsTab({
   }, [contratsBruts, phases, formations, cursus?.inscriptionsPhases, apprenant.formationId, montantPaye]);
 
   // Historique des versements
-  const lignesVersements: LigneVersement[] = (versements ?? []).map((v) => ({
-    id: v.id,
-    date: v.date,
-    motifId: v.motifId,
-    libelle: motifs?.find((m) => m.id === v.motifId)?.nom ?? "Versement scolarité",
-    montant: v.montant,
-    mode: "Espèces / Caisse",
-    statut: v.statut,
-  }));
+  const lignesVersements: LigneVersement[] = (versements ?? []).map((v) => {
+    const motifNom = motifs?.find((m) => m.id === v.motifId)?.nom;
+    const isLivre =
+      v.motifId === "00000000-0000-0000-0000-000000000012" ||
+      (motifNom ? motifNom.toLowerCase().includes("livre") : false) ||
+      Boolean(v.livreTitre);
+
+    const venteLiee = ventesApprenant.find(
+      (vt) => vt.entreeId === v.id || (isLivre && vt.dateVente === v.date && vt.montantTotal === v.montant),
+    );
+    const titreLivre = v.livreTitre || venteLiee?.livreTitre;
+
+    return {
+      id: v.id,
+      date: v.date,
+      motifId: v.motifId,
+      libelle: isLivre && titreLivre ? `Livre : ${titreLivre}` : (motifNom ?? "Versement scolarité"),
+      montant: v.montant,
+      mode: isLivre ? "Vente Boutique" : "Espèces / Caisse",
+      statut: v.statut,
+      isLivre,
+      livreTitre: titreLivre,
+    };
+  });
 
   const lignesTriees = [...lignesVersements].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
@@ -262,14 +325,16 @@ export function ContratEtPaiementsTab({
             </p>
           </div>
 
-          <Button
-            type="button"
-            onClick={() => setModalContratOuvert(true)}
-            className="flex items-center gap-1.5 self-start sm:self-auto text-xs font-bold"
-          >
-            <Plus size={14} />
-            <span>Négocier un contrat (Nouvelle phase)</span>
-          </Button>
+          {peutNegocierContrat && (
+            <Button
+              type="button"
+              onClick={() => setModalContratOuvert(true)}
+              className="flex items-center gap-1.5 self-start sm:self-auto text-xs font-bold"
+            >
+              <Plus size={14} />
+              <span>Négocier un contrat (Nouvelle phase)</span>
+            </Button>
+          )}
         </div>
 
         {/* Stepper horizontal moderne */}
@@ -506,17 +571,19 @@ export function ContratEtPaiementsTab({
               Historique des Règlements Encaissés
             </h2>
             <p className="text-slate-500 text-xs mt-0.5">
-              Versements enregistrés, validés et imputés sur le solde global des contrats.
+              Versements de scolarité imputés sur les contrats (les achats de livres sont des ventes annexes non déduites du contrat).
             </p>
           </div>
-          <Button
-            type="button"
-            onClick={() => setModalVersementOuvert(true)}
-            className="bg-brand-orange hover:bg-brand-orange/90 text-white flex items-center gap-1.5 self-start sm:self-auto text-xs font-bold shadow-2xs"
-          >
-            <Coins size={13} />
-            <span>Enregistrer un versement</span>
-          </Button>
+          {peutEncaisser && (
+            <Button
+              type="button"
+              onClick={() => setModalVersementOuvert(true)}
+              className="bg-brand-orange hover:bg-brand-orange/90 text-white flex items-center gap-1.5 self-start sm:self-auto text-xs font-bold shadow-2xs"
+            >
+              <Coins size={13} />
+              <span>Enregistrer un versement</span>
+            </Button>
+          )}
         </div>
 
         {lignesTriees.length === 0 ? (
@@ -550,7 +617,19 @@ export function ContratEtPaiementsTab({
                       <td className="p-3 text-slate-600">
                         {new Date(v.date).toLocaleDateString("fr-FR")}
                       </td>
-                      <td className="p-3 font-bold text-slate-900">{v.libelle}</td>
+                      <td className="p-3 font-bold text-slate-900">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {v.isLivre && (
+                            <BookOpen size={13} className="text-purple-600 inline shrink-0" />
+                          )}
+                          <span>{v.libelle}</span>
+                          {v.isLivre && (
+                            <span className="text-[10px] font-extrabold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded">
+                              Hors contrat
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="p-3 text-slate-600">{v.mode}</td>
                       <td className="p-3">
                         <span
@@ -565,51 +644,62 @@ export function ContratEtPaiementsTab({
                         {FCFA.format(v.montant)} FCFA
                       </td>
                       <td className="p-3 text-right whitespace-nowrap">
-                        {isDateVerrouillee ? (
-                          <span
-                            title="Bilan clôturé pour cette date (modification verrouillée)"
-                            className="inline-flex items-center gap-1 text-slate-400 p-1 cursor-not-allowed"
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => imprimerRecuVersement(v)}
+                            className="p-1 rounded-md text-slate-500 hover:text-brand-orange hover:bg-orange-50 transition-colors cursor-pointer"
+                            title="Imprimer le reçu officiel de versement"
                           >
-                            <Lock size={13} />
-                          </span>
-                        ) : (
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setVersementAModifier({
-                                  id: v.id,
-                                  montant: v.montant,
-                                  date: v.date,
-                                  motifId: v.motifId,
-                                  motifNom: v.libelle,
-                                  apprenantId: apprenant.id,
-                                  apprenantNom: `${apprenant.prenom} ${apprenant.nom}`,
-                                })
-                              }
-                              className="p-1 rounded-md text-slate-500 hover:text-brand-orange hover:bg-orange-50 transition-colors cursor-pointer"
-                              title="Modifier ce versement"
+                            <Printer size={13} />
+                          </button>
+
+                          {isDateVerrouillee ? (
+                            <span
+                              title="Bilan clôturé pour cette date (modification verrouillée)"
+                              className="inline-flex items-center gap-1 text-slate-400 p-1 cursor-not-allowed"
                             >
-                              <Pencil size={13} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setErreurActionVersement(null);
-                                setVersementASupprimer({
-                                  id: v.id,
-                                  montant: v.montant,
-                                  libelle: v.libelle,
-                                  date: v.date,
-                                });
-                              }}
-                              className="p-1 rounded-md text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                              title="Supprimer ce versement"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
-                        )}
+                              <Lock size={13} />
+                            </span>
+                          ) : peutModifierOperationFinanciere ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setVersementAModifier({
+                                    id: v.id,
+                                    montant: v.montant,
+                                    date: v.date,
+                                    motifId: v.motifId,
+                                    motifNom: v.libelle,
+                                    apprenantId: apprenant.id,
+                                    apprenantNom: `${apprenant.prenom} ${apprenant.nom}`,
+                                  })
+                                }
+                                className="p-1 rounded-md text-slate-500 hover:text-brand-orange hover:bg-orange-50 transition-colors cursor-pointer"
+                                title="Modifier ce versement"
+                              >
+                                <Pencil size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setErreurActionVersement(null);
+                                  setVersementASupprimer({
+                                    id: v.id,
+                                    montant: v.montant,
+                                    libelle: v.libelle,
+                                    date: v.date,
+                                  });
+                                }}
+                                className="p-1 rounded-md text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                title="Supprimer ce versement"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -621,157 +711,13 @@ export function ContratEtPaiementsTab({
       </Card>
 
       {/* ── Modal Fiche Détaillée & Imprimable du Contrat ── */}
-      {contratSelectionne && (
-        <Modal
-          isOpen={Boolean(contratSelectionne)}
-          onClose={() => setContratSelectionne(null)}
-          title={`Fiche d'Engagement Contrat · ${contratSelectionne.reference}`}
-        >
-          <div className="space-y-5 print:p-0">
-            {/* Bannière Fiche */}
-            <div className="p-4 rounded-xl bg-orange-50 border border-orange-200/80 flex items-center justify-between gap-4">
-              <div>
-                <span className="text-[10px] font-black uppercase text-brand-orange block tracking-wider">
-                  {contratSelectionne.estInitial
-                    ? "Contrat Initial d'Admission"
-                    : `Avenant Contractuel · Phase ${contratSelectionne.index}`}
-                </span>
-                <p className="text-base font-black text-slate-900 font-mono mt-0.5">
-                  {contratSelectionne.reference}
-                </p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Signé le {new Date(contratSelectionne.dateSignature).toLocaleDateString("fr-FR")}
-                </p>
-              </div>
-
-              <div className="text-right">
-                <span
-                  className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black uppercase ${
-                    contratSelectionne.soldeRestantContrat === 0
-                      ? "bg-emerald-100 text-emerald-800"
-                      : "bg-amber-100 text-amber-800"
-                  }`}
-                >
-                  <ShieldCheck size={13} />
-                  {contratSelectionne.soldeRestantContrat === 0 ? "Intégralement Soldé" : "En cours"}
-                </span>
-              </div>
-            </div>
-
-            {/* Détails Pédagogiques & Étudiant */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 space-y-1.5">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Bénéficiaire
-                </span>
-                <p className="text-sm font-black text-slate-900">
-                  {apprenant.prenom} {apprenant.nom}
-                </p>
-                {apprenant.etablissementOrigine && (
-                  <p className="text-slate-600">
-                    Lycée d&rsquo;origine : {apprenant.etablissementOrigine}
-                  </p>
-                )}
-                {apprenant.contactApprenant && (
-                  <p className="text-slate-600">Tél : {apprenant.contactApprenant}</p>
-                )}
-              </div>
-
-              <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 space-y-1.5">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Programme & Phase
-                </span>
-                <p className="text-sm font-black text-brand-orange flex items-center gap-1.5">
-                  <GraduationCap size={15} />
-                  <span>{contratSelectionne.formationAssociee?.nom || "Filière assignée"}</span>
-                </p>
-                <p className="text-slate-700 font-medium flex items-center gap-1.5">
-                  <Layers size={13} className="text-slate-400" />
-                  <span>{contratSelectionne.phaseAssociee?.libelle || "Phase du cursus"}</span>
-                </p>
-              </div>
-            </div>
-
-            {/* Bilan Financier du Contrat */}
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <h3 className="text-xs font-bold uppercase text-slate-400 tracking-wider mb-3">
-                Ventilation Financière de cet engagement
-              </h3>
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                  <span className="text-[10px] text-slate-400 font-bold block">Montant Souscrit</span>
-                  <span className="text-sm font-black text-slate-900 mt-0.5 block">
-                    {FCFA.format(contratSelectionne.montantTotal)} F
-                  </span>
-                </div>
-
-                <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-100">
-                  <span className="text-[10px] text-emerald-800 font-bold block">Règlements Imputés</span>
-                  <span className="text-sm font-black text-emerald-800 mt-0.5 block">
-                    {FCFA.format(contratSelectionne.montantImpute)} F
-                  </span>
-                </div>
-
-                <div className="p-2.5 rounded-lg bg-orange-50 border border-orange-100">
-                  <span className="text-[10px] text-brand-orange font-bold block">Reste à Solder</span>
-                  <span className="text-sm font-black text-brand-orange mt-0.5 block">
-                    {FCFA.format(contratSelectionne.soldeRestantContrat)} F
-                  </span>
-                </div>
-              </div>
-
-              {/* Jauge */}
-              <div className="mt-3">
-                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
-                  <span>Couverture du contrat</span>
-                  <span>{contratSelectionne.tauxCouverture}%</span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      contratSelectionne.tauxCouverture >= 100
-                        ? "bg-emerald-500"
-                        : "bg-brand-orange"
-                    }`}
-                    style={{ width: `${contratSelectionne.tauxCouverture}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Observations / Justificatif */}
-            <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 text-xs">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                Justificatif & Observations contractuelles
-              </span>
-              <p className="text-slate-700 font-medium">
-                {contratSelectionne.observations || "Aucune observation particulière enregistrée lors de la signature."}
-              </p>
-            </div>
-
-            {/* Boutons d'action */}
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => window.print()}
-                className="flex items-center gap-1.5 text-xs font-bold cursor-pointer"
-              >
-                <Printer size={13} />
-                <span>Imprimer la fiche</span>
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setContratSelectionne(null)}
-                className="text-xs font-bold cursor-pointer"
-              >
-                Fermer
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
+      <FicheContratPrintModal
+        isOpen={Boolean(contratSelectionne)}
+        onClose={() => setContratSelectionne(null)}
+        contrat={contratSelectionne}
+        apprenant={apprenant}
+        nomCentre={nomCentreApprenant}
+      />
 
       {/* Modal Négocier Contrat pour une nouvelle phase */}
       {modalContratOuvert && (
@@ -795,6 +741,7 @@ export function ContratEtPaiementsTab({
           sessionId={sessionActive?.id || apprenant.sessionId}
           formationId={apprenant.formationId}
           soldeRestant={soldeRestantCalcul}
+          onSuccessRecu={(donnees) => setRecuAImprimer(donnees)}
         />
       )}
 
@@ -891,6 +838,13 @@ export function ContratEtPaiementsTab({
           </div>
         </Modal>
       )}
+
+      {/* ── Modal d'impression officielle du reçu de versement ── */}
+      <RecuPaiementModal
+        isOpen={Boolean(recuAImprimer)}
+        onClose={() => setRecuAImprimer(null)}
+        recu={recuAImprimer}
+      />
     </div>
   );
 }

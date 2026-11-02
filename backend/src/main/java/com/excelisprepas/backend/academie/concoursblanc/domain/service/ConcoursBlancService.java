@@ -239,8 +239,28 @@ public class ConcoursBlancService {
             }
         }
 
+        Map<UUID, EpreuveConcoursBlanc> epreuvesMap = cb.getEpreuves().stream()
+                .collect(Collectors.toMap(EpreuveConcoursBlanc::getId, e -> e, (e1, e2) -> e1));
+
         List<ResultatCandidat> aSauvegarder = new ArrayList<>();
         for (ResultatCandidat r : resultats) {
+            // Contrôle strict du barème pour chaque épreuve notée
+            if (r.getNotes() != null) {
+                for (NoteEpreuve n : r.getNotes()) {
+                    if (n.note() != null && (n.statut() == null || n.statut() == StatutNote.NOTE)) {
+                        if (n.note().compareTo(BigDecimal.ZERO) < 0) {
+                            throw new IllegalArgumentException("La note ne peut pas être négative pour " + r.getNomComplet());
+                        }
+                        EpreuveConcoursBlanc ep = epreuvesMap.get(n.epreuveId());
+                        if (ep != null && ep.getNoteMax() != null && n.note().compareTo(ep.getNoteMax()) > 0) {
+                            throw new IllegalArgumentException("La note " + n.note() + " dépasse le barème max ("
+                                    + ep.getNoteMax() + ") pour l'épreuve '" + ep.getIntitule() + "' du candidat "
+                                    + r.getNomComplet());
+                        }
+                    }
+                }
+            }
+
             ResultatCandidat existant = null;
             if (r.getId() != null && existantsParId.containsKey(r.getId())) {
                 existant = existantsParId.get(r.getId());

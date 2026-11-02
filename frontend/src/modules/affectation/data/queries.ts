@@ -18,6 +18,8 @@ import {
   supprimerCreneau,
   listAffectationsParEnseignant,
   listAffectationsParCentre,
+  verifierConflitHoraire,
+  type VerifierConflitParams,
 } from "./client";
 
 type UseAffectationsParams = {
@@ -224,5 +226,37 @@ export function useAffectationsParCentre(
     queryKey: ["affectations-centre", centreId, sessionId],
     queryFn: () => listAffectationsParCentre(centreId!, sessionId!),
     enabled: Boolean(centreId && sessionId),
+  });
+}
+
+export function useVerifierConflitHoraire(
+  params: Partial<VerifierConflitParams> | null,
+  options: { enabled?: boolean } = {},
+) {
+  const estActif =
+    Boolean(params?.enseignantId && params?.dateSeance) &&
+    (options.enabled ?? true);
+
+  return useQuery({
+    queryKey: [
+      "verifier-conflit",
+      params?.enseignantId,
+      params?.dateSeance,
+      params?.heureDebut,
+      params?.heureFin,
+      params?.seance,
+      params?.affectationId,
+    ],
+    queryFn: () =>
+      verifierConflitHoraire({
+        enseignantId: params!.enseignantId!,
+        dateSeance: params!.dateSeance!,
+        heureDebut: params?.heureDebut,
+        heureFin: params?.heureFin,
+        seance: params?.seance,
+        affectationId: params?.affectationId,
+      }),
+    enabled: estActif,
+    staleTime: 5_000,
   });
 }

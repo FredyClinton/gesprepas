@@ -3,6 +3,8 @@ package com.excelisprepas.backend.auth.infrastructure.out.security;
 import com.excelisprepas.backend.auth.domain.model.ClaimsAccessToken;
 import com.excelisprepas.backend.auth.domain.model.ContexteUtilisateur;
 import com.excelisprepas.backend.auth.domain.port.out.ContexteUtilisateurPort;
+import com.excelisprepas.backend.personnel.domain.model.Utilisateur;
+import com.excelisprepas.backend.personnel.domain.port.out.UtilisateurRepositoryPort;
 import com.excelisprepas.backend.rattachement.domain.model.AttributionRole;
 import com.excelisprepas.backend.rattachement.domain.model.RattachementCentre;
 import com.excelisprepas.backend.rattachement.domain.port.out.AttributionRoleRepositoryPort;
@@ -29,13 +31,16 @@ public class ContexteUtilisateurAdapter implements ContexteUtilisateurPort {
     private final SessionAcademiqueRepositoryPort sessionRepository;
     private final RattachementCentreRepositoryPort rattachementCentreRepository;
     private final AttributionRoleRepositoryPort attributionRoleRepository;
+    private final UtilisateurRepositoryPort utilisateurRepository;
 
     public ContexteUtilisateurAdapter(SessionAcademiqueRepositoryPort sessionRepository,
                                       RattachementCentreRepositoryPort rattachementCentreRepository,
-                                      AttributionRoleRepositoryPort attributionRoleRepository) {
+                                      AttributionRoleRepositoryPort attributionRoleRepository,
+                                      UtilisateurRepositoryPort utilisateurRepository) {
         this.sessionRepository = sessionRepository;
         this.rattachementCentreRepository = rattachementCentreRepository;
         this.attributionRoleRepository = attributionRoleRepository;
+        this.utilisateurRepository = utilisateurRepository;
     }
 
     @Override
@@ -45,19 +50,26 @@ public class ContexteUtilisateurAdapter implements ContexteUtilisateurPort {
         return sessionRepository.findEnCours()
                 .map(SessionAcademique::getId)
                 .map(sessionId -> construireAvecSession(claims, sessionId))
-                .orElseGet(() -> ContexteUtilisateur.depuis(claims.utilisateurId(), claims.role(), null, List.of()));
+                .orElseGet(() -> ContexteUtilisateur.depuis(
+                    claims.utilisateurId(), claims.role(), centreActuelCompte(claims.utilisateurId()), List.of()));
     }
 
     private ContexteUtilisateur construireAvecSession(ClaimsAccessToken claims, UUID sessionId) {
         UUID centreRattache = rattachementCentreRepository
                 .findByUtilisateurIdAndSessionId(claims.utilisateurId(), sessionId)
                 .map(RattachementCentre::getCentreId)
-                .orElse(null);
+            .orElseGet(() -> centreActuelCompte(claims.utilisateurId()));
 
         List<AttributionRole> attributions = attributionRoleRepository
                 .findByUtilisateurIdAndSessionId(claims.utilisateurId(), sessionId);
 
         return ContexteUtilisateur.depuis(claims.utilisateurId(), claims.role(), centreRattache, attributions);
+    }
+
+    private UUID centreActuelCompte(UUID utilisateurId) {
+        return utilisateurRepository.findById(utilisateurId)
+                .map(Utilisateur::getCentreId)
+                .orElse(null);
     }
 
     private static ClaimsAccessToken claimsCourantes() {

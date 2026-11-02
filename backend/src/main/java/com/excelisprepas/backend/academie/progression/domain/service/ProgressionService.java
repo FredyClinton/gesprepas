@@ -8,6 +8,10 @@ import com.excelisprepas.backend.academie.progression.domain.port.in.*;
 import com.excelisprepas.backend.academie.progression.domain.port.out.ProgressionRepositoryPort;
 import com.excelisprepas.backend.academie.quota.domain.model.QuotaHebdomadaire;
 import com.excelisprepas.backend.academie.quota.domain.port.out.QuotaHebdomadaireRepositoryPort;
+import com.excelisprepas.backend.abonnement.domain.port.out.CentreFormationAbonnementRepositoryPort;
+import com.excelisprepas.backend.auth.domain.model.ContexteUtilisateur;
+import com.excelisprepas.backend.auth.domain.model.Permission;
+import com.excelisprepas.backend.auth.domain.port.out.ContexteUtilisateurPort;
 import com.excelisprepas.backend.session.domain.model.SessionAcademique;
 import com.excelisprepas.backend.session.domain.model.StatutSession;
 import com.excelisprepas.backend.session.domain.port.out.SessionAcademiqueRepositoryPort;
@@ -15,7 +19,9 @@ import com.excelisprepas.backend.shared.exception.*;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class ProgressionService implements CreerProgressionUseCase, RecupererProgressionUseCase,
@@ -26,17 +32,23 @@ public class ProgressionService implements CreerProgressionUseCase, RecupererPro
     private final MatiereRepositoryPort matiereRepository;
     private final SessionAcademiqueRepositoryPort sessionRepository;
     private final QuotaHebdomadaireRepositoryPort quotaRepository;
+    private final CentreFormationAbonnementRepositoryPort abonnementRepository;
+    private final ContexteUtilisateurPort contexteUtilisateurPort;
 
     public ProgressionService(ProgressionRepositoryPort progressionRepository,
                               FormationRepositoryPort formationRepository,
                               MatiereRepositoryPort matiereRepository,
                               SessionAcademiqueRepositoryPort sessionRepository,
-                              QuotaHebdomadaireRepositoryPort quotaRepository) {
+                              QuotaHebdomadaireRepositoryPort quotaRepository,
+                              CentreFormationAbonnementRepositoryPort abonnementRepository,
+                              ContexteUtilisateurPort contexteUtilisateurPort) {
         this.progressionRepository = progressionRepository;
         this.formationRepository = formationRepository;
         this.matiereRepository = matiereRepository;
         this.sessionRepository = sessionRepository;
         this.quotaRepository = quotaRepository;
+        this.abonnementRepository = abonnementRepository;
+        this.contexteUtilisateurPort = contexteUtilisateurPort;
     }
 
     @Override
@@ -90,13 +102,49 @@ public class ProgressionService implements CreerProgressionUseCase, RecupererPro
 
     @Override
     public Progression recupererProgression(UUID id) {
-        return progressionRepository.findById(id)
+        Progression progression = progressionRepository.findById(id)
                 .orElseThrow(() -> new ProgressionIntrouvableException(id));
+        verifierAccesLecture(progression, contexteUtilisateurPort.courant());
+        return progression;
     }
 
     @Override
     public List<Progression> listerProgressions() {
-        return progressionRepository.findAll();
+        ContexteUtilisateur contexte = contexteUtilisateurPort.courant();
+        if (contexte.possede(Permission.PROGRESSION_CONSULTER)) {
+            return progressionRepository.findAll();
+        }
+
+        UUID centreId = contexte.getCentreId();
+        verifierAccesCentre(contexte, centreId);
+        Set<FormationSession> abonnements = abonnementRepository.findByCentreId(centreId).stream()
+                .map(abonnement -> new FormationSession(abonnement.getFormationId(), abonnement.getSessionId()))
+                .collect(Collectors.toSet());
+        return progressionRepository.findAll().stream()
+                .filter(progression -> abonnements.contains(
+                        new FormationSession(progression.getFormationId(), progression.getSessionId())))
+                .toList();
+    }
+
+    private void verifierAccesLecture(Progression progression, ContexteUtilisateur contexte) {
+        if (contexte.possede(Permission.PROGRESSION_CONSULTER)) {
+            return;
+        }
+        UUID centreId = contexte.getCentreId();
+        verifierAccesCentre(contexte, centreId);
+        if (!abonnementRepository.existsByCentreIdAndFormationIdAndSessionId(
+                centreId, progression.getFormationId(), progression.getSessionId())) {
+            throw new AccesCentreInterditException(centreId);
+        }
+    }
+
+    private void verifierAccesCentre(ContexteUtilisateur contexte, UUID centreId) {
+        if (centreId == null || !contexte.possedePourCentre(Permission.PROGRESSION_CONSULTER, centreId)) {
+            throw new AccesCentreInterditException(centreId);
+        }
+    }
+
+    private record FormationSession(UUID formationId, UUID sessionId) {
     }
 
     @Override

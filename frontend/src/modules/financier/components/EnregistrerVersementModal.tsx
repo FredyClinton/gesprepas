@@ -20,6 +20,9 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { messageErreurApi } from "@/shared/lib/api-client";
+import { useCentres } from "@/modules/centres-sessions";
+import { useFormations } from "@/modules/academique";
+import type { DonneesRecuPaiement } from "./RecuPaiementModal";
 
 const FCFA = new Intl.NumberFormat("fr-FR");
 
@@ -32,6 +35,7 @@ interface EnregistrerVersementModalProps {
   sessionId: string;
   formationId?: string;
   soldeRestant?: number;
+  onSuccessRecu?: (recu: DonneesRecuPaiement) => void;
 }
 
 export function EnregistrerVersementModal({
@@ -43,6 +47,7 @@ export function EnregistrerVersementModal({
   sessionId,
   formationId,
   soldeRestant,
+  onSuccessRecu,
 }: EnregistrerVersementModalProps) {
   const { data: session } = useSession();
   const rawUserId = session?.user?.id;
@@ -56,6 +61,8 @@ export function EnregistrerVersementModal({
   const { data: allApprenants = [] } = useApprenants();
   const { data: mouvements = [] } = useMouvementsFinanciers(sessionId, centreId);
   const { data: livres = [] } = useLivres(true);
+  const { data: centres = [] } = useCentres();
+  const { data: formations = [] } = useFormations();
 
   const apprenantsDuCentre = useMemo(() => {
     if (!sessionId) {
@@ -79,25 +86,32 @@ export function EnregistrerVersementModal({
     (currentApprenant ? `${currentApprenant.nom} ${currentApprenant.prenom}` : "");
   const effectiveFormationId = formationId || currentApprenant?.formationId;
 
-  const effectiveSoldeRestant = useMemo(() => {
-    if (soldeRestant !== undefined) return soldeRestant;
-    if (!currentApprenant) return 0;
-    const totalVerse = mouvements
-      .filter(
-        (m) =>
-          m.type === "ENTREE" &&
-          m.statut !== "REJETE" &&
-          m.apprenantId === currentApprenant.id,
-      )
-      .reduce((sum, m) => sum + m.montant, 0);
-    return Math.max(0, (currentApprenant.montantContrat || 0) - totalVerse);
-  }, [soldeRestant, currentApprenant, mouvements]);
-
   const { data: motifs = [] } = useMotifs("ENTREE");
   const motifsActifs = useMemo(
     () => motifs.filter((m) => m.actif !== false),
     [motifs],
   );
+
+  const effectiveSoldeRestant = useMemo(() => {
+    if (soldeRestant !== undefined) return soldeRestant;
+    if (!currentApprenant) return 0;
+    const isLivre = (m: { motifId?: string }) => {
+      if (!m.motifId) return false;
+      if (m.motifId === "00000000-0000-0000-0000-000000000012") return true;
+      const motif = motifs.find((item) => item.id === m.motifId);
+      return motif?.nom ? motif.nom.toLowerCase().includes("livre") : false;
+    };
+    const totalVerse = mouvements
+      .filter(
+        (m) =>
+          m.type === "ENTREE" &&
+          m.statut !== "REJETE" &&
+          m.apprenantId === currentApprenant.id &&
+          !isLivre(m),
+      )
+      .reduce((sum, m) => sum + m.montant, 0);
+    return Math.max(0, (currentApprenant.montantContrat || 0) - totalVerse);
+  }, [soldeRestant, currentApprenant, mouvements, motifs]);
 
   const [montant, setMontant] = useState<number | "">("");
   const [motifId, setMotifId] = useState<string>("");
@@ -267,7 +281,7 @@ export function EnregistrerVersementModal({
     }
 
     try {
-      await saisirEntreeMutation.mutateAsync({
+      const res = await saisirEntreeMutation.mutateAsync({
         sessionId,
         motifId,
         montant: m,
@@ -279,12 +293,48 @@ export function EnregistrerVersementModal({
       });
 
       setSucces(true);
+
+      const motifSelectionne =
+        motifsActifs.find((x) => x.id === motifId)?.nom || "Versement scolarité";
+      const nomCentre = centres.find((c) => c.id === centreId)?.nom || "Centre EXCELIS";
+      const nomFormation =
+        formations.find((f) => f.id === effectiveFormationId)?.nom ||
+        currentApprenant?.formationId ||
+        "";
+      const userObj = session?.user as { prenom?: string; nom?: string } | undefined;
+      const nomCaissier =
+        userObj?.prenom && userObj?.nom
+          ? `${userObj.prenom} ${userObj.nom}`
+          : session?.user?.name || "Caissier en service";
+      const nouveauSolde = isAchatLivres
+        ? effectiveSoldeRestant
+        : Math.max(0, effectiveSoldeRestant - m);
+
       setTimeout(() => {
         setSucces(false);
         setMontant("");
         setQuantitesParLivre({});
         onClose();
-      }, 800);
+        if (onSuccessRecu) {
+          onSuccessRecu({
+            id: res?.id,
+            date,
+            heure: new Date().toLocaleTimeString("fr-FR", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            montant: m,
+            nomApprenant: effectiveNomApprenant,
+            contactApprenant: currentApprenant?.contactApprenant,
+            nomFormation,
+            motif: motifSelectionne,
+            nomCentre,
+            nomCaissier,
+            montantContrat: isAchatLivres ? undefined : currentApprenant?.montantContrat,
+            soldeRestant: isAchatLivres ? undefined : nouveauSolde,
+          });
+        }
+      }, 500);
     } catch (err: unknown) {
       setErreur(
         messageErreurApi(err, "Erreur lors de l'enregistrement du versement."),

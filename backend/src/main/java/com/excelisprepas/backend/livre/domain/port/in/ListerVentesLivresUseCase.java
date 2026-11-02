@@ -8,5 +8,6 @@ import java.util.UUID;
 
 public interface ListerVentesLivresUseCase {
     List<VenteLivre> listerVentes(UUID sessionId, UUID centreId, UUID livreId, LocalDate dateDebut, LocalDate dateFin);
+    List<VenteLivre> listerVentesParApprenant(UUID apprenantId);
 }
 

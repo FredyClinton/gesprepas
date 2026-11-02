@@ -135,8 +135,15 @@ public class BilanJournalierController {
     @PostMapping("/soumettre-caissier")
     public ResponseEntity<BilanJournalierResponse> soumettreCaissier(
             @Valid @RequestBody SoumettreBilanCaissierRequest request) {
+        UUID caissierId = request.caissierUtilisateurId();
+        if (caissierId == null || "00000000-0000-0000-0000-000000000000".equals(caissierId.toString())) {
+            var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof com.excelisprepas.backend.auth.domain.model.ClaimsAccessToken claims) {
+                caissierId = claims.utilisateurId();
+            }
+        }
         BilanJournalier bilan = soumettreBilanCaissierUseCase.soumettreBilanCaissier(
-                request.centreId(), request.sessionId(), request.date(), request.caissierUtilisateurId());
+                request.centreId(), request.sessionId(), request.date(), caissierId);
         return ResponseEntity.ok(versReponse(bilan));
     }
 
@@ -153,8 +160,15 @@ public class BilanJournalierController {
     @PostMapping("/valider-chef-centre")
     public ResponseEntity<BilanJournalierResponse> validerChefCentre(
             @Valid @RequestBody ValiderBilanChefCentreRequest request) {
+        UUID validateurId = request.validateurUtilisateurId();
+        if (validateurId == null || "00000000-0000-0000-0000-000000000000".equals(validateurId.toString())) {
+            var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof com.excelisprepas.backend.auth.domain.model.ClaimsAccessToken claims) {
+                validateurId = claims.utilisateurId();
+            }
+        }
         BilanJournalier bilan = validerBilanChefCentreUseCase.validerBilanChefCentre(
-                request.centreId(), request.sessionId(), request.date(), request.validateurUtilisateurId());
+                request.centreId(), request.sessionId(), request.date(), validateurId);
         return ResponseEntity.status(HttpStatus.CREATED).body(versReponse(bilan));
     }
 

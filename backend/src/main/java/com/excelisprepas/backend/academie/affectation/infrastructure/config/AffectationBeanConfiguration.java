@@ -60,6 +60,11 @@ public class AffectationBeanConfiguration {
     }
 
     @Bean
+    public VerifierConflitHoraireUseCase verifierConflitHoraireUseCase(AffectationService affectationService) {
+        return affectationService;
+    }
+
+    @Bean
     public ListerAffectationUseCase listerAffectationUseCase(AffectationService affectationService) {
         return affectationService;
     }

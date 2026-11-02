@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { AccessRestricted } from "@/shared/ui";
 import { CentreDetailView } from "../centres/[centreId]/CentreDetailView";
 
 // Réservé au Chef de Centre - remplace les anciens écrans séparés Formations/Salles
@@ -9,9 +10,10 @@ export default async function MonCentrePage() {
 
   if (utilisateur.role !== "CHEF_CENTRE" || !utilisateur.centreId) {
     return (
-      <main className="text-brand-gray p-8 text-sm">
-        Cet écran est réservé aux Chefs de Centre.
-      </main>
+      <AccessRestricted
+        title="Accès Chef de Centre"
+        message="Cet écran est réservé aux Chefs de Centre rattachés à une implantation locale."
+      />
     );
   }
 

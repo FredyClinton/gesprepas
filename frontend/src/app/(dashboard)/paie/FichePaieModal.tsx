@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Printer,
@@ -20,6 +21,7 @@ import {
   useMettreAJourThemeSeance,
 } from "@/modules/remuneration/data/queries";
 import { formatVolumeHoraire } from "@/modules/remuneration/domain/volumeHoraire";
+import { PrintDocumentHeader } from "@/shared/ui";
 
 interface FichePaieModalProps {
   ficheId: string | null;
@@ -37,6 +39,34 @@ export function FichePaieModal({ ficheId, onClose }: FichePaieModalProps) {
   const [seanceEnEditionId, setSeanceEnEditionId] = useState<string | null>(null);
   const [themeEnEdition, setThemeEnEdition] = useState<string>("");
   const mettreAJourThemeMutation = useMettreAJourThemeSeance();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (ficheId) {
+      document.body.classList.add("print-modal-open");
+    }
+    return () => {
+      document.body.classList.remove("print-modal-open");
+    };
+  }, [ficheId]);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    }
+    if (ficheId) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [ficheId, onClose]);
 
   function demarrerEditionTheme(affectationId: string, themeActuel: string) {
     setSeanceEnEditionId(affectationId);
@@ -59,17 +89,26 @@ export function FichePaieModal({ ficheId, onClose }: FichePaieModalProps) {
     }
   }
 
-  if (!ficheId) return null;
+  if (!ficheId || !mounted) return null;
 
   const handlePrint = () => {
     window.print();
   };
 
-  return (
-    <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm duration-200 print:static print:block print:p-0 print:m-0 print:bg-white print:overflow-visible print:h-auto print:max-h-none print:w-auto print:inset-auto print:z-auto">
-      <div className="relative flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl print:static print:block print:max-h-none print:h-auto print:w-full print:max-w-none print:overflow-visible print:rounded-none print:border-none print:shadow-none print:m-0 print:p-0">
+  return createPortal(
+    <div
+      className="printable-modal print-portrait fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm duration-200 overflow-y-auto"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <style dangerouslySetInnerHTML={{ __html: "@page { size: A4 portrait; margin: 8mm 8mm; }" }} />
+      <div
+        className="printable-dialog relative flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Modal Top Bar (Hidden on print) */}
-        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-6 py-4 print:hidden">
+        <div className="no-print print:hidden flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-6 py-4">
           <div className="flex items-center gap-2.5">
             <div className="bg-brand-orange flex h-8 w-8 items-center justify-center rounded-lg text-white shadow-sm">
               <FileText className="h-4 w-4" />
@@ -127,26 +166,13 @@ export function FichePaieModal({ ficheId, onClose }: FichePaieModalProps) {
           ) : fiche ? (
             <div className="mx-auto max-w-3xl rounded-xl border border-slate-200 bg-white p-6 font-sans text-slate-900 shadow-sm print:border-none print:shadow-none">
               {/* Document Header */}
-              <div className="mb-6 border-b-2 border-slate-900 pb-5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="text-brand-orange text-xl font-black tracking-tight">
-                      EXCELIS PREPAS
-                    </span>
-                    <p className="text-[11px] font-medium tracking-wide text-slate-500 uppercase">
-                      Classes Préparatoires & Concours d&apos;Excellence
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <span className="inline-block rounded bg-slate-900 px-2.5 py-1 text-xs font-bold tracking-wide text-white uppercase">
-                      BULLETIN DE PAIE VACATAIRE
-                    </span>
-                    <p className="mt-1 font-mono text-xs text-slate-500">
-                      Réf: {fiche.referenceBordereau}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <PrintDocumentHeader
+                titre="BULLETIN DE PAIE VACATAIRE"
+                sousTitre="Classes Préparatoires & Concours d'Excellence"
+                reference={fiche.referenceBordereau}
+                orientation="portrait"
+                className="mb-6"
+              />
 
               {/* Teacher & Session Info Grid */}
               <div className="mb-6 grid grid-cols-2 gap-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-xs">
@@ -432,6 +458,7 @@ export function FichePaieModal({ ficheId, onClose }: FichePaieModalProps) {
           ) : null}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

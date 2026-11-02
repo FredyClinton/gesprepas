@@ -14,6 +14,7 @@ public interface VenteLivreRepositoryPort {
     List<VenteLivre> findBySessionId(UUID sessionId);
     List<VenteLivre> findWithFilters(UUID sessionId, UUID centreId, UUID livreId, LocalDate dateDebut, LocalDate dateFin);
     List<VenteLivre> findByEntreeId(UUID entreeId);
+    List<VenteLivre> findByApprenantId(UUID apprenantId);
     void deleteAll(List<VenteLivre> ventes);
 }
 

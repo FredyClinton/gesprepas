@@ -10,6 +10,8 @@ import {
   useMarquerEffectuee,
   useModifierMatiere,
   useSupprimerCreneau,
+  detecterConflitHoraire,
+  type ConflitDetecte,
   JOURS,
   LABELS_JOUR,
   type Affectation,
@@ -69,6 +71,7 @@ import {
   Check,
   Phone,
   Lightbulb,
+  AlertTriangle,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 
@@ -225,6 +228,39 @@ export function PlanificationView({
   const affectations = vueTousDepartements
     ? affectationsTousDepartements
     : affectationsUnDepartement;
+
+  // Récupération de l'ensemble des affectations de la semaine pour le contrôle
+  // global des conflits d'emploi du temps (tous centres et départements confondus).
+  const { data: toutesAffectationsSemaine } = useAffectations({
+    sessionId,
+    semaine,
+    matiereId: undefined,
+    centreId: undefined,
+  });
+
+  const nomsCentres = useMemo(() => {
+    const map: Record<string, string> = {};
+    centres?.forEach((c) => {
+      map[c.id] = c.nom;
+    });
+    return map;
+  }, [centres]);
+
+  const nomsFormations = useMemo(() => {
+    const map: Record<string, string> = {};
+    formations?.forEach((f) => {
+      map[f.id] = f.nom;
+    });
+    return map;
+  }, [formations]);
+
+  const nomsMatieres = useMemo(() => {
+    const map: Record<string, string> = {};
+    matieres?.forEach((m) => {
+      map[m.id] = m.nom;
+    });
+    return map;
+  }, [matieres]);
 
   const peutAssigner =
     !readOnly &&
@@ -459,7 +495,7 @@ export function PlanificationView({
   };
 
   return (
-    <div className="mx-auto flex h-full max-w-[1600px] flex-col gap-4">
+    <div className="flex h-full w-full flex-col gap-4">
       {/* ── En-tête ── */}
       <div className="flex shrink-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
@@ -856,6 +892,10 @@ export function PlanificationView({
                                         peutMarquerEffectueeGlobalement &&
                                         !centreDesactive
                                       }
+                                      toutesAffectations={toutesAffectationsSemaine}
+                                      nomsCentres={nomsCentres}
+                                      nomsFormations={nomsFormations}
+                                      nomsMatieres={nomsMatieres}
                                     />
                                   )}
                                   {emplacementLibre && (
@@ -1058,6 +1098,10 @@ function CelluleCreneau({
   peutAssigner,
   peutGererCreneau,
   peutMarquerEffectuee,
+  toutesAffectations,
+  nomsCentres,
+  nomsFormations,
+  nomsMatieres,
 }: {
   creneau: Affectation;
   couleur: CouleurMatiere | undefined;
@@ -1071,11 +1115,16 @@ function CelluleCreneau({
   peutAssigner: boolean;
   peutGererCreneau: boolean;
   peutMarquerEffectuee: boolean;
+  toutesAffectations?: Affectation[];
+  nomsCentres?: Record<string, string>;
+  nomsFormations?: Record<string, string>;
+  nomsMatieres?: Record<string, string>;
 }) {
   const [ouvert, setOuvert] = useState(false);
   const [vue, setVue] = useState<VueMenuCreneau>("actions");
   const [recherche, setRecherche] = useState("");
   const [confirmationSuppression, setConfirmationSuppression] = useState(false);
+  const [messageConflit, setMessageConflit] = useState<string | null>(null);
 
   const assignerMutation = useAssignerEnseignant();
   const modifierMatiereMutation = useModifierMatiere();
@@ -1132,11 +1181,47 @@ function CelluleCreneau({
     dateDeLaSeance !== undefined &&
     dateDeLaSeance.getTime() > new Date().getTime();
 
+  const enseignantsAvecConflit = useMemo(() => {
+    return resultatsEnseignants.map((e) => {
+      const conflit = detecterConflitHoraire({
+        affectations: toutesAffectations,
+        candidat: {
+          enseignantId: e.id,
+          dateSeance: dateDeLaSeance,
+          semaine: creneau.semaine,
+          jourIndex: JOURS.indexOf(creneau.jour),
+          heureDebut: creneau.heureDebut,
+          heureFin: creneau.heureFin,
+          seance: creneau.seance,
+          affectationId: creneau.id,
+        },
+        nomsCentres,
+        nomsFormations,
+        nomsMatieres,
+        dateDebutSession,
+      });
+      return {
+        enseignant: e,
+        conflit,
+      };
+    });
+  }, [
+    resultatsEnseignants,
+    toutesAffectations,
+    dateDeLaSeance,
+    creneau,
+    nomsCentres,
+    nomsFormations,
+    nomsMatieres,
+    dateDebutSession,
+  ]);
+
   function fermer() {
     setOuvert(false);
     setVue("actions");
     setRecherche("");
     setConfirmationSuppression(false);
+    setMessageConflit(null);
   }
 
   function ouvrir() {
@@ -1148,7 +1233,12 @@ function CelluleCreneau({
     setOuvert(true);
   }
 
-  async function choisirEnseignant(enseignantId: string) {
+  async function choisirEnseignant(enseignantId: string, conflit?: ConflitDetecte) {
+    if (conflit?.enConflit) {
+      setMessageConflit(conflit.message ?? "Conflit d'horaire détecté.");
+      return;
+    }
+    setMessageConflit(null);
     try {
       await assignerMutation.mutateAsync({ id: creneau.id, enseignantId });
       fermer();
@@ -1300,7 +1390,11 @@ function CelluleCreneau({
               className="fixed inset-0 z-10 cursor-default"
               onClick={fermer}
             />
-            <div className="border-brand-gray/20 absolute left-0 z-20 mt-1 w-56 rounded-md border bg-white p-2 shadow-lg">
+            <div
+              className={`border-brand-gray/20 absolute left-0 z-20 mt-1 ${
+                vue === "assigner" ? "w-80" : "w-56"
+              } rounded-md border bg-white p-2 shadow-lg`}
+            >
               {vue === "actions" &&
                 !confirmationSuppression &&
                 (estVerrouilleeEffectuee ? (
@@ -1403,7 +1497,16 @@ function CelluleCreneau({
                         )}
                       </p>
                     )}
-                    <div className="max-h-40 overflow-y-auto">
+                    {messageConflit && (
+                      <div className="mb-2 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-800">
+                        <div className="flex items-start gap-1.5 font-bold text-red-700">
+                          <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+                          <span>Conflit d&apos;horaire</span>
+                        </div>
+                        <p className="mt-1 text-[11px] leading-tight">{messageConflit}</p>
+                      </div>
+                    )}
+                    <div className="max-h-52 overflow-y-auto space-y-1">
                       {!departementDeLaMatiere && (
                         <p className="text-brand-gray p-2 text-xs">
                           Aucun département rattaché à cette matière.
@@ -1421,26 +1524,42 @@ function CelluleCreneau({
                             Aucun enseignant dans le roster de ce département.
                           </p>
                         )}
-                      {resultatsEnseignants.map((e) => (
+                      {enseignantsAvecConflit.map(({ enseignant: e, conflit }) => (
                         <button
                           key={e.id}
                           type="button"
-                          onClick={() => choisirEnseignant(e.id)}
-                          disabled={assignerMutation.isPending}
-                          className="hover:bg-brand-gray/10 text-brand-anthracite flex w-full flex-col items-start gap-0.5 rounded px-2 py-1 text-left text-xs disabled:opacity-50"
+                          onClick={() => choisirEnseignant(e.id, conflit)}
+                          disabled={assignerMutation.isPending || conflit.enConflit}
+                          className={`flex w-full flex-col items-start gap-0.5 rounded p-2 text-left text-xs transition-colors ${
+                            conflit.enConflit
+                              ? "cursor-not-allowed bg-red-50/70 border border-red-200/80"
+                              : "hover:bg-brand-gray/10 text-brand-anthracite"
+                          } disabled:opacity-75`}
+                          title={conflit.enConflit ? conflit.message : undefined}
                         >
-                          <span>
-                            {e.prenom} {e.nom}
-                          </span>
-                          <span className="text-brand-gray text-[10px] font-bold tracking-wide">
+                          <div className="flex w-full items-center justify-between gap-1">
+                            <span className="font-bold text-slate-900">
+                              {e.prenom} {e.nom}
+                            </span>
+                            {conflit.enConflit && (
+                              <span className="inline-flex items-center gap-0.5 rounded bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-700 shrink-0">
+                                <AlertTriangle size={10} />
+                                <span>Conflit</span>
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-brand-gray font-mono text-[10px] font-bold">
                             {e.matricule}
                           </span>
-                          {/* Contact : pas encore de champ sur Enseignant côté
-                              backend - espace réservé en placeholder, à
-                              remplacer dès que le champ existera. */}
-                          <span className="text-brand-gray/70 text-[10px]">
-                            Contact : -
-                          </span>
+                          {conflit.enConflit ? (
+                            <span className="mt-0.5 text-[10px] text-red-700 font-medium leading-tight">
+                              Déjà programmé : {conflit.details?.centreNom} ({conflit.details?.formationNom})
+                            </span>
+                          ) : (
+                            <span className="text-brand-gray/70 text-[10px]">
+                              {e.telephone ? `Tél : ${e.telephone}` : "Contact : -"}
+                            </span>
+                          )}
                         </button>
                       ))}
                     </div>

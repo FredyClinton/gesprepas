@@ -452,7 +452,7 @@ export function EnseignantDetailView({
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 pb-12">
+    <div className="w-full space-y-6 pb-12">
       {/* Alerte gel éventuel pour le Chef de Département */}
       {gelEffectifPourCDD && (
         <Card className="border-amber-300/80 bg-amber-50/70 p-4">

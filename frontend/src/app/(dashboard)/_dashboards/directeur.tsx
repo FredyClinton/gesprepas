@@ -12,27 +12,29 @@ import {
   ChevronDown,
   Download,
   Search,
-  Printer,
   ArrowUpRight,
-  ArrowDownRight,
   ShieldCheck,
   GraduationCap,
   UserX,
-  Sparkles,
   Layers,
   ArrowRight,
   BookOpen,
   LayoutGrid,
   List,
-  Activity,
   CheckCircle,
   HelpCircle,
   Phone,
 } from "lucide-react";
 
-import { Button, Card, Skeleton, SkeletonCard, SkeletonTable } from "@/shared/ui";
+import { Button, Card, Skeleton, SkeletonCard, SkeletonTable, SortableHeader } from "@/shared/ui";
+import { compareStrings, compareNumbers, type SortDirection } from "@/shared/lib/sort-utils";
 import { useApprenants } from "@/modules/apprenants";
-import { useCentres, useSessionActive, useSessions } from "@/modules/centres-sessions";
+import {
+  useCentres,
+  useSessionActive,
+  useSessions,
+  EvolutionPerformancesMultiCentres,
+} from "@/modules/centres-sessions";
 import { useMouvementsFinanciers, useMotifs } from "@/modules/financier";
 import { useDossiers } from "@/modules/dossiers";
 import { useStatsVentesLivres } from "@/modules/livres";
@@ -47,7 +49,19 @@ function getInitiales(prenom?: string, nom?: string) {
   return (p + n).toUpperCase() || "EP";
 }
 
-type TriOption = "recouvrement_desc" | "recouvrement_asc" | "ca_desc" | "effectif_desc" | "nom_asc";
+type TriOption =
+  | "recouvrement_desc"
+  | "recouvrement_asc"
+  | "ca_desc"
+  | "ca_asc"
+  | "effectif_desc"
+  | "effectif_asc"
+  | "nom_asc"
+  | "nom_desc"
+  | "encaisse_desc"
+  | "encaisse_asc"
+  | "reste_desc"
+  | "reste_asc";
 type FiltreStatutType = "TOUS" | "OUVERT" | "FERME" | "ALERTE_RECOUVREMENT" | "SANS_CHEF";
 type ModeAffichageCentres = "tableau" | "grille";
 
@@ -58,6 +72,22 @@ export function DirecteurDashboard() {
   const [filtreStatutCentre, setFiltreStatutCentre] = useState<FiltreStatutType>("TOUS");
   const [triOption, setTriOption] = useState<TriOption>("recouvrement_desc");
   const [modeAffichage, setModeAffichage] = useState<ModeAffichageCentres>("tableau");
+
+  function handleTriHeader(colonne: "nom" | "effectif" | "ca" | "encaisse" | "reste" | "recouvrement") {
+    if (colonne === "nom") {
+      setTriOption((prev) => (prev === "nom_asc" ? "nom_desc" : "nom_asc"));
+    } else if (colonne === "effectif") {
+      setTriOption((prev) => (prev === "effectif_desc" ? "effectif_asc" : "effectif_desc"));
+    } else if (colonne === "ca") {
+      setTriOption((prev) => (prev === "ca_desc" ? "ca_asc" : "ca_desc"));
+    } else if (colonne === "encaisse") {
+      setTriOption((prev) => (prev === "encaisse_desc" ? "encaisse_asc" : "encaisse_desc"));
+    } else if (colonne === "reste") {
+      setTriOption((prev) => (prev === "reste_desc" ? "reste_asc" : "reste_desc"));
+    } else if (colonne === "recouvrement") {
+      setTriOption((prev) => (prev === "recouvrement_desc" ? "recouvrement_asc" : "recouvrement_desc"));
+    }
+  }
 
   // Données de base
   const { data: sessions = [], isLoading: chargementSessions } = useSessions();
@@ -156,6 +186,28 @@ export function DirecteurDashboard() {
       const livresQuantite = ventilationLivre?.quantiteVendue || 0;
       const livresCa = ventilationLivre?.montantTotal || 0;
 
+      // Détail des formations du centre
+      const formationsDuCentre = formations
+        .map((f) => {
+          const elevesF = apprenantsDuCentre.filter((a) => a.formationId === f.id);
+          const caF = elevesF.reduce((acc, a) => acc + (a.montantContrat || 0), 0);
+          const encF = entreesCentre
+            .filter((m) => m.formationId === f.id || elevesF.some((a) => a.id === m.apprenantId))
+            .reduce((acc, m) => acc + m.montant, 0);
+          const resteF = Math.max(0, caF - encF);
+          const tauxF = caF > 0 ? Math.min(100, Math.round((encF / caF) * 100)) : 0;
+          return {
+            id: f.id,
+            nom: f.nom,
+            effectif: elevesF.length,
+            attendu: caF,
+            encaisse: encF,
+            reste: resteF,
+            taux: tauxF,
+          };
+        })
+        .filter((f) => f.effectif > 0 || f.attendu > 0 || f.encaisse > 0);
+
       return {
         id: centre.id,
         nom: centre.nom,
@@ -175,6 +227,7 @@ export function DirecteurDashboard() {
         dossiersComplets,
         livresQuantite,
         livresCa,
+        formations: formationsDuCentre,
       };
     });
   }, [
@@ -185,6 +238,7 @@ export function DirecteurDashboard() {
     sortiesValides,
     dossiers,
     statsVentesLivres,
+    formations,
   ]);
 
   // Agrégats consolidés pour l'ensemble du réseau
@@ -321,11 +375,25 @@ export function DirecteurDashboard() {
           return a.tauxRecouvrement - b.tauxRecouvrement;
         case "ca_desc":
           return b.caContrats - a.caContrats;
+        case "ca_asc":
+          return a.caContrats - b.caContrats;
         case "effectif_desc":
           return b.effectif - a.effectif;
+        case "effectif_asc":
+          return a.effectif - b.effectif;
+        case "encaisse_desc":
+          return b.encaisse - a.encaisse;
+        case "encaisse_asc":
+          return a.encaisse - b.encaisse;
+        case "reste_desc":
+          return b.resteARecouvrer - a.resteARecouvrer;
+        case "reste_asc":
+          return a.resteARecouvrer - b.resteARecouvrer;
+        case "nom_desc":
+          return b.nom.localeCompare(a.nom, "fr", { sensitivity: "base" });
         case "nom_asc":
         default:
-          return a.nom.localeCompare(b.nom);
+          return a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" });
       }
     });
 
@@ -355,26 +423,72 @@ export function DirecteurDashboard() {
       .sort((a, b) => b.effectif - a.effectif);
   }, [formations, apprenantsSession, consolidéReseau.effectifTotal]);
 
-  // Derniers flux financiers consolidés du réseau
-  const derniersMouvements = useMemo(() => {
-    return [...mouvements]
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 6);
-  }, [mouvements]);
+  // Ventilation des effectifs par centre pour le directeur
+  const ventilationEffectifsCentres = useMemo(() => {
+    return statsParCentre
+      .filter((c) => c.statut === "OUVERT" || c.effectif > 0)
+      .map((c) => {
+        const part =
+          consolidéReseau.effectifTotal > 0
+            ? Math.round((c.effectif / consolidéReseau.effectifTotal) * 100)
+            : 0;
+        return {
+          id: c.id,
+          nom: c.nom,
+          ville: c.ville,
+          effectif: c.effectif,
+          confirmes: c.confirmes,
+          preInscrits: c.preInscrits,
+          caContrats: c.caContrats,
+          tauxRecouvrement: c.tauxRecouvrement,
+          part,
+        };
+      })
+      .sort((a, b) => b.effectif - a.effectif || b.nom.localeCompare(a.nom, "fr"));
+  }, [statsParCentre, consolidéReseau.effectifTotal]);
 
-  // Calculs pour les barres graphiques comparatives SVG (Chiffre d'affaires & Encaissement par centre)
+  // Calculs pour le module comparatif multi-vues (Chiffre d'affaires & Encaissement par centre)
   const centresPourGraphique = useMemo(() => {
-    const centresActifs = statsParCentre.filter((c) => c.statut === "OUVERT");
-    const maxFinancier = Math.max(
-      ...centresActifs.map((c) => Math.max(c.caContrats, c.encaisse)),
-      1,
-    );
-    return centresActifs.map((c) => ({
-      ...c,
-      pctCa: Math.round((c.caContrats / maxFinancier) * 100),
-      pctEncaisse: Math.round((c.encaisse / maxFinancier) * 100),
-    }));
+    return statsParCentre
+      .filter((c) => c.statut === "OUVERT")
+      .map((c) => ({
+        id: c.id,
+        nom: c.nom,
+        sousTitre: c.ville || "Sans localisation",
+        attendu: c.caContrats,
+        encaisse: c.encaisse,
+        resteARecouvrer: c.resteARecouvrer,
+        tauxRecouvrement: c.tauxRecouvrement,
+        effectif: c.effectif,
+        detailsUrl: `/centres/${c.id}/ventilation`,
+        formations: c.formations,
+      }));
   }, [statsParCentre]);
+
+  // Formations consolidées du réseau pour comparaison multi-vues
+  const itemsFormationsGlobales = useMemo(() => {
+    return formations
+      .map((f) => {
+        const elevesF = apprenantsSession.filter((a) => a.formationId === f.id);
+        const ca = elevesF.reduce((acc, a) => acc + (a.montantContrat || 0), 0);
+        const enc = entreesValides
+          .filter((m) => m.formationId === f.id || elevesF.some((a) => a.id === m.apprenantId))
+          .reduce((acc, m) => acc + m.montant, 0);
+        const reste = Math.max(0, ca - enc);
+        const taux = ca > 0 ? Math.min(100, Math.round((enc / ca) * 100)) : 0;
+        return {
+          id: f.id,
+          nom: f.nom,
+          sousTitre: `${elevesF.length} apprenant(s)`,
+          attendu: ca,
+          encaisse: enc,
+          resteARecouvrer: reste,
+          tauxRecouvrement: taux,
+          effectif: elevesF.length,
+        };
+      })
+      .filter((f) => f.effectif > 0 || f.attendu > 0 || f.encaisse > 0);
+  }, [formations, apprenantsSession, entreesValides]);
 
   // Export CSV de la synthèse réseau
   const exporterSyntheseCSV = () => {
@@ -455,10 +569,6 @@ export function DirecteurDashboard() {
     URL.revokeObjectURL(url);
   };
 
-  const imprimerPage = () => {
-    window.print();
-  };
-
   if (chargementGlobal) {
     return (
       <div className="mx-auto max-w-7xl space-y-8 p-4 sm:p-6">
@@ -490,93 +600,64 @@ export function DirecteurDashboard() {
   ).length;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8 pb-16 print:max-w-none print:p-0">
-      {/* 1. HERO COMMAND BAR & EN-TÊTE EXÉCUTIF STYLE DRIBBLE ERP */}
-      <div className="relative overflow-hidden rounded-3xl border border-slate-200/90 bg-gradient-to-br from-white via-slate-50/40 to-amber-50/20 p-6 shadow-xs sm:p-8 print:border-none print:p-0">
-        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          {/* Titre & Statuts en direct */}
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-3.5 py-1.5 font-bold text-white shadow-2xs">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                </span>
-                <span>Cockpit Direction Générale</span>
+    <div className="w-full space-y-8 pb-16 print:max-w-none print:p-0">
+      {/* 1. EN-TÊTE EXÉCUTIF COMPACT */}
+      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs sm:flex-row sm:items-center sm:justify-between print:border-none print:p-0">
+        <div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
+              Tableau de Bord Exécutif
+            </h1>
+            {sessionCourante && (
+              <span className="rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs font-bold text-amber-900">
+                Session {sessionCourante.annee}
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 font-semibold text-slate-700 shadow-2xs">
-                <Building2 size={13} className="text-brand-orange" />
-                {consolidéReseau.centresActifs} implantations territoriales
-              </span>
-              {sessionCourante && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50/80 px-3 py-1 font-semibold text-amber-800 shadow-2xs">
-                  <Sparkles size={12} className="text-brand-orange" />
-                  Session active {sessionCourante.annee}
-                </span>
-              )}
-            </div>
+            )}
+            <span className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+              {consolidéReseau.centresActifs} centres actifs
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Pilotage stratégique multi-centres et consolidation financière.
+          </p>
+        </div>
 
-            <div>
-              <h1 className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
-                Tableau de Bord Exécutif
-              </h1>
-              <p className="mt-1 max-w-2xl text-xs text-slate-600 sm:text-sm">
-                Pilotage stratégique, supervision financière consolidée et indicateurs de performance multi-centres d&apos;EXCELIS PRÉPAS.
-              </p>
-            </div>
+        {/* Commandes exécutives */}
+        <div className="flex flex-wrap items-center gap-2 print:hidden">
+          <Link
+            href="/personnel"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-2xs transition hover:bg-slate-50"
+          >
+            <Users size={14} className="text-brand-orange" />
+            <span>Personnel</span>
+          </Link>
+
+          <div className="relative">
+            <select
+              value={sessionCourante?.id || ""}
+              onChange={(e) => setSessionIdSelectionnee(e.target.value)}
+              className="appearance-none rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-8 text-xs font-bold text-slate-800 shadow-2xs transition hover:border-slate-300 focus:border-brand-orange focus:outline-none cursor-pointer"
+              aria-label="Sélectionner la session académique"
+            >
+              {sessions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  Session {s.annee} {s.statut === "EN_COURS" ? "(En cours)" : `(${s.statut.toLowerCase()})`}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              size={13}
+              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+            />
           </div>
 
-          {/* Commandes rapides de Direction */}
-          <div className="flex flex-wrap items-center gap-2.5 print:hidden">
-            {/* Accès RH / Personnel */}
-            <Link
-              href="/personnel"
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 shadow-2xs transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none"
-            >
-              <Users size={15} className="text-brand-orange" />
-              <span>Équipe & Accès</span>
-            </Link>
-
-            {/* Sélecteur de session custom */}
-            <div className="relative">
-              <select
-                value={sessionCourante?.id || ""}
-                onChange={(e) => setSessionIdSelectionnee(e.target.value)}
-                className="appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-3.5 pr-9 text-xs font-bold text-slate-800 shadow-2xs transition hover:border-slate-300 focus:border-brand-orange focus:outline-none"
-                aria-label="Sélectionner la session académique"
-              >
-                {sessions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    Session {s.annee} {s.statut === "EN_COURS" ? "(En cours)" : `(${s.statut.toLowerCase()})`}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                size={14}
-                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-            </div>
-
-            {/* Impression */}
-            <button
-              type="button"
-              onClick={imprimerPage}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 focus:outline-none"
-              title="Imprimer cette vue"
-            >
-              <Printer size={15} className="text-slate-500" />
-              <span className="hidden sm:inline">Imprimer</span>
-            </button>
-
-            {/* Exportation CSV */}
-            <Button
-              onClick={exporterSyntheseCSV}
-              className="rounded-xl shadow-xs text-xs font-bold"
-            >
-              <Download size={14} />
-              Exporter la synthèse
-            </Button>
-          </div>
+          <Button
+            onClick={exporterSyntheseCSV}
+            className="rounded-xl shadow-xs text-xs font-bold py-2 cursor-pointer"
+          >
+            <Download size={14} />
+            Exporter CSV
+          </Button>
         </div>
       </div>
 
@@ -776,109 +857,26 @@ export function DirecteurDashboard() {
         </Card>
       </div>
 
-      {/* 3. VISUAL ANALYTICS : COMPARAISON FINANCIÈRE DES CENTRES (GRAPHIQUE EN BARRES SVG) */}
-      <Card className="rounded-3xl border-slate-200/90 p-6 shadow-xs">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <Activity size={18} className="text-brand-orange" />
-              <h2 className="text-base font-black text-slate-900">
-                Comparatif Visuel : Chiffre d&apos;Affaires vs Encaissements Réels
-              </h2>
-            </div>
-            <p className="mt-0.5 text-xs text-slate-500">
-              Visualisation graphique de la contractualisation et du recouvrement effectif par centre opérationnel
-            </p>
-          </div>
-
-          <div className="flex items-center gap-4 text-xs font-semibold">
-            <div className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded-sm bg-slate-300" />
-              <span className="text-slate-600">CA Attendu (Contrats)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded-sm bg-emerald-500" />
-              <span className="text-slate-900">Encaissé Réel</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Mini Graphique en barres horizontales comparatives */}
-        <div className="mt-5 space-y-4">
-          {centresPourGraphique.length === 0 ? (
-            <p className="py-6 text-center text-xs text-slate-500">Aucun centre actif enregistré.</p>
-          ) : (
-            centresPourGraphique.map((centre) => (
-              <div key={centre.id} className="space-y-1.5 rounded-xl bg-slate-50/60 p-3.5 transition hover:bg-slate-50">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-900">{centre.nom}</span>
-                    <span className="text-slate-400">•</span>
-                    <span className="text-slate-500">{centre.ville || "Sans localisation"}</span>
-                  </div>
-                  <div className="flex items-center gap-3 font-semibold">
-                    <span className="text-slate-600">
-                      Attendu : <strong className="text-slate-900">{FCFA.format(centre.caContrats)} F</strong>
-                    </span>
-                    <span className="text-slate-300">|</span>
-                    <span className="text-emerald-700">
-                      Encaissé : <strong className="text-emerald-800">{FCFA.format(centre.encaisse)} F</strong> ({centre.tauxRecouvrement}%)
-                    </span>
-                  </div>
-                </div>
-
-                {/* Barres comparatives superposées/juxtaposées */}
-                <div className="space-y-1">
-                  {/* Barre CA Attendu */}
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-                    <div
-                      className="h-full rounded-full bg-slate-400 transition-all duration-500"
-                      style={{ width: `${centre.pctCa}%` }}
-                      title={`CA Attendu : ${FCFA.format(centre.caContrats)} FCFA`}
-                    />
-                  </div>
-                  {/* Barre Encaissé Réel */}
-                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-emerald-100">
-                    <div
-                      className="h-full rounded-full bg-emerald-500 transition-all duration-500"
-                      style={{ width: `${centre.pctEncaisse}%` }}
-                      title={`Encaissé : ${FCFA.format(centre.encaisse)} FCFA`}
-                    />
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </Card>
-
-      {/* 4. VIGIE DIRECTORIALE & ALERTES RÉSEAU */}
+      {/* 3. VIGIE DIRECTORIALE & ALERTES RÉSEAU */}
       {alertesDirecteur.length > 0 && (
-        <div className="rounded-3xl border border-amber-200/90 bg-amber-50/70 p-6 shadow-xs print:hidden">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500 text-white shadow-2xs">
-              <AlertTriangle size={18} />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-amber-950">
-                Vigie Réseau — {alertesDirecteur.length} alerte{alertesDirecteur.length > 1 ? "s" : ""} prioritaire{alertesDirecteur.length > 1 ? "s" : ""}
-              </h2>
-              <p className="text-xs text-amber-800">
-                Anomalies opérationnelles nécessitant l&apos;arbitrage de la Direction Générale
-              </p>
-            </div>
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 shadow-xs print:hidden">
+          <div className="flex items-center gap-2 pb-2.5 border-b border-amber-200/60">
+            <AlertTriangle size={16} className="text-amber-600" />
+            <h2 className="text-xs font-bold text-amber-950 uppercase tracking-wide">
+              Vigie Réseau — {alertesDirecteur.length} alerte{alertesDirecteur.length > 1 ? "s" : ""} prioritaire{alertesDirecteur.length > 1 ? "s" : ""}
+            </h2>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {alertesDirecteur.map((alerte) => (
               <div
                 key={alerte.id}
-                className="flex items-start justify-between gap-3 rounded-2xl border border-amber-200/80 bg-white p-4 text-xs shadow-2xs transition hover:border-amber-300"
+                className="flex items-start justify-between gap-2.5 rounded-xl border border-amber-200/70 bg-white p-3 text-xs shadow-2xs"
               >
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   <div className="flex items-center gap-1.5 font-bold text-slate-900">
                     <span
-                      className={`h-2 w-2 rounded-full ${
+                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${
                         alerte.gravite === "danger"
                           ? "bg-rose-500"
                           : alerte.gravite === "warning"
@@ -888,16 +886,16 @@ export function DirecteurDashboard() {
                     />
                     <span>{alerte.titre}</span>
                   </div>
-                  <p className="text-slate-600 leading-relaxed">{alerte.description}</p>
+                  <p className="text-slate-600 leading-snug">{alerte.description}</p>
                 </div>
 
                 {alerte.centreId && (
                   <Link
                     href={`/centres/${alerte.centreId}/ventilation${activeSessionId ? `?session=${activeSessionId}` : ""}`}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-bold text-brand-orange hover:bg-slate-100"
-                    title="Consulter la ventilation du centre"
+                    className="inline-flex shrink-0 items-center gap-0.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 font-bold text-brand-orange hover:bg-slate-100 transition-colors"
+                    title="Consulter le centre"
                   >
-                    Voir <ArrowUpRight size={12} />
+                    Voir <ArrowUpRight size={11} />
                   </Link>
                 )}
               </div>
@@ -906,8 +904,8 @@ export function DirecteurDashboard() {
         </div>
       )}
 
-      {/* 5. SUPERVISION MULTI-CENTRES (AVEC TOGGLE MODE TABLEAU / GRILLE DRIBBLE ERP) */}
-      <Card className="overflow-hidden rounded-3xl border-slate-200/90 shadow-xs">
+      {/* 4. SUPERVISION MULTI-CENTRES */}
+      <Card className="overflow-hidden rounded-2xl border-slate-200/90 shadow-xs">
         {/* Barre d'outils et de filtrage */}
         <div className="flex flex-col gap-4 border-b border-slate-200/80 p-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -1020,21 +1018,6 @@ export function DirecteurDashboard() {
               </button>
             </div>
 
-            {/* Tri */}
-            <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-slate-500">Trier :</span>
-              <select
-                value={triOption}
-                onChange={(e) => setTriOption(e.target.value as TriOption)}
-                className="rounded-xl border border-slate-200 bg-white py-1.5 pl-2.5 pr-7 text-xs font-bold text-slate-700 focus:border-brand-orange focus:outline-none"
-              >
-                <option value="recouvrement_desc">Taux Recouvrement ↓</option>
-                <option value="recouvrement_asc">Taux Recouvrement ↑</option>
-                <option value="ca_desc">Chiffre d&apos;Affaires ↓</option>
-                <option value="effectif_desc">Effectif ↓</option>
-                <option value="nom_asc">Nom du centre (A-Z)</option>
-              </select>
-            </div>
           </div>
         </div>
 
@@ -1176,16 +1159,62 @@ export function DirecteurDashboard() {
             <table className="w-full text-left text-xs">
               <thead className="border-b border-slate-200 bg-slate-50/70 text-slate-600">
                 <tr>
-                  <th className="p-3.5 font-bold tracking-wider uppercase">Centre & Implantation</th>
-                  <th className="p-3.5 font-bold tracking-wider uppercase">Chef de Centre</th>
-                  <th className="p-3.5 text-right font-bold tracking-wider uppercase">Effectif</th>
-                  <th className="p-3.5 text-right font-bold tracking-wider uppercase">Chiffre d&apos;Affaires</th>
-                  <th className="p-3.5 text-right font-bold tracking-wider uppercase">Total Encaissé</th>
-                  <th className="p-3.5 text-right font-bold tracking-wider uppercase">Reste à Recouvrer</th>
-                  <th className="min-w-[150px] p-3.5 font-bold tracking-wider uppercase">Taux de Recouvrement</th>
-                  <th className="p-3.5 text-center font-bold tracking-wider uppercase">Dossiers Concours</th>
-                  <th className="p-3.5 text-right font-bold tracking-wider uppercase">Librairie</th>
-                  <th className="p-3.5 text-right font-bold tracking-wider uppercase print:hidden">Action</th>
+                  <SortableHeader
+                    label="Centre & Implantation"
+                    sortKey="nom"
+                    currentSortKey={triOption.startsWith("nom") ? "nom" : undefined}
+                    direction={triOption === "nom_desc" ? "desc" : "asc"}
+                    onSort={() => handleTriHeader("nom")}
+                    className="whitespace-nowrap"
+                  />
+                  <th className="px-3.5 py-3 font-bold tracking-wider uppercase whitespace-nowrap">Chef de Centre</th>
+                  <SortableHeader
+                    label="Effectif"
+                    sortKey="effectif"
+                    currentSortKey={triOption.startsWith("effectif") ? "effectif" : undefined}
+                    direction={triOption === "effectif_asc" ? "asc" : "desc"}
+                    onSort={() => handleTriHeader("effectif")}
+                    align="right"
+                    className="whitespace-nowrap"
+                  />
+                  <SortableHeader
+                    label="Chiffre d'Affaires"
+                    sortKey="ca"
+                    currentSortKey={triOption.startsWith("ca") ? "ca" : undefined}
+                    direction={triOption === "ca_asc" ? "asc" : "desc"}
+                    onSort={() => handleTriHeader("ca")}
+                    align="right"
+                    className="whitespace-nowrap"
+                  />
+                  <SortableHeader
+                    label="Total Encaissé"
+                    sortKey="encaisse"
+                    currentSortKey={triOption.startsWith("encaisse") ? "encaisse" : undefined}
+                    direction={triOption === "encaisse_asc" ? "asc" : "desc"}
+                    onSort={() => handleTriHeader("encaisse")}
+                    align="right"
+                    className="whitespace-nowrap"
+                  />
+                  <SortableHeader
+                    label="Reste à Recouvrer"
+                    sortKey="reste"
+                    currentSortKey={triOption.startsWith("reste") ? "reste" : undefined}
+                    direction={triOption === "reste_asc" ? "asc" : "desc"}
+                    onSort={() => handleTriHeader("reste")}
+                    align="right"
+                    className="whitespace-nowrap"
+                  />
+                  <SortableHeader
+                    label="Taux de Recouvrement"
+                    sortKey="recouvrement"
+                    currentSortKey={triOption.startsWith("recouvrement") ? "recouvrement" : undefined}
+                    direction={triOption === "recouvrement_asc" ? "asc" : "desc"}
+                    onSort={() => handleTriHeader("recouvrement")}
+                    className="whitespace-nowrap"
+                  />
+                  <th className="px-3.5 py-3 text-center font-bold tracking-wider uppercase whitespace-nowrap">Dossiers Concours</th>
+                  <th className="px-3.5 py-3 text-right font-bold tracking-wider uppercase whitespace-nowrap">Librairie</th>
+                  <th className="px-3.5 py-3 text-right font-bold tracking-wider uppercase print:hidden whitespace-nowrap">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -1208,47 +1237,45 @@ export function DirecteurDashboard() {
                         }
                         className="cursor-pointer transition-colors hover:bg-slate-50/80"
                       >
-                        {/* 1. Centre & Ville */}
-                        <td className="p-3.5">
-                          <div className="flex items-center gap-2.5">
+                        {/* 1. Centre & Ville (1 ligne) */}
+                        <td className="px-3.5 py-2.5 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
                             <span
-                              className={`h-2.5 w-2.5 rounded-full ring-2 ring-white ${
+                              className={`h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white ${
                                 estOuvert ? "bg-emerald-500 shadow-2xs" : "bg-slate-400"
                               }`}
                               title={estOuvert ? "Centre opérationnel" : "Centre inactif"}
                             />
-                            <div>
-                              <Link
-                                href={`/centres/${centre.id}/ventilation${activeSessionId ? `?session=${activeSessionId}` : ""}`}
-                                className="font-bold text-slate-900 transition hover:text-brand-orange"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {centre.nom}
-                              </Link>
-                              <div className="text-[11px] text-slate-500">
-                                {centre.ville || "Localisation non précisée"}
-                              </div>
-                            </div>
+                            <Link
+                              href={`/centres/${centre.id}/ventilation${activeSessionId ? `?session=${activeSessionId}` : ""}`}
+                              className="font-bold text-slate-900 transition hover:text-brand-orange"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {centre.nom}
+                            </Link>
+                            {centre.ville && (
+                              <span className="text-[11px] text-slate-400 font-normal">
+                                • {centre.ville}
+                              </span>
+                            )}
                           </div>
                         </td>
 
-                        {/* 2. Chef de centre */}
-                        <td className="p-3.5">
+                        {/* 2. Chef de centre (1 ligne) */}
+                        <td className="px-3.5 py-2.5 whitespace-nowrap">
                           {centre.chef ? (
                             <div className="flex items-center gap-2">
-                              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-700 ring-1 ring-slate-200">
+                              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-700 ring-1 ring-slate-200">
                                 {getInitiales(centre.chef.prenom, centre.chef.nom)}
                               </div>
-                              <div>
-                                <div className="font-semibold text-slate-800">
-                                  {centre.chef.prenom} {centre.chef.nom}
-                                </div>
-                                {centre.chef.telephone && (
-                                  <div className="text-[10px] text-slate-500">
-                                    {centre.chef.telephone}
-                                  </div>
-                                )}
-                              </div>
+                              <span className="font-semibold text-slate-800">
+                                {centre.chef.prenom} {centre.chef.nom}
+                              </span>
+                              {centre.chef.telephone && (
+                                <span className="text-[11px] text-slate-400 font-normal">
+                                  ({centre.chef.telephone})
+                                </span>
+                              )}
                             </div>
                           ) : (
                             <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
@@ -1257,100 +1284,97 @@ export function DirecteurDashboard() {
                           )}
                         </td>
 
-                        {/* 3. Effectif */}
-                        <td className="p-3.5 text-right font-medium">
-                          <div className="font-black text-slate-900 tabular-nums">
+                        {/* 3. Effectif (1 ligne) */}
+                        <td className="px-3.5 py-2.5 text-right font-medium whitespace-nowrap">
+                          <span className="font-black text-slate-900 tabular-nums">
                             {centre.effectif}
-                          </div>
-                          <div className="text-[10px] text-slate-500">
-                            {centre.confirmes} inscrits • {centre.preInscrits} pré
-                          </div>
+                          </span>
+                          <span className="text-[11px] text-slate-500 ml-1.5 font-normal">
+                            ({centre.confirmes} inscrits{centre.preInscrits > 0 ? ` • ${centre.preInscrits} pré` : ""})
+                          </span>
                         </td>
 
-                        {/* 4. CA Contrats */}
-                        <td className="p-3.5 text-right font-semibold tabular-nums text-slate-900">
+                        {/* 4. CA Contrats (1 ligne) */}
+                        <td className="px-3.5 py-2.5 text-right font-semibold tabular-nums text-slate-900 whitespace-nowrap">
                           {FCFA.format(centre.caContrats)}{" "}
                           <span className="text-[10px] text-slate-400">F</span>
                         </td>
 
-                        {/* 5. Total Encaissé */}
-                        <td className="p-3.5 text-right font-bold tabular-nums text-emerald-700">
+                        {/* 5. Total Encaissé (1 ligne) */}
+                        <td className="px-3.5 py-2.5 text-right font-bold tabular-nums text-emerald-700 whitespace-nowrap">
                           {FCFA.format(centre.encaisse)}{" "}
                           <span className="text-[10px] text-emerald-500">F</span>
                         </td>
 
-                        {/* 6. Reste à Recouvrer */}
-                        <td className="p-3.5 text-right font-bold tabular-nums text-rose-700">
+                        {/* 6. Reste à Recouvrer (1 ligne) */}
+                        <td className="px-3.5 py-2.5 text-right font-bold tabular-nums text-rose-700 whitespace-nowrap">
                           {FCFA.format(centre.resteARecouvrer)}{" "}
                           <span className="text-[10px] text-rose-400">F</span>
                         </td>
 
-                        {/* 7. Jauge Taux de Recouvrement */}
-                        <td className="p-3.5">
-                          <div className="space-y-1">
-                            <div className="flex items-center justify-between text-[11px] font-bold">
-                              <span
-                                className={
-                                  centre.tauxRecouvrement >= 80
-                                    ? "text-emerald-700"
-                                    : centre.tauxRecouvrement >= 50
-                                      ? "text-amber-700"
-                                      : "text-rose-700"
-                                }
-                              >
-                                {centre.tauxRecouvrement}%
-                              </span>
-                            </div>
-                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                        {/* 7. Jauge Taux de Recouvrement (1 ligne) */}
+                        <td className="px-3.5 py-2.5 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100 shrink-0">
                               <div
                                 className={`h-full rounded-full transition-all duration-300 ${
                                   centre.tauxRecouvrement >= 80
-                                  ? "bg-emerald-500"
-                                  : centre.tauxRecouvrement >= 50
-                                    ? "bg-amber-500"
-                                    : "bg-rose-500"
+                                    ? "bg-emerald-500"
+                                    : centre.tauxRecouvrement >= 50
+                                      ? "bg-amber-500"
+                                      : "bg-rose-500"
                                 }`}
                                 style={{ width: `${centre.tauxRecouvrement}%` }}
                               />
                             </div>
+                            <span
+                              className={`text-xs font-bold tabular-nums ${
+                                centre.tauxRecouvrement >= 80
+                                  ? "text-emerald-700"
+                                  : centre.tauxRecouvrement >= 50
+                                    ? "text-amber-700"
+                                    : "text-rose-700"
+                              }`}
+                            >
+                              {centre.tauxRecouvrement}%
+                            </span>
                           </div>
                         </td>
 
-                        {/* 8. Dossiers Concours */}
-                        <td className="p-3.5 text-center font-medium">
+                        {/* 8. Dossiers Concours (1 ligne) */}
+                        <td className="px-3.5 py-2.5 text-center font-medium whitespace-nowrap">
                           {centre.dossiersTotal > 0 ? (
-                            <div>
+                            <span>
                               <span className="font-bold text-slate-900">
                                 {centre.dossiersTotal}
                               </span>
-                              <span className="text-[10px] text-slate-500">
-                                {" "}
-                                ({centre.dossiersComplets} ok)
+                              <span className="text-[11px] text-slate-500 font-normal">
+                                {" "}({centre.dossiersComplets} ok)
                               </span>
-                            </div>
+                            </span>
                           ) : (
                             <span className="text-slate-400">-</span>
                           )}
                         </td>
 
-                        {/* 9. Librairie */}
-                        <td className="p-3.5 text-right font-medium">
+                        {/* 9. Librairie (1 ligne) */}
+                        <td className="px-3.5 py-2.5 text-right font-medium whitespace-nowrap">
                           {centre.livresQuantite > 0 ? (
-                            <div>
+                            <span>
                               <span className="font-bold text-slate-900">
                                 {centre.livresQuantite} ex.
                               </span>
-                              <div className="text-[10px] text-slate-500">
-                                {FCFA.format(centre.livresCa)} F
-                              </div>
-                            </div>
+                              <span className="text-[11px] text-slate-400 font-normal ml-1">
+                                ({FCFA.format(centre.livresCa)} F)
+                              </span>
+                            </span>
                           ) : (
                             <span className="text-slate-400">-</span>
                           )}
                         </td>
 
-                        {/* 10. Action */}
-                        <td className="p-3.5 text-right print:hidden">
+                        {/* 10. Action (1 ligne) */}
+                        <td className="px-3.5 py-2.5 text-right print:hidden whitespace-nowrap">
                           <Link
                             href={`/centres/${centre.id}/ventilation${activeSessionId ? `?session=${activeSessionId}` : ""}`}
                             className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 shadow-2xs transition hover:border-brand-orange hover:bg-slate-50 hover:text-brand-orange"
@@ -1365,28 +1389,28 @@ export function DirecteurDashboard() {
                 )}
               </tbody>
 
-              {/* LIGNE DE TOTALISATION CONSOLIDÉE DU RÉSEAU */}
+              {/* LIGNE DE TOTALISATION CONSOLIDÉE DU RÉSEAU (1 ligne) */}
               <tfoot className="border-t-2 border-slate-300 bg-slate-100/90 font-bold text-slate-900">
                 <tr>
-                  <td className="p-3.5 font-black uppercase" colSpan={2}>
+                  <td className="px-3.5 py-2.5 font-black uppercase whitespace-nowrap" colSpan={2}>
                     TOTAL CONSOLIDÉ DU RÉSEAU ({consolidéReseau.centresActifs} / {consolidéReseau.centresTotal} centres)
                   </td>
-                  <td className="p-3.5 text-right font-black tabular-nums">
-                    <div>{consolidéReseau.effectifTotal}</div>
-                    <div className="text-[10px] font-normal text-slate-500">
-                      {consolidéReseau.confirmesTotal} inscrits • {consolidéReseau.preInscritsTotal} pré
-                    </div>
+                  <td className="px-3.5 py-2.5 text-right font-black tabular-nums whitespace-nowrap">
+                    <span>{consolidéReseau.effectifTotal}</span>
+                    <span className="text-[11px] font-normal text-slate-500 ml-1.5">
+                      ({consolidéReseau.confirmesTotal} inscrits{consolidéReseau.preInscritsTotal > 0 ? ` • ${consolidéReseau.preInscritsTotal} pré` : ""})
+                    </span>
                   </td>
-                  <td className="p-3.5 text-right font-black tabular-nums">
+                  <td className="px-3.5 py-2.5 text-right font-black tabular-nums whitespace-nowrap">
                     {FCFA.format(consolidéReseau.caTotal)} F
                   </td>
-                  <td className="p-3.5 text-right font-black tabular-nums text-emerald-800">
+                  <td className="px-3.5 py-2.5 text-right font-black tabular-nums text-emerald-800 whitespace-nowrap">
                     {FCFA.format(consolidéReseau.encaisseTotal)} F
                   </td>
-                  <td className="p-3.5 text-right font-black tabular-nums text-rose-800">
+                  <td className="px-3.5 py-2.5 text-right font-black tabular-nums text-rose-800 whitespace-nowrap">
                     {FCFA.format(consolidéReseau.resteARecouvrerTotal)} F
                   </td>
-                  <td className="p-3.5">
+                  <td className="px-3.5 py-2.5 whitespace-nowrap">
                     <div className="flex items-center gap-1.5 font-black">
                       <span
                         className={
@@ -1400,22 +1424,30 @@ export function DirecteurDashboard() {
                       <span className="text-[10px] font-normal text-slate-500">global</span>
                     </div>
                   </td>
-                  <td className="p-3.5 text-center font-black">
+                  <td className="px-3.5 py-2.5 text-center font-black whitespace-nowrap">
                     {consolidéReseau.dossiersTotal} ({consolidéReseau.dossiersCompletsTotal} ok)
                   </td>
-                  <td className="p-3.5 text-right font-black">
-                    <div>{consolidéReseau.livresTotal} ex.</div>
-                    <div className="text-[10px] font-normal text-slate-500">
-                      {FCFA.format(consolidéReseau.livresCaTotal)} F
-                    </div>
+                  <td className="px-3.5 py-2.5 text-right font-black whitespace-nowrap">
+                    <span>{consolidéReseau.livresTotal} ex.</span>{" "}
+                    <span className="text-[11px] font-normal text-slate-500">
+                      ({FCFA.format(consolidéReseau.livresCaTotal)} F)
+                    </span>
                   </td>
-                  <td className="p-3.5 print:hidden"></td>
+                  <td className="px-3.5 py-2.5 print:hidden whitespace-nowrap"></td>
                 </tr>
               </tfoot>
             </table>
           </div>
         )}
       </Card>
+
+      {/* ── 5. Visualisation Graphique : Évolution comparative des centres — Session active ── */}
+      <EvolutionPerformancesMultiCentres
+        sessionActive={sessionCourante}
+        centres={centres}
+        apprenantsSession={apprenantsSession}
+        entreesValides={entreesValides}
+      />
 
       {/* 6. DEUX VOLETS STRATÉGIQUES EN BENTO GRID (PÉDAGOGIE & TRÉSORERIE) */}
       <div className="grid grid-cols-1 gap-7 lg:grid-cols-2">
@@ -1476,94 +1508,78 @@ export function DirecteurDashboard() {
           </div>
         </Card>
 
-        {/* Volet B : Derniers Flux Financiers Consolidés du Réseau */}
+        {/* Volet B : Ventilation des Effectifs des Centres */}
         <Card className="flex flex-col justify-between overflow-hidden rounded-3xl border-slate-200/90 p-6 shadow-xs">
           <div>
             <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
               <div className="flex items-center gap-2">
-                <Wallet size={18} className="text-emerald-600" />
+                <Building2 size={18} className="text-brand-orange" />
                 <h3 className="text-sm font-bold text-slate-900">
-                  Derniers Flux de Trésorerie Consolidés
+                  Ventilation des Effectifs par Centre
                 </h3>
               </div>
               <span className="text-xs font-semibold text-slate-500">
-                {derniersMouvements.length} dernières opérations
+                {ventilationEffectifsCentres.length} centres
               </span>
             </div>
 
-            <div className="mt-4 divide-y divide-slate-100">
-              {derniersMouvements.length === 0 ? (
+            <div className="mt-4 space-y-3.5">
+              {ventilationEffectifsCentres.length === 0 ? (
                 <p className="py-8 text-center text-xs text-slate-500">
-                  Aucun mouvement financier enregistré pour cette session.
+                  Aucun apprenant enregistré dans les centres pour cette session.
                 </p>
               ) : (
-                derniersMouvements.map((m) => {
-                  const estEntree = m.type === "ENTREE";
-                  const nomCentre = centres.find((c) => c.id === m.centreId)?.nom || "Centre non spécifié";
-                  const libelleMotif = mapMotifs.get(m.motifId) || (estEntree ? "Versement scolarité" : "Dépense centre");
-                  return (
-                    <div key={m.id} className="flex items-center justify-between py-2.5 text-xs">
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className={`flex h-7 w-7 items-center justify-center rounded-lg ${
-                            estEntree
-                              ? "bg-emerald-50 text-emerald-600"
-                              : "bg-rose-50 text-rose-600"
-                          }`}
+                ventilationEffectifsCentres.map((c) => (
+                  <div key={c.id} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <Link
+                          href={`/centres/${c.id}/ventilation${activeSessionId ? `?session=${activeSessionId}` : ""}`}
+                          className="font-bold text-slate-800 hover:text-brand-orange transition-colors"
                         >
-                          {estEntree ? (
-                            <ArrowDownRight size={15} />
-                          ) : (
-                            <ArrowUpRight size={15} />
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-bold text-slate-900">
-                            {libelleMotif}
-                          </div>
-                          <div className="text-[11px] text-slate-500">
-                            {nomCentre} • {new Date(m.date).toLocaleDateString("fr-FR")}
-                          </div>
-                        </div>
+                          {c.nom}
+                        </Link>
+                        {c.ville && (
+                          <span className="text-[11px] text-slate-400">
+                            • {c.ville}
+                          </span>
+                        )}
                       </div>
-
-                      <div className="text-right">
-                        <div
-                          className={`font-bold tabular-nums ${
-                            estEntree ? "text-emerald-700" : "text-rose-700"
-                          }`}
-                        >
-                          {estEntree ? "+" : "-"} {FCFA.format(m.montant)} FCFA
-                        </div>
-                        <span
-                          className={`inline-block rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
-                            m.statut === "VALIDE"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : m.statut === "EN_ATTENTE"
-                                ? "bg-amber-50 text-amber-700"
-                                : "bg-slate-100 text-slate-600"
-                          }`}
-                        >
-                          {m.statut}
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-slate-900">
+                          {c.effectif} {c.effectif > 1 ? "élèves" : "élève"}
+                        </span>
+                        <span className="text-slate-300">•</span>
+                        <span className="text-slate-500">{c.part}%</span>
+                        <span className="text-slate-300">•</span>
+                        <span className="text-[11px] text-slate-500">
+                          {c.confirmes} confirmés{c.preInscrits > 0 ? ` / ${c.preInscrits} pré` : ""}
                         </span>
                       </div>
                     </div>
-                  );
-                })
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                        style={{ width: `${c.part}%` }}
+                      />
+                    </div>
+                  </div>
+                ))
               )}
             </div>
           </div>
 
           <div className="mt-5 border-t border-slate-100 pt-3 text-right">
             <Link
-              href="/financier"
+              href="/centres"
               className="inline-flex items-center gap-1 text-xs font-bold text-brand-orange hover:underline"
             >
-              Consulter le journal financier complet <ArrowRight size={13} />
+              Consulter la liste des centres <ArrowRight size={13} />
             </Link>
           </div>
         </Card>
       </div>
+
     </div>
   );
 }

@@ -70,6 +70,7 @@ export type Entree = {
   apprenantId: string | null;
   formationId: string | null;
   dossierConcoursId: string | null;
+  livreTitre?: string | null;
 };
 
 export type Sortie = {

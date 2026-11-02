@@ -15,7 +15,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       <div className="space-y-1">
         <label
           htmlFor={inputId}
-          className="text-brand-anthracite block text-xs font-bold tracking-wide uppercase"
+          className="text-slate-700 block text-xs font-semibold tracking-tight"
         >
           {label}
         </label>
@@ -23,8 +23,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           <input
             ref={ref}
             id={inputId}
-            className={`border-brand-gray/30 focus:border-brand-orange focus:ring-brand-orange/30 w-full rounded-md border bg-white px-3 py-2 text-sm transition-colors focus:ring-2 focus:outline-none ${
-              error ? "border-red-400" : ""
+            className={`w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm text-brand-anthracite placeholder:text-slate-400 transition-all duration-150 hover:border-slate-300 focus:border-brand-orange focus:ring-3 focus:ring-brand-orange/15 focus:outline-none ${
+              error ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-200/50" : ""
             } ${endAdornment ? "pr-10" : ""} ${className}`}
             {...props}
           />
@@ -34,7 +34,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             </div>
           )}
         </div>
-        {error && <p className="text-xs font-bold text-red-600">{error}</p>}
+        {error && <p className="text-xs font-medium text-rose-600 animate-in fade-in duration-150">{error}</p>}
       </div>
     );
   },

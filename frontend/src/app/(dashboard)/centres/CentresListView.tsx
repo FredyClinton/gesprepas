@@ -25,8 +25,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
-import { Button, Card, Input, Modal } from "@/shared/ui";
+import { Button, Card, Input, Modal, SortableHeader } from "@/shared/ui";
 import { messageErreurApi } from "@/shared/lib/api-client";
+import { compareStrings, compareNumbers, type SortDirection } from "@/shared/lib/sort-utils";
 import {
   useCentres,
   useSessions,
@@ -78,7 +79,21 @@ export function CentresListView() {
   const [recherche, setRecherche] = useState("");
   const [filtreStatut, setFiltreStatut] = useState<"TOUS" | "OUVERT" | "FERME">("TOUS");
   const [filtreVille, setFiltreVille] = useState<string>("TOUTES");
-  const [vueFormat, setVueFormat] = useState<"grille" | "tableau">("grille");
+  const [vueFormat, setVueFormat] = useState<"grille" | "tableau">("tableau");
+
+  // Tri des centres
+  type ColonneTriCentres = "nom" | "adresse" | "statut" | "sessionActive" | "totalSessions";
+  const [triColonne, setTriColonne] = useState<ColonneTriCentres>("nom");
+  const [triDirection, setTriDirection] = useState<SortDirection>("asc");
+
+  function handleTri(colonne: ColonneTriCentres) {
+    if (triColonne === colonne) {
+      setTriDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTriColonne(colonne);
+      setTriDirection("asc");
+    }
+  }
 
   // Modals state
   const [modalCreerOuverte, setModalCreerOuverte] = useState(false);
@@ -96,7 +111,7 @@ export function CentresListView() {
     centres.forEach((c) => {
       if (c.villeActuelle) set.add(c.villeActuelle);
     });
-    return Array.from(set).sort();
+    return Array.from(set).sort((a, b) => compareStrings(a, b));
   }, [centres]);
 
   // Statistiques KPIs
@@ -108,10 +123,11 @@ export function CentresListView() {
     return { total, ouverts, fermes, nbVilles };
   }, [centres, villesDisponibles]);
 
-  // Filtrage
+  // Filtrage et Tri
   const centresFiltres = useMemo(() => {
-    return centres.filter((c) => {
+    const list = centres.filter((c) => {
       const matchRecherche =
+        !recherche.trim() ||
         c.nom.toLowerCase().includes(recherche.toLowerCase()) ||
         c.villeActuelle.toLowerCase().includes(recherche.toLowerCase()) ||
         c.adresseActuelle.toLowerCase().includes(recherche.toLowerCase());
@@ -121,7 +137,28 @@ export function CentresListView() {
         filtreVille === "TOUTES" || c.villeActuelle === filtreVille;
       return matchRecherche && matchStatut && matchVille;
     });
-  }, [centres, recherche, filtreStatut, filtreVille]);
+
+    return [...list].sort((a, b) => {
+      let cmp = 0;
+      if (triColonne === "nom") {
+        cmp = compareStrings(a.nom, b.nom);
+      } else if (triColonne === "adresse") {
+        cmp = compareStrings(
+          a.villeActuelle || a.adresseActuelle,
+          b.villeActuelle || b.adresseActuelle,
+        );
+      } else if (triColonne === "statut") {
+        cmp = compareStrings(a.statut, b.statut);
+      } else if (triColonne === "sessionActive") {
+        const aActive = sessionActive ? a.sessionIds.includes(sessionActive.id) : false;
+        const bActive = sessionActive ? b.sessionIds.includes(sessionActive.id) : false;
+        cmp = aActive === bActive ? 0 : aActive ? -1 : 1;
+      } else if (triColonne === "totalSessions") {
+        cmp = compareNumbers(a.sessionIds.length, b.sessionIds.length);
+      }
+      return triDirection === "asc" ? cmp : -cmp;
+    });
+  }, [centres, recherche, filtreStatut, filtreVille, triColonne, triDirection, sessionActive]);
 
   // Forms
   const formCreer = useForm<CreerCentreForm>({
@@ -239,35 +276,31 @@ export function CentresListView() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8 pb-12">
-      {/* Header avec action principale */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex min-h-full w-full flex-col gap-4">
+      {/* ── En-tête Sobre & Compact ── */}
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-3">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-orange/10 text-brand-orange shadow-sm">
-              <Building2 size={22} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                Centres de formation
-              </h1>
-              <p className="text-sm text-slate-500">
-                Gestion des campus EXCELIS, statuts d&rsquo;ouverture, implantations et rattachements
-              </p>
-            </div>
-          </div>
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
+            Centres de formation
+          </h1>
+          <p className="text-xs text-slate-500">
+            {chargementCentres
+              ? "Chargement des campus..."
+              : `${stats.total} campus (${stats.ouverts} actif${stats.ouverts > 1 ? "s" : ""}${stats.fermes > 0 ? `, ${stats.fermes} fermé${stats.fermes > 1 ? "s" : ""}` : ""}) · ${stats.nbVilles} pôle${stats.nbVilles > 1 ? "s" : ""} géographique${stats.nbVilles > 1 ? "s" : ""}`}
+          </p>
         </div>
-        <Button
+        <button
+          type="button"
           onClick={() => {
             setErreurAction(null);
             formCreer.reset();
             setModalCreerOuverte(true);
           }}
-          className="shadow-sm"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-orange px-3.5 py-2 text-xs font-semibold text-white hover:bg-brand-orange/90 shadow-2xs transition-colors cursor-pointer shrink-0 self-start sm:self-auto"
         >
-          <Plus size={18} />
-          Nouveau centre
-        </Button>
+          <Plus size={15} />
+          <span>Nouveau centre</span>
+        </button>
       </div>
 
       {/* Alerte d'erreur globale si action échouée */}
@@ -286,69 +319,6 @@ export function CentresListView() {
           </button>
         </div>
       )}
-
-      {/* Cartes KPI */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Card className="p-4.5 border border-slate-200/80 shadow-xs bg-white">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Total Centres
-            </span>
-            <span className="rounded-lg bg-slate-100 p-2 text-slate-600">
-              <Building2 size={18} />
-            </span>
-          </div>
-          <p className="mt-2 text-2xl font-black text-slate-900">
-            {chargementCentres ? "…" : stats.total}
-          </p>
-          <p className="mt-0.5 text-xs text-slate-400">Campus enregistrés</p>
-        </Card>
-
-        <Card className="p-4.5 border border-emerald-100 shadow-xs bg-emerald-50/40">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-800">
-              Centres ouverts
-            </span>
-            <span className="rounded-lg bg-emerald-100/80 p-2 text-emerald-700">
-              <CheckCircle2 size={18} />
-            </span>
-          </div>
-          <p className="mt-2 text-2xl font-black text-emerald-900">
-            {chargementCentres ? "…" : stats.ouverts}
-          </p>
-          <p className="mt-0.5 text-xs text-emerald-700">En activité</p>
-        </Card>
-
-        <Card className="p-4.5 border border-slate-200/80 shadow-xs bg-white">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Centres fermés
-            </span>
-            <span className="rounded-lg bg-slate-100 p-2 text-slate-500">
-              <Ban size={18} />
-            </span>
-          </div>
-          <p className="mt-2 text-2xl font-black text-slate-700">
-            {chargementCentres ? "…" : stats.fermes}
-          </p>
-          <p className="mt-0.5 text-xs text-slate-400">Temporairement inactifs</p>
-        </Card>
-
-        <Card className="p-4.5 border border-amber-100 shadow-xs bg-amber-50/40">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-brand-orange">
-              Villes couvertes
-            </span>
-            <span className="rounded-lg bg-amber-100/80 p-2 text-brand-orange">
-              <MapPin size={18} />
-            </span>
-          </div>
-          <p className="mt-2 text-2xl font-black text-slate-900">
-            {chargementCentres ? "…" : stats.nbVilles}
-          </p>
-          <p className="mt-0.5 text-xs text-amber-700">Pôles géographiques</p>
-        </Card>
-      </div>
 
       {/* Barre d'outils : Recherche, Filtres & Vue */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -665,12 +635,55 @@ export function CentresListView() {
             <table className="w-full text-left text-sm text-slate-600">
               <thead className="border-b border-slate-200 bg-slate-50/75 text-xs font-bold uppercase tracking-wider text-slate-500">
                 <tr>
-                  <th className="px-5 py-3.5">Centre & Implantation</th>
-                  <th className="px-5 py-3.5">Adresse</th>
-                  <th className="px-5 py-3.5">Statut</th>
-                  <th className="px-5 py-3.5">Session Active</th>
-                  <th className="px-5 py-3.5">Total Sessions</th>
-                  <th className="px-5 py-3.5 text-right">Actions</th>
+                  <SortableHeader
+                    columnKey="nom"
+                    currentSortKey={triColonne}
+                    direction={triDirection}
+                    onSort={handleTri}
+                    className="px-5 py-3.5"
+                  >
+                    Centre & Implantation
+                  </SortableHeader>
+                  <SortableHeader
+                    columnKey="adresse"
+                    currentSortKey={triColonne}
+                    direction={triDirection}
+                    onSort={handleTri}
+                    className="px-5 py-3.5"
+                  >
+                    Adresse
+                  </SortableHeader>
+                  <SortableHeader
+                    columnKey="statut"
+                    currentSortKey={triColonne}
+                    direction={triDirection}
+                    onSort={handleTri}
+                    className="px-5 py-3.5"
+                  >
+                    Statut
+                  </SortableHeader>
+                  <SortableHeader
+                    columnKey="sessionActive"
+                    currentSortKey={triColonne}
+                    direction={triDirection}
+                    onSort={handleTri}
+                    className="px-5 py-3.5"
+                  >
+                    Session Active
+                  </SortableHeader>
+                  <SortableHeader
+                    columnKey="totalSessions"
+                    currentSortKey={triColonne}
+                    direction={triDirection}
+                    onSort={handleTri}
+                    align="right"
+                    className="px-5 py-3.5 text-right"
+                  >
+                    Total Sessions
+                  </SortableHeader>
+                  <th className="px-5 py-3.5 text-right font-bold uppercase tracking-wider text-[11px] text-slate-500">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">

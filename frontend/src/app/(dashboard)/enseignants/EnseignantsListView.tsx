@@ -30,8 +30,10 @@ import {
   Input,
   Pagination,
   Modal,
+  SortableHeader,
 } from "@/shared/ui";
 import { messageErreurApi } from "@/shared/lib/api-client";
+import { compareStrings, compareNumbers, type SortDirection } from "@/shared/lib/sort-utils";
 import {
   useEnseignants,
   useCreerEnseignant,
@@ -286,6 +288,22 @@ export function EnseignantsListView({
     "TOUS" | "ACTIF" | "SUSPENDU"
   >("TOUS");
   const [page, setPage] = useState(1);
+
+  // Tri
+  type ColonneTriEnseignants = "nom" | "matricule" | "departement" | "cout" | "statut";
+  const [triColonne, setTriColonne] = useState<ColonneTriEnseignants>("nom");
+  const [triDirection, setTriDirection] = useState<SortDirection>("asc");
+
+  function handleTri(colonne: ColonneTriEnseignants) {
+    if (triColonne === colonne) {
+      setTriDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTriColonne(colonne);
+      setTriDirection("asc");
+    }
+    setPage(1);
+  }
+
   const [formulaireOuvert, setFormulaireOuvert] = useState(false);
   const [isCopierModalOpen, setIsCopierModalOpen] = useState(false);
   const [menuCreationOuvert, setMenuCreationOuvert] = useState(false);
@@ -417,7 +435,7 @@ export function EnseignantsListView({
 
   const enseignantsFiltres = useMemo(() => {
     if (!enseignantsVisibles) return undefined;
-    return enseignantsVisibles.filter((e) => {
+    const filtres = enseignantsVisibles.filter((e) => {
       if (filtreStatut !== "TOUS" && e.statut !== filtreStatut) return false;
       if (filtreDepartement === "SANS_DEPARTEMENT") {
         const deps = departementsParEnseignant.get(e.id) ?? [];
@@ -433,12 +451,32 @@ export function EnseignantsListView({
       }
       return true;
     });
+
+    return [...filtres].sort((a, b) => {
+      let cmp = 0;
+      if (triColonne === "nom") {
+        cmp = compareStrings(`${a.nom} ${a.prenom}`, `${b.nom} ${b.prenom}`);
+      } else if (triColonne === "matricule") {
+        cmp = compareStrings(a.matricule, b.matricule);
+      } else if (triColonne === "departement") {
+        const depA = departementsParEnseignant.get(a.id)?.[0]?.nom || "";
+        const depB = departementsParEnseignant.get(b.id)?.[0]?.nom || "";
+        cmp = compareStrings(depA, depB);
+      } else if (triColonne === "cout") {
+        cmp = compareNumbers(a.coutParSeance, b.coutParSeance);
+      } else if (triColonne === "statut") {
+        cmp = compareStrings(a.statut, b.statut);
+      }
+      return triDirection === "asc" ? cmp : -cmp;
+    });
   }, [
     enseignantsVisibles,
     filtreStatut,
     filtreDepartement,
     recherche,
     departementsParEnseignant,
+    triColonne,
+    triDirection,
   ]);
 
   const totalPages = enseignantsFiltres
@@ -483,44 +521,38 @@ export function EnseignantsListView({
   }
 
   return (
-    // h-full + flex-col : la page remplit exactement la hauteur dispo sous le
-    <div className="mx-auto flex max-w-7xl flex-col gap-5">
-      {/* En-tête de page */}
-      <div className="flex shrink-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="flex min-h-full w-full flex-col gap-4">
+      {/* ── En-tête Sobre & Compact ── */}
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-3">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 uppercase">
-              Enseignants de 
-              {estCDD && mesDepartementsCDD.length > 0
-                ? `  ${mesDepartementsCDD.map((d) => d.nom).join(" & ")}`
-                : ""}
-            </h1>
-          </div>
-          <p className="text-slate-500 mt-1 text-sm">
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
+            Enseignants
+            {estCDD && mesDepartementsCDD.length > 0
+              ? ` · ${mesDepartementsCDD.map((d) => d.nom).join(" & ")}`
+              : ""}
+          </h1>
+          <p className="text-xs text-slate-500">
             {estDA
-              ? "Gestion du corps professoral."
+              ? "Gestion du corps professoral, compétences et rémunérations de séance"
               : estCC
-                ? "Enseignants intervenant dans votre centre."
-                : `Enseignants assignés à vos départements`}
+                ? "Intervenants et chargés de cours dans votre centre"
+                : "Enseignants rattachés à vos départements pédagogiques"}
           </p>
           {estCDD && gelEffectifPourCDD && (
-            <p className="text-amber-600 mt-1.5 text-xs font-bold flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-amber-500 animate-ping" />
-              Assignations temporairement indisponibles.
+            <p className="text-amber-700 mt-1 text-xs font-semibold flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-amber-500" />
+              Assignations temporairement verrouillées par la direction académique.
             </p>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-2.5">
+
+        <div className="flex flex-wrap items-center gap-2">
           {estDA && gel && (
-            <div className="border border-slate-200/80 bg-white shadow-xs flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs">
-              <span className="text-slate-500 font-medium">
-                Période de gel :
-              </span>
+            <div className="border border-slate-200 bg-white shadow-2xs flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs">
+              <span className="text-slate-500 text-[11px] font-medium">Gel assignations :</span>
               <span
-                className={`px-2 py-0.5 rounded-full font-bold text-[11px] ${
-                  gel.actif
-                    ? "bg-amber-100 text-amber-800"
-                    : "bg-emerald-100 text-emerald-800"
+                className={`px-1.5 py-0.2 rounded font-bold text-[10px] ${
+                  gel.actif ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
                 }`}
               >
                 {gel.actif ? "Actif" : "Ouvert"}
@@ -530,32 +562,32 @@ export function EnseignantsListView({
                 variant="secondary"
                 onClick={toggleGel}
                 disabled={modifierGel.isPending}
+                className="text-[11px] px-2 py-0.5 h-auto font-semibold"
               >
-                <span className="text-xs font-bold">
-                  {gel.actif ? "Lever le gel" : "Geler"}
-                </span>
+                {gel.actif ? "Lever" : "Geler"}
               </Button>
             </div>
           )}
+
           {peutGerer && (
-            <div className="relative inline-flex items-center rounded-xl shadow-xs" ref={menuCreationRef}>
+            <div className="relative inline-flex items-center rounded-lg shadow-2xs" ref={menuCreationRef}>
               <button
                 type="button"
                 onClick={() => setFormulaireOuvert(true)}
-                className="inline-flex items-center gap-1.5 bg-brand-orange hover:bg-brand-orange/90 text-white px-3.5 py-2 rounded-l-xl text-sm font-bold transition-colors shadow-2xs"
+                className="inline-flex items-center gap-1.5 bg-brand-orange hover:bg-brand-orange/90 text-white px-3 py-1.5 rounded-l-lg text-xs font-semibold transition-colors cursor-pointer"
               >
-                <Plus size={16} />
+                <Plus size={14} />
                 <span>Nouvel enseignant</span>
               </button>
               <button
                 type="button"
                 onClick={() => setMenuCreationOuvert((prev) => !prev)}
-                className="bg-brand-orange hover:bg-brand-orange/90 text-white px-2 py-2 rounded-r-xl border-l border-white/20 text-sm font-bold transition-colors flex items-center justify-center shadow-2xs"
-                title="Options : Créer ou copier depuis la session N-1"
+                className="bg-brand-orange hover:bg-brand-orange/90 text-white px-2 py-1.5 rounded-r-lg border-l border-white/20 text-xs font-semibold transition-colors flex items-center justify-center cursor-pointer"
+                title="Options"
                 aria-label="Options de création"
               >
                 <ChevronDown
-                  size={15}
+                  size={13}
                   className={`transition-transform duration-200 ${
                     menuCreationOuvert ? "rotate-180" : ""
                   }`}
@@ -563,24 +595,17 @@ export function EnseignantsListView({
               </button>
 
               {menuCreationOuvert && (
-                <div className="absolute right-0 top-full mt-1.5 w-64 rounded-xl bg-white p-1.5 shadow-xl border border-slate-200 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="absolute right-0 top-full mt-1.5 w-60 rounded-xl bg-white p-1.5 shadow-xl border border-slate-200 z-50 text-xs">
                   <button
                     type="button"
                     onClick={() => {
                       setMenuCreationOuvert(false);
                       setFormulaireOuvert(true);
                     }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-orange-50 hover:text-brand-orange rounded-lg transition-colors text-left"
+                    className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-orange-50 hover:text-brand-orange text-slate-700 font-semibold cursor-pointer text-left"
                   >
-                    <div className="w-7 h-7 rounded-lg bg-orange-100/70 text-brand-orange flex items-center justify-center shrink-0">
-                      <Plus size={15} />
-                    </div>
-                    <div>
-                      <div className="font-bold text-slate-900">Créer un enseignant</div>
-                      <div className="text-[10px] text-slate-400 font-normal">
-                        Saisie manuelle des coordonnées
-                      </div>
-                    </div>
+                    <Plus size={14} className="text-brand-orange" />
+                    <span>Créer un nouvel enseignant</span>
                   </button>
 
                   <button
@@ -589,17 +614,10 @@ export function EnseignantsListView({
                       setMenuCreationOuvert(false);
                       setIsCopierModalOpen(true);
                     }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-orange-50 hover:text-brand-orange rounded-lg transition-colors text-left border-t border-slate-100 mt-1 pt-1.5"
+                    className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-orange-50 hover:text-brand-orange text-slate-700 font-semibold cursor-pointer text-left border-t border-slate-100"
                   >
-                    <div className="w-7 h-7 rounded-lg bg-orange-100/70 text-brand-orange flex items-center justify-center shrink-0">
-                      <Copy size={14} />
-                    </div>
-                    <div>
-                      <div className="font-bold text-slate-900">Copier Roster N-1</div>
-                      <div className="text-[10px] text-slate-400 font-normal">
-                        Reconduire depuis la session précédente
-                      </div>
-                    </div>
+                    <Copy size={14} className="text-brand-orange" />
+                    <span>Copier le roster de la session N-1</span>
                   </button>
                 </div>
               )}
@@ -608,92 +626,53 @@ export function EnseignantsListView({
         </div>
       </div>
 
-      {/* 4 Cartes KPI Synthèse */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 shrink-0">
-        <div className="bg-white rounded-xl p-3.5 border border-slate-200/80 shadow-xs flex items-center gap-3.5 transition-all hover:shadow-md">
-          <div className="h-11 w-11 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center text-brand-orange shrink-0">
-            <Users size={22} />
+      {/* ── Synthèse Métier ERP Sobre ── */}
+      <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+        <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 gap-3 sm:gap-0 text-xs">
+          <div className="sm:px-3 first:pl-1">
+            <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">
+              Effectif Total
+            </span>
+            <div className="mt-1 flex items-baseline gap-1.5">
+              <span className="text-xl font-bold text-slate-900">{stats.total}</span>
+              <span className="text-xs text-slate-400">enregistrés</span>
+            </div>
           </div>
-          <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Total Enseignants
-            </p>
-            {chargement ? (
-              <div className="h-7 w-16 bg-slate-200 animate-pulse rounded mt-1" />
-            ) : (
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="text-2xl font-extrabold text-slate-900">
-                  {stats.total}
-                </span>
-                <span className="text-xs text-slate-400">enregistrés</span>
-              </div>
-            )}
-          </div>
-        </div>
 
-        <div className="bg-white rounded-xl p-3.5 border border-slate-200/80 shadow-xs flex items-center gap-3.5 transition-all hover:shadow-md">
-          <div className="h-11 w-11 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
-            <UserCheck size={22} />
-          </div>
-          <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+          <div className="sm:px-3">
+            <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">
               Actifs en cours
-            </p>
-            {chargement ? (
-              <div className="h-7 w-16 bg-slate-200 animate-pulse rounded mt-1" />
-            ) : (
-              <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-2xl font-extrabold text-emerald-600">
-                  {stats.actifs}
-                </span>
-                <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.2 rounded-full font-bold">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  {stats.tauxActifs}%
-                </span>
-              </div>
-            )}
+            </span>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-xl font-bold text-emerald-700">{stats.actifs}</span>
+              <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200/60">
+                {stats.tauxActifs}%
+              </span>
+            </div>
           </div>
-        </div>
 
-        <div className="bg-white rounded-xl p-3.5 border border-slate-200/80 shadow-xs flex items-center gap-3.5 transition-all hover:shadow-md">
-          <div className="h-11 w-11 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shrink-0">
-            <UserX size={22} />
-          </div>
-          <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+          <div className="sm:px-3 pt-2 sm:pt-0">
+            <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">
               Suspendus
-            </p>
-            {chargement ? (
-              <div className="h-7 w-16 bg-slate-200 animate-pulse rounded mt-1" />
-            ) : (
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="text-2xl font-extrabold text-amber-600">
-                  {stats.suspendus}
-                </span>
-                <span className="text-xs text-slate-400">inactifs</span>
-              </div>
-            )}
+            </span>
+            <div className="mt-1 flex items-baseline gap-1.5">
+              <span className={`text-xl font-bold ${stats.suspendus > 0 ? "text-amber-700" : "text-slate-900"}`}>
+                {stats.suspendus}
+              </span>
+              <span className="text-xs text-slate-400">inactifs</span>
+            </div>
           </div>
-        </div>
 
-        <div className="bg-white rounded-xl p-3.5 border border-slate-200/80 shadow-xs flex items-center gap-3.5 transition-all hover:shadow-md">
-          <div className="h-11 w-11 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-            <Coins size={22} />
-          </div>
-          <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Coût moyen / séance
-            </p>
-            {chargement ? (
-              <div className="h-7 w-20 bg-slate-200 animate-pulse rounded mt-1" />
-            ) : (
-              <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-xl font-extrabold text-slate-900">
-                  {FORMATEUR_FCFA.format(stats.coutMoyen)}
-                </span>
-                <span className="text-xs text-slate-400">FCFA</span>
-              </div>
-            )}
+          <div className="sm:px-3 pt-2 sm:pt-0">
+            <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">
+              Rémunération Moyenne
+            </span>
+            <div className="mt-1 flex items-baseline gap-1">
+              <span className="text-xl font-bold text-slate-900">
+                {FORMATEUR_FCFA.format(stats.coutMoyen)}
+              </span>
+              <span className="text-xs text-slate-400">FCFA / séance</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1047,40 +1026,63 @@ export function EnseignantsListView({
             </button>
           )}
 
-          {/* <div className="hidden lg:flex items-center text-xs text-slate-500 font-medium px-2">
-            <strong className="text-slate-800 font-bold mr-1">
-              {enseignantsFiltres?.length ?? 0}
-            </strong>{" "}
-            enseignant(s)
-          </div> */}
         </div>
       </div>
 
-      {/* Le tableau s'étale naturellement - la pagination gère le nombre de
-          lignes, pas besoin de scroll interne. */}
+      {/* Tableau complet des enseignants */}
       <Card className="overflow-hidden border border-slate-200/80 shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-100/95 text-slate-700 shadow-xs">
+            <thead className="border-b border-slate-200 bg-slate-50 text-slate-700 shadow-xs">
               <tr>
-                <th className="px-5 py-3.5 text-xs font-bold tracking-wider uppercase">
+                <SortableHeader
+                  columnKey="nom"
+                  currentSortKey={triColonne}
+                  direction={triDirection}
+                  onSort={handleTri}
+                  className="px-5 py-3.5"
+                >
                   Enseignant
-                </th>
-                <th className="px-4 py-3.5 text-xs font-bold tracking-wider uppercase">
+                </SortableHeader>
+                <SortableHeader
+                  columnKey="matricule"
+                  currentSortKey={triColonne}
+                  direction={triDirection}
+                  onSort={handleTri}
+                  className="px-4 py-3.5"
+                >
                   Matricule
-                </th>
+                </SortableHeader>
                 {!estCC && (
-                  <th className="px-4 py-3.5 text-xs font-bold tracking-wider uppercase">
+                  <SortableHeader
+                    columnKey="departement"
+                    currentSortKey={triColonne}
+                    direction={triDirection}
+                    onSort={handleTri}
+                    className="px-4 py-3.5"
+                  >
                     Département(s)
-                  </th>
+                  </SortableHeader>
                 )}
-                <th className="px-4 py-3.5 text-xs font-bold tracking-wider uppercase">
+                <SortableHeader
+                  columnKey="cout"
+                  currentSortKey={triColonne}
+                  direction={triDirection}
+                  onSort={handleTri}
+                  className="px-4 py-3.5"
+                >
                   Contrat
-                </th>
-                <th className="px-4 py-3.5 text-xs font-bold tracking-wider uppercase">
+                </SortableHeader>
+                <SortableHeader
+                  columnKey="statut"
+                  currentSortKey={triColonne}
+                  direction={triDirection}
+                  onSort={handleTri}
+                  className="px-4 py-3.5"
+                >
                   Statut
-                </th>
-                <th className="px-5 py-3.5 text-right text-xs font-bold tracking-wider uppercase">
+                </SortableHeader>
+                <th className="px-5 py-3.5 text-right text-xs font-bold tracking-wider uppercase text-slate-500">
                   Actions
                 </th>
               </tr>

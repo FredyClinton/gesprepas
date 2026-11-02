@@ -1,9 +1,11 @@
 package com.excelisprepas.backend.academie.affectation.infrastructure.in.web;
 
+import com.excelisprepas.backend.academie.affectation.domain.exception.ConflitHoraireEnseignantException;
 import com.excelisprepas.backend.academie.affectation.domain.model.Affectation;
 import com.excelisprepas.backend.academie.affectation.domain.model.Jour;
 import com.excelisprepas.backend.academie.affectation.domain.model.StatutAffectation;
 import com.excelisprepas.backend.academie.affectation.domain.port.in.*;
+import com.excelisprepas.backend.academie.affectation.infrastructure.in.web.dto.ConflitHoraireResponse;
 import com.excelisprepas.backend.shared.exception.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,6 +17,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -71,6 +75,9 @@ class AffectationControllerTest {
 
     @MockitoBean
     private ListerAffectationsParCentreUseCase listerAffectationsParCentreUseCase;
+
+    @MockitoBean
+    private VerifierConflitHoraireUseCase verifierConflitHoraireUseCase;
 
     private String jsonRequest() {
         return """
@@ -306,6 +313,52 @@ class AffectationControllerTest {
                                 }
                                 """.formatted(enseignantId)))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/affectations/{id}/assigner-enseignant avec conflit horaire retourne 409 et message explicite")
+    void assignerEnseignant_conflitHoraire_retourne409() throws Exception {
+        UUID affectationId = UUID.randomUUID();
+        UUID enseignantId = UUID.randomUUID();
+        when(assignerEnseignantUseCase.assignerEnseignant(any(UUID.class), any(UUID.class)))
+                .thenThrow(new ConflitHoraireEnseignantException(
+                        enseignantId, UUID.randomUUID(), LocalDate.of(2026, 11, 2),
+                        LocalTime.of(9, 0), LocalTime.of(11, 0),
+                        CENTRE_ID, "Centre B", FORMATION_ID, "Terminale C", MATIERE_ID, "Mathématiques"
+                ));
+
+        mockMvc.perform(patch("/api/affectations/" + affectationId + "/assigner-enseignant")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                    "enseignantId": "%s"
+                                }
+                                """.formatted(enseignantId)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Impossible d'affecter cet enseignant : il est déjà programmé le 02/11/2026 de 09h00 à 11h00 au centre Centre B, classe Terminale C."));
+    }
+
+    @Test
+    @DisplayName("GET /api/affectations/verifier-conflit retourne résultat")
+    void verifierConflit_retourneResultat() throws Exception {
+        UUID enseignantId = UUID.randomUUID();
+        LocalDate date = LocalDate.of(2026, 11, 2);
+        when(verifierConflitHoraireUseCase.verifierConflit(any(), any(), any(), any(), any()))
+                .thenReturn(ConflitHoraireResponse.avecConflit(
+                        "Impossible d'affecter cet enseignant : il est déjà programmé le 02/11/2026 de 09h00 à 11h00 au centre Centre B, classe Terminale C.",
+                        UUID.randomUUID(), date, LocalTime.of(9, 0), LocalTime.of(11, 0),
+                        CENTRE_ID, "Centre B", FORMATION_ID, "Terminale C", MATIERE_ID, "Mathématiques"
+                ));
+
+        mockMvc.perform(get("/api/affectations/verifier-conflit")
+                        .param("enseignantId", enseignantId.toString())
+                        .param("dateSeance", "2026-11-02")
+                        .param("heureDebut", "09:00:00")
+                        .param("heureFin", "11:00:00"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.conflit").value(true))
+                .andExpect(jsonPath("$.centreNom").value("Centre B"))
+                .andExpect(jsonPath("$.formationNom").value("Terminale C"));
     }
 
     @Test

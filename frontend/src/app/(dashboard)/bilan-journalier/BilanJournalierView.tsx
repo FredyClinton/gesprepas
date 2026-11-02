@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Calendar,
   ChevronLeft,
@@ -16,12 +18,17 @@ import {
   Clock,
   Landmark,
   ChevronDown,
+  ChevronUp,
   Layers,
   Pencil,
+  AlertCircle,
   X,
+  BookOpen,
+  Loader2,
 } from "lucide-react";
 import { useCentres, useSessionActive } from "@/modules/centres-sessions";
 import { useFormations, type Formation } from "@/modules/academique";
+import { useApprenants } from "@/modules/apprenants";
 import {
   useBilanDuJour,
   useMouvementsFinanciers,
@@ -30,13 +37,14 @@ import {
   useSoumettreBilanCaissier,
   useValiderBilanChefCentre,
   useValiderBilanControleur,
+  useValiderMouvement,
   useAjusterActiviteBilan,
-} from "@/modules/financier/data/queries";
+} from "@/modules/financier";
+import { validerMouvement } from "@/modules/financier/data/client";
 import { EnregistrerVersementModal } from "@/modules/financier/components/EnregistrerVersementModal";
 import { SaisirSortieModal } from "@/modules/financier/components/SaisirSortieModal";
 import { FicheBilanPrintModal } from "@/modules/financier/components/FicheBilanPrintModal";
 import { SyntheseNationaleView } from "./SyntheseNationaleView";
-import { nombreEnLettres } from "@/shared/lib/nombre-en-lettres";
 
 interface SessionUserExtended {
   id?: string;
@@ -71,18 +79,33 @@ export function BilanJournalierView() {
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawUserId);
   const currentUserId = isUUID ? rawUserId : "00000000-0000-0000-0000-000000000000";
 
+  const [messageNotification, setMessageNotification] = useState<{
+    type: "succes" | "erreur";
+    message: string;
+  } | null>(null);
+
   // Contrôles d'accès et séparation des rôles :
-  // - Directeur / Contrôleur : vision nationale consolidée + sélection des centres, mais interdiction d'encaisser/décaisser
-  // - Chef de centre / Caissier : restreint strictement au centre affecté, possibilité de saisir versements et sorties
+  // - Directeur / Contrôleur : vision nationale consolidée + sélection des centres, interdiction d'encaisser/décaisser
+  // - Chef de centre : consultation stricte du bilan de son centre + signature (visa chef de centre). Aucun enregistrement de versement/sortie ni vente de livres !
+  // - Caissier : restreint strictement au centre affecté, enregistrement des versements et sorties, vente de livres, arrêté de caisse
   const estDirecteurOuControleur =
     user?.role === "DIRECTEUR" ||
-    user?.role === "COMPTABLE" ||
-    user?.role === "ADMIN";
+    user?.role === "COMPTABLE";
 
-  const peutSaisirMouvement =
-    user?.role === "CAISSIER" ||
+  const peutSaisirMouvement = user?.role === "CAISSIER";
+
+  const peutViserChefCentre =
     user?.role === "CHEF_CENTRE" ||
-    user?.role === "CHEF_DE_CENTRE";
+    user?.role === "CHEF_DE_CENTRE" ||
+    user?.role === "DIRECTEUR";
+
+  const peutViserCaissier =
+    user?.role === "CAISSIER" ||
+    user?.role === "DIRECTEUR";
+
+  const peutViserComptable =
+    user?.role === "COMPTABLE" ||
+    user?.role === "DIRECTEUR";
 
   const [vueDirecteur, setVueDirecteur] = useState<"synthese" | "detail">("synthese");
   // Si l'utilisateur n'est pas un directeur ou contrôleur national, il ne peut JAMAIS voir la synthèse nationale
@@ -125,17 +148,24 @@ export function BilanJournalierView() {
     centreActifId,
   );
   const { data: motifs = [] } = useMotifs();
+  const { data: apprenants = [] } = useApprenants();
   const { data: repartitionFormations = [] } = useRepartitionFormations(bilan?.id || undefined);
 
-  // Mutations pour le circuit des 3 visas
+  // Mutations pour le circuit des visas
+  const queryClient = useQueryClient();
   const { mutate: soumettreCaissier, isPending: enCoursSoumission } =
     useSoumettreBilanCaissier();
   const { mutate: validerChefCentre, isPending: enCoursVisaChef } =
     useValiderBilanChefCentre();
   const { mutate: validerControleur, isPending: enCoursCloture } =
     useValiderBilanControleur();
+  const { mutate: executerValidationMouvement } =
+    useValiderMouvement();
   const { mutate: ajusterActivite, isPending: enCoursAjustement } =
     useAjusterActiviteBilan();
+
+  const [enCoursValidationId, setEnCoursValidationId] = useState<string | null>(null);
+  const [groupesDeplies, setGroupesDeplies] = useState<Record<string, boolean>>({});
 
   // Modales
   const [modalVersementOuverte, setModalVersementOuverte] = useState(false);
@@ -176,11 +206,6 @@ export function BilanJournalierView() {
   const totalSorties = bilan?.totalSorties ?? sortiesDuJour.reduce((a, b) => a + (b.montant || 0), 0);
   const netAVerser = bilan?.netAVerser ?? totalEntrees - totalSorties;
 
-  // Montants convertis en toutes lettres (conforme à la fiche officielle imprimée)
-  const totalEntreesLettres = useMemo(() => nombreEnLettres(totalEntrees), [totalEntrees]);
-  const totalSortiesLettres = useMemo(() => nombreEnLettres(totalSorties), [totalSorties]);
-  const netAVerserLettres = useMemo(() => nombreEnLettres(netAVerser), [netAVerser]);
-
   // Statut du bilan
   const statut = bilan?.statut || "OUVERT";
   const estCloture = statut === "CLOTURE";
@@ -200,40 +225,277 @@ export function BilanJournalierView() {
     return formations.find((f: Formation) => f.id === formationId)?.nom || "Formation";
   };
 
+  // Regroupement des entrées par Désignation / Formation
+  interface GroupeEntree {
+    cle: string;
+    titre: string;
+    motifNom: string;
+    formationNom: string | null;
+    isLivre: boolean;
+    items: (typeof entreesDuJour);
+    effectif: number;
+    montantTotal: number;
+    nbValides: number;
+    nbEnAttente: number;
+    tousValides: boolean;
+  }
+
+  const groupesEntrees = useMemo(() => {
+    const map = new Map<string, GroupeEntree>();
+
+    entreesDuJour.forEach((e) => {
+      const motifNom = getNomMotif(e.motifId);
+      const isLivre =
+        e.motifId === "00000000-0000-0000-0000-000000000012" ||
+        motifNom.toLowerCase().includes("livre") ||
+        Boolean(e.livreTitre) ||
+        Boolean(e.details);
+
+      let cle = "";
+      let titre = "";
+      let formationNom: string | null = null;
+
+      if (isLivre) {
+        const titreLivre = e.details || e.livreTitre || "Vente de livres";
+        cle = `livre__${titreLivre}`;
+        titre = `Achat de livre : ${titreLivre}`;
+      } else if (e.formationId) {
+        formationNom = getNomFormation(e.formationId);
+        cle = `${e.motifId}__${e.formationId}`;
+        titre = `${motifNom} de ${formationNom}`;
+      } else {
+        cle = `${e.motifId}__general`;
+        titre = motifNom;
+      }
+
+      if (!map.has(cle)) {
+        map.set(cle, {
+          cle,
+          titre,
+          motifNom,
+          formationNom,
+          isLivre,
+          items: [],
+          effectif: 0,
+          montantTotal: 0,
+          nbValides: 0,
+          nbEnAttente: 0,
+          tousValides: false,
+        });
+      }
+
+      const grp = map.get(cle)!;
+      grp.items.push(e);
+      grp.effectif += 1;
+      grp.montantTotal += e.montant;
+      if (e.statut === "VALIDE") {
+        grp.nbValides += 1;
+      } else {
+        grp.nbEnAttente += 1;
+      }
+    });
+
+    map.forEach((grp) => {
+      grp.tousValides = grp.items.length > 0 && grp.nbValides === grp.items.length;
+    });
+
+    return Array.from(map.values());
+  }, [entreesDuJour, motifs, formations]);
+
+  const tousDeplies =
+    groupesEntrees.length > 0 &&
+    groupesEntrees.every((g) => !!groupesDeplies[g.cle]);
+
+  const toggleGroupe = (cle: string) => {
+    setGroupesDeplies((prev) => ({ ...prev, [cle]: !prev[cle] }));
+  };
+
+  const toggleTousGroupes = () => {
+    if (tousDeplies) {
+      setGroupesDeplies({});
+    } else {
+      const next: Record<string, boolean> = {};
+      groupesEntrees.forEach((g) => {
+        next[g.cle] = true;
+      });
+      setGroupesDeplies(next);
+    }
+  };
+
+  // Validation individuelle d'un item par le contrôleur (comptable)
+  const handleValiderMouvement = (mouvementId: string) => {
+    setEnCoursValidationId(mouvementId);
+    executerValidationMouvement(
+      {
+        mouvementId,
+        decision: "VALIDE",
+        validateurUtilisateurId: currentUserId,
+      },
+      {
+        onSuccess: () => {
+          setEnCoursValidationId(null);
+          setMessageNotification({
+            type: "succes",
+            message: "L'écriture financière a été visée et validée par le contrôle avec succès.",
+          });
+        },
+        onError: (err: any) => {
+          setEnCoursValidationId(null);
+          setMessageNotification({
+            type: "erreur",
+            message: err?.message || "Erreur lors de la validation du mouvement.",
+          });
+        },
+      },
+    );
+  };
+
+  // Validation groupée pour toutes les transactions d'un groupe
+  const handleValiderGroupe = async (items: (typeof entreesDuJour)) => {
+    const aValider = items.filter((x) => x.statut !== "VALIDE");
+    if (aValider.length === 0) return;
+    try {
+      for (const it of aValider) {
+        await validerMouvement({
+          mouvementId: it.id,
+          decision: "VALIDE",
+          validateurUtilisateurId: currentUserId,
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
+      queryClient.invalidateQueries({ queryKey: ["mouvements-financiers"] });
+      setMessageNotification({
+        type: "succes",
+        message: `${aValider.length} écriture(s) ont été visées et validées avec succès.`,
+      });
+    } catch (err: any) {
+      setMessageNotification({
+        type: "erreur",
+        message: err?.message || "Erreur lors de la validation.",
+      });
+    }
+  };
+
   // Traitement des Visas
   const handleVisaCaissier = () => {
-    if (!centreActifId || !sessionActive?.id) return;
-    soumettreCaissier({
-      centreId: centreActifId,
-      sessionId: sessionActive.id,
-      date,
-      caissierUtilisateurId: currentUserId,
-    });
+    if (!centreActifId || !sessionActive?.id) {
+      setMessageNotification({ type: "erreur", message: "Centre ou session active non défini." });
+      return;
+    }
+    setMessageNotification(null);
+    soumettreCaissier(
+      {
+        centreId: centreActifId,
+        sessionId: sessionActive.id,
+        date,
+        caissierUtilisateurId: currentUserId,
+      },
+      {
+        onSuccess: () => {
+          setMessageNotification({
+            type: "succes",
+            message: "Arrêté de caisse visé avec succès. Transmis au Chef de centre.",
+          });
+        },
+        onError: (err: any) => {
+          setMessageNotification({
+            type: "erreur",
+            message: err?.message || "Erreur lors de la signature de l'arrêté de caisse par le caissier.",
+          });
+        },
+      },
+    );
   };
 
   const handleVisaChefCentre = () => {
-    if (!centreActifId || !sessionActive?.id) return;
-    validerChefCentre({
-      centreId: centreActifId,
-      sessionId: sessionActive.id,
-      date,
-      validateurUtilisateurId: currentUserId,
-    });
+    if (!centreActifId || !sessionActive?.id) {
+      setMessageNotification({ type: "erreur", message: "Centre ou session active non défini." });
+      return;
+    }
+    setMessageNotification(null);
+    validerChefCentre(
+      {
+        centreId: centreActifId,
+        sessionId: sessionActive.id,
+        date,
+        validateurUtilisateurId: currentUserId,
+      },
+      {
+        onSuccess: () => {
+          setMessageNotification({
+            type: "succes",
+            message: "Bilan validé par le Chef de centre avec succès. Transmis au Contrôleur / Comptable.",
+          });
+        },
+        onError: (err: any) => {
+          setMessageNotification({
+            type: "erreur",
+            message: err?.message || "Erreur lors de la validation du bilan par le Chef de centre.",
+          });
+        },
+      },
+    );
   };
 
   const handleVisaComptable = () => {
     if (!bilan?.id) {
-      alert("Le bilan doit d'abord faire l'objet du visa de direction avant la clôture comptable.");
+      setMessageNotification({
+        type: "erreur",
+        message: "Le bilan doit d'abord faire l'objet du visa de direction avant la clôture comptable.",
+      });
       return;
     }
-    validerControleur({
-      bilanId: bilan.id,
-      validateurUtilisateurId: currentUserId,
-    });
+    setMessageNotification(null);
+    validerControleur(
+      {
+        bilanId: bilan.id,
+        validateurUtilisateurId: currentUserId,
+      },
+      {
+        onSuccess: () => {
+          setMessageNotification({
+            type: "succes",
+            message: "Clôture comptable enregistrée avec succès.",
+          });
+        },
+        onError: (err: any) => {
+          setMessageNotification({
+            type: "erreur",
+            message: err?.message || "Erreur lors de la clôture comptable.",
+          });
+        },
+      },
+    );
   };
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="flex min-h-full w-full flex-col gap-4">
+      {/* Messages de retour visa ou erreur */}
+      {messageNotification && (
+        <div
+          className={`flex items-center justify-between rounded-xl border p-3.5 text-xs font-medium transition-all ${
+            messageNotification.type === "succes"
+              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+              : "bg-rose-50 border-rose-200 text-rose-800"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {messageNotification.type === "succes" ? (
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle size={16} className="text-rose-600 shrink-0" />
+            )}
+            <span>{messageNotification.message}</span>
+          </div>
+          <button
+            onClick={() => setMessageNotification(null)}
+            className="p-1 font-bold text-slate-400 hover:text-slate-600"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* ── BARRE DE NAVIGATION DIRECTEUR / CONTRÔLEUR (Masquée pour le Chef de Centre) ── */}
       {estDirecteurOuControleur && (
         <div className="flex items-center justify-between border-b border-slate-200/80 pb-3">
@@ -247,7 +509,7 @@ export function BilanJournalierView() {
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <Building2 className="h-4 w-4 text-[#0e4a56]" />
+              <Building2 className="h-4 w-4 text-brand-orange" />
               <span>Synthèse Nationale (Vue d&apos;ensemble)</span>
             </button>
             <button
@@ -259,7 +521,7 @@ export function BilanJournalierView() {
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <FileSpreadsheet className="h-4 w-4 text-[#0e4a56]" />
+              <FileSpreadsheet className="h-4 w-4 text-brand-orange" />
               <span>Fiche du Centre ({centreActif?.nom || "Centre"})</span>
             </button>
           </div>
@@ -303,7 +565,7 @@ export function BilanJournalierView() {
                   <select
                     value={centreActifId}
                     onChange={(e) => setCentreSelectionneId(e.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-[#0e4a56] focus:outline-hidden cursor-pointer"
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-brand-orange focus:outline-hidden cursor-pointer"
                   >
                     {centres.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -314,7 +576,7 @@ export function BilanJournalierView() {
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs">
-                  <Building2 size={14} className="text-[#0e4a56]" />
+                  <Building2 size={14} className="text-brand-orange" />
                   <span>{centreActif?.nom || "Centre"}</span>
                   {centreActif?.villeActuelle && (
                     <span className="text-[11px] text-slate-400">({centreActif.villeActuelle})</span>
@@ -361,7 +623,7 @@ export function BilanJournalierView() {
                 </button>
               )}
 
-              {/* Boutons d'ajout d'écritures : STRICTEMENT réservés au Caissier et Chef de centre, MASQUÉS pour Directeur/Comptable */}
+              {/* Boutons d'ajout d'écritures : STRICTEMENT réservés au Caissier (Chef de centre en lecture seule) */}
               {peutSaisirMouvement && (
                 <>
                   <button
@@ -370,7 +632,7 @@ export function BilanJournalierView() {
                     type="button"
                     className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors disabled:opacity-40 cursor-pointer"
                   >
-                    <Plus size={14} className="text-[#0e4a56]" />
+                    <Plus size={14} className="text-brand-orange" />
                     <span>Enregistrer versement</span>
                   </button>
 
@@ -389,7 +651,7 @@ export function BilanJournalierView() {
               {/* Bouton Imprimer fiche officielle */}
               <button
                 onClick={() => setModalPrintOuverte(true)}
-                className="flex items-center gap-1.5 rounded-xl bg-[#0e4a56] hover:bg-[#0b3c48] px-4 py-2 text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 rounded-xl bg-brand-anthracite hover:bg-black px-4 py-2 text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer"
                 type="button"
               >
                 <Printer size={14} />
@@ -399,8 +661,8 @@ export function BilanJournalierView() {
           </div>
 
           {/* ── CIRCUIT DE VALIDATION DES ÉCRITURES (STEPPER HORIZONTAL) ── */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,0.03)]">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3 mb-5">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 pb-3 mb-4">
               <div>
                 <h2 className="text-sm font-bold text-slate-900">
                   Circuit de validation de la journée
@@ -460,13 +722,13 @@ export function BilanJournalierView() {
                       </p>
                     )}
                   </div>
-                  {!bilan?.dateVisaCaissier && !estCloture && peutSaisirMouvement && (
+                  {!bilan?.dateVisaCaissier && !estCloture && peutViserCaissier && (
                     <div className="mt-2.5">
                       <button
                         onClick={handleVisaCaissier}
                         disabled={enCoursSoumission}
                         type="button"
-                        className="rounded-lg bg-[#0e4a56] hover:bg-[#0b3c48] px-4 py-1.5 text-xs font-semibold text-white shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
+                        className="rounded-lg bg-brand-orange hover:bg-brand-orange/90 px-4 py-1.5 text-xs font-semibold text-white shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
                       >
                         {enCoursSoumission ? "Signature..." : "Signer l'arrêté de caisse"}
                       </button>
@@ -498,13 +760,13 @@ export function BilanJournalierView() {
                       </p>
                     )}
                   </div>
-                  {bilan?.dateVisaCaissier && !bilan?.dateValidationChefCentre && !estCloture && (
+                  {bilan?.dateVisaCaissier && !bilan?.dateValidationChefCentre && !estCloture && peutViserChefCentre && (
                     <div className="mt-2.5">
                       <button
                         onClick={handleVisaChefCentre}
                         disabled={enCoursVisaChef}
                         type="button"
-                        className="rounded-lg bg-[#0e4a56] hover:bg-[#0b3c48] px-5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
+                        className="rounded-lg bg-brand-orange hover:bg-brand-orange/90 px-5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
                       >
                         {enCoursVisaChef ? "Validation..." : "Viser le bilan"}
                       </button>
@@ -536,13 +798,13 @@ export function BilanJournalierView() {
                       </p>
                     )}
                   </div>
-                  {bilan?.dateValidationChefCentre && !estCloture && estDirecteurOuControleur && (
+                  {bilan?.dateValidationChefCentre && !estCloture && peutViserComptable && (
                     <div className="mt-2.5">
                       <button
                         onClick={handleVisaComptable}
                         disabled={enCoursCloture || !bilan?.id}
                         type="button"
-                        className="rounded-lg bg-[#0e4a56] hover:bg-[#0b3c48] px-5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
+                        className="rounded-lg bg-brand-anthracite hover:bg-black px-5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
                       >
                         {enCoursCloture ? "Clôture..." : "Clôturer le bilan"}
                       </button>
@@ -556,25 +818,25 @@ export function BilanJournalierView() {
           {/* ══════════════════════════════════════════════════════════════════ */}
           {/* ── LA FICHE DE BILAN JOURNALIER (DESIGN FIDÈLE À LA FICHE IMPRIMÉE) ── */}
           {/* ══════════════════════════════════════════════════════════════════ */}
-          <div className="rounded-2xl border border-slate-300/80 bg-white p-5 sm:p-8 shadow-sm space-y-6">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs space-y-5">
             
             {/* ── 1. EN-TÊTE OFFICIEL EXCELIS PREPAS ── */}
             <div className="flex flex-col sm:flex-row items-stretch justify-between gap-4 border-b-2 border-slate-900 pb-4">
               <div className="flex flex-col justify-center">
                 <div className="flex items-center gap-2">
                   <span className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
-                    EX<span className="text-[#E65100]">CELIS</span>
+                    EX<span className="text-brand-orange">CELIS</span>
                   </span>
                 </div>
                 <div className="text-[11px] tracking-[0.25em] font-extrabold text-slate-700">
                   P R E P A S
                 </div>
                 <div className="text-xs font-bold text-slate-800 mt-1">
-                  Centre : <span className="text-[#0e4a56]">{centreActif?.nom || "Centre Yaoundé"}</span>
+                  Centre : <span className="text-brand-orange">{centreActif?.nom || "Centre Yaoundé"}</span>
                 </div>
               </div>
 
-              <div className="bg-[#E65100] text-white px-4 py-2.5 rounded-lg max-w-xl flex flex-col justify-center text-left sm:text-right shadow-xs">
+              <div className="bg-brand-orange text-white px-4 py-2.5 rounded-lg max-w-xl flex flex-col justify-center text-left sm:text-right shadow-xs">
                 <p className="text-[11px] leading-snug font-medium">
                   Centre d&apos;Excellence académique, d&apos;orientation et de préparation aux concours
                   d&apos;entrée dans les grandes écoles et facultés du Cameroun
@@ -585,7 +847,7 @@ export function BilanJournalierView() {
               </div>
             </div>
 
-            {/* ── 2. TITRE FICHE & BANDEAU DES 5 INDICATEURS CLÉS ── */}
+            {/* ── 2. TITRE FICHE & BANDEAU DES 5 INDICATEURS CLÉS (ASPECT TABLEAU) ── */}
             <div className="border border-slate-900 rounded-lg overflow-hidden shadow-2xs">
               <div className="bg-slate-100 py-1.5 text-center font-black text-xs sm:text-sm uppercase tracking-wider border-b border-slate-900 text-slate-900">
                 FICHE DE BILAN JOURNALIER
@@ -593,7 +855,7 @@ export function BilanJournalierView() {
               <div className="grid grid-cols-2 sm:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-slate-900 text-center text-xs">
                 <div className="p-2 flex flex-col justify-center bg-slate-50/50">
                   <span className="text-slate-500 text-[10px] uppercase font-bold">Réf_date</span>
-                  <span className="font-mono text-xs sm:text-sm font-black text-[#0e4a56]">{refDate}</span>
+                  <span className="font-mono text-xs sm:text-sm font-black text-brand-anthracite">{refDate}</span>
                 </div>
                 <div className="p-2 flex flex-col justify-center relative group">
                   <div className="flex items-center justify-center gap-1">
@@ -601,8 +863,9 @@ export function BilanJournalierView() {
                     {peutSaisirMouvement && !estCloture && (
                       <button
                         onClick={ouvrirModalActivite}
-                        className="opacity-70 hover:opacity-100 transition-opacity text-brand-orange hover:text-orange-700"
+                        className="opacity-70 hover:opacity-100 transition-opacity text-brand-orange hover:text-orange-700 cursor-pointer"
                         title="Ajuster les salles et cours du jour"
+                        type="button"
                       >
                         <Pencil className="h-3 w-3" />
                       </button>
@@ -616,8 +879,9 @@ export function BilanJournalierView() {
                     {peutSaisirMouvement && !estCloture && (
                       <button
                         onClick={ouvrirModalActivite}
-                        className="opacity-70 hover:opacity-100 transition-opacity text-brand-orange hover:text-orange-700"
+                        className="opacity-70 hover:opacity-100 transition-opacity text-brand-orange hover:text-orange-700 cursor-pointer"
                         title="Ajuster les salles et cours du jour"
+                        type="button"
                       >
                         <Pencil className="h-3 w-3" />
                       </button>
@@ -640,13 +904,23 @@ export function BilanJournalierView() {
               </div>
             </div>
 
-            {/* ── 3. SECTION 1 : ENTRÉES (TABLEAU OFFICIEL) ── */}
+            {/* ── 3. SECTION 1 : ENTRÉES REGROUPÉES (TABLEAU OFFICIEL) ── */}
             <div className="rounded-lg overflow-hidden border border-slate-900 shadow-2xs">
-              <div className="bg-[#E65100] text-white py-1 px-4 font-black text-center sm:text-left text-xs uppercase tracking-wider flex items-center justify-between">
-                <span>ENTRÉES ({entreesDuJour.length} versement{entreesDuJour.length > 1 ? "s" : ""})</span>
-                <span className="font-mono text-xs font-bold text-amber-200">
-                  Total : {FCFA.format(totalEntrees)} XAF
-                </span>
+              <div className="bg-brand-orange text-white py-1.5 px-4 font-black text-center sm:text-left text-xs uppercase tracking-wider flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span>
+                    ENTRÉES ({entreesDuJour.length} versement{entreesDuJour.length > 1 ? "s" : ""})
+                  </span>
+                  {groupesEntrees.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={toggleTousGroupes}
+                      className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-[10px] font-bold tracking-normal transition-colors cursor-pointer"
+                    >
+                      {tousDeplies ? "Tout replier" : "Tout déplier"}
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-xs">
@@ -654,47 +928,177 @@ export function BilanJournalierView() {
                     <tr className="bg-slate-100 border-b border-slate-900 text-left font-bold text-slate-800">
                       <th className="border-r border-slate-900 p-2 text-center w-10">N°</th>
                       <th className="border-r border-slate-900 p-2">Motif / Désignation</th>
-                      <th className="border-r border-slate-900 p-2 text-center w-20">Effectifs</th>
+                      <th className="border-r border-slate-900 p-2 text-center w-24">Effectifs</th>
                       <th className="border-r border-slate-900 p-2">Nom Caissier</th>
-                      <th className="border-r border-slate-900 p-2 text-right w-36">Montant (XAF)</th>
-                      <th className="p-2 text-center w-28">Signature</th>
+                      <th className="border-r border-slate-900 p-2 text-right w-36">Montant Total (XAF)</th>
+                      <th className="p-2 text-center w-36">Visa Contrôle</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-300">
-                    {entreesDuJour.length > 0 ? (
-                      entreesDuJour.map((e, index) => (
-                        <tr key={e.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="border-r border-slate-900 p-2 text-center font-bold text-slate-600">
-                            {index + 1}
-                          </td>
-                          <td className="border-r border-slate-900 p-2 font-medium text-slate-900">
-                            <div className="font-semibold">{getNomMotif(e.motifId)}</div>
-                            {e.formationId && (
-                              <span className="inline-block mt-0.5 text-[10px] font-normal text-slate-500">
-                                {getNomFormation(e.formationId)}
-                              </span>
-                            )}
-                          </td>
-                          <td className="border-r border-slate-900 p-2 text-center font-medium text-slate-700">1</td>
-                          <td className="border-r border-slate-900 p-2 text-slate-700">
-                            {bilan?.nomCaissier || "Caissier du centre"}
-                          </td>
-                          <td className="border-r border-slate-900 p-2 text-right font-bold text-slate-900 tabular-nums">
-                            {FCFA.format(e.montant)}
-                          </td>
-                          <td className="p-2 text-center">
-                            <span
-                              className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                bilan?.dateVisaCaissier
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : "bg-amber-100 text-amber-800"
+                    {groupesEntrees.length > 0 ? (
+                      groupesEntrees.map((grp, index) => {
+                        const estDeplie = !!groupesDeplies[grp.cle];
+                        return (
+                          <React.Fragment key={grp.cle}>
+                            {/* Ligne principale du groupe */}
+                            <tr
+                              className={`transition-colors border-b border-slate-300 ${
+                                estDeplie ? "bg-slate-50/90 font-medium" : "hover:bg-slate-50/80"
                               }`}
                             >
-                              {bilan?.dateVisaCaissier ? "Visé" : "En cours"}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
+                              <td className="border-r border-slate-900 p-2 text-center font-bold text-slate-600">
+                                {index + 1}
+                              </td>
+                              <td className="border-r border-slate-900 p-2 font-medium text-slate-900">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleGroupe(grp.cle)}
+                                  className="flex items-center gap-2 text-left hover:text-brand-orange transition-colors w-full cursor-pointer group"
+                                >
+                                  <div className="p-1 rounded bg-slate-100 group-hover:bg-orange-50 text-slate-600 group-hover:text-brand-orange transition-colors shrink-0">
+                                    {estDeplie ? (
+                                      <ChevronUp size={14} className="shrink-0" />
+                                    ) : (
+                                      <ChevronDown size={14} className="shrink-0" />
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                                    {grp.isLivre && <BookOpen size={13} className="text-purple-600 shrink-0" />}
+                                    <span className="font-bold text-slate-900 group-hover:text-brand-orange">
+                                      {grp.titre}
+                                    </span>
+                                    {grp.isLivre && (
+                                      <span className="text-[9px] font-extrabold bg-purple-50 text-purple-800 border border-purple-200 px-1 py-0.2 rounded">
+                                        Hors contrat
+                                      </span>
+                                    )}
+                                  </div>
+                                </button>
+                              </td>
+                              <td className="border-r border-slate-900 p-2 text-center font-extrabold text-slate-900 tabular-nums">
+                                <span className="inline-block px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 text-xs font-black">
+                                  {grp.effectif}
+                                </span>
+                              </td>
+                              <td className="border-r border-slate-900 p-2 text-slate-700 font-medium">
+                                {bilan?.nomCaissier || "Caissier du centre"}
+                              </td>
+                              <td className="border-r border-slate-900 p-2 text-right font-black text-slate-900 tabular-nums">
+                                {FCFA.format(grp.montantTotal)}
+                              </td>
+                              <td className="p-2 text-center">
+                                {grp.tousValides ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                    <CheckCircle2 size={12} className="text-emerald-700" />
+                                    Tous visés ({grp.effectif})
+                                  </span>
+                                ) : (
+                                  <div className="flex flex-col items-center gap-1">
+                                    <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                      {grp.nbValides}/{grp.effectif} visé(s)
+                                    </span>
+                                    {peutViserComptable && !estCloture && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleValiderGroupe(grp.items)}
+                                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-colors cursor-pointer"
+                                        title="Viser toutes les transactions en attente"
+                                      >
+                                        Tout viser
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+
+                            {/* Lignes Accordéon : Intégrées proprement dans la grille du tableau sans boîte imbriquée */}
+                            {estDeplie &&
+                              grp.items.map((item, itIdx) => {
+                                const app = apprenants.find((a) => a.id === item.apprenantId);
+                                const nomApp = app ? `${app.nom} ${app.prenom}` : "Versement direct";
+                                const estItemValide = item.statut === "VALIDE";
+                                const enChargement = enCoursValidationId === item.id;
+
+                                return (
+                                  <tr
+                                    key={item.id}
+                                    className="bg-slate-50/70 hover:bg-amber-50/40 border-b border-slate-200 transition-colors"
+                                  >
+                                    <td className="border-r border-slate-900 p-2 text-center text-slate-400 font-mono text-[10px]">
+                                      {itIdx + 1}
+                                    </td>
+                                    <td className="border-r border-slate-900 p-2 pl-6 sm:pl-8">
+                                      <div className="flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-brand-orange/70 shrink-0" />
+                                        <div className="min-w-0">
+                                          {app ? (
+                                            <Link
+                                              href={`/apprenants/${app.id}`}
+                                              className="font-bold text-slate-900 hover:text-brand-orange transition-colors"
+                                            >
+                                              {nomApp}
+                                            </Link>
+                                          ) : (
+                                            <span className="font-bold text-slate-900">{nomApp}</span>
+                                          )}
+                                          {item.details && (
+                                            <span className="text-[10px] text-slate-400 block">{item.details}</span>
+                                          )}
+                                        </div>
+                                        <span className="text-[10px] font-mono text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
+                                          {item.id.slice(0, 8).toUpperCase()}
+                                        </span>
+                                      </div>
+                                    </td>
+                                    <td className="border-r border-slate-900 p-2 text-center text-slate-400 text-xs">
+                                      &mdash;
+                                    </td>
+                                    <td className="border-r border-slate-900 p-2 text-slate-600 text-xs">
+                                      {bilan?.nomCaissier || "Caissier du centre"}
+                                    </td>
+                                    <td className="border-r border-slate-900 p-2 text-right font-black text-emerald-800 tabular-nums">
+                                      +{FCFA.format(item.montant)} F
+                                    </td>
+                                    <td className="p-2 text-center">
+                                      {estItemValide ? (
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                          <CheckCircle2 size={12} className="text-emerald-700" />
+                                          Visé & Validé
+                                        </span>
+                                      ) : peutViserComptable && !estCloture ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleValiderMouvement(item.id)}
+                                          disabled={enChargement}
+                                          className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                                          title="Viser directement cette transaction"
+                                        >
+                                          {enChargement ? (
+                                            <>
+                                              <Loader2 size={12} className="animate-spin" />
+                                              Visa...
+                                            </>
+                                          ) : (
+                                            <>
+                                              <CheckCircle2 size={12} />
+                                              Viser directement
+                                            </>
+                                          )}
+                                        </button>
+                                      ) : (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800 border border-amber-300">
+                                          <Clock size={11} className="text-amber-700" />
+                                          En attente
+                                        </span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                          </React.Fragment>
+                        );
+                      })
                     ) : (
                       <tr>
                         <td colSpan={6} className="p-4 text-center text-slate-400 italic bg-white">
@@ -721,9 +1125,6 @@ export function BilanJournalierView() {
             <div className="rounded-lg overflow-hidden border border-slate-900 shadow-2xs">
               <div className="bg-[#8B0000] text-white py-1 px-4 font-black text-center sm:text-left text-xs uppercase tracking-wider flex items-center justify-between">
                 <span>SORTIES ({sortiesDuJour.length} décaissement{sortiesDuJour.length > 1 ? "s" : ""})</span>
-                <span className="font-mono text-xs font-bold text-rose-200">
-                  Total : {FCFA.format(totalSorties)} XAF
-                </span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-xs">
@@ -791,41 +1192,32 @@ export function BilanJournalierView() {
               </div>
             </div>
 
-            {/* ── 5. RÉCAPITULATIF FINANCIER & MONTANTS EN TOUTES LETTRES ── */}
+            {/* ── 5. RÉSUMÉ FINANCIER (TABLEAU RÉCAPITULATIF ÉPURÉ) ── */}
             <div className="border border-slate-900 rounded-lg overflow-hidden text-xs shadow-2xs">
               <div className="grid grid-cols-12 divide-x divide-slate-900 border-b border-slate-900">
-                <div className="col-span-12 sm:col-span-3 p-2 font-bold uppercase bg-slate-50 text-slate-800">
+                <div className="col-span-12 sm:col-span-4 p-2.5 font-bold uppercase bg-slate-50 text-slate-800">
                   Total Général Entrées :
                 </div>
-                <div className="col-span-6 sm:col-span-3 p-2 font-black text-right text-slate-900 tabular-nums">
+                <div className="col-span-12 sm:col-span-8 p-2.5 font-black text-right sm:text-left text-slate-900 tabular-nums text-sm bg-white">
                   {FCFA.format(totalEntrees)} XAF
-                </div>
-                <div className="col-span-6 sm:col-span-6 p-2 italic text-slate-700 bg-white">
-                  {totalEntreesLettres}
                 </div>
               </div>
 
               <div className="grid grid-cols-12 divide-x divide-slate-900 border-b border-slate-900">
-                <div className="col-span-12 sm:col-span-3 p-2 font-bold uppercase bg-slate-50 text-slate-800">
+                <div className="col-span-12 sm:col-span-4 p-2.5 font-bold uppercase bg-slate-50 text-slate-800">
                   Total Général Sorties :
                 </div>
-                <div className="col-span-6 sm:col-span-3 p-2 font-black text-right text-rose-800 tabular-nums">
+                <div className="col-span-12 sm:col-span-8 p-2.5 font-black text-right sm:text-left text-rose-800 tabular-nums text-sm bg-white">
                   {FCFA.format(totalSorties)} XAF
-                </div>
-                <div className="col-span-6 sm:col-span-6 p-2 italic text-slate-700 bg-white">
-                  {totalSortiesLettres}
                 </div>
               </div>
 
               <div className="grid grid-cols-12 divide-x divide-slate-900 bg-amber-50/80 font-bold border-t-2 border-slate-900">
-                <div className="col-span-12 sm:col-span-3 p-2.5 font-black uppercase text-[#E65100]">
+                <div className="col-span-12 sm:col-span-4 p-2.5 font-black uppercase text-brand-orange">
                   Net à verser (Solde final) :
                 </div>
-                <div className="col-span-6 sm:col-span-3 p-2.5 font-black text-right text-[#E65100] text-sm sm:text-base tabular-nums">
+                <div className="col-span-12 sm:col-span-8 p-2.5 font-black text-right sm:text-left text-brand-orange text-base tabular-nums">
                   {FCFA.format(netAVerser)} XAF
-                </div>
-                <div className="col-span-6 sm:col-span-6 p-2.5 font-bold text-slate-900 italic">
-                  Arrêté le présent solde net à la somme de : {netAVerserLettres}
                 </div>
               </div>
             </div>
@@ -833,7 +1225,7 @@ export function BilanJournalierView() {
             {/* ── 6. COORDONNÉES BANCAIRES UBA & CONSIGNES OFFICIELLES ── */}
             <div className="border border-slate-900 rounded-lg p-3 bg-slate-50/60 text-xs shadow-2xs space-y-1">
               <div className="flex items-center gap-2 font-black text-slate-900 uppercase">
-                <Landmark size={15} className="text-[#0e4a56]" />
+                <Landmark size={15} className="text-brand-anthracite" />
                 <span>UNITED BANK FOR AFRICA (UBA) CAMEROON S.A</span>
               </div>
               <div className="text-slate-800 font-medium">
@@ -873,12 +1265,12 @@ export function BilanJournalierView() {
                   ) : (
                     <div className="my-auto flex flex-col items-center gap-2">
                       <span className="text-xs text-slate-400 italic">Cadre réservé au visa</span>
-                      {bilan?.dateVisaCaissier && !estCloture && (
+                      {bilan?.dateVisaCaissier && !estCloture && peutViserChefCentre && (
                         <button
                           onClick={handleVisaChefCentre}
                           disabled={enCoursVisaChef}
                           type="button"
-                          className="rounded-lg bg-[#0e4a56] hover:bg-[#0b3c48] px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer"
+                          className="rounded-lg bg-brand-orange hover:bg-brand-orange/90 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer"
                         >
                           {enCoursVisaChef ? "Visa en cours..." : "Viser le bilan"}
                         </button>
@@ -910,12 +1302,12 @@ export function BilanJournalierView() {
                   ) : (
                     <div className="my-auto flex flex-col items-center gap-2">
                       <span className="text-xs text-slate-400 italic">Cadre réservé au visa</span>
-                      {peutSaisirMouvement && !estCloture && (
+                      {peutViserCaissier && !estCloture && (
                         <button
                           onClick={handleVisaCaissier}
                           disabled={enCoursSoumission}
                           type="button"
-                          className="rounded-lg bg-[#0e4a56] hover:bg-[#0b3c48] px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer"
+                          className="rounded-lg bg-brand-orange hover:bg-brand-orange/90 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer"
                         >
                           {enCoursSoumission ? "Signature..." : "Signer l'arrêté"}
                         </button>
@@ -947,12 +1339,12 @@ export function BilanJournalierView() {
                   ) : (
                     <div className="my-auto flex flex-col items-center gap-2">
                       <span className="text-xs text-slate-400 italic">Cadre réservé au visa</span>
-                      {bilan?.dateValidationChefCentre && !estCloture && estDirecteurOuControleur && (
+                      {bilan?.dateValidationChefCentre && !estCloture && peutViserComptable && (
                         <button
                           onClick={handleVisaComptable}
                           disabled={enCoursCloture || !bilan?.id}
                           type="button"
-                          className="rounded-lg bg-[#0e4a56] hover:bg-[#0b3c48] px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer"
+                          className="rounded-lg bg-brand-anthracite hover:bg-black px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer"
                         >
                           {enCoursCloture ? "Clôture..." : "Clôturer le bilan"}
                         </button>
@@ -971,7 +1363,7 @@ export function BilanJournalierView() {
                 className="flex items-center justify-between w-full py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-2">
-                  <Layers size={14} className="text-[#0e4a56]" />
+                  <Layers size={14} className="text-brand-orange" />
                   <span>Détail de la ventilation par filière ({repartitionFormations.length})</span>
                 </div>
                 <ChevronDown
@@ -997,7 +1389,7 @@ export function BilanJournalierView() {
                           </div>
                           <div className="h-2 w-full rounded-full bg-slate-200 overflow-hidden">
                             <div
-                              className="h-full bg-[#0e4a56] rounded-full transition-all duration-300"
+                              className="h-full bg-brand-orange rounded-full transition-all duration-300"
                               style={{ width: `${part}%` }}
                             />
                           </div>
@@ -1047,6 +1439,7 @@ export function BilanJournalierView() {
           bilan={bilan}
           mouvements={mouvements}
           motifs={motifs}
+          formations={formations}
         />
       )}
 

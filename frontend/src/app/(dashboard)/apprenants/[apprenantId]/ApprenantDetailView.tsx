@@ -30,7 +30,10 @@ import { useDossierParApprenant, useConcoursDuDossier } from "@/modules/dossiers
 import { useSession } from "next-auth/react";
 import {
   useVersementsApprenant,
+  useMotifs,
   EnregistrerVersementModal,
+  RecuPaiementModal,
+  type DonneesRecuPaiement,
 } from "@/modules/financier";
 
 import { InformationsTab } from "./InformationsTab";
@@ -39,6 +42,7 @@ import { DossierAdministratifTab } from "./DossierAdministratifTab";
 import { PresenceTab } from "./PresenceTab";
 import { NegocierContratPhaseModal } from "./NegocierContratPhaseModal";
 
+const MOTIF_ACHAT_LIVRES_ID = "00000000-0000-0000-0000-000000000012";
 const FCFA = new Intl.NumberFormat("fr-FR");
 
 const AVATAR_COLORS = [
@@ -67,10 +71,21 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
   const role = authSession?.user?.role;
   const isDossierOnlyRole = role === "SUPERVISEUR_DOSSIERS" || role === "CHARGE_DOSSIER";
 
+  const peutEncaisser = role === "CAISSIER";
+  const peutModifierApprenant =
+    role === "CAISSIER" ||
+    role === "DIRECTEUR" ||
+    role === "DIRECTEUR_ACADEMIQUE";
+  const peutNegocierContrat =
+    role === "CHEF_CENTRE" ||
+    role === "DIRECTEUR" ||
+    role === "DIRECTEUR_ACADEMIQUE";
+
   const [onglet, setOnglet] = useState<Onglet>(isDossierOnlyRole ? "dossier" : "informations");
   const [modalModifierOuverte, setModalModifierOuverte] = useState(false);
   const [modalVersementOuverte, setModalVersementOuverte] = useState(false);
   const [modalContratOuverte, setModalContratOuverte] = useState(false);
+  const [recuAImprimer, setRecuAImprimer] = useState<DonneesRecuPaiement | null>(null);
 
   const { data: apprenant, isLoading, isError } = useApprenant(apprenantId);
   const { data: cursus } = useCursusApprenant(apprenantId);
@@ -80,6 +95,7 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
   const { data: sessionActive } = useSessionActive();
   const { data: dossier } = useDossierParApprenant(apprenantId);
   const { data: versements } = useVersementsApprenant(apprenantId);
+  const { data: motifs } = useMotifs("ENTREE");
   const { data: concoursDuDossier = [] } = useConcoursDuDossier(dossier?.id);
 
   const totalFraisDossier = concoursDuDossier.reduce((sum, c) => sum + c.montantTotal, 0);
@@ -90,9 +106,21 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
   const centre = centres?.find((c) => c.id === apprenant?.centreId);
   const session = sessions?.find((s) => s.id === apprenant?.sessionId);
 
+  const isVersementLivre = (v: { motifId: string }) => {
+    if (v.motifId === MOTIF_ACHAT_LIVRES_ID) return true;
+    const m = motifs?.find((item) => item.id === v.motifId);
+    return m?.nom ? m.nom.toLowerCase().includes("livre") : false;
+  };
+
+  // Scolarité uniquement : les achats de livres et dossiers concours ne sont pas déduits du contrat
   const montantPaye = (versements ?? [])
-    .filter((v) => v.statut !== "REJETE")
+    .filter((v) => v.statut !== "REJETE" && !v.dossierConcoursId && !isVersementLivre(v))
     .reduce((total, v) => total + v.montant, 0);
+
+  const totalAchatsLivres = (versements ?? [])
+    .filter((v) => v.statut !== "REJETE" && isVersementLivre(v))
+    .reduce((total, v) => total + v.montant, 0);
+
   const totalContrat = cursus?.montantTotalCumule ?? apprenant?.montantContrat ?? 0;
   const soldeRestant = Math.max(totalContrat - montantPaye, 0);
 
@@ -101,7 +129,7 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-6xl p-12 text-center">
+      <div className="w-full p-12 text-center">
         <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-brand-orange border-r-transparent" />
         <p className="mt-3 text-sm text-slate-500 font-medium">Chargement du profil de l&rsquo;élève...</p>
       </div>
@@ -110,7 +138,7 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
 
   if (isError || !apprenant) {
     return (
-      <div className="mx-auto max-w-6xl p-8">
+      <div className="w-full p-8">
         <Card className="p-10 text-center">
           <p className="text-lg font-bold text-slate-900">Apprenant introuvable</p>
           <Link
@@ -130,7 +158,7 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
   const phasesDejaSuivies = (cursus?.inscriptionsPhases || []).map((i) => i.phaseId);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       {/* ── Fil d'Ariane & Navigation ── */}
       <div>
         <Link
@@ -201,36 +229,42 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
 
           {/* Actions Rapides en tête */}
           <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-auto">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setModalModifierOuverte(true)}
-              className="flex items-center gap-1.5 text-xs font-bold"
-            >
-              <Pencil size={13} />
-              <span>Modifier</span>
-            </Button>
+            {peutModifierApprenant && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setModalModifierOuverte(true)}
+                className="flex items-center gap-1.5 text-xs font-bold"
+              >
+                <Pencil size={13} />
+                <span>Modifier</span>
+              </Button>
+            )}
 
             {!isDossierOnlyRole && (
               <>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setModalContratOuverte(true)}
-                  className="flex items-center gap-1.5 text-xs font-bold"
-                >
-                  <Plus size={13} />
-                  <span>Négocier phase</span>
-                </Button>
+                {peutNegocierContrat && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setModalContratOuverte(true)}
+                    className="flex items-center gap-1.5 text-xs font-bold"
+                  >
+                    <Plus size={13} />
+                    <span>Négocier phase</span>
+                  </Button>
+                )}
 
-                <Button
-                  type="button"
-                  onClick={() => setModalVersementOuverte(true)}
-                  className="bg-brand-orange hover:bg-brand-orange/90 text-white flex items-center gap-1.5 text-xs font-bold shadow-xs"
-                >
-                  <Coins size={14} />
-                  <span>Encaisser versement</span>
-                </Button>
+                {peutEncaisser && (
+                  <Button
+                    type="button"
+                    onClick={() => setModalVersementOuverte(true)}
+                    className="bg-brand-orange hover:bg-brand-orange/90 text-white flex items-center gap-1.5 text-xs font-bold shadow-xs cursor-pointer"
+                  >
+                    <Coins size={14} />
+                    <span>Encaisser versement</span>
+                  </Button>
+                )}
               </>
             )}
           </div>
@@ -274,7 +308,11 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
           </div>
         ) : (
           <>
-            <div className="mt-6 pt-5 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div
+              className={`mt-6 pt-5 border-t border-slate-100 grid grid-cols-1 gap-4 ${
+                totalAchatsLivres > 0 ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"
+              }`}
+            >
               <div className="rounded-xl bg-slate-50 p-3.5 border border-slate-200/80">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
@@ -293,7 +331,7 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
 
               <div className="rounded-xl bg-slate-50 p-3.5 border border-slate-200/80">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Total Réglé ({tauxRecouvrement}%)
+                  Total Réglé Scolarité ({tauxRecouvrement}%)
                 </span>
                 <p className="text-base font-black text-emerald-800 mt-0.5">
                   {FCFA.format(montantPaye)} FCFA
@@ -302,7 +340,7 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
 
               <div className="rounded-xl bg-slate-50 p-3.5 border border-slate-200/80">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Reste à Solder
+                  Reste à Solder Contrat
                 </span>
                 <p
                   className={`text-base font-black mt-0.5 ${
@@ -312,6 +350,22 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
                   {FCFA.format(Math.max(soldeRestant, 0))} FCFA
                 </p>
               </div>
+
+              {totalAchatsLivres > 0 && (
+                <div className="rounded-xl bg-purple-50/70 p-3.5 border border-purple-200/80">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider block">
+                      Livres (Hors contrat)
+                    </span>
+                    <span className="text-[9px] font-extrabold bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded">
+                      Boutique
+                    </span>
+                  </div>
+                  <p className="text-base font-black text-purple-950 mt-0.5">
+                    {FCFA.format(totalAchatsLivres)} FCFA
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Barre de progression du règlement */}
@@ -415,6 +469,18 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
           sessionId={sessionActive?.id || apprenant.sessionId}
           formationId={formation?.id}
           soldeRestant={soldeRestant}
+          onSuccessRecu={(recu) => {
+            setRecuAImprimer(recu);
+          }}
+        />
+      )}
+
+      {/* ── Modal Reçu Officiel Deux Volets ── */}
+      {recuAImprimer && (
+        <RecuPaiementModal
+          isOpen={Boolean(recuAImprimer)}
+          onClose={() => setRecuAImprimer(null)}
+          recu={recuAImprimer}
         />
       )}
 

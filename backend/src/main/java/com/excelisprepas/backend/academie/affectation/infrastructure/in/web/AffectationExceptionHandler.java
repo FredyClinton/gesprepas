@@ -1,5 +1,6 @@
 package com.excelisprepas.backend.academie.affectation.infrastructure.in.web;
 
+import com.excelisprepas.backend.academie.affectation.domain.exception.ConflitHoraireEnseignantException;
 import com.excelisprepas.backend.shared.exception.*;
 import com.excelisprepas.backend.shared.infrastructure.in.web.dto.ApiErrorResponse;
 import org.springframework.http.HttpStatus;
@@ -9,6 +10,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class AffectationExceptionHandler {
+
+    @ExceptionHandler(ConflitHoraireEnseignantException.class)
+    public ResponseEntity<ApiErrorResponse> gererConflitHoraireEnseignant(ConflitHoraireEnseignantException ex) {
+        return construireReponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
 
     @ExceptionHandler(AccesCentreInterditException.class)
     public ResponseEntity<ApiErrorResponse> gererAccesCentreInterdit(AccesCentreInterditException ex) {

@@ -341,18 +341,38 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
                 nbSallesFinal, nbCoursFinal);
         bilanRepository.save(bilan);
 
+        List<Entree> entreesEnAttente = entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(
+                bilan.getCentreId(), bilan.getSessionId(), bilan.getDate(), StatutMouvement.EN_ATTENTE);
+        for (Entree entree : entreesEnAttente) {
+            entree.appliquerDecision(StatutMouvement.VALIDE);
+            entree.rattacherABilan(bilan.getId());
+            entreeRepository.save(entree);
+        }
+
         List<Entree> entrees = entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(
                 bilan.getCentreId(), bilan.getSessionId(), bilan.getDate(), StatutMouvement.VALIDE);
         for (Entree entree : entrees) {
-            entree.rattacherABilan(bilan.getId());
-            entreeRepository.save(entree);
+            if (entree.getBilanJournalierId().isEmpty()) {
+                entree.rattacherABilan(bilan.getId());
+                entreeRepository.save(entree);
+            }
+        }
+
+        List<Sortie> sortiesEnAttente = sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(
+                bilan.getCentreId(), bilan.getSessionId(), bilan.getDate(), StatutMouvement.EN_ATTENTE);
+        for (Sortie sortie : sortiesEnAttente) {
+            sortie.appliquerDecision(StatutMouvement.VALIDE);
+            sortie.rattacherABilan(bilan.getId());
+            sortieRepository.save(sortie);
         }
 
         List<Sortie> sorties = sortieRepository.findByCentreIdAndSessionIdAndDateAndStatut(
                 bilan.getCentreId(), bilan.getSessionId(), bilan.getDate(), StatutMouvement.VALIDE);
         for (Sortie sortie : sorties) {
-            sortie.rattacherABilan(bilan.getId());
-            sortieRepository.save(sortie);
+            if (sortie.getBilanJournalierId().isEmpty()) {
+                sortie.rattacherABilan(bilan.getId());
+                sortieRepository.save(sortie);
+            }
         }
 
         log.info("Bilan journalier validé par le contrôleur : id={}", bilanId);

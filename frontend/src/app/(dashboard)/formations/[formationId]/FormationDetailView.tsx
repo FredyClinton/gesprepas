@@ -270,16 +270,16 @@ export function FormationDetailView({
 
   if (chargementFormation) {
     return (
-      <main className="max-w-7xl mx-auto px-4 py-12 text-center text-slate-400">
+      <div className="w-full py-12 text-center text-slate-400">
         <GraduationCap className="h-10 w-10 mx-auto text-slate-300 animate-pulse mb-3" />
         <p className="text-sm">Chargement des détails de la formation...</p>
-      </main>
+      </div>
     );
   }
 
   if (!formation) {
     return (
-      <main className="max-w-4xl mx-auto px-4 py-12 text-center">
+      <div className="w-full py-12 text-center">
         <AlertTriangle className="h-12 w-12 mx-auto text-amber-500 mb-3" />
         <h2 className="text-xl font-bold text-slate-900">Formation introuvable</h2>
         <p className="text-sm text-slate-500 mt-1">
@@ -291,12 +291,12 @@ export function FormationDetailView({
             Retour aux formations
           </Button>
         </Link>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="space-y-6 max-w-7xl mx-auto px-4 py-8">
+    <div className="w-full space-y-6">
       {/* Navigation Breadcrumb */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
@@ -1464,6 +1464,6 @@ export function FormationDetailView({
           </div>
         </div>
       </Modal>
-    </main>
+    </div>
   );
 }

@@ -4,5 +4,6 @@ export * from "./hooks/useConcoursBlancs";
 export { ProgrammerConcoursBlancModal } from "./components/ProgrammerConcoursBlancModal";
 export { ContenuEpreuveModal } from "./components/ContenuEpreuveModal";
 export { SaisieNotesCentreModal } from "./components/SaisieNotesCentreModal";
+export { SaisieNotesInlineView } from "./components/SaisieNotesInlineView";
 export { BordereauResultatsView } from "./components/BordereauResultatsView";
 export { ExporterBordereauModal } from "./components/ExporterBordereauModal";

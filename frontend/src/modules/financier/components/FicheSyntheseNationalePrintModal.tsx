@@ -1,7 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, Printer, Building2, CheckCircle2 } from "lucide-react";
+import { Logo } from "@/shared/ui";
+import { formaterDateHeureGeneration } from "@/shared/lib/format-document-date";
 import type { BilanConsolideNational } from "../domain/types";
 import { nombreEnLettres } from "@/shared/lib/nombre-en-lettres";
 
@@ -22,7 +25,22 @@ export function FicheSyntheseNationalePrintModal({
   nomSession,
   consolide,
 }: FicheSyntheseNationalePrintModalProps) {
-  if (!isOpen) return null;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.classList.add("print-modal-open");
+    }
+    return () => {
+      document.body.classList.remove("print-modal-open");
+    };
+  }, [isOpen]);
+
+  if (!isOpen || !mounted) return null;
 
   const handlePrint = () => {
     window.print();
@@ -60,11 +78,20 @@ export function FicheSyntheseNationalePrintModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-2 sm:p-4 backdrop-blur-xs duration-200 overflow-y-auto">
-      <div className="relative flex max-h-[96vh] w-full max-w-5xl flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">
+    return createPortal(
+    <div
+      className="printable-modal print-portrait fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-2 sm:p-4 backdrop-blur-xs duration-200 overflow-y-auto"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <style dangerouslySetInnerHTML={{ __html: "@page { size: A4 portrait; margin: 8mm 8mm; }" }} />
+      <div
+        className="printable-dialog relative flex max-h-[96vh] w-full max-w-5xl flex-col rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Barre d'outils modale (masquée à l'impression) */}
-        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-3 print:hidden">
+        <div className="no-print print:hidden flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-3">
           <div>
             <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
               <Building2 className="h-4 w-4 text-brand-orange" />
@@ -95,21 +122,14 @@ export function FicheSyntheseNationalePrintModal({
         </div>
 
         {/* Contenu imprimable (A4 Portrait normalisé) */}
-        <div className="overflow-y-auto p-4 sm:p-8 print:p-0 print:overflow-visible">
+        <div className="printable-body overflow-y-auto p-4 sm:p-8 print:p-0 print:overflow-visible">
           <div className="mx-auto max-w-[210mm] bg-white text-slate-900 font-sans print:w-full print:max-w-none text-[10.5px] leading-tight">
             {/* ── EN-TÊTE OFFICIEL EXCELIS PREPAS ── */}
             <div className="flex items-stretch justify-between gap-4 border-b-2 border-slate-900 pb-3 mb-3">
-              {/* Logo & Identité */}
+              {/* Logo & Identité Officielle */}
               <div className="flex flex-col justify-center">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl font-black tracking-tighter text-slate-900">
-                    EX<span className="text-brand-orange">CELIS</span>
-                  </span>
-                </div>
-                <div className="text-[10px] tracking-[0.25em] font-extrabold text-slate-700">
-                  P R E P A S
-                </div>
-                <div className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">
+                <Logo className="h-10 w-auto object-contain" priority />
+                <div className="text-[9px] font-bold text-slate-500 uppercase mt-1">
                   Direction Générale • Coordination Nationale
                 </div>
               </div>
@@ -472,7 +492,7 @@ export function FicheSyntheseNationalePrintModal({
                   </div>
                 </div>
                 <div className="text-[8px] text-slate-400 mt-2 font-mono">
-                  Généré le {new Date().toLocaleDateString("fr-FR")} à {new Date().toLocaleTimeString("fr-FR")}
+                  {formaterDateHeureGeneration()}
                 </div>
               </div>
 
@@ -510,6 +530,7 @@ export function FicheSyntheseNationalePrintModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

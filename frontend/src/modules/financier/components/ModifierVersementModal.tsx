@@ -62,12 +62,19 @@ export function ModifierVersementModal({
 
   const modifierEntreeMutation = useModifierEntree();
 
+  const isAchatLivres = useMemo(() => {
+    const id = motifId || versement?.motifId;
+    if (id === "00000000-0000-0000-0000-000000000012") return true;
+    const m = motifs.find((item) => item.id === id);
+    return m?.nom ? m.nom.toLowerCase().includes("livre") : false;
+  }, [motifId, versement?.motifId, motifs]);
+
   // Max montant allowed if soldeRestant is known
-  // (current soldeRestant + the previous versement amount)
+  // (current soldeRestant + the previous versement amount) - non applicable pour les livres
   const maxMontant = useMemo(() => {
-    if (soldeRestant === undefined || !versement) return undefined;
+    if (isAchatLivres || soldeRestant === undefined || !versement) return undefined;
     return soldeRestant + versement.montant;
-  }, [soldeRestant, versement]);
+  }, [isAchatLivres, soldeRestant, versement]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

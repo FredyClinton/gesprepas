@@ -1,23 +1,151 @@
 @import "tailwindcss";
 
 @theme inline {
-  /* Police */
-  --font-sans: var(--font-montserrat);
+  /* Police d'interface officielle EXCELIS PRÉPAS : Montserrat */
+  --font-sans: var(--font-montserrat), Montserrat, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 @theme {
-  /* Charte graphique EXCELIS PRÉPAS - tokens `brand.*` (ex. bg-brand-orange).
-     Valeurs synchronisées avec src/shared/config/brand.ts. */
+  /* Charte graphique officielle EXCELIS PRÉPAS */
   --color-brand-orange: #f7931e;
+  --color-brand-orange-hover: #e07f12;
+  --color-brand-orange-light: #fff7ed;
+  --color-brand-blue: #2d2e80;
+  --color-brand-blue-hover: #222365;
+  --color-brand-blue-light: #f0f0fa;
   --color-brand-anthracite: #1a1a1a;
   --color-brand-white: #ffffff;
   --color-brand-gray: #606060;
+  --color-brand-gray-light: #9ca3af;
   --color-brand-black: #000000;
+
+  /* Tokens humains secondaires et de validation */
+  --color-brand-border: #e7e5e4;
+  --color-brand-border-light: #f5f5f4;
+  --color-brand-surface-muted: #fafaf9;
+
+  --color-brand-success: #2d6a4f;
+  --color-brand-success-bg: #f0f7f3;
+  --color-brand-success-border: #c0dec8;
+  --color-brand-success-text: #1b4332;
+
+  --color-brand-warning: #b45309;
+  --color-brand-warning-bg: #fcf8ef;
+  --color-brand-warning-border: #f4dcb1;
+  --color-brand-warning-text: #78350f;
+
+  --color-brand-danger: #991b1b;
+  --color-brand-danger-bg: #fdf3f3;
+  --color-brand-danger-border: #f6cfcf;
+  --color-brand-danger-text: #7f1d1d;
+
+  --color-brand-info: #1e3a8a;
+  --color-brand-info-bg: #f0f4f9;
+  --color-brand-info-border: #d2e0f4;
+  --color-brand-info-text: #1e3a5f;
+
+  /* ── Teintes neutres humaines (Warm stone / Grès noble remplaçant le gris froid d'IA) ── */
+  --color-slate-50: #fafaf9;
+  --color-slate-100: #f5f5f4;
+  --color-slate-200: #e7e5e4;
+  --color-slate-300: #d6d3d1;
+  --color-slate-400: #a8a29e;
+  --color-slate-500: #78716c;
+  --color-slate-600: #57534e;
+  --color-slate-700: #44403c;
+  --color-slate-800: #292524;
+  --color-slate-900: #1c1917;
+
+  /* ── Validation Succès : Vert Laurier / Forêt végétal (anti-vert néon) ── */
+  --color-emerald-50: #f0f7f3;
+  --color-emerald-100: #ddede2;
+  --color-emerald-200: #c0dec8;
+  --color-emerald-300: #93c6a2;
+  --color-emerald-400: #5ea874;
+  --color-emerald-500: #2d6a4f;
+  --color-emerald-600: #23533e;
+  --color-emerald-700: #1b4332;
+  --color-emerald-800: #143527;
+  --color-emerald-900: #0d2319;
+
+  --color-green-50: #f0f7f3;
+  --color-green-100: #ddede2;
+  --color-green-200: #c0dec8;
+  --color-green-500: #2d6a4f;
+  --color-green-600: #23533e;
+  --color-green-700: #1b4332;
+  --color-green-800: #143527;
+
+  /* ── Validation Avertissement / En cours : Ocre Miel doux & chaleureux ── */
+  --color-amber-50: #fcf8ef;
+  --color-amber-100: #f9eed7;
+  --color-amber-200: #f4dcb1;
+  --color-amber-300: #eec481;
+  --color-amber-400: #e4a64d;
+  --color-amber-500: #b45309;
+  --color-amber-600: #92400e;
+  --color-amber-700: #78350f;
+  --color-amber-800: #60290a;
+  --color-amber-900: #451d07;
+
+  /* ── Validation Erreur / Rejet : Bordeaux / Terre cuite (anti-rose bonbon) ── */
+  --color-rose-50: #fdf3f3;
+  --color-rose-100: #fbe5e5;
+  --color-rose-200: #f6cfcf;
+  --color-rose-300: #efa9a9;
+  --color-rose-400: #e27676;
+  --color-rose-500: #b91c1c;
+  --color-rose-600: #991b1b;
+  --color-rose-700: #7f1d1d;
+  --color-rose-800: #651a1a;
+  --color-rose-900: #491212;
+
+  --color-red-50: #fdf3f3;
+  --color-red-100: #fbe5e5;
+  --color-red-200: #f6cfcf;
+  --color-red-500: #b91c1c;
+  --color-red-600: #991b1b;
+  --color-red-700: #7f1d1d;
+  --color-red-800: #651a1a;
+
+  /* ── Éléments institutionnels & secondaires : Bleu Pourpre officiel EXCELIS PRÉPAS (#2D2E80) ── */
+  --color-blue-50: #f0f0fa;
+  --color-blue-100: #e3e3f5;
+  --color-blue-200: #c8c8eb;
+  --color-blue-300: #a2a3de;
+  --color-blue-400: #6f71c9;
+  --color-blue-500: #3a3b9d;
+  --color-blue-600: #2d2e80;
+  --color-blue-700: #232468;
+  --color-blue-800: #1b1c52;
+  --color-blue-900: #13143c;
+
+  /* ── Validation Hiérarchique (Visé chef de centre) : Prune feutré ── */
+  --color-purple-50: #f7f3f9;
+  --color-purple-100: #efe8f4;
+  --color-purple-200: #dfd1e9;
+  --color-purple-500: #6b21a8;
+  --color-purple-700: #581c87;
+  --color-purple-900: #3b0764;
+}
+
+html {
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   background: var(--color-brand-white);
   color: var(--color-brand-black);
+}
+
+input,
+button,
+select,
+textarea {
+  font-family: inherit;
 }
 
 select option {
@@ -26,10 +154,69 @@ select option {
   padding: 8px 12px;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   UNIFORMISATION TYPOGRAPHIQUE (Rendu humain, lisible et anti-IA)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Tempère les graisses excessives (900/800) vers un 700 (bold) franc et équilibré */
+.font-black,
+.font-extrabold {
+  font-weight: 700 !important;
+}
+
+/* Rehausse les micro-textes (10px/9px) vers une taille nette et lisible (11px/0.6875rem) */
+.text-\[10px\],
+.text-\[9px\] {
+  font-size: 0.6875rem !important;
+  line-height: 1rem !important;
+}
+
+/* Évite les espacements de lettres artificiels 'tracking-widest' excessifs */
+.tracking-widest {
+  letter-spacing: 0.05em !important;
+}
+
+/* Titres : Montserrat Bold selon la charte EXCELIS PRÉPAS */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: var(--color-brand-anthracite);
+  letter-spacing: -0.015em;
+}
+
+/* Scrollbar moderne et sobre */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
 @media print {
   @page {
+    size: A4 portrait;
+    margin: 8mm 8mm;
+  }
+
+  @page landscape-sheet {
     size: A4 landscape;
     margin: 6mm 8mm;
+  }
+
+  .print-landscape {
+    page: landscape-sheet !important;
+  }
+
+  .print-portrait {
+    page: auto !important;
   }
 
   html,
@@ -52,23 +239,21 @@ select option {
   footer,
   button,
   [role="navigation"],
-  .no-print {
+  .no-print,
+  .print\:hidden {
     display: none !important;
   }
 
-  /* Lorsque la modale d'exportation de progression est ouverte, masquer TOUT le reste du document */
+  /* Lorsque n'importe quelle modale imprimable est active, masquer TOUT le reste du document body */
+  body:has(.printable-modal) > *:not(.printable-modal),
+  body.print-modal-open > *:not(.printable-modal),
   body.progression-export-open > *:not(#printable-progression-modal),
-  body:has(#printable-progression-modal) > *:not(#printable-progression-modal) {
+  body.bordereau-export-open > *:not(#printable-bordereau-modal) {
     display: none !important;
   }
 
-  /* Lorsque la modale d'exportation de bordereau du concours blanc est ouverte pour impression, masquer le reste */
-  body.bordereau-export-open > *:not(#printable-bordereau-modal),
-  body:has(#printable-bordereau-modal) > *:not(#printable-bordereau-modal) {
-    display: none !important;
-  }
-
-  /* Affichage propre du conteneur imprimable sans décalages ni scrolls */
+  /* Déroulement pleine page sans overlay, clipping ni scroll */
+  .printable-modal,
   #printable-progression-modal,
   #printable-bordereau-modal {
     position: static !important;
@@ -87,6 +272,32 @@ select option {
     z-index: auto !important;
   }
 
+  .printable-modal > div,
+  .printable-dialog {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+
+  .printable-body {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+  }
+
   .progression-sheet-page,
   .bordereau-sheet-page {
     background: #ffffff !important;
@@ -100,10 +311,40 @@ select option {
   }
 
   /* Forcer les couleurs d'arrière-plan exactes pour l'impression haute fidélité */
+  .printable-modal *,
   #printable-progression-modal *,
-  .printable-modal * {
+  #printable-bordereau-modal * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  /* Gestion des sauts de page et coupures */
+  .page-break-before {
+    break-before: page !important;
+    page-break-before: always !important;
+  }
+
+  .page-break-after {
+    break-after: page !important;
+    page-break-after: always !important;
+  }
+
+  .avoid-break {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tfoot {
+    display: table-footer-group !important;
   }
 
   table {

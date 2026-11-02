@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { AccessRestricted } from "@/shared/ui";
 import { FormationsView } from "./FormationsView";
 
 export default async function FormationsPage() {
@@ -11,12 +12,14 @@ export default async function FormationsPage() {
       utilisateur.role !== "DIRECTEUR_ACADEMIQUE")
   ) {
     return (
-      <main className="p-8 text-sm text-brand-gray">
-        Cet écran est réservé au Directeur et au Directeur Académique.
-      </main>
+      <AccessRestricted
+        title="Accès Direction"
+        message="Cet écran est réservé au Directeur et au Directeur Académique."
+      />
     );
   }
 
   return <FormationsView />;
 }
+
 

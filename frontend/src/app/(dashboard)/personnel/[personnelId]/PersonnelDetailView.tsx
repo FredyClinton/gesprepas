@@ -411,7 +411,7 @@ export function PersonnelDetailView({ personnelId }: { personnelId: string }) {
   const roleLabel = ROLE_LABELS[membre.role] ?? membre.role;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 pb-12 animate-in fade-in duration-200">
+    <div className="w-full space-y-6 pb-12 animate-in fade-in duration-200">
       {/* Fil d'Ariane */}
       <div className="flex items-center gap-2 text-sm text-slate-500">
         {centre ? (
@@ -635,7 +635,7 @@ export function PersonnelDetailView({ personnelId }: { personnelId: string }) {
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                 Session Active
               </span>
-              <div className="h-9 w-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <div className="h-9 w-9 rounded-xl bg-brand-orange/10 text-brand-orange flex items-center justify-center">
                 <Calendar size={18} />
               </div>
             </div>
@@ -1035,7 +1035,7 @@ export function PersonnelDetailView({ personnelId }: { personnelId: string }) {
 
                     <Card className="p-4 rounded-xl border border-slate-200/80 bg-white">
                       <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                        <div className="h-9 w-9 rounded-lg bg-brand-orange/10 text-brand-orange flex items-center justify-center shrink-0">
                           <Receipt size={18} />
                         </div>
                         <div>

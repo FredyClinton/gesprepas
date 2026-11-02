@@ -8,48 +8,44 @@ import {
   Coins,
   ArrowUpRight,
   GraduationCap,
-  Building2,
   Calendar,
   Layers,
   Award,
-  AlertCircle,
-  UserPlus,
   ArrowRight,
-  TrendingUp,
   School,
   DoorOpen,
-  Pencil,
-  Trash2,
-  Lock,
-  Search,
+  FileText,
+  TrendingUp,
+  CalendarRange,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
-import { Card, Button, Modal, Skeleton, SkeletonCard, SkeletonTable } from "@/shared/ui";
+import { Card, Button, Skeleton, SkeletonCard, SkeletonTable, SortableHeader } from "@/shared/ui";
+import { compareStrings, compareNumbers, type SortDirection } from "@/shared/lib/sort-utils";
 import { useApprenants } from "@/modules/apprenants";
 import { useFormations, usePhases } from "@/modules/academique";
-import { useCentres, useSessionActive } from "@/modules/centres-sessions";
+import {
+  useCentres,
+  useSessionActive,
+  useSessions,
+  EvolutionPerformancesCentre,
+  ComparatifSessionsCentreGraphique,
+} from "@/modules/centres-sessions";
 import {
   useBilanDuJour,
   useRepartitionFormations,
   useMouvementsFinanciers,
   useMotifs,
-  useSupprimerEntree,
-  EnregistrerVersementModal,
-  ModifierVersementModal,
-  type VersementItem,
+  DernieresTransactionsModal,
+  type MouvementFinancier,
 } from "@/modules/financier";
+import { listMouvementsFinanciers } from "@/modules/financier/data/client";
 import { useSalles } from "@/modules/salle";
 import { useConcoursBlancs } from "@/modules/concours-blancs";
 import { useAffectations } from "@/modules/affectation";
 import { semaineCouranteDepuis } from "@/shared/lib/semaine";
 
 const FCFA = new Intl.NumberFormat("fr-FR");
-
-function getInitiales(prenom?: string, nom?: string) {
-  const p = prenom?.trim()?.[0] || "";
-  const n = nom?.trim()?.[0] || "";
-  return (p + n).toUpperCase() || "EP";
-}
 
 const STATUT_BILAN_CONFIG: Record<
   string,
@@ -76,26 +72,22 @@ const STATUT_BILAN_CONFIG: Record<
 };
 
 export function ChefCentreDashboard({ centreId }: { centreId: string }) {
-  const [modalVersementOuverte, setModalVersementOuverte] = useState(false);
-  const [apprenantSelectionneVersement, setApprenantSelectionneVersement] = useState<{
-    id: string;
-    nom: string;
-    soldeRestant: number;
-    formationId?: string;
-  } | null>(null);
+  const [modalTransactionsOuverte, setModalTransactionsOuverte] = useState(false);
+  const [ongletGraphique, setOngletGraphique] = useState<"ACTIVE" | "COMPARATIF">("ACTIVE");
 
-  const [versementAModifier, setVersementAModifier] = useState<VersementItem | null>(null);
-  const [versementASupprimer, setVersementASupprimer] = useState<{
-    id: string;
-    montant: number;
-    libelle: string;
-    date: string;
-  } | null>(null);
-  const [erreurActionVersement, setErreurActionVersement] = useState<string | null>(null);
-  const [rechercheTransaction, setRechercheTransaction] = useState("");
-  const [filtreStatutTransaction, setFiltreStatutTransaction] = useState<"TOUS" | "VALIDE" | "EN_COURS">("TOUS");
+  // Tris du tableau des formations
+  type TriChefFormationColonne = "nom" | "effectif" | "contrats" | "encaisse" | "reste" | "taux";
+  const [triFormationColonne, setTriFormationColonne] = useState<TriChefFormationColonne>("effectif");
+  const [triFormationDirection, setTriFormationDirection] = useState<SortDirection>("desc");
 
-  const supprimerEntreeMutation = useSupprimerEntree();
+  function handleTriFormation(colonne: TriChefFormationColonne) {
+    if (triFormationColonne === colonne) {
+      setTriFormationDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTriFormationColonne(colonne);
+      setTriFormationDirection(colonne === "nom" ? "asc" : "desc");
+    }
+  }
 
   const { data: centres } = useCentres();
   const { data: sessionActive } = useSessionActive();
@@ -128,6 +120,35 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
   });
 
   const centre = centres?.find((c) => c.id === centreId);
+  const { data: allSessions = [] } = useSessions();
+
+  // Mouvements financiers par session pour le centre (pour le comparatif inter-sessions)
+  const { data: mouvementsParSession = {} } = useQuery({
+    queryKey: ["mouvements-toutes-sessions-chef-centre", centreId, centre?.sessionIds],
+    queryFn: async () => {
+      if (!centre?.sessionIds?.length) return {};
+      const map: Record<string, MouvementFinancier[]> = {};
+      await Promise.all(
+        centre.sessionIds.map(async (sId) => {
+          try {
+            const list = await listMouvementsFinanciers(sId, centreId);
+            map[sId] = list;
+          } catch {
+            map[sId] = [];
+          }
+        }),
+      );
+      return map;
+    },
+    enabled: !!centre?.sessionIds && centre.sessionIds.length > 0,
+  });
+
+  const sessionsTriees = useMemo(() => {
+    if (!centre?.sessionIds) return [];
+    return allSessions
+      .filter((s) => centre.sessionIds.includes(s.id))
+      .sort((a, b) => new Date(b.dateDebut).getTime() - new Date(a.dateDebut).getTime());
+  }, [allSessions, centre?.sessionIds]);
 
   // 1. Données apprenants du centre pour la session active
   const apprenantsDuCentre = useMemo(() => {
@@ -216,6 +237,11 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
     )[0];
   }, [concoursBlancs]);
 
+  const epreuvesPasseesCount = useMemo(() => {
+    const aujourdhui = new Date().toISOString().slice(0, 10);
+    return concoursBlancs.filter((c) => c.dateEpreuve <= aujourdhui).length;
+  }, [concoursBlancs]);
+
   // 5. Statistiques par Formation dans le centre
   const statsFormations = useMemo(() => {
     return formations.map((formation) => {
@@ -286,31 +312,27 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
     return { ...totaux, tauxGlobal };
   }, [statsFormations]);
 
-  // Filtrage temps réel des règlements récents
-  const entreesFiltrees = useMemo(() => {
-    return entreesCentre.filter((e) => {
-      if (filtreStatutTransaction !== "TOUS") {
-        if (filtreStatutTransaction === "VALIDE" && e.statut !== "VALIDE") return false;
-        if (filtreStatutTransaction === "EN_COURS" && e.statut === "VALIDE") return false;
+
+  // Formations triées pour affichage tableau
+  const statsFormationsTriees = useMemo(() => {
+    return [...statsFormations].sort((a, b) => {
+      let cmp = 0;
+      if (triFormationColonne === "nom") {
+        cmp = compareStrings(a.nom, b.nom);
+      } else if (triFormationColonne === "effectif") {
+        cmp = compareNumbers(a.totalEleves, b.totalEleves);
+      } else if (triFormationColonne === "contrats") {
+        cmp = compareNumbers(a.contratsFormation, b.contratsFormation);
+      } else if (triFormationColonne === "encaisse") {
+        cmp = compareNumbers(a.encaisseAffiche, b.encaisseAffiche);
+      } else if (triFormationColonne === "reste") {
+        cmp = compareNumbers(a.resteARecouvrer, b.resteARecouvrer);
+      } else if (triFormationColonne === "taux") {
+        cmp = compareNumbers(a.taux, b.taux);
       }
-      if (!rechercheTransaction.trim()) return true;
-      const q = rechercheTransaction.toLowerCase();
-      const apprenant = apprenantsDuCentre.find((a) => a.id === e.apprenantId);
-      const motif = motifs.find((m) => m.id === e.motifId);
-      const formation = formations.find((f) => f.id === e.formationId);
-      const nomComplet = apprenant ? `${apprenant.prenom} ${apprenant.nom}`.toLowerCase() : "";
-      const motifNom = motif?.nom?.toLowerCase() || "";
-      const formationNom = formation?.nom?.toLowerCase() || "";
-      return nomComplet.includes(q) || motifNom.includes(q) || formationNom.includes(q);
+      return triFormationDirection === "asc" ? cmp : -cmp;
     });
-  }, [
-    entreesCentre,
-    filtreStatutTransaction,
-    rechercheTransaction,
-    apprenantsDuCentre,
-    motifs,
-    formations,
-  ]);
+  }, [statsFormations, triFormationColonne, triFormationDirection]);
 
   // 6. Top Lycées / Établissements d'Origine
   const topEtablissements = useMemo(() => {
@@ -372,76 +394,61 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
-      {/* ── 1. En-tête & Bannière Opérationnelle Hero ── */}
-      <div className="relative overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-6 shadow-xs">
-        {/* Décoration douce d'arrière-plan */}
-        <div className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-gradient-to-br from-orange-100/50 via-amber-50/20 to-transparent blur-2xl" />
-
-        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-500/10 text-brand-orange ring-1 ring-orange-500/20 shadow-2xs">
-              <Building2 size={24} />
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Centre Opérationnel</span>
-                </span>
-
-                {sessionActive && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-700">
-                    <Calendar size={12} className="text-slate-500" />
-                    <span>Session {sessionActive.annee}</span>
-                  </span>
-                )}
-
-                {phases.length > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200/70 px-2.5 py-0.5 text-[11px] font-bold text-amber-900">
-                    <Layers size={12} className="text-brand-orange" />
-                    <span>Semaine {semaineCourante}</span>
-                  </span>
-                )}
-              </div>
-
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
-                {centre?.nom ?? "Tableau de Bord du Centre"}
-              </h1>
-
-              <p className="text-xs sm:text-sm text-slate-500 font-medium">
-                {centre?.adresseActuelle ? `${centre.adresseActuelle}, ` : ""}
-                {centre?.villeActuelle ?? "Direction de Centre"} · Suivi opérationnel en temps réel des effectifs, de la trésorerie et de la pédagogie.
-              </p>
-            </div>
+    <div className="w-full space-y-8">
+      {/* ── 1. En-tête Opérationnel ── */}
+      <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-2xs lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            {sessionActive && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 font-bold text-slate-700">
+                <Calendar size={12} className="text-slate-500" />
+                Session {sessionActive.annee}
+              </span>
+            )}
+            {phases.length > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200/70 px-2 py-0.5 font-bold text-amber-900">
+                <Layers size={12} className="text-brand-orange" />
+                Semaine {semaineCourante}
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 font-bold text-emerald-800">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              Opérationnel
+            </span>
           </div>
 
-          {/* Actions opérationnelles directes */}
-          <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-auto">
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
+            {centre?.nom ?? "Tableau de Bord du Centre"}
+          </h1>
+
+          <p className="text-xs text-slate-500 font-medium">
+            {centre?.adresseActuelle ? `${centre.adresseActuelle}, ` : ""}
+            {centre?.villeActuelle ?? "Direction de Centre"}
+          </p>
+        </div>
+
+        {/* Actions de supervision et consultation */}
+        <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
+          <Link href="/apprenants">
             <Button
               type="button"
-              onClick={() => {
-                setApprenantSelectionneVersement(null);
-                setModalVersementOuverte(true);
-              }}
-              className="bg-brand-orange hover:bg-orange-600 text-white flex items-center gap-2 text-xs font-bold shadow-xs cursor-pointer px-4 py-2.5 rounded-xl transition-all active:scale-[0.98]"
+              className="bg-brand-orange hover:bg-brand-orange/90 text-white flex items-center gap-2 text-xs font-bold shadow-xs cursor-pointer px-3.5 py-2 rounded-lg transition-all"
             >
-              <Coins size={15} />
-              <span>Encaisser versement</span>
+              <Users size={14} />
+              <span>Consulter les apprenants</span>
             </Button>
+          </Link>
 
-            <Link href="/inscription">
-              <Button
-                type="button"
-                variant="secondary"
-                className="flex items-center gap-2 text-xs font-bold cursor-pointer border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 rounded-xl text-slate-800 transition-all active:scale-[0.98]"
-              >
-                <UserPlus size={15} />
-                <span>Inscrire un élève</span>
-              </Button>
-            </Link>
-          </div>
+          <Link href="/bilan-journalier">
+            <Button
+              type="button"
+              variant="secondary"
+              className="flex items-center gap-2 text-xs font-bold cursor-pointer border border-slate-200 bg-white hover:bg-slate-50 px-3.5 py-2 rounded-lg text-slate-800 transition-all"
+            >
+              <FileText size={14} />
+              <span>Bilan journalier &amp; Visa</span>
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -688,11 +695,7 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
                               Math.min(
                                 100,
                                 Math.round(
-                                  (concoursBlancs.filter(
-                                    (c) => new Date(c.dateEpreuve).getTime() <= Date.now(),
-                                  ).length /
-                                    concoursBlancs.length) *
-                                    100,
+                                  (epreuvesPasseesCount / concoursBlancs.length) * 100,
                                 ),
                               ),
                             )
@@ -720,6 +723,7 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         {/* Colonne Gauche : Tableau Formations & Règlements (2 colonnes sur grand écran) */}
         <div className="space-y-8 lg:col-span-2">
+
           {/* Tableau de Performance par Formation */}
           <Card className="overflow-hidden border border-slate-200 bg-white shadow-xs">
             <div className="border-b border-slate-100 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -746,12 +750,53 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 text-slate-700">
-                    <th className="p-3.5 font-bold">Filière / Programme</th>
-                    <th className="p-3.5 font-bold text-center">Effectif Total</th>
-                    <th className="p-3.5 font-bold text-right">Contrats Souscrits</th>
-                    <th className="p-3.5 font-bold text-right">Encaissé</th>
-                    <th className="p-3.5 font-bold text-right">Reste Dû</th>
-                    <th className="p-3.5 font-bold text-center">Taux</th>
+                    <SortableHeader
+                      label="Filière / Programme"
+                      sortKey="nom"
+                      currentSortKey={triFormationColonne}
+                      direction={triFormationDirection}
+                      onSort={handleTriFormation}
+                    />
+                    <SortableHeader
+                      label="Effectif Total"
+                      sortKey="effectif"
+                      currentSortKey={triFormationColonne}
+                      direction={triFormationDirection}
+                      onSort={handleTriFormation}
+                      align="center"
+                    />
+                    <SortableHeader
+                      label="Contrats Souscrits"
+                      sortKey="contrats"
+                      currentSortKey={triFormationColonne}
+                      direction={triFormationDirection}
+                      onSort={handleTriFormation}
+                      align="right"
+                    />
+                    <SortableHeader
+                      label="Encaissé"
+                      sortKey="encaisse"
+                      currentSortKey={triFormationColonne}
+                      direction={triFormationDirection}
+                      onSort={handleTriFormation}
+                      align="right"
+                    />
+                    <SortableHeader
+                      label="Reste Dû"
+                      sortKey="reste"
+                      currentSortKey={triFormationColonne}
+                      direction={triFormationDirection}
+                      onSort={handleTriFormation}
+                      align="right"
+                    />
+                    <SortableHeader
+                      label="Taux"
+                      sortKey="taux"
+                      currentSortKey={triFormationColonne}
+                      direction={triFormationDirection}
+                      onSort={handleTriFormation}
+                      align="center"
+                    />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -761,14 +806,14 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
                         Chargement des filières...
                       </td>
                     </tr>
-                  ) : statsFormations.length === 0 ? (
+                  ) : statsFormationsTriees.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="text-slate-400 p-6 text-center text-xs">
                         Aucune formation active trouvée.
                       </td>
                     </tr>
                   ) : (
-                    statsFormations.map((f) => (
+                    statsFormationsTriees.map((f) => (
                       <tr key={f.id} className="hover:bg-amber-50/50 transition-colors">
                         <td className="p-3.5">
                           <span className="font-bold text-slate-900 text-sm block">
@@ -860,231 +905,57 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
             </div>
           </Card>
 
-          {/* Flux des Dernières Transactions Encaissées */}
-          <Card className="overflow-hidden border border-slate-200 bg-white shadow-xs">
-            <div className="border-b border-slate-100 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
-                  <TrendingUp className="text-brand-orange" size={20} />
-                  <span>Derniers Règlements Encaissés</span>
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
-                    {entreesFiltrees.length}
-                  </span>
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Mouvements de trésorerie récents enregistrés au guichet du centre.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2.5">
-                <div className="relative">
-                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    value={rechercheTransaction}
-                    onChange={(e) => setRechercheTransaction(e.target.value)}
-                    placeholder="Filtrer élève, motif..."
-                    className="h-8 pl-8 pr-3 text-xs rounded-lg border border-slate-200 bg-slate-50/70 placeholder:text-slate-400 focus:bg-white focus:border-brand-orange focus:outline-none transition-all w-44 sm:w-48"
-                  />
-                </div>
-
-                <div className="flex items-center rounded-lg border border-slate-200 bg-slate-100/60 p-0.5 text-[11px] font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setFiltreStatutTransaction("TOUS")}
-                    className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
-                      filtreStatutTransaction === "TOUS"
-                        ? "bg-white text-slate-900 shadow-2xs font-extrabold"
-                        : "text-slate-500 hover:text-slate-900"
-                    }`}
-                  >
-                    Tous
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFiltreStatutTransaction("VALIDE")}
-                    className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
-                      filtreStatutTransaction === "VALIDE"
-                        ? "bg-white text-emerald-800 shadow-2xs font-extrabold"
-                        : "text-slate-500 hover:text-emerald-800"
-                    }`}
-                  >
-                    Validés
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFiltreStatutTransaction("EN_COURS")}
-                    className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
-                      filtreStatutTransaction === "EN_COURS"
-                        ? "bg-white text-amber-800 shadow-2xs font-extrabold"
-                        : "text-slate-500 hover:text-amber-800"
-                    }`}
-                  >
-                    En cours
-                  </button>
-                </div>
-
-                <Link
-                  href="/finances"
-                  className="text-xs font-bold text-brand-orange hover:underline flex items-center gap-1 ml-0.5"
+          {/* ── Visualisation Graphique : Choix entre Évolution de session active et Comparatif inter-sessions (N vs N-1) ── */}
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center rounded-xl bg-slate-100 p-1 border border-slate-200/80 text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => setOngletGraphique("ACTIVE")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                    ongletGraphique === "ACTIVE"
+                      ? "bg-white text-slate-900 shadow-2xs font-extrabold"
+                      : "text-slate-500 hover:text-slate-900"
+                  }`}
                 >
-                  <span>Journal</span>
-                  <ArrowRight size={13} />
-                </Link>
+                  <TrendingUp size={14} className={ongletGraphique === "ACTIVE" ? "text-brand-orange" : ""} />
+                  <span>Évolution Session Active</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOngletGraphique("COMPARATIF")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                    ongletGraphique === "COMPARATIF"
+                      ? "bg-white text-slate-900 shadow-2xs font-extrabold"
+                      : "text-slate-500 hover:text-slate-900"
+                  }`}
+                >
+                  <CalendarRange size={14} className={ongletGraphique === "COMPARATIF" ? "text-brand-orange" : ""} />
+                  <span>Comparatif Inter-Sessions (N vs N-1)</span>
+                </button>
               </div>
             </div>
 
-            {entreesFiltrees.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
-                <div className="h-9 w-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
-                  <Search size={16} />
-                </div>
-                <p className="font-medium">
-                  {rechercheTransaction.trim()
-                    ? "Aucun règlement ne correspond à votre filtre."
-                    : "Aucun règlement financier enregistré pour le moment."}
-                </p>
-              </div>
+            {ongletGraphique === "ACTIVE" ? (
+              <EvolutionPerformancesCentre
+                nomCentre={centre?.nom}
+                centreId={centreId}
+                sessionActive={sessionActive}
+                apprenantsDuCentre={apprenantsDuCentre}
+                entreesCentre={entreesCentre}
+                onOuvrirTransactions={() => setModalTransactionsOuverte(true)}
+              />
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50 text-slate-700">
-                      <th className="p-3 font-bold">Date</th>
-                      <th className="p-3 font-bold">Élève & Programme</th>
-                      <th className="p-3 font-bold">Motif</th>
-                      <th className="p-3 font-bold text-right">Montant</th>
-                      <th className="p-3 font-bold text-center">Statut</th>
-                      <th className="p-3 font-bold text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {entreesFiltrees.slice(0, 10).map((e) => {
-                      const apprenant = apprenantsDuCentre.find((a) => a.id === e.apprenantId);
-                      const formation = formations.find((f) => f.id === e.formationId);
-                      const motif = motifs.find((m) => m.id === e.motifId);
-                      const aujourdhuiStr = new Date().toISOString().slice(0, 10);
-                      const bilanAujourdhuiValide =
-                        bilan?.statut === "EN_ATTENTE_CONTROLEUR" || bilan?.statut === "CLOTURE";
-                      const isDateVerrouillee =
-                        (e.date === aujourdhuiStr && bilanAujourdhuiValide) ||
-                        (e.date < aujourdhuiStr && e.statut === "VALIDE");
-
-                      return (
-                        <tr key={e.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="p-3 whitespace-nowrap">
-                            <span className="font-bold text-slate-800 block">
-                              {new Date(e.date).toLocaleDateString("fr-FR")}
-                            </span>
-                            {e.date === aujourdhuiStr && (
-                              <span className="inline-block mt-0.5 rounded px-1.5 py-0.2 bg-emerald-100 text-[10px] font-black text-emerald-800">
-                                Aujourd&apos;hui
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-3">
-                            <div className="flex items-center gap-2.5">
-                              <div className="h-7 w-7 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[10px] flex items-center justify-center shrink-0">
-                                {getInitiales(apprenant?.prenom, apprenant?.nom)}
-                              </div>
-                              <div className="min-w-0">
-                                {apprenant ? (
-                                  <Link
-                                    href={`/apprenants/${apprenant.id}`}
-                                    className="font-bold text-slate-900 hover:text-brand-orange transition-colors truncate block"
-                                  >
-                                    {apprenant.prenom} {apprenant.nom}
-                                  </Link>
-                                ) : (
-                                  <span className="text-slate-500 font-medium">Versement divers</span>
-                                )}
-                                {formation && (
-                                  <span className="text-[10px] text-slate-400 block truncate">
-                                    {formation.nom}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-3 text-slate-700 font-medium">
-                            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-medium text-[11px] inline-block">
-                              {motif?.nom || "Frais de scolarité"}
-                            </span>
-                          </td>
-                          <td className="p-3 text-right font-black text-slate-900 tabular-nums whitespace-nowrap">
-                            +{FCFA.format(e.montant)} F
-                          </td>
-                          <td className="p-3 text-center whitespace-nowrap">
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
-                                e.statut === "VALIDE"
-                                  ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20"
-                                  : "bg-amber-50 text-amber-700 ring-1 ring-amber-600/20"
-                              }`}
-                            >
-                              <span
-                                className={`h-1.5 w-1.5 rounded-full ${
-                                  e.statut === "VALIDE" ? "bg-emerald-500" : "bg-amber-500"
-                                }`}
-                              />
-                              {e.statut === "VALIDE" ? "Validé" : "En cours"}
-                            </span>
-                          </td>
-                          <td className="p-3 text-right whitespace-nowrap">
-                            {isDateVerrouillee ? (
-                              <span
-                                title="Bilan clôturé pour cette date (modification verrouillée)"
-                                className="inline-flex items-center gap-1 text-slate-400 p-1 cursor-not-allowed"
-                              >
-                                <Lock size={13} />
-                              </span>
-                            ) : (
-                              <div className="flex items-center justify-end gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setVersementAModifier({
-                                      id: e.id,
-                                      montant: e.montant,
-                                      date: e.date,
-                                      motifId: e.motifId,
-                                      motifNom: motif?.nom,
-                                      apprenantId: e.apprenantId,
-                                      apprenantNom: apprenant ? `${apprenant.prenom} ${apprenant.nom}` : undefined,
-                                    })
-                                  }
-                                  className="p-1 rounded-md text-slate-500 hover:text-brand-orange hover:bg-orange-50 transition-colors cursor-pointer"
-                                  title="Modifier ce versement"
-                                >
-                                  <Pencil size={13} />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setErreurActionVersement(null);
-                                    setVersementASupprimer({
-                                      id: e.id,
-                                      montant: e.montant,
-                                      libelle: motif?.nom || "Versement",
-                                      date: e.date,
-                                    });
-                                  }}
-                                  className="p-1 rounded-md text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                                  title="Supprimer ce versement"
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <ComparatifSessionsCentreGraphique
+                nomCentre={centre?.nom}
+                centreId={centreId}
+                sessions={sessionsTriees}
+                sessionActiveId={sessionActive?.id}
+                allApprenants={apprenants}
+                mouvementsParSession={mouvementsParSession}
+              />
             )}
-          </Card>
+          </div>
         </div>
 
         {/* Colonne Droite : Volets Opérationnels Latéraux */}
@@ -1172,19 +1043,15 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
                   <div key={etab.nom} className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span
-                          className={`h-5 w-5 rounded-md flex items-center justify-center text-[10px] font-black shrink-0 ${
-                            idx === 0 ? "bg-brand-orange text-white" : "bg-slate-100 text-slate-600"
-                          }`}
-                        >
-                          0{idx + 1}
+                        <span className="text-[11px] font-bold text-slate-400 w-4 text-center">
+                          {idx + 1}.
                         </span>
-                        <span className="font-bold text-slate-800 truncate max-w-[170px]" title={etab.nom}>
+                        <span className="font-semibold text-slate-800 truncate max-w-[170px]" title={etab.nom}>
                           {etab.nom}
                         </span>
                       </div>
-                      <span className="text-slate-600 font-bold tabular-nums">
-                        {etab.count} élève{etab.count > 1 ? "s" : ""} ({etab.part}%)
+                      <span className="text-slate-600 font-semibold tabular-nums text-xs">
+                        {etab.count} ({etab.part}%)
                       </span>
                     </div>
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
@@ -1201,115 +1068,16 @@ export function ChefCentreDashboard({ centreId }: { centreId: string }) {
         </div>
       </div>
 
-      {/* ── Modal Encaissement Rapide Directe ── */}
-      {modalVersementOuverte && sessionActive && (
-        <EnregistrerVersementModal
-          isOpen={modalVersementOuverte}
-          onClose={() => {
-            setModalVersementOuverte(false);
-            setApprenantSelectionneVersement(null);
-          }}
-          centreId={centreId}
-          sessionId={sessionActive.id}
-          apprenantId={apprenantSelectionneVersement?.id}
-          nomApprenant={apprenantSelectionneVersement?.nom}
-          formationId={apprenantSelectionneVersement?.formationId}
-          soldeRestant={apprenantSelectionneVersement?.soldeRestant ?? resteGlobalRecouvrer}
-        />
-      )}
-
-      {/* ── Modal Modification de Versement ── */}
-      {versementAModifier && (
-        <ModifierVersementModal
-          isOpen={Boolean(versementAModifier)}
-          onClose={() => setVersementAModifier(null)}
-          versement={versementAModifier}
-        />
-      )}
-
-      {/* ── Modal Confirmation Suppression Versement ── */}
-      {versementASupprimer && (
-        <Modal
-          isOpen={Boolean(versementASupprimer)}
-          onClose={() => {
-            if (!supprimerEntreeMutation.isPending) {
-              setVersementASupprimer(null);
-              setErreurActionVersement(null);
-            }
-          }}
-          title="Confirmer la suppression du versement"
-        >
-          <div className="space-y-4">
-            {erreurActionVersement && (
-              <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs text-rose-700 font-medium">
-                <AlertCircle size={16} className="shrink-0 text-rose-500" />
-                <span>{erreurActionVersement}</span>
-              </div>
-            )}
-
-            <p className="text-xs text-slate-600">
-              Êtes-vous certain de vouloir supprimer ce versement ?
-            </p>
-
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs space-y-1">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Montant :</span>
-                <span className="font-bold text-slate-900">{FCFA.format(versementASupprimer.montant)} FCFA</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Date :</span>
-                <span className="font-bold text-slate-900">{new Date(versementASupprimer.date).toLocaleDateString("fr-FR")}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Motif :</span>
-                <span className="font-bold text-slate-900">{versementASupprimer.libelle}</span>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 flex items-start gap-2">
-              <AlertCircle size={15} className="shrink-0 text-amber-600 mt-0.5" />
-              <span>
-                <strong>Attention :</strong> Cette action est irréversible. Si ce versement est lié à une vente d'ouvrages,
-                les enregistrements de vente associés seront automatiquement annulés.
-              </span>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={supprimerEntreeMutation.isPending}
-                onClick={() => {
-                  setVersementASupprimer(null);
-                  setErreurActionVersement(null);
-                }}
-              >
-                Annuler
-              </Button>
-              <Button
-                type="button"
-                disabled={supprimerEntreeMutation.isPending}
-                onClick={async () => {
-                  setErreurActionVersement(null);
-                  try {
-                    await supprimerEntreeMutation.mutateAsync(versementASupprimer.id);
-                    setVersementASupprimer(null);
-                  } catch (err: unknown) {
-                    const msg =
-                      err instanceof Error
-                        ? err.message
-                        : "Impossible de supprimer ce versement : le bilan de cette journée est déjà validé.";
-                    setErreurActionVersement(msg);
-                  }
-                }}
-                className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
-              >
-                {supprimerEntreeMutation.isPending ? "Suppression..." : "Confirmer la suppression"}
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
+      {/* Modale de consultation rapide des dernières transactions */}
+      <DernieresTransactionsModal
+        isOpen={modalTransactionsOuverte}
+        onClose={() => setModalTransactionsOuverte(false)}
+        transactions={entreesCentre}
+        apprenants={apprenantsDuCentre}
+        motifs={motifs}
+        formations={formations}
+        nomCentre={centre?.nom}
+      />
     </div>
   );
 }

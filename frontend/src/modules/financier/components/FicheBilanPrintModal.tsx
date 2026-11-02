@@ -1,8 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, Printer, CheckCircle2 } from "lucide-react";
+import { Logo } from "@/shared/ui";
+import { formaterDateHeureGeneration } from "@/shared/lib/format-document-date";
 import type { BilanApercu, MouvementFinancier, Motif } from "../domain/types";
+import type { Formation } from "@/modules/academique";
 import { nombreEnLettres } from "@/shared/lib/nombre-en-lettres";
 
 const FCFA = new Intl.NumberFormat("fr-FR");
@@ -16,6 +20,7 @@ interface FicheBilanPrintModalProps {
   bilan: BilanApercu | null | undefined;
   mouvements: MouvementFinancier[];
   motifs: Motif[];
+  formations?: Formation[];
 }
 
 export function FicheBilanPrintModal({
@@ -27,8 +32,24 @@ export function FicheBilanPrintModal({
   bilan,
   mouvements,
   motifs,
+  formations = [],
 }: FicheBilanPrintModalProps) {
-  if (!isOpen) return null;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.classList.add("print-modal-open");
+    }
+    return () => {
+      document.body.classList.remove("print-modal-open");
+    };
+  }, [isOpen]);
+
+  if (!isOpen || !mounted) return null;
 
   const handlePrint = () => {
     window.print();
@@ -64,11 +85,73 @@ export function FicheBilanPrintModal({
     return motifs.find((m) => m.id === motifId)?.nom || "Versement / Dépense";
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-2 sm:p-4 backdrop-blur-xs duration-200 overflow-y-auto">
-      <div className="relative flex max-h-[96vh] w-full max-w-4xl flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">
+  const getNomFormation = (formationId: string | null | undefined) => {
+    if (!formationId) return "";
+    return formations.find((f) => f.id === formationId)?.nom || "";
+  };
+
+  // Regroupement des entrées
+  const groupesEntrees = React.useMemo(() => {
+    const map = new Map<string, {
+      titre: string;
+      effectif: number;
+      montantTotal: number;
+    }>();
+
+    entreesDuJour.forEach((e) => {
+      const motifNom = getNomMotif(e.motifId);
+      const isLivre =
+        e.motifId === "00000000-0000-0000-0000-000000000012" ||
+        motifNom.toLowerCase().includes("livre") ||
+        Boolean(e.livreTitre) ||
+        Boolean(e.details);
+
+      let cle = "";
+      let titre = "";
+
+      if (isLivre) {
+        const titreLivre = e.details || e.livreTitre || "Vente de livres";
+        cle = `livre__${titreLivre}`;
+        titre = `Achat de livre : ${titreLivre}`;
+      } else if (e.formationId) {
+        const formationNom = getNomFormation(e.formationId);
+        cle = `${e.motifId}__${e.formationId}`;
+        titre = formationNom ? `${motifNom} de ${formationNom}` : motifNom;
+      } else {
+        cle = `${e.motifId}__general`;
+        titre = motifNom;
+      }
+
+      if (!map.has(cle)) {
+        map.set(cle, {
+          titre,
+          effectif: 0,
+          montantTotal: 0,
+        });
+      }
+
+      const grp = map.get(cle)!;
+      grp.effectif += 1;
+      grp.montantTotal += e.montant;
+    });
+
+    return Array.from(map.values());
+  }, [entreesDuJour, motifs, formations]);
+
+  return createPortal(
+    <div
+      className="printable-modal print-portrait fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-2 sm:p-4 backdrop-blur-xs duration-200 overflow-y-auto"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <style dangerouslySetInnerHTML={{ __html: "@page { size: A4 portrait; margin: 8mm 8mm; }" }} />
+      <div
+        className="printable-dialog relative flex max-h-[96vh] w-full max-w-4xl flex-col rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Barre d'outils modale (masquée à l'impression) */}
-        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-3 print:hidden">
+        <div className="no-print print:hidden flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-3">
           <div>
             <h3 className="text-sm font-black text-slate-800">
               Aperçu avant impression – Fiche de Bilan Journalier
@@ -81,14 +164,14 @@ export function FicheBilanPrintModal({
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 rounded-lg bg-brand-orange px-4 py-2 text-xs font-bold text-white shadow-xs transition-colors hover:bg-orange-600"
+              className="flex items-center gap-1.5 rounded-lg bg-brand-orange px-4 py-2 text-xs font-bold text-white shadow-xs transition-colors hover:bg-orange-600 cursor-pointer"
             >
               <Printer className="h-4 w-4" />
               <span>Imprimer la Fiche</span>
             </button>
             <button
               onClick={onClose}
-              className="rounded-lg p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+              className="rounded-lg p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-700 cursor-pointer"
               title="Fermer"
             >
               <X className="h-5 w-5" />
@@ -97,20 +180,13 @@ export function FicheBilanPrintModal({
         </div>
 
         {/* Contenu imprimable (A4 Portrait normalisé) */}
-        <div className="overflow-y-auto p-4 sm:p-8 print:p-0 print:overflow-visible">
+        <div className="printable-body overflow-y-auto p-4 sm:p-8 print:p-0 print:overflow-visible">
           <div className="mx-auto max-w-[210mm] bg-white text-slate-900 font-sans print:w-full print:max-w-none text-[11px] leading-tight">
             {/* ── EN-TÊTE OFFICIEL EXCELIS PREPAS ── */}
             <div className="flex items-stretch justify-between gap-4 border-b-2 border-slate-900 pb-3 mb-3">
               {/* Logo & Identité Gauche */}
               <div className="flex flex-col justify-center">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl font-black tracking-tighter text-slate-900">
-                    EX<span className="text-brand-orange">CELIS</span>
-                  </span>
-                </div>
-                <div className="text-[10px] tracking-[0.25em] font-extrabold text-slate-700">
-                  P R E P A S
-                </div>
+                <Logo className="h-10 w-auto object-contain" priority />
               </div>
 
               {/* Bloc Droite Institutionnel Orange */}
@@ -175,21 +251,23 @@ export function FicheBilanPrintModal({
                   </tr>
                 </thead>
                 <tbody>
-                  {entreesDuJour.length > 0 ? (
-                    entreesDuJour.map((e, index) => (
-                      <tr key={e.id} className="border-b border-slate-300">
+                  {groupesEntrees.length > 0 ? (
+                    groupesEntrees.map((grp, index) => (
+                      <tr key={index} className="border-b border-slate-300">
                         <td className="border border-slate-900 p-1 text-center font-bold">
                           {index + 1}
                         </td>
                         <td className="border border-slate-900 p-1 font-medium">
-                          {getNomMotif(e.motifId)}
+                          {grp.titre}
                         </td>
-                        <td className="border border-slate-900 p-1 text-center">1</td>
+                        <td className="border border-slate-900 p-1 text-center font-bold">
+                          {grp.effectif}
+                        </td>
                         <td className="border border-slate-900 p-1 text-slate-700">
                           {bilan?.nomCaissier || "Caissier du centre"}
                         </td>
                         <td className="border border-slate-900 p-1 text-right font-bold">
-                          {FCFA.format(e.montant)}
+                          {FCFA.format(grp.montantTotal)}
                         </td>
                         <td className="border border-slate-900 p-1 text-center text-[9px] text-slate-400">
                           {bilan?.dateVisaCaissier ? "Visé" : "—"}
@@ -424,9 +502,15 @@ export function FicheBilanPrintModal({
                 </div>
               </div>
             </div>
+
+            {/* Pied de page officiel avec date & heure d'édition */}
+            <div className="text-center pt-2 mt-2 border-t border-slate-200 text-[9px] text-slate-400">
+              Document officiel EXCELIS PRÉPAS • {formaterDateHeureGeneration()}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

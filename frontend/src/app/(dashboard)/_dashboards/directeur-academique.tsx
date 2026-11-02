@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   UserRound,
@@ -12,7 +12,8 @@ import {
   BookOpen,
 } from "lucide-react";
 
-import { Card } from "@/shared/ui";
+import { Card, SortableHeader } from "@/shared/ui";
+import { compareStrings, compareNumbers, type SortDirection } from "@/shared/lib/sort-utils";
 import { useEnseignants } from "@/modules/personnel";
 import { useCentres, useSessionActive } from "@/modules/centres-sessions";
 import { useAffectations } from "@/modules/affectation";
@@ -162,8 +163,80 @@ export function DirecteurAcademiqueDashboard() {
     return tries.slice(0, 8);
   }, [enseignants, enseignantIdsSession]);
 
+  // Tris des tableaux
+  type TriConformiteColonne = "departement" | "seances" | "cours" | "statut";
+  const [triConformiteColonne, setTriConformiteColonne] = useState<TriConformiteColonne>("departement");
+  const [triConformiteDirection, setTriConformiteDirection] = useState<SortDirection>("asc");
+
+  function handleTriConformite(colonne: TriConformiteColonne) {
+    if (triConformiteColonne === colonne) {
+      setTriConformiteDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTriConformiteColonne(colonne);
+      setTriConformiteDirection(colonne === "departement" ? "asc" : "desc");
+    }
+  }
+
+  const conformiteTriees = useMemo(() => {
+    return [...conformiteSemaineCourante].sort((a, b) => {
+      let res = 0;
+      switch (triConformiteColonne) {
+        case "departement":
+          res = compareStrings(a.departementNom, b.departementNom);
+          break;
+        case "seances":
+          res = compareNumbers(a.nbSeancesPlanifiees, b.nbSeancesPlanifiees);
+          break;
+        case "cours":
+          res = compareNumbers(a.nbCoursSaisis, b.nbCoursSaisis);
+          break;
+        case "statut":
+          res = Number(a.aJour) - Number(b.aJour);
+          break;
+      }
+      return triConformiteDirection === "asc" ? res : -res;
+    });
+  }, [conformiteSemaineCourante, triConformiteColonne, triConformiteDirection]);
+
+  type TriEnseignantCol = "nom" | "matricule" | "departements" | "statut";
+  const [triEnseignantCol, setTriEnseignantCol] = useState<TriEnseignantCol>("nom");
+  const [triEnseignantDir, setTriEnseignantDir] = useState<SortDirection>("asc");
+
+  function handleTriEnseignant(colonne: TriEnseignantCol) {
+    if (triEnseignantCol === colonne) {
+      setTriEnseignantDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTriEnseignantCol(colonne);
+      setTriEnseignantDir("asc");
+    }
+  }
+
+  const enseignantsAffichesTries = useMemo(() => {
+    return [...enseignantsAffiches].sort((a, b) => {
+      let res = 0;
+      switch (triEnseignantCol) {
+        case "nom":
+          res = compareStrings(a.nom + " " + a.prenom, b.nom + " " + b.prenom);
+          break;
+        case "matricule":
+          res = compareStrings(a.matricule || "", b.matricule || "");
+          break;
+        case "departements": {
+          const depsA = departementsParEnseignant.get(a.id)?.join(", ") || "";
+          const depsB = departementsParEnseignant.get(b.id)?.join(", ") || "";
+          res = compareStrings(depsA, depsB);
+          break;
+        }
+        case "statut":
+          res = compareStrings(a.statut, b.statut);
+          break;
+      }
+      return triEnseignantDir === "asc" ? res : -res;
+    });
+  }, [enseignantsAffiches, triEnseignantCol, triEnseignantDir, departementsParEnseignant]);
+
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
+    <div className="w-full space-y-8">
       {/* En-tête de page */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-1">
@@ -194,41 +267,41 @@ export function DirecteurAcademiqueDashboard() {
       </div>
 
       {/* KPIs Opérationnels */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 items-stretch">
         {/* KPI 1 : Enseignants en session (Actifs) */}
-        <Card className="group hover:shadow-brand-orange/10 relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg flex flex-col justify-between">
+        <Card className="p-5 bg-white border border-slate-200 shadow-2xs flex flex-col justify-between">
           <div>
             <div className="flex items-start justify-between">
-              <span className="text-brand-gray text-xs font-bold tracking-wide uppercase">
+              <span className="text-slate-500 text-xs font-bold tracking-wide uppercase">
                 Enseignants en session
               </span>
-              <div className="from-brand-orange/20 to-brand-orange/5 text-brand-orange rounded-xl bg-gradient-to-br p-2.5 transition-transform duration-300 group-hover:scale-110">
-                <UserRound size={20} strokeWidth={2.5} />
+              <div className="bg-orange-50 text-brand-orange rounded-xl p-2.5 ring-1 ring-orange-500/10">
+                <UserRound size={18} />
               </div>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-brand-anthracite text-4xl font-extrabold tracking-tight">
+              <span className="text-slate-900 text-3xl font-black tracking-tight tabular-nums">
                 {chargementEnseignants || chargementRosters
                   ? "…"
                   : (sessionActive ? enseignantsActifsSession : PLACEHOLDER)}
               </span>
               {enseignantsActifsSession > 0 ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700 border border-emerald-200">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700 border border-emerald-200">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                   actif{enseignantsActifsSession > 1 ? "s" : ""}
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500 border border-slate-200">
+                <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500 border border-slate-200">
                   aucun affecté
                 </span>
               )}
             </div>
             <p className="mt-1 text-xs text-slate-400">
-              Rattachés à la session {sessionActive?.annee ?? "en cours"}
+              Session {sessionActive?.annee ?? "en cours"}
             </p>
           </div>
           <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-medium">
-            <span className="text-brand-gray">
+            <span className="text-slate-500">
               Total réseau : <strong className="text-slate-800 font-bold">{chargementEnseignants ? "…" : totalEnseignantsReseau}</strong>
             </span>
             <Link
@@ -242,60 +315,80 @@ export function DirecteurAcademiqueDashboard() {
         </Card>
 
         {/* KPI 2 : Centres Actifs */}
-        <Card className="group relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
-          <div className="flex items-start justify-between">
-            <span className="text-brand-gray text-xs font-bold tracking-wide uppercase">
-              Centres actifs
-            </span>
-            <div className="from-brand-anthracite/10 to-brand-anthracite/5 text-brand-anthracite rounded-xl bg-gradient-to-br p-2.5 transition-transform duration-300 group-hover:scale-110">
-              <Building2 size={20} strokeWidth={2.5} />
+        <Card className="p-5 bg-white border border-slate-200 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-start justify-between">
+              <span className="text-slate-500 text-xs font-bold tracking-wide uppercase">
+                Centres actifs
+              </span>
+              <div className="bg-slate-100 text-slate-700 rounded-xl p-2.5">
+                <Building2 size={18} />
+              </div>
             </div>
+            <div className="text-slate-900 mt-3 text-3xl font-black tracking-tight tabular-nums">
+              {chargementCentres ? "…" : (centresActifs ?? PLACEHOLDER)}
+            </div>
+            <p className="mt-1 text-xs text-slate-400">
+              Centres ouverts dans la session
+            </p>
           </div>
-          <div className="text-brand-anthracite mt-3 text-4xl font-extrabold tracking-tight">
-            {chargementCentres ? "…" : (centresActifs ?? PLACEHOLDER)}
-          </div>
-          <div className="text-brand-gray mt-2 flex items-center text-xs font-medium">
-            <span>Centres ouverts dans la session</span>
+          <div className="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500">
+            Réseau national EXCELIS
           </div>
         </Card>
 
         {/* KPI 3 : Créneaux sans prof */}
-        <Card className="group relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-red-500/10">
-          {creneauxNonAssignes && creneauxNonAssignes > 0 ? (
-            <div className="absolute -top-4 -right-4 h-24 w-24 rounded-full bg-red-50 blur-2xl transition-all duration-300 group-hover:bg-red-100"></div>
-          ) : null}
-          <div className="relative flex items-start justify-between">
-            <span className="text-brand-gray text-xs font-bold tracking-wide uppercase">
-              Créneaux sans prof
-            </span>
-            <div className="rounded-xl bg-gradient-to-br from-red-100 to-red-50 p-2.5 text-red-600 transition-transform duration-300 group-hover:scale-110">
-              <AlertTriangle size={20} strokeWidth={2.5} />
+        <Card className="p-5 bg-white border border-slate-200 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-start justify-between">
+              <span className="text-slate-500 text-xs font-bold tracking-wide uppercase">
+                Créneaux sans prof
+              </span>
+              <div className="rounded-xl bg-red-50 p-2.5 text-red-600 ring-1 ring-red-200">
+                <AlertTriangle size={18} />
+              </div>
             </div>
+            <div className="mt-3 text-3xl font-black tracking-tight text-red-600 tabular-nums">
+              {chargementAffectations ? "…" : (creneauxNonAssignes ?? 0)}
+            </div>
+            <p className="mt-1 text-xs text-slate-400">
+              Semaine {semaineCourante} en cours
+            </p>
           </div>
-          <div className="relative mt-3 text-4xl font-extrabold tracking-tight text-red-600">
-            {chargementAffectations ? "…" : (creneauxNonAssignes ?? 0)}
+          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+            <span className="text-slate-500">À affecter d&rsquo;urgence</span>
+            <Link href="/planification" className="text-brand-orange hover:underline font-bold inline-flex items-center gap-0.5">
+              <span>Planning</span>
+              <ArrowUpRight size={12} />
+            </Link>
           </div>
-          <p className="text-brand-gray relative mt-2 text-xs font-medium">
-            en cours (S{semaineCourante})
-          </p>
         </Card>
 
         {/* KPI 4 : Nombre de cours documentés */}
-        <Card className="group relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-blue-500/10">
-          <div className="flex items-start justify-between">
-            <span className="text-brand-gray text-xs font-bold tracking-wide uppercase">
-              Cours documentés
-            </span>
-            <div className="rounded-xl bg-gradient-to-br from-orange-100 to-orange-50 p-2.5 text-brand-orange transition-transform duration-300 group-hover:scale-110">
-              <ClipboardList size={20} strokeWidth={2.5} />
+        <Card className="p-5 bg-white border border-slate-200 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-start justify-between">
+              <span className="text-slate-500 text-xs font-bold tracking-wide uppercase">
+                Cours documentés
+              </span>
+              <div className="rounded-xl bg-orange-50 p-2.5 text-brand-orange ring-1 ring-orange-500/10">
+                <ClipboardList size={18} />
+              </div>
             </div>
+            <div className="text-slate-900 mt-3 text-3xl font-black tracking-tight tabular-nums">
+              {progressionsSession.length}
+            </div>
+            <p className="mt-1 text-xs text-slate-400">
+              Syllabus renseignés (session)
+            </p>
           </div>
-          <div className="text-brand-anthracite mt-3 text-4xl font-extrabold tracking-tight">
-            {progressionsSession.length}
+          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+            <span className="text-slate-500">Toutes matières</span>
+            <Link href="/progression" className="text-brand-orange hover:underline font-bold inline-flex items-center gap-0.5">
+              <span>Progression</span>
+              <ArrowUpRight size={12} />
+            </Link>
           </div>
-          <p className="text-brand-gray mt-2 text-xs font-medium">
-            Toutes matières & filières confondues
-          </p>
         </Card>
       </div>
 
@@ -346,15 +439,43 @@ export function DirecteurAcademiqueDashboard() {
             <table className="w-full text-left text-xs">
               <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold tracking-wider text-brand-gray uppercase">
                 <tr>
-                  <th className="p-3">Département / Discipline</th>
-                  <th className="p-3 text-center">Séances planifiées</th>
-                  <th className="p-3 text-center">Cours documentés (S{semaineCourante})</th>
-                  <th className="p-3 text-center">Statut Semaine {semaineCourante}</th>
+                  <SortableHeader
+                    label="Département / Discipline"
+                    columnKey="departement"
+                    currentSortColumn={triConformiteColonne}
+                    currentSortDirection={triConformiteDirection}
+                    onSort={handleTriConformite}
+                    align="left"
+                  />
+                  <SortableHeader
+                    label="Séances planifiées"
+                    columnKey="seances"
+                    currentSortColumn={triConformiteColonne}
+                    currentSortDirection={triConformiteDirection}
+                    onSort={handleTriConformite}
+                    align="center"
+                  />
+                  <SortableHeader
+                    label={`Cours documentés (S${semaineCourante})`}
+                    columnKey="cours"
+                    currentSortColumn={triConformiteColonne}
+                    currentSortDirection={triConformiteDirection}
+                    onSort={handleTriConformite}
+                    align="center"
+                  />
+                  <SortableHeader
+                    label={`Statut Semaine ${semaineCourante}`}
+                    columnKey="statut"
+                    currentSortColumn={triConformiteColonne}
+                    currentSortDirection={triConformiteDirection}
+                    onSort={handleTriConformite}
+                    align="center"
+                  />
                   <th className="p-3 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {conformiteSemaineCourante.map((item) => (
+                {conformiteTriees.map((item) => (
                   <tr key={item.departementId} className="hover:bg-slate-50/70 transition-colors">
                     <td className="p-3">
                       <div className="flex items-center gap-2">
@@ -392,7 +513,7 @@ export function DirecteurAcademiqueDashboard() {
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800 border border-amber-200">
-                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
                           En attente de saisie
                         </span>
                       )}
@@ -471,15 +592,43 @@ export function DirecteurAcademiqueDashboard() {
               <table className="w-full text-left text-xs">
                 <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold tracking-wider text-brand-gray uppercase">
                   <tr>
-                    <th className="p-3">Enseignant</th>
-                    <th className="p-3">Matricule</th>
-                    <th className="p-3">Département(s) session</th>
-                    <th className="p-3 text-center">Statut réseau</th>
+                    <SortableHeader
+                      label="Enseignant"
+                      columnKey="nom"
+                      currentSortColumn={triEnseignantCol}
+                      currentSortDirection={triEnseignantDir}
+                      onSort={handleTriEnseignant}
+                      align="left"
+                    />
+                    <SortableHeader
+                      label="Matricule"
+                      columnKey="matricule"
+                      currentSortColumn={triEnseignantCol}
+                      currentSortDirection={triEnseignantDir}
+                      onSort={handleTriEnseignant}
+                      align="left"
+                    />
+                    <SortableHeader
+                      label="Département(s) session"
+                      columnKey="departements"
+                      currentSortColumn={triEnseignantCol}
+                      currentSortDirection={triEnseignantDir}
+                      onSort={handleTriEnseignant}
+                      align="left"
+                    />
+                    <SortableHeader
+                      label="Statut réseau"
+                      columnKey="statut"
+                      currentSortColumn={triEnseignantCol}
+                      currentSortDirection={triEnseignantDir}
+                      onSort={handleTriEnseignant}
+                      align="center"
+                    />
                     <th className="p-3 text-right">Fiche</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {enseignantsAffiches.map((e) => {
+                  {enseignantsAffichesTries.map((e) => {
                     const deps = departementsParEnseignant.get(e.id) ?? [];
                     return (
                       <tr key={e.id} className="hover:bg-slate-50/70 transition-colors">

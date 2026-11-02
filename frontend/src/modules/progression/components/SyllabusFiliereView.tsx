@@ -36,6 +36,7 @@ import { useFormations, type Formation } from "@/modules/academique";
 import { useMatieres, type Matiere } from "@/modules/matieres";
 import type { Affectation } from "@/modules/affectation";
 import { SelecteurSemaine } from "@/modules/centres-sessions";
+import { PrintDocumentHeader, VisaDirecteurAcademique } from "@/shared/ui";
 
 // ── Utilitaires de conversion Lignes <-> Contenu texte ──
 
@@ -744,33 +745,19 @@ export function SyllabusFiliereView({
   return (
     <div className="space-y-5">
       {/* ── Cartouche Officiel EXCELIS pour impression / Export PDF (masqué à l'écran, visible au print) ── */}
-      <div className="border-brand-orange mb-4 hidden rounded-xl border-2 bg-orange-50/20 p-4 print:block">
-        <div className="mb-2 flex items-center justify-between border-b border-orange-200 pb-2">
-          <div>
-            <h1 className="text-xl font-black tracking-tight text-slate-900 uppercase">
-              EXCELIS PRÉPAS — FICHE PÉDAGOGIQUE OFFICIELLE
-            </h1>
-            <p className="text-brand-orange text-xs font-bold uppercase">
-              Syllabus de progression par filière & discipline
-            </p>
-          </div>
-          <div className="text-right text-xs">
-            <p className="font-bold text-slate-800">SESSION {sessionAnnee}</p>
-            <p className="text-slate-500">
-              Date d&rsquo;impression : {new Date().toLocaleDateString("fr-FR")}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center justify-between text-xs font-semibold text-slate-700">
-          <span>
-            FORMATION :{" "}
-            <strong className="text-slate-900">{formationNom}</strong>
-          </span>
-          <span>
-            DISCIPLINE :{" "}
-            <strong className="text-slate-900">{matiereNom}</strong>
-          </span>
-        </div>
+      <div className="mb-4 hidden print:block">
+        <PrintDocumentHeader
+          orientation="landscape"
+          titre="FICHE PÉDAGOGIQUE OFFICIELLE"
+          sousTitre="Syllabus de progression par filière & discipline"
+          session={sessionAnnee}
+          extraMeta={
+            <div className="flex flex-wrap items-center justify-end gap-2 text-xs font-semibold text-slate-700">
+              <span>FORMATION : <strong className="text-slate-900">{formationNom}</strong></span>
+              <span>DISCIPLINE : <strong className="text-slate-900">{matiereNom}</strong></span>
+            </div>
+          }
+        />
       </div>
 
       {/* ── SÉLECTION DES SEMAINES (affichée uniquement si non gérée par la navigation parente) ── */}
@@ -1078,6 +1065,14 @@ export function SyllabusFiliereView({
           toutesProgressions={progressions}
         />
       )}
+
+      {/* ── Visa Directeur académique pour impression directe ── */}
+      <div className="hidden print:block avoid-break">
+        <VisaDirecteurAcademique
+          align="right"
+          sousTitre="Signature & Cachet officiel"
+        />
+      </div>
 
       {/* Modale d'exportation PDF & Impression Multi-Formations */}
       {showExportModal && (

@@ -36,8 +36,10 @@ import {
   Modal,
   SkeletonCard,
   SkeletonTable,
+  SortableHeader,
 } from "@/shared/ui";
 import { messageErreurApi } from "@/shared/lib/api-client";
+import { compareStrings, type SortDirection } from "@/shared/lib/sort-utils";
 import {
   usePersonnelList,
   useEnseignants,
@@ -132,6 +134,21 @@ export function PersonnelListView() {
   const [pageCourante, setPageCourante] = useState(1);
   const elementsParPage = 10;
 
+  // Tri
+  type ColonneTriPersonnel = "collaborateur" | "role" | "centre" | "statutAcces";
+  const [triColonne, setTriColonne] = useState<ColonneTriPersonnel>("collaborateur");
+  const [triDirection, setTriDirection] = useState<SortDirection>("asc");
+
+  function handleTri(colonne: ColonneTriPersonnel) {
+    if (triColonne === colonne) {
+      setTriDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTriColonne(colonne);
+      setTriDirection("asc");
+    }
+    setPageCourante(1);
+  }
+
   // Modale de modification d'accès
   const [membreCible, setMembreCible] = useState<PersonnelFusionne | null>(null);
   const [statutCible, setStatutCible] = useState<StatutAcces>("ACCORDE");
@@ -212,9 +229,9 @@ export function PersonnelListView() {
     return Array.from(map.values());
   }, [personnelList, utilisateurs, enseignants]);
 
-  // Filtrage
+  // Filtrage et Tri
   const membresFiltres = useMemo(() => {
-    return personnelConsolide.filter((m) => {
+    const filtres = personnelConsolide.filter((m) => {
       // Recherche
       if (recherche.trim()) {
         const query = recherche.trim().toLowerCase();
@@ -247,7 +264,35 @@ export function PersonnelListView() {
 
       return true;
     });
-  }, [personnelConsolide, recherche, filtreRole, filtreCentre, filtreStatutAcces, mapAcces]);
+
+    return [...filtres].sort((a, b) => {
+      let cmp = 0;
+      if (triColonne === "collaborateur") {
+        cmp = compareStrings(`${a.nom} ${a.prenom}`, `${b.nom} ${b.prenom}`);
+      } else if (triColonne === "role") {
+        cmp = compareStrings(a.rolePrincipal, b.rolePrincipal);
+      } else if (triColonne === "centre") {
+        const nomA = a.centreId ? mapCentres.get(a.centreId) || "" : "";
+        const nomB = b.centreId ? mapCentres.get(b.centreId) || "" : "";
+        cmp = compareStrings(nomA, nomB);
+      } else if (triColonne === "statutAcces") {
+        const statA = !a.hasUserAccount ? "Z_SANS" : (mapAcces.get(a.id)?.statut ?? "ACCORDE");
+        const statB = !b.hasUserAccount ? "Z_SANS" : (mapAcces.get(b.id)?.statut ?? "ACCORDE");
+        cmp = compareStrings(statA, statB);
+      }
+      return triDirection === "asc" ? cmp : -cmp;
+    });
+  }, [
+    personnelConsolide,
+    recherche,
+    filtreRole,
+    filtreCentre,
+    filtreStatutAcces,
+    mapAcces,
+    triColonne,
+    triDirection,
+    mapCentres,
+  ]);
 
   // Pagination
   const totalPages = Math.ceil(membresFiltres.length / elementsParPage) || 1;
@@ -315,60 +360,51 @@ export function PersonnelListView() {
     chargementPersonnel && chargementUtilisateurs && chargementEnseignants;
 
   return (
-    <div className="space-y-6">
-      {/* ── En-tête de la page ── */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
+    <div className="flex min-h-full w-full flex-col gap-4">
+      {/* ── En-tête Sobre & Compact ── */}
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-3">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2.5 bg-blue-50 text-blue-700 rounded-xl">
-              <Users className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                Gestion du Personnel & Accès
-              </h1>
-              <p className="text-sm text-slate-500 mt-0.5">
-                Annuaire général, attribution et contrôle des accès par session académique et phase pédagogique.
-              </p>
-            </div>
-          </div>
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
+            Gestion du Personnel & Accès
+          </h1>
+          <p className="text-xs text-slate-500">
+            Annuaire des collaborateurs, habilitations applicatives et contrôle par session & phase
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {/* ── Sélecteur de Contexte Temporel (Session & Phase) ── */}
-          <div className="flex flex-wrap items-center gap-2.5 bg-slate-50 p-2 rounded-xl border border-slate-200">
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 pl-1.5">
-              <CalendarRange className="w-4 h-4 text-slate-400" />
-              <span>Session :</span>
-            </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Sélecteur de Contexte Temporel */}
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs shadow-2xs">
+            <CalendarRange size={13} className="text-slate-400" />
+            <span className="text-[11px] font-medium text-slate-500">Session :</span>
             <select
               value={effectiveSessionId}
               onChange={(e) => {
                 setSessionIdSelectionnee(e.target.value);
                 setPageCourante(1);
               }}
-              className="text-xs font-medium bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="text-xs font-semibold bg-transparent text-slate-800 focus:outline-none cursor-pointer"
             >
               {sessions.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.annee} {s.statut === "EN_COURS" ? "(En cours)" : `(${s.statut})`}
+                  {s.annee} {s.statut === "EN_COURS" ? "(Active)" : `(${s.statut})`}
                 </option>
               ))}
             </select>
 
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 pl-2 border-l border-slate-200">
-              <Layers className="w-4 h-4 text-slate-400" />
-              <span>Phase :</span>
-            </div>
+            <span className="text-slate-200">|</span>
+
+            <Layers size={13} className="text-slate-400" />
+            <span className="text-[11px] font-medium text-slate-500">Phase :</span>
             <select
               value={phaseIdSelectionnee}
               onChange={(e) => {
                 setPhaseIdSelectionnee(e.target.value);
                 setPageCourante(1);
               }}
-              className="text-xs font-medium bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="text-xs font-semibold bg-transparent text-slate-800 focus:outline-none cursor-pointer"
             >
-              <option value="TOUTES">Toutes les phases (Session complète)</option>
+              <option value="TOUTES">Toutes les phases</option>
               {phases.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.code} - {p.libelle}
@@ -377,70 +413,66 @@ export function PersonnelListView() {
             </select>
           </div>
 
-          {/* ── Bouton d'action Création Collaborateur ── */}
           <button
             type="button"
             onClick={() => setModalCreerOuvert(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs hover:shadow transition-all"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-orange px-3.5 py-2 text-xs font-semibold text-white hover:bg-brand-orange/90 shadow-2xs transition-colors cursor-pointer"
           >
-            <UserPlus className="w-4 h-4" />
+            <UserPlus size={15} />
             <span>Nouveau Collaborateur</span>
           </button>
         </div>
       </div>
 
-      {/* ── Cartes d'indicateurs KPIs ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5 sm:gap-4">
-        {chargementInitial ? (
-          Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)
-        ) : (
-          <>
-            <Card className="p-4 border-slate-200/80 bg-white shadow-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-500">Effectif total</span>
-                <Users className="w-4 h-4 text-blue-600" />
-              </div>
-              <p className="text-2xl font-bold text-slate-900 mt-2">{stats.total}</p>
-              <span className="text-xs text-slate-400 mt-0.5 block">Membres répertoriés</span>
-            </Card>
+      {/* ── Synthèse Métier ERP Sobre ── */}
+      <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+        <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 gap-3 sm:gap-0 text-xs">
+          <div className="sm:px-3 first:pl-1">
+            <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">
+              Effectif Total
+            </span>
+            <div className="mt-1 flex items-baseline gap-1.5">
+              <span className="text-xl font-bold text-slate-900">{stats.total}</span>
+              <span className="text-xs text-slate-400">collaborateurs</span>
+            </div>
+          </div>
 
-            <Card className="p-4 border-slate-200/80 bg-white shadow-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-500">Comptes applicatifs</span>
-                <Briefcase className="w-4 h-4 text-purple-600" />
-              </div>
-              <p className="text-2xl font-bold text-slate-900 mt-2">{stats.comptes}</p>
-              <span className="text-xs text-slate-400 mt-0.5 block">Utilisateurs avec compte</span>
-            </Card>
+          <div className="sm:px-3">
+            <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">
+              Comptes Utilisateurs
+            </span>
+            <div className="mt-1 flex items-baseline gap-1.5">
+              <span className="text-xl font-bold text-slate-900">{stats.comptes}</span>
+              <span className="text-xs text-slate-400">avec accès logiciel</span>
+            </div>
+          </div>
 
-            <Card className="p-4 border-slate-200/80 bg-white shadow-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-500">Centres couverts</span>
-                <Building2 className="w-4 h-4 text-indigo-600" />
-              </div>
-              <p className="text-2xl font-bold text-slate-900 mt-2">{stats.centresCouverts}</p>
-              <span className="text-xs text-slate-400 mt-0.5 block">Implantations réseau</span>
-            </Card>
+          <div className="sm:px-3 pt-2 sm:pt-0">
+            <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">
+              Réseau de Centres
+            </span>
+            <div className="mt-1 flex items-baseline gap-1.5">
+              <span className="text-xl font-bold text-slate-900">{stats.centresCouverts}</span>
+              <span className="text-xs text-slate-400">centres pourvus</span>
+            </div>
+          </div>
 
-            <Card className="p-4 border-emerald-100 bg-emerald-50/40 shadow-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-emerald-800">Accès accordés</span>
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              </div>
-              <p className="text-2xl font-bold text-emerald-900 mt-2">{stats.accordes}</p>
-              <span className="text-xs text-emerald-600/90 mt-0.5 block">Comptes autorisés</span>
-            </Card>
-
-            <Card className="p-4 border-rose-100 bg-rose-50/40 shadow-xs col-span-2 lg:col-span-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-rose-800">Accès bloqués</span>
-                <ShieldAlert className="w-4 h-4 text-rose-600" />
-              </div>
-              <p className="text-2xl font-bold text-rose-900 mt-2">{stats.bloques}</p>
-              <span className="text-xs text-rose-600/90 mt-0.5 block">Comptes restreints/bloqués</span>
-            </Card>
-          </>
-        )}
+          <div className="sm:px-3 pt-2 sm:pt-0">
+            <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">
+              Habilitations (Session)
+            </span>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-xl font-bold text-emerald-700">{stats.accordes}</span>
+              <span className="text-xs text-slate-400">actifs</span>
+              {stats.bloques > 0 && (
+                <>
+                  <span className="text-slate-300">·</span>
+                  <span className="text-xs font-bold text-rose-600">{stats.bloques} bloqués</span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ── Barre de recherche et filtres ── */}
@@ -456,7 +488,7 @@ export function PersonnelListView() {
                 setRecherche(e.target.value);
                 setPageCourante(1);
               }}
-              className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-slate-800"
+              className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-brand-orange focus:bg-white transition-all text-slate-800"
             />
           </div>
 
@@ -472,7 +504,7 @@ export function PersonnelListView() {
                 setFiltreRole(e.target.value);
                 setPageCourante(1);
               }}
-              className="text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-brand-orange"
             >
               <option value="TOUS">Tous les rôles administratifs</option>
               <option value="DIRECTEUR">Directeur</option>
@@ -493,7 +525,7 @@ export function PersonnelListView() {
                 setFiltreCentre(e.target.value);
                 setPageCourante(1);
               }}
-              className="text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-brand-orange"
             >
               <option value="TOUS">Tous les centres</option>
               {centres.map((c) => (
@@ -507,12 +539,12 @@ export function PersonnelListView() {
             <select
               value={filtreStatutAcces}
               onChange={(e) => {
-                setFiltreStatutAcces(e.target.value as any);
+                setFiltreStatutAcces(e.target.value as "TOUS" | "ACCORDE" | "BLOQUE");
                 setPageCourante(1);
               }}
               className="text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="TOUS">Tous statuts d'accès</option>
+              <option value="TOUS">Tous statuts d&apos;accès</option>
               <option value="ACCORDE">Accès accordé</option>
               <option value="BLOQUE">Accès bloqué</option>
             </select>
@@ -539,12 +571,49 @@ export function PersonnelListView() {
             <table className="w-full text-left border-collapse text-sm">
               <thead>
                 <tr className="border-b border-slate-200/80 bg-slate-50/75 text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                  <th className="py-3.5 px-4">Collaborateur</th>
-                  <th className="py-3.5 px-4">Rôle / Fonction</th>
-                  <th className="py-3.5 px-4">Centre de rattachement</th>
-                  <th className="py-3.5 px-4">Coordonnées</th>
-                  <th className="py-3.5 px-4 text-center">Statut Accès</th>
-                  <th className="py-3.5 px-4 text-right">Actions Direction</th>
+                  <SortableHeader
+                    columnKey="collaborateur"
+                    currentSortKey={triColonne}
+                    direction={triDirection}
+                    onSort={handleTri}
+                    className="py-3.5 px-4"
+                  >
+                    Collaborateur
+                  </SortableHeader>
+                  <SortableHeader
+                    columnKey="role"
+                    currentSortKey={triColonne}
+                    direction={triDirection}
+                    onSort={handleTri}
+                    className="py-3.5 px-4"
+                  >
+                    Rôle / Fonction
+                  </SortableHeader>
+                  <SortableHeader
+                    columnKey="centre"
+                    currentSortKey={triColonne}
+                    direction={triDirection}
+                    onSort={handleTri}
+                    className="py-3.5 px-4"
+                  >
+                    Centre de rattachement
+                  </SortableHeader>
+                  <th className="py-3.5 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Coordonnées
+                  </th>
+                  <SortableHeader
+                    columnKey="statutAcces"
+                    currentSortKey={triColonne}
+                    direction={triDirection}
+                    onSort={handleTri}
+                    align="center"
+                    className="py-3.5 px-4 text-center"
+                  >
+                    Statut Accès
+                  </SortableHeader>
+                  <th className="py-3.5 px-4 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Actions Direction
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -572,7 +641,7 @@ export function PersonnelListView() {
                           <div>
                             <Link
                               href={`/personnel/${membre.id}`}
-                              className="font-semibold text-slate-900 hover:text-blue-600 transition-colors block"
+                              className="font-semibold text-slate-900 hover:text-brand-orange transition-colors block"
                             >
                               {membre.prenom} {membre.nom}
                             </Link>
@@ -587,7 +656,7 @@ export function PersonnelListView() {
                       <td className="py-3.5 px-4">
                         <div className="flex flex-wrap gap-1.5 items-center">
                           {membre.utilisateur ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200/80">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-brand-orange/10 text-brand-orange border border-brand-orange/20">
                               {ROLE_LABELS[membre.utilisateur.role] || membre.utilisateur.role}
                             </span>
                           ) : (
@@ -679,7 +748,7 @@ export function PersonnelListView() {
                             type="button"
                             onClick={() => setMembrePourModif(membre)}
                             title="Modifier les coordonnées RH"
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-xl text-slate-600 hover:text-blue-700 hover:bg-blue-50 transition-colors"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-xl text-slate-600 hover:text-brand-orange hover:bg-brand-orange/10 transition-colors"
                           >
                             <Pencil className="w-3.5 h-3.5 text-slate-400" />
                             <span className="sr-only sm:not-sr-only sm:ml-0.5">Modifier</span>

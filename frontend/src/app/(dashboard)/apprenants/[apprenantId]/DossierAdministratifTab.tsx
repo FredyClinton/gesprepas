@@ -39,9 +39,9 @@ const LABELS_STATUT_DOSSIER: Record<Dossier["statut"], string> = {
 };
 
 const CLASSES_STATUT_DOSSIER: Record<Dossier["statut"], string> = {
-  OUVERT: "bg-amber-100 text-amber-800 border-amber-200",
-  COMPLET: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  CLOTURE: "bg-slate-100 text-slate-700 border-slate-200",
+  OUVERT: "bg-amber-50 text-amber-800 border border-amber-200",
+  COMPLET: "bg-emerald-50 text-emerald-800 border border-emerald-200",
+  CLOTURE: "bg-slate-100 text-slate-700 border border-slate-200",
 };
 
 interface DossierAdministratifTabProps {

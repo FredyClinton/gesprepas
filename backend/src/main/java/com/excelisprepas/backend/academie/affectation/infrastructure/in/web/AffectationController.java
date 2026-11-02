@@ -2,10 +2,8 @@ package com.excelisprepas.backend.academie.affectation.infrastructure.in.web;
 
 import com.excelisprepas.backend.academie.affectation.domain.model.Affectation;
 import com.excelisprepas.backend.academie.affectation.domain.port.in.*;
-import com.excelisprepas.backend.academie.affectation.infrastructure.in.web.dto.AffectationResponse;
-import com.excelisprepas.backend.academie.affectation.infrastructure.in.web.dto.AssignerEnseignantRequest;
-import com.excelisprepas.backend.academie.affectation.infrastructure.in.web.dto.CreerCreneauRequest;
-import com.excelisprepas.backend.academie.affectation.infrastructure.in.web.dto.ModifierMatiereRequest;
+import com.excelisprepas.backend.academie.affectation.domain.service.AffectationService;
+import com.excelisprepas.backend.academie.affectation.infrastructure.in.web.dto.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -16,11 +14,14 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -39,6 +40,7 @@ public class AffectationController {
     private final SupprimerAffectationUseCase supprimerAffectationUseCase;
     private final ListerAffectationsParEnseignantUseCase listerAffectationsParEnseignantUseCase;
     private final ListerAffectationsParCentreUseCase listerAffectationsParCentreUseCase;
+    private final VerifierConflitHoraireUseCase verifierConflitHoraireUseCase;
 
     public AffectationController(CreerCreneauUseCase creerCreneauUseCase,
                                  AssignerEnseignantUseCase assignerEnseignantUseCase,
@@ -49,7 +51,8 @@ public class AffectationController {
                                  @Qualifier("modifierMatiereAffectationUseCase") ModifierMatiereUseCase modifierMatiereUseCase,
                                  SupprimerAffectationUseCase supprimerAffectationUseCase,
                                  ListerAffectationsParEnseignantUseCase listerAffectationsParEnseignantUseCase,
-                                 ListerAffectationsParCentreUseCase listerAffectationsParCentreUseCase) {
+                                 ListerAffectationsParCentreUseCase listerAffectationsParCentreUseCase,
+                                 @org.springframework.beans.factory.annotation.Autowired(required = false) VerifierConflitHoraireUseCase verifierConflitHoraireUseCase) {
         this.creerCreneauUseCase = creerCreneauUseCase;
         this.assignerEnseignantUseCase = assignerEnseignantUseCase;
         this.marquerEffectueeUseCase = marquerEffectueeUseCase;
@@ -60,14 +63,17 @@ public class AffectationController {
         this.supprimerAffectationUseCase = supprimerAffectationUseCase;
         this.listerAffectationsParEnseignantUseCase = listerAffectationsParEnseignantUseCase;
         this.listerAffectationsParCentreUseCase = listerAffectationsParCentreUseCase;
+        this.verifierConflitHoraireUseCase = verifierConflitHoraireUseCase;
     }
 
     private static AffectationResponse versReponse(Affectation affectation) {
+        if (affectation == null) return null;
         return new AffectationResponse(
                 affectation.getId(), affectation.getCentreId(), affectation.getSessionId(), affectation.getFormationId(),
                 affectation.getSalleId(), affectation.getMatiereId(), affectation.getEnseignantId(),
                 affectation.getJour(), affectation.getSeance(), affectation.getSemaine(), affectation.getStatut(),
-                affectation.getStatutPaiement(), affectation.getCoutApplique(), affectation.getFichePaieId());
+                affectation.getStatutPaiement(), affectation.getCoutApplique(), affectation.getFichePaieId(),
+                affectation.getDateSeance(), affectation.getHeureDebut(), affectation.getHeureFin());
     }
 
     @Operation(summary = "Lister les affectations",
@@ -90,44 +96,90 @@ public class AffectationController {
     }
 
     @Operation(summary = "Assigner un enseignant à un créneau",
-            description = "Affecte un enseignant à un créneau existant, identifié par son identifiant.")
+            description = "Affecte un enseignant à un créneau existant, avec contrôle strict des conflits horaires.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Enseignant assigné",
                     content = @Content(schema = @Schema(implementation = AffectationResponse.class))),
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "404", description = "Créneau ou enseignant introuvable", content = @Content),
-            @ApiResponse(responseCode = "409", description = "Enseignant indisponible sur ce créneau", content = @Content)
+            @ApiResponse(responseCode = "409", description = "Enseignant indisponible ou conflit d'horaire", content = @Content)
     })
     @PatchMapping("/{id}/assigner-enseignant")
-        @PreAuthorize("hasAuthority('ACADEMIE_ASSIGNER_ENSEIGNANT')")
+    @PreAuthorize("hasAuthority('ACADEMIE_ASSIGNER_ENSEIGNANT')")
     public ResponseEntity<AffectationResponse> assignerEnseignant(
             @Parameter(description = "Identifiant du créneau") @PathVariable UUID id,
             @Valid @RequestBody AssignerEnseignantRequest request) {
-        Affectation affectation = assignerEnseignantUseCase.assignerEnseignant(id, request.enseignantId());
+        Affectation affectation;
+        if (request.heureDebut() != null || request.heureFin() != null) {
+            affectation = assignerEnseignantUseCase.assignerEnseignant(
+                    id, request.enseignantId(), request.heureDebut(), request.heureFin());
+        } else {
+            affectation = assignerEnseignantUseCase.assignerEnseignant(id, request.enseignantId());
+        }
 
         AffectationResponse response = versReponse(affectation);
-
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
+    @Operation(summary = "Vérifier les conflits d'emploi du temps d'un enseignant",
+            description = "Vérifie si un enseignant est déjà affecté à une autre séance sur la même date avec des horaires qui se chevauchent.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Résultat de la vérification de conflit",
+                    content = @Content(schema = @Schema(implementation = ConflitHoraireResponse.class)))
+    })
+    @GetMapping("/verifier-conflit")
+    @PreAuthorize("hasAnyAuthority('ACADEMIE_ASSIGNER_ENSEIGNANT', 'ACADEMIE_GERER_PLANIFICATION')")
+    public ResponseEntity<ConflitHoraireResponse> verifierConflit(
+            @Parameter(description = "Identifiant de l'enseignant") @RequestParam UUID enseignantId,
+            @Parameter(description = "Date de la séance (YYYY-MM-DD)") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateSeance,
+            @Parameter(description = "Heure de début (HH:mm:ss)") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime heureDebut,
+            @Parameter(description = "Heure de fin (HH:mm:ss)") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime heureFin,
+            @Parameter(description = "Numéro de séance (1 à 4)") @RequestParam(required = false) Integer seance,
+            @Parameter(description = "Identifiant du créneau à exclure (lors d'une mise à jour)") @RequestParam(required = false) UUID affectationId) {
+        if (verifierConflitHoraireUseCase == null) {
+            return ResponseEntity.ok(ConflitHoraireResponse.sansConflit());
+        }
+
+        LocalTime debut = heureDebut;
+        LocalTime fin = heureFin;
+        if (debut == null && seance != null) {
+            debut = Affectation.horaireDebutParDefaut(seance);
+        }
+        if (fin == null && seance != null) {
+            fin = Affectation.horaireFinParDefaut(seance);
+        }
+        if (debut == null) debut = LocalTime.of(8, 0);
+        if (fin == null) fin = LocalTime.of(10, 30);
+
+        ConflitHoraireResponse reponse = verifierConflitHoraireUseCase.verifierConflit(
+                enseignantId, dateSeance, debut, fin, affectationId);
+        return ResponseEntity.ok(reponse);
+    }
+
     @Operation(summary = "Créer un créneau d'affectation",
-            description = "Crée un nouveau créneau (salle, matière, séance, semaine) au sein d'une formation, sans enseignant assigné.")
+            description = "Crée un nouveau créneau (salle, matière, séance, semaine) au sein d'une formation, avec enseignant optionnel.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Créneau créé",
                     content = @Content(schema = @Schema(implementation = AffectationResponse.class))),
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "404", description = "Centre, session, formation, salle ou matière introuvable", content = @Content),
-            @ApiResponse(responseCode = "409", description = "Salle déjà occupée sur ce créneau, session clôturée, ou formation incohérente avec la session", content = @Content)
+            @ApiResponse(responseCode = "409", description = "Salle déjà occupée sur ce créneau, session clôturée, conflit enseignant ou formation incohérente", content = @Content)
     })
     @PostMapping
-        @PreAuthorize("hasAuthority('ACADEMIE_GERER_PLANIFICATION')")
+    @PreAuthorize("hasAuthority('ACADEMIE_GERER_PLANIFICATION')")
     public ResponseEntity<AffectationResponse> creerCreneau(@Valid @RequestBody CreerCreneauRequest request) {
-        Affectation affectation = creerCreneauUseCase.creerCreneau(
-                request.centreId(), request.sessionId(), request.formationId(), request.salleId(), request.matiereId(),
-                request.jour(), request.seance(), request.semaine());
+        Affectation affectation;
+        if (request.enseignantId() != null || request.heureDebut() != null || request.heureFin() != null) {
+            affectation = creerCreneauUseCase.creerCreneau(
+                    request.centreId(), request.sessionId(), request.formationId(), request.salleId(), request.matiereId(),
+                    request.jour(), request.seance(), request.semaine(), request.enseignantId(), request.heureDebut(), request.heureFin());
+        } else {
+            affectation = creerCreneauUseCase.creerCreneau(
+                    request.centreId(), request.sessionId(), request.formationId(), request.salleId(), request.matiereId(),
+                    request.jour(), request.seance(), request.semaine());
+        }
 
         AffectationResponse response = versReponse(affectation);
-
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -141,7 +193,7 @@ public class AffectationController {
             @ApiResponse(responseCode = "409", description = "Créneau déjà effectué ou annulé", content = @Content)
     })
     @PatchMapping("/{id}/modifier-matiere")
-        @PreAuthorize("hasAuthority('ACADEMIE_GERER_PLANIFICATION')")
+    @PreAuthorize("hasAuthority('ACADEMIE_GERER_PLANIFICATION')")
     public ResponseEntity<AffectationResponse> modifierMatiere(
             @Parameter(description = "Identifiant du créneau") @PathVariable UUID id,
             @Valid @RequestBody ModifierMatiereRequest request) {
@@ -158,7 +210,7 @@ public class AffectationController {
             @ApiResponse(responseCode = "409", description = "Transition d'état invalide", content = @Content)
     })
     @PatchMapping("/{id}/marquer-effectuee")
-        @PreAuthorize("hasAuthority('ACADEMIE_MARQUER_EFFECTUEE')")
+    @PreAuthorize("hasAuthority('ACADEMIE_MARQUER_EFFECTUEE')")
     public ResponseEntity<AffectationResponse> marquerEffectuee(
             @Parameter(description = "Identifiant du créneau") @PathVariable UUID id) {
         Affectation affectation = marquerEffectueeUseCase.marquerEffectuee(id);
@@ -174,7 +226,7 @@ public class AffectationController {
             @ApiResponse(responseCode = "409", description = "Transition d'état invalide", content = @Content)
     })
     @PatchMapping("/{id}/annuler-effectuee")
-        @PreAuthorize("hasAuthority('ACADEMIE_MARQUER_EFFECTUEE')")
+    @PreAuthorize("hasAuthority('ACADEMIE_MARQUER_EFFECTUEE')")
     public ResponseEntity<AffectationResponse> annulerEffectuee(
             @Parameter(description = "Identifiant du créneau") @PathVariable UUID id) {
         Affectation affectation = annulerEffectueeUseCase.annulerEffectuee(id);
@@ -190,7 +242,7 @@ public class AffectationController {
             @ApiResponse(responseCode = "409", description = "Transition d'état invalide", content = @Content)
     })
     @PatchMapping("/{id}/annuler")
-        @PreAuthorize("hasAuthority('ACADEMIE_GERER_PLANIFICATION')")
+    @PreAuthorize("hasAuthority('ACADEMIE_GERER_PLANIFICATION')")
     public ResponseEntity<AffectationResponse> annulerAffectation(
             @Parameter(description = "Identifiant du créneau") @PathVariable UUID id) {
         Affectation affectation = annulerAffectationUseCase.annulerAffectation(id);
@@ -204,7 +256,7 @@ public class AffectationController {
             @ApiResponse(responseCode = "404", description = "Créneau introuvable", content = @Content)
     })
     @DeleteMapping("/{id}")
-        @PreAuthorize("hasAuthority('ACADEMIE_GERER_PLANIFICATION')")
+    @PreAuthorize("hasAuthority('ACADEMIE_GERER_PLANIFICATION')")
     public ResponseEntity<Void> supprimerAffectation(
             @Parameter(description = "Identifiant du créneau") @PathVariable UUID id) {
         supprimerAffectationUseCase.supprimerAffectation(id);

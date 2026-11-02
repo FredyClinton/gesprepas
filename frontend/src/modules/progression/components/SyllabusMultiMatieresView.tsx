@@ -36,6 +36,7 @@ import { useFormations, type Formation } from "@/modules/academique";
 import type { Matiere } from "@/modules/matieres";
 import type { Affectation } from "@/modules/affectation";
 import { SelecteurSemaine } from "@/modules/centres-sessions";
+import { PrintDocumentHeader, VisaDirecteurAcademique } from "@/shared/ui";
 
 // ── Utilitaires de conversion Lignes <-> Contenu texte ──
 
@@ -76,6 +77,7 @@ interface CelluleMultiMatiereProps {
   onTransferer?: (p: Progression) => void;
   estVerrouille?: boolean;
   quota?: number;
+  readOnly?: boolean;
 }
 
 function CelluleMultiMatiereInSitu({
@@ -91,6 +93,7 @@ function CelluleMultiMatiereInSitu({
   onTransferer,
   estVerrouille,
   quota,
+  readOnly,
 }: CelluleMultiMatiereProps) {
   const creerMutation = useCreerProgression();
   const modifierMutation = useMettreAJourContenuProgression();
@@ -320,6 +323,65 @@ function CelluleMultiMatiereInSitu({
         <span className="hidden text-xs text-slate-300 select-none print:inline">
           —
         </span>
+      </td>
+    );
+  }
+
+  // Si consultation seule (readOnly)
+  if (readOnly) {
+    if (!progression) {
+      return (
+        <td className="max-w-[340px] min-w-[280px] border-r border-b border-slate-200 bg-slate-50/20 p-3 text-center align-middle">
+          <span className="text-xs text-slate-300 select-none">—</span>
+        </td>
+      );
+    }
+
+    return (
+      <td className="max-w-[340px] min-w-[280px] border-r border-b border-slate-200 bg-white p-3 align-top">
+        <div className="space-y-1.5 text-left">
+          <div className="flex items-start justify-between gap-1 border-b border-slate-100 pb-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-700 uppercase">
+                {typeProgression}
+              </span>
+              <span className="text-xs font-black tracking-tight text-slate-900 uppercase">
+                {titreTheme || progression.theme || "Sans titre"}
+              </span>
+              {progression.theme?.toUpperCase().includes("RATTRAPAGE") && (
+                <span className="inline-flex items-center gap-1 rounded bg-purple-100 px-1.5 py-0.5 text-[9px] font-black text-purple-800 uppercase">
+                  <Sparkles size={9} className="text-purple-600" />
+                  <span>Rattrapage</span>
+                </span>
+              )}
+            </div>
+            {estVerrouille && (
+              <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800 shrink-0">
+                <Lock size={9} />
+                <span>Hors quota</span>
+              </span>
+            )}
+          </div>
+
+          {lines.filter((l) => l.trim().length > 0).length > 0 && (
+            <ul className="list-inside list-disc space-y-0.5 py-0.5 text-xs leading-relaxed text-slate-700">
+              {lines
+                .filter((l) => l.trim().length > 0)
+                .map((line, idx) => (
+                  <li key={idx}>{line}</li>
+                ))}
+            </ul>
+          )}
+
+          {exercices.trim() && (
+            <p className="border-t border-slate-100 pt-1 text-[11px] text-slate-600">
+              <strong className="text-[10px] font-bold text-slate-500 uppercase">
+                Exercices :{" "}
+              </strong>
+              <span>{exercices}</span>
+            </p>
+          )}
+        </div>
       </td>
     );
   }
@@ -637,6 +699,7 @@ export interface SyllabusMultiMatieresViewProps {
   semaineSelectionnee?: number | "TOUTES";
   onChangerSemaine?: (s: number | "TOUTES") => void;
   barreNavigation?: React.ReactNode;
+  readOnly?: boolean;
 }
 
 export function SyllabusMultiMatieresView({
@@ -659,12 +722,14 @@ export function SyllabusMultiMatieresView({
   semaineSelectionnee: propSemaineSelectionnee,
   onChangerSemaine,
   barreNavigation,
+  readOnly = false,
 }: SyllabusMultiMatieresViewProps) {
   const supprimerMutation = useSupprimerProgression();
   const { data: authSession } = useSession();
   const estDirecteur =
-    authSession?.user?.role === "DIRECTEUR_ACADEMIQUE" ||
-    authSession?.user?.role === "DIRECTEUR";
+    !readOnly &&
+    (authSession?.user?.role === "DIRECTEUR_ACADEMIQUE" ||
+      authSession?.user?.role === "DIRECTEUR");
 
   const { getQuota, setQuota } = useProgressionQuotas(formationId, sessionId);
   const { data: allFormations = [] } = useFormations();
@@ -823,44 +888,35 @@ export function SyllabusMultiMatieresView({
   return (
     <div className="space-y-5">
       {/* ── Cartouche Officiel EXCELIS pour impression / Export PDF (masqué à l'écran, visible au print) ── */}
-      <div className="border-brand-orange mb-4 hidden rounded-xl border-2 bg-orange-50/20 p-4 print:block">
-        <div className="mb-2 flex items-center justify-between border-b border-orange-200 pb-2">
-          <div>
-            <h1 className="text-xl font-black tracking-tight text-slate-900 uppercase">
-              EXCELIS PRÉPAS — FICHE PÉDAGOGIQUE OFFICIELLE
-            </h1>
-            <p className="text-brand-orange text-xs font-bold uppercase">
-              Syllabus de progression multi-disciplinaire
-            </p>
-          </div>
-          <div className="text-right text-xs">
-            <p className="font-bold text-slate-800">SESSION {sessionAnnee}</p>
-            <p className="text-slate-500">
-              Date d&rsquo;impression : {new Date().toLocaleDateString("fr-FR")}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center justify-between text-xs font-semibold text-slate-700">
-          <span>
-            FORMATION :{" "}
-            <strong className="text-slate-900">{formationNom}</strong>
-          </span>
-          <span>
-            DISCIPLINES :{" "}
-            <strong className="text-slate-900">
-              {matieres.map((m) => m.nom).join(" · ")}
-            </strong>
-          </span>
-        </div>
+      <div className="mb-4 hidden print:block">
+        <PrintDocumentHeader
+          orientation="landscape"
+          titre="FICHE PÉDAGOGIQUE OFFICIELLE"
+          sousTitre="Syllabus de progression multi-disciplinaire"
+          session={sessionAnnee}
+          extraMeta={
+            <div className="flex flex-wrap items-center justify-end gap-2 text-xs font-semibold text-slate-700">
+              <span>FORMATION : <strong className="text-slate-900">{formationNom}</strong></span>
+              <span>DISCIPLINES : <strong className="text-slate-900">{matieres.map((m) => m.nom).join(" · ")}</strong></span>
+            </div>
+          }
+        />
       </div>
 
       {/* ── En-tête de la Fiche Style Papier Excelis Prépas (Écran uniquement) ── */}
       <div className="no-print rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs print:hidden">
         <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
-            <span className="text-brand-orange text-[11px] font-black tracking-widest uppercase">
-              Coordination Pédagogique
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-brand-orange text-[11px] font-black tracking-widest uppercase">
+                Coordination Pédagogique
+              </span>
+              {readOnly && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[10px] font-bold text-blue-800">
+                  Consultation seule
+                </span>
+              )}
+            </div>
             <h2 className="text-xl font-black tracking-tight text-slate-900 uppercase sm:text-2xl">
               Fiche de Progression {sessionAnnee}
             </h2>
@@ -888,7 +944,7 @@ export function SyllabusMultiMatieresView({
               <span>Exporter en PDF</span>
             </button>
 
-            {onOuvrirSaisieLot && (
+            {!readOnly && onOuvrirSaisieLot && (
               <button
                 type="button"
                 onClick={() => onOuvrirSaisieLot()}
@@ -900,7 +956,7 @@ export function SyllabusMultiMatieresView({
               </button>
             )}
 
-            {onOuvrirDuplication && (
+            {!readOnly && onOuvrirDuplication && (
               <button
                 type="button"
                 onClick={onOuvrirDuplication}
@@ -912,7 +968,7 @@ export function SyllabusMultiMatieresView({
               </button>
             )}
 
-            {onOuvrirAjout && (
+            {!readOnly && onOuvrirAjout && (
               <button
                 type="button"
                 onClick={onOuvrirAjout}
@@ -937,14 +993,16 @@ export function SyllabusMultiMatieresView({
               />
             </div>
 
-            <button
-              type="button"
-              onClick={handleAjouterNouvelleSemaine}
-              className="border-brand-orange/30 text-brand-orange inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border bg-orange-50/60 px-3 py-1.5 text-xs font-bold transition-all hover:bg-orange-100/70"
-            >
-              <Plus size={13} />
-              <span>+ Nouvelle Semaine</span>
-            </button>
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={handleAjouterNouvelleSemaine}
+                className="border-brand-orange/30 text-brand-orange inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border bg-orange-50/60 px-3 py-1.5 text-xs font-bold transition-all hover:bg-orange-100/70"
+              >
+                <Plus size={13} />
+                <span>+ Nouvelle Semaine</span>
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -1134,17 +1192,20 @@ export function SyllabusMultiMatieresView({
                         className="bg-slate-50/50 p-8 text-center text-slate-500"
                       >
                         <p className="text-xs font-semibold text-slate-700">
-                          Toutes les lignes de cours ont été retirées pour la
-                          Semaine {semaine}.
+                          {readOnly
+                            ? `Aucun cours documenté pour la Semaine ${semaine}.`
+                            : `Toutes les lignes de cours ont été retirées pour la Semaine ${semaine}.`}
                         </p>
-                        <button
-                          type="button"
-                          onClick={() => ajouterLigneCours(semaine, 1)}
-                          className="bg-brand-orange hover:bg-brand-orange/90 mt-2.5 inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold text-white shadow-2xs transition-all"
-                        >
-                          <Plus size={13} />
-                          <span>Ajouter le 1er Cours</span>
-                        </button>
+                        {!readOnly && (
+                          <button
+                            type="button"
+                            onClick={() => ajouterLigneCours(semaine, 1)}
+                            className="bg-brand-orange hover:bg-brand-orange/90 mt-2.5 inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold text-white shadow-2xs transition-all"
+                          >
+                            <Plus size={13} />
+                            <span>Ajouter le 1er Cours</span>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ) : (
@@ -1162,17 +1223,19 @@ export function SyllabusMultiMatieresView({
                             <span className="text-[10px] font-bold text-slate-400">
                               S{semaine}
                             </span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleSupprimerLigne(semaine, numCours)
-                              }
-                              className="no-print mt-1 inline-flex cursor-pointer items-center gap-1 rounded-md border border-transparent px-1.5 py-0.5 text-[10px] font-bold text-slate-400 transition-all hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                              title={`Supprimer la ligne du ${labelNumeroCours(numCours)}`}
-                            >
-                              <Trash2 size={10} />
-                              <span>Supprimer</span>
-                            </button>
+                            {!readOnly && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleSupprimerLigne(semaine, numCours)
+                                }
+                                className="no-print mt-1 inline-flex cursor-pointer items-center gap-1 rounded-md border border-transparent px-1.5 py-0.5 text-[10px] font-bold text-slate-400 transition-all hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                                title={`Supprimer la ligne du ${labelNumeroCours(numCours)}`}
+                              >
+                                <Trash2 size={10} />
+                                <span>Supprimer</span>
+                              </button>
+                            )}
                           </div>
                         </td>
 
@@ -1204,10 +1267,11 @@ export function SyllabusMultiMatieresView({
                               matiereNom={m.nom}
                               sessionId={sessionId}
                               phaseId={phaseId}
-                              onSupprimer={handleSupprimerProgression}
-                              onTransferer={(p) => setCoursATransferer(p)}
+                              onSupprimer={readOnly ? undefined : handleSupprimerProgression}
+                              onTransferer={readOnly ? undefined : (p) => setCoursATransferer(p)}
                               estVerrouille={estVerrouille}
                               quota={quota}
+                              readOnly={readOnly}
                             />
                           );
                         })}
@@ -1219,57 +1283,59 @@ export function SyllabusMultiMatieresView({
             </div>
 
             {/* Pied du tableau : Boutons d'ajout et de suppression d'une ligne de cours pour la semaine */}
-            <div className="no-print flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-slate-50/70 px-5 py-3">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const maxActuel =
-                      numerosCours.length > 0 ? Math.max(...numerosCours) : 0;
-                    ajouterLigneCours(semaine, maxActuel + 1);
-                  }}
-                  className="hover:border-brand-orange hover:text-brand-orange inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs transition-all"
-                >
-                  <Plus size={13} />
-                  <span>
-                    + Ajouter une ligne de cours (
-                    {labelNumeroCours(
-                      (numerosCours.length > 0
-                        ? Math.max(...numerosCours)
-                        : 0) + 1,
-                    )}
-                    )
-                  </span>
-                </button>
-
-                {/* Possibilité de retirer la dernière ligne affichée */}
-                {numerosCours.length > 0 && (
+            {!readOnly && (
+              <div className="no-print flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-slate-50/70 px-5 py-3">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => {
-                      const dernierNumero = Math.max(...numerosCours);
-                      handleSupprimerLigne(semaine, dernierNumero);
+                      const maxActuel =
+                        numerosCours.length > 0 ? Math.max(...numerosCours) : 0;
+                      ajouterLigneCours(semaine, maxActuel + 1);
                     }}
-                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 shadow-2xs transition-all hover:bg-red-100"
-                    title="Supprimer la dernière ligne du tableau"
+                    className="hover:border-brand-orange hover:text-brand-orange inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs transition-all"
                   >
-                    <Minus size={13} />
+                    <Plus size={13} />
                     <span>
-                      Retirer la ligne (
-                      {labelNumeroCours(Math.max(...numerosCours))})
+                      + Ajouter une ligne de cours (
+                      {labelNumeroCours(
+                        (numerosCours.length > 0
+                          ? Math.max(...numerosCours)
+                          : 0) + 1,
+                      )}
+                      )
                     </span>
                   </button>
-                )}
-              </div>
 
-              <span className="text-[11px] font-medium text-slate-400">
-                Raccourci clavier :{" "}
-                <kbd className="rounded bg-slate-200/80 px-1 py-0.5 font-mono font-bold text-slate-600">
-                  Ctrl + Entrée
-                </kbd>{" "}
-                pour enregistrer
-              </span>
-            </div>
+                  {/* Possibilité de retirer la dernière ligne affichée */}
+                  {numerosCours.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const dernierNumero = Math.max(...numerosCours);
+                        handleSupprimerLigne(semaine, dernierNumero);
+                      }}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 shadow-2xs transition-all hover:bg-red-100"
+                      title="Supprimer la dernière ligne du tableau"
+                    >
+                      <Minus size={13} />
+                      <span>
+                        Retirer la ligne (
+                        {labelNumeroCours(Math.max(...numerosCours))})
+                      </span>
+                    </button>
+                  )}
+                </div>
+
+                <span className="text-[11px] font-medium text-slate-400">
+                  Raccourci clavier :{" "}
+                  <kbd className="rounded bg-slate-200/80 px-1 py-0.5 font-mono font-bold text-slate-600">
+                    Ctrl + Entrée
+                  </kbd>{" "}
+                  pour enregistrer
+                </span>
+              </div>
+            )}
           </div>
         );
       })}
@@ -1288,6 +1354,14 @@ export function SyllabusMultiMatieresView({
           toutesProgressions={progressions}
         />
       )}
+
+      {/* ── Visa Directeur académique pour impression directe ── */}
+      <div className="hidden print:block avoid-break">
+        <VisaDirecteurAcademique
+          align="right"
+          sousTitre="Signature & Cachet officiel"
+        />
+      </div>
 
       {/* Modale d'exportation PDF & Impression Multi-Formations */}
       {showExportModal && (

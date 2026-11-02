@@ -34,6 +34,11 @@ public class EnseignantRepositoryAdapter implements EnseignantRepositoryPort {
     }
 
     @Override
+    public Optional<Enseignant> findByIdWithLock(UUID id) {
+        return jpaRepository.findByIdForUpdate(id).map(mapper::toDomain);
+    }
+
+    @Override
     public Optional<Enseignant> findByMatricule(String matricule) {
         return jpaRepository.findByMatricule(matricule).map(mapper::toDomain);
     }

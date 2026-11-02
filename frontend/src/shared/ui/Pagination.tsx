@@ -31,32 +31,33 @@ export function Pagination({
   const libelle = totalItems > 1 ? `${label}s` : label;
 
   return (
-    <div className="border-brand-gray/10 flex flex-col gap-2 border-t p-3 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-brand-gray text-xs">
-        <span className="text-brand-anthracite font-bold">
-          {debut}–{fin}
+    <div className="border-slate-100 flex flex-col gap-2 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between bg-slate-50/50 rounded-b-xl">
+      <p className="text-slate-500 text-xs">
+        Affichage de{" "}
+        <span className="text-brand-anthracite font-semibold">
+          {debut} à {fin}
         </span>{" "}
-        sur {totalItems} {libelle}
+        sur <span className="font-semibold text-brand-anthracite">{totalItems}</span> {libelle}
       </p>
-      <div className="flex items-center justify-end gap-1">
+      <div className="flex items-center justify-end gap-1.5">
         <button
           type="button"
           onClick={() => onChange(page - 1)}
           disabled={page <= 1}
           aria-label="Page précédente"
-          className="text-brand-anthracite hover:bg-brand-gray/10 rounded p-1.5 disabled:opacity-30"
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-2xs transition-all hover:bg-slate-50 hover:text-brand-anthracite disabled:cursor-not-allowed disabled:opacity-40"
         >
           <ChevronLeft size={16} />
         </button>
-        <span className="text-brand-anthracite px-2 text-xs font-bold whitespace-nowrap">
-          Page {page} / {totalPages}
+        <span className="rounded-lg bg-white border border-slate-200 px-3 py-1 text-xs font-semibold text-brand-anthracite shadow-2xs whitespace-nowrap">
+          {page} / {totalPages}
         </span>
         <button
           type="button"
           onClick={() => onChange(page + 1)}
           disabled={page >= totalPages}
           aria-label="Page suivante"
-          className="text-brand-anthracite hover:bg-brand-gray/10 rounded p-1.5 disabled:opacity-30"
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-2xs transition-all hover:bg-slate-50 hover:text-brand-anthracite disabled:cursor-not-allowed disabled:opacity-40"
         >
           <ChevronRight size={16} />
         </button>

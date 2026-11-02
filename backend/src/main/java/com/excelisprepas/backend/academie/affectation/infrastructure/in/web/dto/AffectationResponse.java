@@ -5,6 +5,8 @@ import com.excelisprepas.backend.academie.affectation.domain.model.StatutAffecta
 import com.excelisprepas.backend.academie.affectation.domain.model.StatutPaiement;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.UUID;
 
 public record AffectationResponse(
@@ -21,13 +23,25 @@ public record AffectationResponse(
         StatutAffectation statut,
         StatutPaiement statutPaiement,
         BigDecimal coutApplique,
-        UUID fichePaieId
+        UUID fichePaieId,
+        LocalDate dateSeance,
+        LocalTime heureDebut,
+        LocalTime heureFin
 ) {
     public AffectationResponse(
             UUID id, UUID centreId, UUID sessionId, UUID formationId,
             UUID salleId, UUID matiereId, UUID enseignantId,
             Jour jour, int seance, int semaine, StatutAffectation statut) {
         this(id, centreId, sessionId, formationId, salleId, matiereId, enseignantId,
-                jour, seance, semaine, statut, StatutPaiement.NON_PAYEE, null, null);
+                jour, seance, semaine, statut, StatutPaiement.NON_PAYEE, null, null, null, null, null);
+    }
+
+    public AffectationResponse(
+            UUID id, UUID centreId, UUID sessionId, UUID formationId,
+            UUID salleId, UUID matiereId, UUID enseignantId,
+            Jour jour, int seance, int semaine, StatutAffectation statut,
+            StatutPaiement statutPaiement, BigDecimal coutApplique, UUID fichePaieId) {
+        this(id, centreId, sessionId, formationId, salleId, matiereId, enseignantId,
+                jour, seance, semaine, statut, statutPaiement, coutApplique, fichePaieId, null, null, null);
     }
 }

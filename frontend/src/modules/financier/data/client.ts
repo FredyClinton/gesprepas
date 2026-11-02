@@ -99,6 +99,8 @@ export type MouvementFinancier = {
   apprenantId?: string | null;
   formationId?: string | null;
   ordonnateur?: string | null;
+  details?: string | null;
+  livreTitre?: string | null;
 };
 
 export function listMouvementsFinanciers(
@@ -194,4 +196,35 @@ export function ajusterActiviteBilan(
     method: "PUT",
     body: JSON.stringify(input),
   });
+}
+
+export type DecisionMouvement = "VALIDE" | "REJETE";
+
+export interface ValiderMouvementInput {
+  mouvementId: string;
+  decision: DecisionMouvement;
+  validateurUtilisateurId?: string;
+}
+
+export interface ValidationMouvementResponse {
+  id: string;
+  mouvementFinancierId: string;
+  validateurUtilisateurId: string;
+  decision: DecisionMouvement;
+  date: string;
+}
+
+export function validerMouvement(
+  input: ValiderMouvementInput,
+): Promise<ValidationMouvementResponse> {
+  return apiFetch<ValidationMouvementResponse>(
+    `/api/mouvements-financiers/${input.mouvementId}/valider`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        decision: input.decision,
+        validateurUtilisateurId: input.validateurUtilisateurId,
+      }),
+    },
+  );
 }

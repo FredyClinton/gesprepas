@@ -27,7 +27,7 @@ public class AuditLogController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('DIRECTEUR', 'DIRECTEUR_ACADEMIQUE', 'CHEF_CENTRE')")
+    @PreAuthorize("hasAnyRole('DIRECTEUR', 'DIRECTEUR_ACADEMIQUE', 'CHEF_CENTRE') or hasAnyAuthority('FINANCIER_CONSULTER', 'RAPPORT_CONSULTER', 'UTILISATEUR_CONSULTER')")
     @Operation(summary = "Rechercher et filtrer les journaux d'audit")
     public Page<AuditLogResponseDto> rechercher(
             @RequestParam(required = false) String module,

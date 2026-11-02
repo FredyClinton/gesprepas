@@ -11,7 +11,10 @@ import java.util.UUID;
 public interface ConcoursBlancJpaRepository extends JpaRepository<ConcoursBlancEntity, UUID> {
     List<ConcoursBlancEntity> findBySessionIdOrderByDateEpreuveAscNumeroAsc(UUID sessionId);
 
-    @Query("SELECT cb FROM ConcoursBlancEntity cb WHERE cb.sessionId = :sessionId AND cb.numero < :currentNumero ORDER BY cb.numero DESC LIMIT 1")
-    Optional<ConcoursBlancEntity> findPreviousConcours(@Param("sessionId") UUID sessionId, @Param("currentNumero") int currentNumero);
+    Optional<ConcoursBlancEntity> findFirstBySessionIdAndNumeroLessThanOrderByNumeroDesc(UUID sessionId, int currentNumero);
+
+    default Optional<ConcoursBlancEntity> findPreviousConcours(UUID sessionId, int currentNumero) {
+        return findFirstBySessionIdAndNumeroLessThanOrderByNumeroDesc(sessionId, currentNumero);
+    }
 }
 

@@ -1,6 +1,6 @@
 import { apiFetch } from "@/shared/lib/api-client";
 
-import type { Affectation, Jour } from "../domain/types";
+import type { Affectation, ConflitHoraireResponse, Jour } from "../domain/types";
 
 type ListerAffectationsParams = {
   sessionId: string;
@@ -104,5 +104,31 @@ export function listAffectationsParCentre(
   const params = new URLSearchParams({ sessionId });
   return apiFetch<Affectation[]>(
     `/api/affectations/centre/${centreId}?${params}`,
+  );
+}
+
+export type VerifierConflitParams = {
+  enseignantId: string;
+  dateSeance: string; // YYYY-MM-DD
+  heureDebut?: string;
+  heureFin?: string;
+  seance?: number;
+  affectationId?: string;
+};
+
+export function verifierConflitHoraire(
+  params: VerifierConflitParams,
+): Promise<ConflitHoraireResponse> {
+  const q = new URLSearchParams({
+    enseignantId: params.enseignantId,
+    dateSeance: params.dateSeance,
+  });
+  if (params.heureDebut) q.set("heureDebut", params.heureDebut);
+  if (params.heureFin) q.set("heureFin", params.heureFin);
+  if (params.seance !== undefined) q.set("seance", String(params.seance));
+  if (params.affectationId) q.set("affectationId", params.affectationId);
+
+  return apiFetch<ConflitHoraireResponse>(
+    `/api/affectations/verifier-conflit?${q.toString()}`,
   );
 }

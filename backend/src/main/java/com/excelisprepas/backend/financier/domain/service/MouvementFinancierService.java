@@ -26,6 +26,8 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
         RecupererMouvementUseCase, ListerMouvementsUseCase, ListerVersementsApprenantUseCase,
         ModifierEntreeUseCase, SupprimerEntreeUseCase {
 
+    private static final UUID MOTIF_ACHAT_LIVRES_ID = UUID.fromString("00000000-0000-0000-0000-000000000012");
+
     private final EntreeRepositoryPort entreeRepository;
     private final SortieRepositoryPort sortieRepository;
     private final MotifRepositoryPort motifRepository;
@@ -94,6 +96,18 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
         this.auditEventHelper = auditEventHelper;
     }
 
+    private boolean isMotifLivre(UUID motifId) {
+        if (motifId == null) {
+            return false;
+        }
+        if (MOTIF_ACHAT_LIVRES_ID.equals(motifId)) {
+            return true;
+        }
+        return motifRepository.findById(motifId)
+                .map(m -> m.getNom() != null && m.getNom().toLowerCase().contains("livre"))
+                .orElse(false);
+    }
+
     private Motif verifierMotif(UUID motifId, TypeMotif typeAttendu) {
         Motif motif = motifRepository.findById(motifId)
                 .orElseThrow(() -> new MotifIntrouvableException(motifId));
@@ -132,7 +146,7 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
                     .orElseThrow(() -> new ApprenantIntrouvableException(apprenantId));
 
             // Règle de non-dépassement : Si ce n'est pas un achat de livre ni un paiement dossier concours, contrôler le solde
-            boolean estAchatLivre = motif.getNom().toLowerCase().contains("livre");
+            boolean estAchatLivre = isMotifLivre(motifId) || (motif.getNom() != null && motif.getNom().toLowerCase().contains("livre"));
             if (dossierConcoursId == null && !estAchatLivre && contratApprenantRepository != null) {
                 List<com.excelisprepas.backend.apprenant.domain.model.ContratApprenant> contrats = contratApprenantRepository.findByApprenantId(apprenantId);
                 BigDecimal totalContrat = contrats.stream()
@@ -147,7 +161,9 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
                 if (totalContrat.compareTo(BigDecimal.ZERO) > 0) {
                     List<Entree> versements = entreeRepository.findByApprenantId(apprenantId);
                     BigDecimal dejaPaye = versements.stream()
-                            .filter(e -> e.getStatut() != StatutMouvement.REJETE && e.getDossierConcoursId().isEmpty())
+                            .filter(e -> e.getStatut() != StatutMouvement.REJETE
+                                    && e.getDossierConcoursId().isEmpty()
+                                    && !isMotifLivre(e.getMotifId()))
                             .map(Entree::getMontant)
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
@@ -173,9 +189,8 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
 
         Entree entree = new Entree(UUID.randomUUID(), sessionId, motifId, montant, date,
                 saisiParUtilisateurId, centreId, apprenantId, formationId, dossierConcoursId);
-        entree.appliquerDecision(StatutMouvement.VALIDE);
         entree = entreeRepository.save(entree);
-        log.info("Entrée saisie et validée : id={}, sessionId={}, montant={}, centreId={}", entree.getId(), sessionId, montant, centreId);
+        log.info("Entrée saisie : id={}, sessionId={}, montant={}, centreId={}", entree.getId(), sessionId, montant, centreId);
 
         if (auditEventHelper != null) {
             if (apprenantId != null) {
@@ -328,7 +343,7 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
             Apprenant apprenant = apprenantRepository.findById(apprenantFinal)
                     .orElseThrow(() -> new ApprenantIntrouvableException(apprenantFinal));
 
-            boolean estAchatLivre = motif.getNom().toLowerCase().contains("livre");
+            boolean estAchatLivre = isMotifLivre(motifFinal) || (motif.getNom() != null && motif.getNom().toLowerCase().contains("livre"));
             if (entree.getDossierConcoursId().isEmpty() && !estAchatLivre) {
                 List<com.excelisprepas.backend.apprenant.domain.model.ContratApprenant> contrats =
                         contratApprenantRepository.findByApprenantId(apprenantFinal);
@@ -344,7 +359,10 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
                 if (totalContrat.compareTo(BigDecimal.ZERO) > 0) {
                     List<Entree> versements = entreeRepository.findByApprenantId(apprenantFinal);
                     BigDecimal dejaPayeAutres = versements.stream()
-                            .filter(e -> !e.getId().equals(entreeId) && e.getStatut() != StatutMouvement.REJETE && e.getDossierConcoursId().isEmpty())
+                            .filter(e -> !e.getId().equals(entreeId)
+                                    && e.getStatut() != StatutMouvement.REJETE
+                                    && e.getDossierConcoursId().isEmpty()
+                                    && !isMotifLivre(e.getMotifId()))
                             .map(Entree::getMontant)
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
 

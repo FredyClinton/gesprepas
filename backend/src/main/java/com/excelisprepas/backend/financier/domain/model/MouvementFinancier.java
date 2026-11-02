@@ -37,12 +37,15 @@ public abstract class MouvementFinancier {
     }
 
     public void appliquerDecision(StatutMouvement decision) {
+        if (decision == StatutMouvement.EN_ATTENTE) {
+            throw new IllegalArgumentException("La décision doit être VALIDE ou REJETE, pas EN_ATTENTE");
+        }
+        if (this.statut == decision) {
+            return;
+        }
         if (this.statut != StatutMouvement.EN_ATTENTE) {
             throw new IllegalStateException(
                     "Ce mouvement a déjà été traité (statut actuel : " + this.statut + ")");
-        }
-        if (decision == StatutMouvement.EN_ATTENTE) {
-            throw new IllegalArgumentException("La décision doit être VALIDE ou REJETE, pas EN_ATTENTE");
         }
         this.statut = decision;
     }
