@@ -8,6 +8,7 @@ const ROLES_AUTORISES = [
   "DIRECTEUR_ACADEMIQUE",
   "SUPERVISEUR_DOSSIERS",
   "CHARGE_DOSSIER",
+  "COMPTABLE",
 ];
 
 export default async function ApprenantDetailPage({

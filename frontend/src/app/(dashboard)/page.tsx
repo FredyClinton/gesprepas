@@ -5,6 +5,7 @@ import { ChefCentreDashboard } from "./_dashboards/chef-centre";
 import { DirecteurAcademiqueDashboard } from "./_dashboards/directeur-academique";
 import { ChefDepartementDashboard } from "./_dashboards/chef-departement";
 import { CaissierDashboard } from "./_dashboards/caissier";
+import { ComptableDashboard } from "./_dashboards/comptable";
 
 // Dispatcher : ne construit rien lui-même, choisit le tableau de bord selon le rôle.
 // `session!` est sûr ici - (dashboard)/layout.tsx a déjà redirigé vers /login si
@@ -20,6 +21,8 @@ export default async function DashboardPage() {
       return <ChefCentreDashboard centreId={utilisateur.centreId!} />;
     case "CAISSIER":
       return <CaissierDashboard centreId={utilisateur.centreId!} />;
+    case "COMPTABLE":
+      return <ComptableDashboard />;
     case "DIRECTEUR_ACADEMIQUE":
       return <DirecteurAcademiqueDashboard />;
     case "CHEF_DEPARTEMENT":

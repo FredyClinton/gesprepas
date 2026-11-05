@@ -19,6 +19,7 @@ export default async function ApprenantsPage({
     "DIRECTEUR",
     "DIRECTEUR_ACADEMIQUE",
     "ADMIN",
+    "COMPTABLE",
   ];
 
   if (!rolesAutorises.includes(utilisateur.role)) {

@@ -17,7 +17,7 @@ export function ApprenantsSuperviseurContainer({
   initialRecherche,
 }: ApprenantsSuperviseurContainerProps) {
   const { data: centres = [], isLoading } = useCentres();
-  const [centreSelectionneId, setCentreSelectionneId] = useState<string>("");
+  const [centreSelectionneId, setCentreSelectionneId] = useState<string>("TOUS");
 
   if (isLoading) {
     return (
@@ -49,7 +49,7 @@ export function ApprenantsSuperviseurContainer({
     );
   }
 
-  const centreActifId = centreSelectionneId || centres[0]?.id;
+  const centreActifId = centreSelectionneId || "TOUS";
 
   return (
     <div className="space-y-4">
@@ -64,7 +64,7 @@ export function ApprenantsSuperviseurContainer({
               Supervision Réseau
             </span>
             <p className="text-xs font-semibold text-brand-anthracite">
-              Consultation des effectifs apprenants par centre
+              Consultation des effectifs apprenants par centre ou niveau global
             </p>
           </div>
         </div>
@@ -79,6 +79,7 @@ export function ApprenantsSuperviseurContainer({
             onChange={(e) => setCentreSelectionneId(e.target.value)}
             className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs sm:text-sm font-semibold text-brand-anthracite outline-none shadow-2xs focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
           >
+            <option value="TOUS">Tous les centres (Réseau global)</option>
             {centres.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.nom} {c.villeActuelle ? `(${c.villeActuelle})` : ""}

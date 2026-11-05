@@ -426,6 +426,7 @@ export function ApprenantDetailView({ apprenantId }: { apprenantId: string }) {
           nomFormation={formation?.nom}
           nomCentre={centre?.nom}
           cursus={cursus}
+          peutModifier={peutModifierApprenant}
         />
       )}
 

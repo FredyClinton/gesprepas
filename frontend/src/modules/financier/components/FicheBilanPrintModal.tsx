@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, Printer, CheckCircle2 } from "lucide-react";
-import { Logo } from "@/shared/ui";
 import { formaterDateHeureGeneration } from "@/shared/lib/format-document-date";
 import type { BilanApercu, MouvementFinancier, Motif } from "../domain/types";
 import type { Formation } from "@/modules/academique";
@@ -11,15 +10,25 @@ import { nombreEnLettres } from "@/shared/lib/nombre-en-lettres";
 
 const FCFA = new Intl.NumberFormat("fr-FR");
 
+function formaterDateVisa(dateIso?: string | null): string {
+  if (!dateIso) return "";
+  try {
+    const d = new Date(dateIso);
+    return isNaN(d.getTime()) ? String(dateIso) : d.toLocaleString("fr-FR");
+  } catch {
+    return String(dateIso);
+  }
+}
+
 interface FicheBilanPrintModalProps {
   isOpen: boolean;
   onClose: () => void;
   date: string; // YYYY-MM-DD
-  nomCentre: string;
+  nomCentre?: string;
   codeCentre?: string;
-  bilan: BilanApercu | null | undefined;
-  mouvements: MouvementFinancier[];
-  motifs: Motif[];
+  bilan?: BilanApercu | null;
+  mouvements?: MouvementFinancier[];
+  motifs?: Motif[];
   formations?: Formation[];
 }
 
@@ -27,11 +36,11 @@ export function FicheBilanPrintModal({
   isOpen,
   onClose,
   date,
-  nomCentre,
+  nomCentre = "Centre EXCELIS PRÉPAS",
   codeCentre = "YA",
   bilan,
-  mouvements,
-  motifs,
+  mouvements = [],
+  motifs = [],
   formations = [],
 }: FicheBilanPrintModalProps) {
   const [mounted, setMounted] = useState(false);
@@ -49,6 +58,20 @@ export function FicheBilanPrintModal({
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    }
+    if (isOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen || !mounted) return null;
 
   const handlePrint = () => {
@@ -57,41 +80,46 @@ export function FicheBilanPrintModal({
 
   // Date formatée JJ/MM/AAAA
   const [annee, mois, jour] = (date || "").split("-");
-  const refDate = `${codeCentre.toUpperCase()}/${jour || "__"}/${mois || "__"}/${annee || "2026"}`;
-  const dateLisible = `${jour || ""}/${mois || ""}/${annee || ""}`;
+  const code = (codeCentre || "YA").toUpperCase();
+  const refDate = `${code}/${jour || "__"}/${mois || "__"}/${annee || "2026"}`;
+
+  const listeMouvements = Array.isArray(mouvements) ? mouvements : [];
+  const listeMotifs = Array.isArray(motifs) ? motifs : [];
+  const listeFormations = Array.isArray(formations) ? formations : [];
 
   // Filtrer les entrées et sorties pour cette date
-  const entreesDuJour = mouvements.filter(
-    (m) => m.type === "ENTREE" && m.date === date && m.statut !== "REJETE",
+  const entreesDuJour = listeMouvements.filter(
+    (m) => m?.type === "ENTREE" && m?.date === date && m?.statut !== "REJETE",
   );
-  const sortiesDuJour = mouvements.filter(
-    (m) => m.type === "SORTIE" && m.date === date && m.statut !== "REJETE",
+  const sortiesDuJour = listeMouvements.filter(
+    (m) => m?.type === "SORTIE" && m?.date === date && m?.statut !== "REJETE",
   );
 
   // Totaux
-  const totalEntreesCalcule = entreesDuJour.reduce((acc, e) => acc + (e.montant || 0), 0);
-  const totalSortiesCalcule = sortiesDuJour.reduce((acc, s) => acc + (s.montant || 0), 0);
+  const totalEntreesCalcule = entreesDuJour.reduce((acc, e) => acc + (Number(e?.montant) || 0), 0);
+  const totalSortiesCalcule = sortiesDuJour.reduce((acc, s) => acc + (Number(s?.montant) || 0), 0);
 
-  const totalEntrees = bilan?.totalEntrees ?? totalEntreesCalcule;
-  const totalSorties = bilan?.totalSorties ?? totalSortiesCalcule;
-  const netAVerser = bilan?.netAVerser ?? totalEntrees - totalSorties;
+  const totalEntrees = Number(bilan?.totalEntrees ?? totalEntreesCalcule);
+  const totalSorties = Number(bilan?.totalSorties ?? totalSortiesCalcule);
+  const netAVerser = Number(bilan?.netAVerser ?? (totalEntrees - totalSorties));
 
   const totalEntreesLettres = nombreEnLettres(totalEntrees);
   const totalSortiesLettres = nombreEnLettres(totalSorties);
   const netAVerserLettres = nombreEnLettres(netAVerser);
 
   // Associer les motifs
-  const getNomMotif = (motifId: string) => {
-    return motifs.find((m) => m.id === motifId)?.nom || "Versement / Dépense";
+  const getNomMotif = (motifId?: string | null) => {
+    if (!motifId) return "Versement / Dépense";
+    return listeMotifs.find((m) => m?.id === motifId)?.nom || "Versement / Dépense";
   };
 
-  const getNomFormation = (formationId: string | null | undefined) => {
+  const getNomFormation = (formationId?: string | null) => {
     if (!formationId) return "";
-    return formations.find((f) => f.id === formationId)?.nom || "";
+    return listeFormations.find((f) => f?.id === formationId)?.nom || "";
   };
 
   // Regroupement des entrées
-  const groupesEntrees = React.useMemo(() => {
+  const groupesEntrees = (() => {
     const map = new Map<string, {
       titre: string;
       effectif: number;
@@ -99,10 +127,11 @@ export function FicheBilanPrintModal({
     }>();
 
     entreesDuJour.forEach((e) => {
+      if (!e) return;
       const motifNom = getNomMotif(e.motifId);
       const isLivre =
         e.motifId === "00000000-0000-0000-0000-000000000012" ||
-        motifNom.toLowerCase().includes("livre") ||
+        (typeof motifNom === "string" && motifNom.toLowerCase().includes("livre")) ||
         Boolean(e.livreTitre) ||
         Boolean(e.details);
 
@@ -118,7 +147,7 @@ export function FicheBilanPrintModal({
         cle = `${e.motifId}__${e.formationId}`;
         titre = formationNom ? `${motifNom} de ${formationNom}` : motifNom;
       } else {
-        cle = `${e.motifId}__general`;
+        cle = `${e.motifId || "autre"}__general`;
         titre = motifNom;
       }
 
@@ -132,11 +161,11 @@ export function FicheBilanPrintModal({
 
       const grp = map.get(cle)!;
       grp.effectif += 1;
-      grp.montantTotal += e.montant;
+      grp.montantTotal += Number(e.montant) || 0;
     });
 
     return Array.from(map.values());
-  }, [entreesDuJour, motifs, formations]);
+  })();
 
   return createPortal(
     <div
@@ -157,13 +186,13 @@ export function FicheBilanPrintModal({
               Aperçu avant impression – Fiche de Bilan Journalier
             </h3>
             <p className="text-xs text-slate-500">
-              Centre : <span className="font-semibold text-slate-700">{nomCentre}</span> • Date :{" "}
-              <span className="font-semibold text-slate-700">{dateLisible}</span>
+              Format officiel normalisé A4 Portrait (conforme bordereau de caisse EXCELIS PRÉPAS)
             </p>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
+              type="button"
               className="flex items-center gap-1.5 rounded-lg bg-brand-orange px-4 py-2 text-xs font-bold text-white shadow-xs transition-colors hover:bg-orange-600 cursor-pointer"
             >
               <Printer className="h-4 w-4" />
@@ -171,6 +200,7 @@ export function FicheBilanPrintModal({
             </button>
             <button
               onClick={onClose}
+              type="button"
               className="rounded-lg p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-700 cursor-pointer"
               title="Fermer"
             >
@@ -185,8 +215,17 @@ export function FicheBilanPrintModal({
             {/* ── EN-TÊTE OFFICIEL EXCELIS PREPAS ── */}
             <div className="flex items-stretch justify-between gap-4 border-b-2 border-slate-900 pb-3 mb-3">
               {/* Logo & Identité Gauche */}
-              <div className="flex flex-col justify-center">
-                <Logo className="h-10 w-auto object-contain" priority />
+              <div className="flex flex-col justify-center gap-1">
+                <img
+                  src="/images/logo-excelis.png"
+                  alt="EXCELIS PRÉPAS"
+                  className="h-12 w-auto object-contain shrink-0"
+                  loading="eager"
+                  decoding="sync"
+                />
+                <div className="text-[11px] font-extrabold text-slate-800">
+                  Centre : <span className="font-black text-[#E65100]">{nomCentre || "Centre Yaoundé"}</span>
+                </div>
               </div>
 
               {/* Bloc Droite Institutionnel Orange */}
@@ -339,8 +378,8 @@ export function FicheBilanPrintModal({
                         <td className="border border-slate-900 p-1 text-slate-700">
                           {bilan?.nomCaissier || "Caisse"}
                         </td>
-                        <td className="border border-slate-900 p-1 text-center text-[9px] text-slate-400">
-                          {bilan?.dateVisaCaissier ? "Validé" : "—"}
+                        <td className="border border-slate-900 p-1 text-center text-[9px] font-semibold">
+                          {s.statut === "VALIDE" ? "Validé" : "En attente"}
                         </td>
                       </tr>
                     ))
@@ -437,7 +476,7 @@ export function FicheBilanPrintModal({
                         {bilan.nomChefCentre || "Chef de centre"}
                       </div>
                       <div className="text-[8px] text-slate-400 font-mono">
-                        {new Date(bilan.dateValidationChefCentre).toLocaleString("fr-FR")}
+                        {formaterDateVisa(bilan.dateValidationChefCentre)}
                       </div>
                     </>
                   ) : (
@@ -464,7 +503,7 @@ export function FicheBilanPrintModal({
                         {bilan.nomCaissier || "Caissier"}
                       </div>
                       <div className="text-[8px] text-slate-400 font-mono">
-                        {new Date(bilan.dateVisaCaissier).toLocaleString("fr-FR")}
+                        {formaterDateVisa(bilan.dateVisaCaissier)}
                       </div>
                     </>
                   ) : (
@@ -491,7 +530,7 @@ export function FicheBilanPrintModal({
                         {bilan.nomControleur || "Comptable"}
                       </div>
                       <div className="text-[8px] text-slate-400 font-mono">
-                        {new Date(bilan.dateValidationControleur).toLocaleString("fr-FR")}
+                        {formaterDateVisa(bilan.dateValidationControleur)}
                       </div>
                     </>
                   ) : (

@@ -38,12 +38,14 @@ public final class MatricePermissions {
         matrice.put(DIRECTEUR, EnumSet.allOf(Permission.class));
 
         matrice.put(COMPTABLE, EnumSet.of(
+                FINANCIER_SAISIR_MOUVEMENT,
                 FINANCIER_CONSULTER,
                 FINANCIER_GERER_MOTIF,
                 FINANCIER_GERER_PAIE,
                 FINANCIER_CLOTURER_BILAN,
                 FINANCIER_CONSULTER_ARCHIVES,
                 FINANCIER_VALIDER_BILAN_CONTROLEUR,
+                APPRENANT_CONSULTER,
                 RAPPORT_CONSULTER,
                 RAPPORT_EXPORTER
         ));

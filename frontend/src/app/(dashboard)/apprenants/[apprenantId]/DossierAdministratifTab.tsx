@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import {
   CheckCircle2,
   Plus,
@@ -55,6 +56,9 @@ export function DossierAdministratifTab({
   dossier,
   apprenant,
 }: DossierAdministratifTabProps) {
+  const { data: authSession } = useSession();
+  const peutGererDossier = authSession?.user?.role !== "COMPTABLE";
+
   const { data: concoursDuDossier = [], isLoading: chargementConcours } = useConcoursDuDossier(
     dossier?.id,
   );
@@ -83,7 +87,7 @@ export function DossierAdministratifTab({
             concours pour cette session.
           </p>
 
-          {apprenant && (
+          {peutGererDossier && apprenant && (
             <div className="mt-5">
               <Button
                 type="button"
@@ -140,15 +144,17 @@ export function DossierAdministratifTab({
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => setModalSouscrireOuverte(true)}
-            className="text-xs font-bold flex items-center gap-1.5"
-          >
-            <Plus size={14} className="text-brand-orange" />
-            <span>Rattacher un concours</span>
-          </Button>
+          {peutGererDossier && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setModalSouscrireOuverte(true)}
+              className="text-xs font-bold flex items-center gap-1.5"
+            >
+              <Plus size={14} className="text-brand-orange" />
+              <span>Rattacher un concours</span>
+            </Button>
+          )}
 
           <Link
             href={`/dossiers/${dossier.id}`}

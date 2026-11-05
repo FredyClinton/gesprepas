@@ -180,6 +180,22 @@ export function validerBilanControleur(
   );
 }
 
+export interface ValiderBilanControleurDirectInput {
+  centreId: string;
+  sessionId: string;
+  date: string;
+  validateurUtilisateurId?: string;
+}
+
+export function validerBilanControleurDirect(
+  input: ValiderBilanControleurDirectInput,
+): Promise<BilanJournalier> {
+  return apiFetch<BilanJournalier>("/api/bilans-journaliers/valider-controleur", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export type AjusterActiviteBilanInput = {
   centreId: string;
   sessionId: string;

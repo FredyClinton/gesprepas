@@ -169,8 +169,8 @@ public class BilanJournalier {
                          BigDecimal totalEntrees, BigDecimal totalSorties,
                          int effectifNouveauxEleves, int effectifTotalCentre,
                          int nombreSalles, int nombreCours) {
-        if (statut != StatutBilan.EN_ATTENTE_CONTROLEUR && statut != StatutBilan.SOUMIS_CAISSIER) {
-            throw new IllegalStateException("Ce bilan est déjà clôturé ou n'a pas encore été soumis");
+        if (statut == StatutBilan.CLOTURE) {
+            throw new IllegalStateException("Ce bilan est déjà clôturé");
         }
         this.validateurControleurId = Objects.requireNonNull(validateurControleurId, "validateurControleurId ne peut pas être nul");
         this.nomControleur = nomControleur;

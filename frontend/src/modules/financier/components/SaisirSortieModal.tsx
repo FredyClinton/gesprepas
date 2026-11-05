@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Modal, Button } from "@/shared/ui";
 import { useMotifs, useSaisirSortie } from "../data/queries";
+import { useCentres } from "@/modules/centres-sessions";
 import { UserCheck, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
@@ -31,7 +32,20 @@ export function SaisirSortieModal({
   const userId = isUUID ? rawUserId : "00000000-0000-0000-0000-000000000000";
 
   const { data: motifs = [], isLoading: chargementMotifs } = useMotifs("SORTIE");
+  const { data: centres = [] } = useCentres();
   const { mutate: creerSortie, isPending } = useSaisirSortie();
+
+  const [centreChoisiId, setCentreChoisiId] = useState<string>(
+    centreId && centreId !== "TOUS" ? centreId : (centres[0]?.id || "")
+  );
+
+  useEffect(() => {
+    if (centreId && centreId !== "TOUS") {
+      setCentreChoisiId(centreId);
+    } else if (!centreChoisiId && centres.length > 0) {
+      setCentreChoisiId(centres[0].id);
+    }
+  }, [centreId, centres, centreChoisiId]);
 
   const [motifId, setMotifId] = useState("");
   const [montant, setMontant] = useState("");
@@ -72,7 +86,7 @@ export function SaisirSortieModal({
     creerSortie(
       {
         sessionId,
-        centreId,
+        centreId: centreChoisiId || (centreId && centreId !== "TOUS" ? centreId : undefined),
         motifId,
         montant: montantNum,
         date,
@@ -115,6 +129,31 @@ export function SaisirSortieModal({
           <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
             <CheckCircle2 className="h-4 w-4 text-emerald-600" />
             <span>Sortie de caisse enregistrée avec succès.</span>
+          </div>
+        )}
+
+        {/* Sélection du centre si non fixé */}
+        {(!centreId || centreId === "TOUS") && centres.length > 0 && (
+          <div>
+            <label className="mb-1 block text-xs font-bold text-slate-700">
+              Campus / Centre de formation <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <select
+                value={centreChoisiId}
+                onChange={(e) => setCentreChoisiId(e.target.value)}
+                required
+                disabled={isPending}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-xs focus:border-brand-orange focus:outline-none focus:ring-1 focus:ring-brand-orange"
+              >
+                <option value="">-- Sélectionner le campus --</option>
+                {centres.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nom} {c.villeActuelle ? `(${c.villeActuelle})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         )}
 

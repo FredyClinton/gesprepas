@@ -1,6 +1,15 @@
 "use client";
 
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from "recharts";
 import {
   CalendarRange,
   Users,
@@ -64,33 +73,6 @@ const COULEURS_SESSIONS = [
   },
 ];
 
-function getNiceTicks(maxVal: number, tickCount = 4): { max: number; ticks: number[] } {
-  if (maxVal <= 0) return { max: 10, ticks: [0, 5, 10] };
-
-  const rawStep = maxVal / tickCount;
-  const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
-  const norm = rawStep / mag;
-
-  let niceNorm = 1;
-  if (norm <= 1) niceNorm = 1;
-  else if (norm <= 2) niceNorm = 2;
-  else if (norm <= 2.5) niceNorm = 2.5;
-  else if (norm <= 5) niceNorm = 5;
-  else niceNorm = 10;
-
-  const step = niceNorm * mag;
-  const ticks: number[] = [];
-  let curr = 0;
-  while (curr <= maxVal || ticks.length <= 2) {
-    ticks.push(curr);
-    curr += step;
-  }
-  ticks.push(curr);
-  const max = ticks[ticks.length - 1];
-
-  return { max, ticks };
-}
-
 function formatCompactFCFA(val: number): string {
   if (val >= 1_000_000) {
     const m = (val / 1_000_000).toFixed(val % 1_000_000 === 0 ? 0 : 1);
@@ -101,35 +83,6 @@ function formatCompactFCFA(val: number): string {
     return `${k}k F`;
   }
   return `${val} F`;
-}
-
-function generateSmoothPath(
-  points: { x: number; y: number }[],
-): string {
-  if (points.length === 0) return "";
-  if (points.length === 1) {
-    const p = points[0];
-    return `M ${p.x - 20} ${p.y} L ${p.x + 20} ${p.y}`;
-  }
-
-  let linePath = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
-
-  for (let i = 0; i < points.length - 1; i++) {
-    const p0 = i > 0 ? points[i - 1] : points[i];
-    const p1 = points[i];
-    const p2 = points[i + 1];
-    const p3 = i < points.length - 2 ? points[i + 2] : p2;
-
-    const tension = 0.2;
-    const cp1x = p1.x + (p2.x - p0.x) * tension;
-    const cp1y = p1.y + (p2.y - p0.y) * tension;
-    const cp2x = p2.x + (p1.x - p3.x) * tension;
-    const cp2y = p2.y + (p1.y - p3.y) * tension;
-
-    linePath += ` C ${cp1x.toFixed(2)} ${cp1y.toFixed(2)}, ${cp2x.toFixed(2)} ${cp2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
-  }
-
-  return linePath;
 }
 
 export interface ComparatifSessionsCentreGraphiqueProps {
@@ -167,7 +120,6 @@ export function ComparatifSessionsCentreGraphique({
   // Les vues par défaut doivent être "par période" (FLUX) et "en semaine" (SEMAINE)
   const [modeVue, setModeVue] = useState<ModeVue>("FLUX");
   const [granularite, setGranularite] = useState<TypeGranularite>("SEMAINE");
-  const [hoverPeriodeIndex, setHoverPeriodeIndex] = useState<number | null>(null);
 
   // Sessions ordonnées par dateDebut décroissante (la plus récente d'abord)
   const sessionsOrdonnees = useMemo(() => {
@@ -237,8 +189,6 @@ export function ComparatifSessionsCentreGraphique({
       });
     }
   }, [sessionsOrdonnees, defaultRefSession, defaultCompSession]);
-
-  const containerRef = useRef<HTMLDivElement>(null);
 
   // Nombre maximum de périodes à tracer (Semaines ou Mois)
   const { maxPeriodes, periodesLabels } = useMemo(() => {
@@ -559,89 +509,32 @@ export function ComparatifSessionsCentreGraphique({
     });
   }
 
-  // Dimensions SVG
-  const svgWidth = 840;
-  const svgHeight = 280;
-  const padLeft = indicateur === "EFFECTIF" ? 44 : 72;
-  const padRight = 32;
-  const padTop = 26;
-  const padBottom = 42;
-
-  const chartW = svgWidth - padLeft - padRight;
-  const chartH = svgHeight - padTop - padBottom;
-  const baselineY = padTop + chartH;
-
-  const { pathsSessions, ticksInfo, xCoords } = useMemo(() => {
-    const xCoords = Array.from({ length: maxPeriodes }, (_, i) =>
-      maxPeriodes === 1
-        ? padLeft + chartW / 2
-        : padLeft + (i / (maxPeriodes - 1)) * chartW,
-    );
-
-    // Valeur max parmi les sessions sélectionnées
-    let maxVal = 0;
-    seriesSessions.forEach((s) => {
-      if (sessionsSelectionneesIds.has(s.session.id)) {
-        const vals = modeVue === "CUMUL" ? s.valeursCumul : s.valeursNouveau;
-        vals.forEach((v) => {
-          if (v !== null && v > maxVal) maxVal = v;
-        });
-      }
-    });
-
-    const ticksInfo = getNiceTicks(maxVal, 4);
-    const topY = ticksInfo.max;
-
-    const pathsSessions = seriesSessions.map((s) => {
-      if (!sessionsSelectionneesIds.has(s.session.id)) {
-        return {
-          session: s.session,
-          couleur: s.couleur,
-          estActive: s.estActive,
-          tagRelatif: s.tagRelatif,
-          path: "",
-          points: [],
-        };
-      }
-
-      const vals = modeVue === "CUMUL" ? s.valeursCumul : s.valeursNouveau;
-      const points: { x: number; y: number; val: number; index: number }[] = [];
-
-      vals.forEach((v, i) => {
-        if (v !== null) {
-          const x = xCoords[i];
-          const y = baselineY - (topY > 0 ? (v / topY) * chartH : 0);
-          points.push({ x, y, val: v, index: i });
+  // Préparation des données pour Recharts
+  const donneesRecharts = useMemo(() => {
+    return Array.from({ length: maxPeriodes }, (_, i) => {
+      const row: Record<string, string | number | null> = {
+        periodeLabel: periodesLabels[i] || `P${i + 1}`,
+        periodeCourt: granularite === "SEMAINE" ? `S${i + 1}` : `M${i + 1}`,
+        index: i,
+      };
+      seriesSessions.forEach((s) => {
+        if (sessionsSelectionneesIds.has(s.session.id)) {
+          const vals = modeVue === "CUMUL" ? s.valeursCumul : s.valeursNouveau;
+          row[s.session.id] = vals[i] ?? null;
         }
       });
-
-      const path = generateSmoothPath(points);
-      return {
-        session: s.session,
-        couleur: s.couleur,
-        estActive: s.estActive,
-        tagRelatif: s.tagRelatif,
-        path,
-        points,
-      };
+      return row;
     });
-
-    return { pathsSessions, ticksInfo, xCoords };
   }, [
     maxPeriodes,
+    periodesLabels,
     seriesSessions,
     sessionsSelectionneesIds,
     modeVue,
-    chartW,
-    chartH,
-    padLeft,
-    baselineY,
+    granularite,
   ]);
 
-  const activePeriodeIndex =
-    hoverPeriodeIndex !== null && hoverPeriodeIndex >= 0 && hoverPeriodeIndex < maxPeriodes
-      ? hoverPeriodeIndex
-      : syntheseComparaison.periodeStade - 1;
+  const activePeriodeIndex = Math.max(0, syntheseComparaison.periodeStade - 1);
 
   const labelPeriodeCourante =
     granularite === "SEMAINE"
@@ -700,10 +593,7 @@ export function ComparatifSessionsCentreGraphique({
           <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 text-[11px] font-bold">
             <button
               type="button"
-              onClick={() => {
-                setGranularite("SEMAINE");
-                setHoverPeriodeIndex(null);
-              }}
+              onClick={() => setGranularite("SEMAINE")}
               className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                 granularite === "SEMAINE"
                   ? "bg-brand-orange/10 text-brand-orange font-black"
@@ -714,10 +604,7 @@ export function ComparatifSessionsCentreGraphique({
             </button>
             <button
               type="button"
-              onClick={() => {
-                setGranularite("MOIS");
-                setHoverPeriodeIndex(null);
-              }}
+              onClick={() => setGranularite("MOIS")}
               className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                 granularite === "MOIS"
                   ? "bg-brand-orange/10 text-brand-orange font-black"
@@ -980,7 +867,7 @@ export function ComparatifSessionsCentreGraphique({
         </div>
       </div>
 
-      {/* ── 4. Graphique SVG Multi-Sessions ── */}
+      {/* ── 4. Graphique Recharts Multi-Sessions ── */}
       <div className="px-5 pb-4">
         {seriesSessions.length === 0 ? (
           <div className="h-64 flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-6 text-center">
@@ -995,201 +882,97 @@ export function ComparatifSessionsCentreGraphique({
             </p>
           </div>
         ) : (
-          <div
-            ref={containerRef}
-            className="relative w-full select-none"
-            onMouseLeave={() => setHoverPeriodeIndex(null)}
-          >
-            {/* Tooltip de comparaison relative */}
-            <div
-              className="absolute z-20 pointer-events-none transition-all duration-150 ease-out -translate-x-1/2 -top-1"
-              style={{
-                left: `${((xCoords[activePeriodeIndex] || padLeft) / svgWidth) * 100}%`,
-              }}
-            >
-              <div className="bg-slate-900/95 text-white backdrop-blur-xs rounded-xl p-3 text-xs shadow-xl border border-slate-700/60 min-w-[200px] whitespace-nowrap">
-                <div className="flex items-center justify-between gap-3 border-b border-slate-700/60 pb-1.5 mb-2">
-                  <span className="font-black text-amber-400">
-                    {granularite === "SEMAINE"
-                      ? `Semaine ${activePeriodeIndex + 1}`
-                      : `Mois ${activePeriodeIndex + 1}`}
-                  </span>
-                  <span className="text-[10px] text-slate-300">
-                    {modeVue === "FLUX" ? "Flux de la période" : "Progression cumulée"}
-                  </span>
-                </div>
-
-                <div className="space-y-1.5">
-                  {pathsSessions
-                    .filter((p) => p.path)
-                    .map((p) => {
-                      const pt = p.points.find(
-                        (pt) => pt.index === activePeriodeIndex,
-                      );
-                      const estRef = p.session.id === sessionRefId;
-                      const estComp = p.session.id === sessionCompId;
-                      return (
-                        <div
-                          key={p.session.id}
-                          className="flex items-center justify-between gap-3 text-xs"
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <span
-                              className="h-2 w-2 rounded-full shrink-0"
-                              style={{ backgroundColor: p.couleur.stroke }}
-                            />
-                            <span className="text-slate-300 font-semibold">
-                              Session {p.session.annee} ({p.tagRelatif})
-                              {estRef && " [Réf]"}
-                              {estComp && " [Comp]"} :
-                            </span>
-                          </div>
-                          <span className="text-white font-black tabular-nums">
-                            {pt !== undefined
-                              ? indicateur === "EFFECTIF"
-                                ? `${pt.val} él.`
-                                : `${FCFA.format(pt.val)} F`
-                              : "—"}
+          <div className="w-full h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={donneesRecharts}
+                margin={{ top: 20, right: 20, left: 0, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis
+                  dataKey="periodeCourt"
+                  stroke="#94a3b8"
+                  tick={{ fontSize: 10, fill: "#64748b", fontWeight: 600 }}
+                  tickLine={{ stroke: "#cbd5e1" }}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  tick={{ fontSize: 10, fill: "#64748b", fontWeight: 600 }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(val: number) =>
+                    indicateur === "EFFECTIF" ? `${val}` : formatCompactFCFA(val)
+                  }
+                  width={indicateur === "EFFECTIF" ? 40 : 65}
+                />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload || !payload.length) return null;
+                    const item = payload[0]?.payload;
+                    const fullLabel = item?.periodeLabel || label;
+                    return (
+                      <div className="bg-slate-900/95 text-white backdrop-blur-xs rounded-xl p-3 text-xs shadow-xl border border-slate-700/60 min-w-[210px] whitespace-nowrap">
+                        <div className="flex items-center justify-between gap-3 border-b border-slate-700/60 pb-1.5 mb-2">
+                          <span className="font-black text-amber-400">{fullLabel}</span>
+                          <span className="text-[10px] text-slate-300">
+                            {modeVue === "FLUX" ? "Flux de la période" : "Progression cumulée"}
                           </span>
                         </div>
-                      );
-                    })}
-                </div>
-              </div>
-            </div>
-
-            {/* Canevas SVG */}
-            <svg
-              viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-              className="w-full h-auto max-h-[300px] overflow-visible"
-              preserveAspectRatio="none"
-            >
-              {/* Lignes horizontales Y */}
-              {ticksInfo.ticks.map((tickVal) => {
-                const y =
-                  baselineY -
-                  (ticksInfo.max > 0 ? (tickVal / ticksInfo.max) * chartH : 0);
-                return (
-                  <g key={tickVal} className="text-slate-200">
-                    <line
-                      x1={padLeft}
-                      y1={y}
-                      x2={svgWidth - padRight}
-                      y2={y}
-                      stroke="currentColor"
-                      strokeDasharray="4 4"
-                      strokeWidth="1"
-                    />
-                    <text
-                      x={padLeft - 8}
-                      y={y + 3.5}
-                      textAnchor="end"
-                      className="fill-slate-400 text-[10px] font-bold select-none tabular-nums"
-                    >
-                      {indicateur === "EFFECTIF"
-                        ? tickVal
-                        : formatCompactFCFA(tickVal)}
-                    </text>
-                  </g>
-                );
-              })}
-
-              {/* Courbes des sessions */}
-              {pathsSessions.map((p) => {
-                if (!p.path) return null;
-                const estRef = p.session.id === sessionRefId;
-                return (
-                  <path
-                    key={p.session.id}
-                    d={p.path}
-                    fill="none"
-                    stroke={p.couleur.stroke}
-                    strokeWidth={estRef || p.estActive ? "3" : "2.25"}
-                    strokeDasharray={estRef || p.estActive ? undefined : "6 3"}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="transition-all duration-200"
-                  />
-                );
-              })}
-
-              {/* Repère vertical au survol */}
-              <g>
-                <line
-                  x1={xCoords[activePeriodeIndex]}
-                  y1={padTop}
-                  x2={xCoords[activePeriodeIndex]}
-                  y2={baselineY}
-                  stroke="#1c1917"
-                  strokeWidth="1.5"
-                  strokeDasharray="3 3"
-                  className="opacity-60"
+                        <div className="space-y-1.5">
+                          {payload.map((entry) => {
+                            const s = seriesSessions.find((ser) => ser.session.id === entry.dataKey);
+                            if (!s) return null;
+                            const estRef = s.session.id === sessionRefId;
+                            const estComp = s.session.id === sessionCompId;
+                            return (
+                              <div key={s.session.id} className="flex items-center justify-between gap-3 text-xs">
+                                <div className="flex items-center gap-1.5">
+                                  <span
+                                    className="h-2 w-2 rounded-full shrink-0"
+                                    style={{ backgroundColor: entry.color }}
+                                  />
+                                  <span className="text-slate-300 font-semibold">
+                                    Session {s.session.annee} ({s.tagRelatif})
+                                    {estRef && " [Réf]"}
+                                    {estComp && " [Comp]"} :
+                                  </span>
+                                </div>
+                                <span className="text-white font-black tabular-nums">
+                                  {entry.value !== undefined && entry.value !== null
+                                    ? indicateur === "EFFECTIF"
+                                      ? `${entry.value} él.`
+                                      : `${FCFA.format(Number(entry.value))} F`
+                                    : "—"}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  }}
                 />
-                {pathsSessions.map((p) => {
-                  const pt = p.points.find(
-                    (pt) => pt.index === activePeriodeIndex,
-                  );
-                  if (!pt) return null;
-                  return (
-                    <circle
-                      key={`pt-${p.session.id}`}
-                      cx={pt.x}
-                      cy={pt.y}
-                      r="5.5"
-                      fill={p.couleur.stroke}
-                      stroke="#ffffff"
-                      strokeWidth="2.5"
-                      className="drop-shadow-xs"
-                    />
-                  );
-                })}
-              </g>
-
-              {/* Tranches invisibles pour la détection hover */}
-              {Array.from({ length: maxPeriodes }).map((_, i) => (
-                <rect
-                  key={`hover-col-per-${i}`}
-                  x={
-                    i === 0
-                      ? padLeft
-                      : xCoords[i] - chartW / (maxPeriodes * 2)
-                  }
-                  y={padTop}
-                  width={chartW / (maxPeriodes - 1 || 1)}
-                  height={chartH + padBottom}
-                  fill="transparent"
-                  className="cursor-pointer"
-                  onMouseEnter={() => setHoverPeriodeIndex(i)}
-                  onTouchStart={() => setHoverPeriodeIndex(i)}
-                />
-              ))}
-
-              {/* Labels temporels X (Semaine 1, Semaine 2, ... ou Mois 1, Mois 2, ...) */}
-              {periodesLabels.map((lbl, i) => {
-                let afficher = true;
-                if (maxPeriodes > 16) afficher = i % 3 === 0 || i === maxPeriodes - 1;
-                else if (maxPeriodes > 10) afficher = i % 2 === 0 || i === maxPeriodes - 1;
-
-                if (!afficher) return null;
-
-                return (
-                  <g key={`lbl-per-${i}`}>
-                    <text
-                      x={xCoords[i]}
-                      y={baselineY + 18}
-                      textAnchor="middle"
-                      className={`text-[10px] select-none tabular-nums ${
-                        activePeriodeIndex === i
-                          ? "fill-slate-900 font-black"
-                          : "fill-slate-500 font-semibold"
-                      }`}
-                    >
-                      {lbl}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
+                {seriesSessions
+                  .filter((s) => sessionsSelectionneesIds.has(s.session.id))
+                  .map((s) => {
+                    const estRef = s.session.id === sessionRefId;
+                    return (
+                      <Line
+                        key={s.session.id}
+                        type="monotone"
+                        dataKey={s.session.id}
+                        name={`Session ${s.session.annee}`}
+                        stroke={s.couleur.stroke}
+                        strokeWidth={estRef || s.estActive ? 3.5 : 2}
+                        strokeDasharray={estRef || s.estActive ? undefined : "6 4"}
+                        dot={{ r: 3, fill: s.couleur.stroke, stroke: "#ffffff", strokeWidth: 1.5 }}
+                        activeDot={{ r: 6, fill: s.couleur.stroke, stroke: "#ffffff", strokeWidth: 2 }}
+                        connectNulls={false}
+                      />
+                    );
+                  })}
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         )}
       </div>

@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Coins,
   Download,
+  Printer,
   Filter,
   X,
   ArrowUpDown,
@@ -25,7 +26,7 @@ import {
 import { Button, Card, Pagination, Skeleton } from "@/shared/ui";
 import { useApprenants, type Apprenant } from "@/modules/apprenants";
 import { useFormations, type Formation } from "@/modules/academique";
-import { useSessionActive } from "@/modules/centres-sessions";
+import { useSessionActive, useCentres } from "@/modules/centres-sessions";
 import { useDossiers, type Dossier } from "@/modules/dossiers";
 import {
   useMouvementsFinanciers,
@@ -34,6 +35,7 @@ import {
   RecuPaiementModal,
   type DonneesRecuPaiement,
 } from "@/modules/financier";
+import { ListeApprenantsPrintModal } from "./ListeApprenantsPrintModal";
 
 const MOTIF_ACHAT_LIVRES_ID = "00000000-0000-0000-0000-000000000012";
 const TAILLE_PAGE = 10;
@@ -83,14 +85,20 @@ export function ApprenantsListView({
     userRole === "ADMIN";
   const peutEncaisser = userRole === "CAISSIER" || userRole === "ADMIN";
 
+  const isTousCentres = !centreId || centreId === "TOUS";
+  const centreIdFiltre = isTousCentres ? undefined : centreId;
+
   const { data: apprenants, isLoading: chargementApprenants } = useApprenants();
   const { data: formations = [] } = useFormations();
+  const { data: centres = [] } = useCentres();
   const { data: sessionActive } = useSessionActive();
   const { data: motifs = [] } = useMotifs("ENTREE");
   const { data: mouvements = [], isLoading: chargementMouvements } =
-    useMouvementsFinanciers(sessionActive?.id, centreId);
+    useMouvementsFinanciers(sessionActive?.id, centreIdFiltre);
   const { data: dossiers = [], isLoading: chargementDossiers } =
-    useDossiers(sessionActive?.id, centreId);
+    useDossiers(sessionActive?.id, centreIdFiltre);
+
+  const centreActuel = centres.find((c) => c.id === centreId);
 
   const [recherche, setRecherche] = useState(initialRecherche);
   const [filtreFormation, setFiltreFormation] = useState("");
@@ -106,8 +114,9 @@ export function ApprenantsListView({
   // État de sélection pour export
   const [selectionIds, setSelectionIds] = useState<Set<string>>(new Set());
 
-  // État modal encaissement rapide et reçu
+  // État modal encaissement rapide, reçu et impression liste
   const [recuAImprimer, setRecuAImprimer] = useState<DonneesRecuPaiement | null>(null);
+  const [modalPrintOuverte, setModalPrintOuverte] = useState(false);
   const [versementApprenant, setVersementApprenant] = useState<{
     id: string;
     nomComplet: string;
@@ -155,12 +164,14 @@ export function ApprenantsListView({
 
   const apprenantsDuCentre = useMemo(() => {
     if (!sessionActive?.id) {
-      return (apprenants ?? []).filter((a) => a.centreId === centreId);
+      return (apprenants ?? []).filter((a) => (isTousCentres ? true : a.centreId === centreId));
     }
     return (apprenants ?? []).filter(
-      (a) => a.centreId === centreId && a.sessionId === sessionActive.id,
+      (a) =>
+        (isTousCentres ? true : a.centreId === centreId) &&
+        (!a.sessionId || a.sessionId === sessionActive.id),
     );
-  }, [apprenants, centreId, sessionActive]);
+  }, [apprenants, centreId, isTousCentres, sessionActive]);
 
   // Calcul groupé des montants payés par apprenant pour éviter les requêtes N+1
   // Les achats de livres sont des ventes annexes et ne sont pas déduits du contrat de scolarité
@@ -435,6 +446,21 @@ export function ApprenantsListView({
               {selectionIds.size > 0
                 ? `Exporter sélection (${selectionIds.size})`
                 : "Exporter CSV"}
+            </span>
+          </Button>
+
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setModalPrintOuverte(true)}
+            disabled={apprenantsFiltres.length === 0}
+            className="flex items-center gap-1.5 text-xs font-bold transition-all"
+          >
+            <Printer size={14} />
+            <span>
+              {selectionIds.size > 0
+                ? `Imprimer sélection (${selectionIds.size})`
+                : "Imprimer la liste"}
             </span>
           </Button>
 
@@ -810,6 +836,7 @@ export function ApprenantsListView({
               )}
               {apprenantsPage.map((a) => {
                 const nomFormation = formations.find((f) => f.id === a.formationId)?.nom;
+                const nomCentre = isTousCentres ? centres.find((c) => c.id === a.centreId)?.nom : undefined;
                 const montantPaye = paiementsParApprenant.get(a.id) || 0;
                 const dossier = dossiersParApprenant.get(a.id);
                 const estSelectionne = selectionIds.has(a.id);
@@ -819,6 +846,7 @@ export function ApprenantsListView({
                     key={a.id}
                     apprenant={a}
                     nomFormation={nomFormation}
+                    nomCentre={nomCentre}
                     montantPaye={montantPaye}
                     dossier={dossier}
                     estSelectionne={estSelectionne}
@@ -882,6 +910,25 @@ export function ApprenantsListView({
           recu={recuAImprimer}
         />
       )}
+
+      {/* ── Modal Impression Liste Apprenants ── */}
+      {modalPrintOuverte && (
+        <ListeApprenantsPrintModal
+          isOpen={modalPrintOuverte}
+          onClose={() => setModalPrintOuverte(false)}
+          apprenants={
+            selectionIds.size > 0
+              ? apprenantsFiltres.filter((a) => selectionIds.has(a.id))
+              : apprenantsFiltres
+          }
+          formations={formations}
+          centres={centres}
+          sessionActive={sessionActive || undefined}
+          nomCentre={centreActuel?.nom}
+          paiementsParApprenant={paiementsParApprenant}
+          isTousCentres={isTousCentres}
+        />
+      )}
     </div>
   );
 }
@@ -889,6 +936,7 @@ export function ApprenantsListView({
 function LigneApprenant({
   apprenant,
   nomFormation,
+  nomCentre,
   montantPaye,
   dossier,
   estSelectionne,
@@ -899,6 +947,7 @@ function LigneApprenant({
 }: {
   apprenant: Apprenant;
   nomFormation?: string;
+  nomCentre?: string;
   montantPaye: number;
   dossier?: Dossier;
   estSelectionne: boolean;
@@ -954,6 +1003,11 @@ function LigneApprenant({
               )}
             </div>
             <div className="flex flex-wrap items-center gap-y-0.5 gap-x-2 text-xs text-slate-400 mt-0.5">
+              {nomCentre && (
+                <span className="rounded bg-slate-100 text-slate-700 font-bold text-[10px] px-1.5 py-0.5 border border-slate-200">
+                  {nomCentre}
+                </span>
+              )}
               {apprenant.contactApprenant ? (
                 <span className="inline-flex items-center gap-1 text-slate-500 font-medium">
                   <Phone size={11} className="text-slate-400" />

@@ -8,12 +8,13 @@ export default async function CentresPage() {
 
   if (
     utilisateur.role !== "DIRECTEUR" &&
-    utilisateur.role !== "DIRECTEUR_ACADEMIQUE"
+    utilisateur.role !== "DIRECTEUR_ACADEMIQUE" &&
+    utilisateur.role !== "COMPTABLE"
   ) {
     return (
       <AccessRestricted
         title="Accès Direction"
-        message="Cet écran est réservé au Directeur et au Directeur Académique."
+        message="Cet écran est réservé au Directeur, au Directeur Académique et au Contrôleur Financier."
       />
     );
   }

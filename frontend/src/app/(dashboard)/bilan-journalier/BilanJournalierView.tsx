@@ -13,6 +13,7 @@ import {
   Building2,
   Lock,
   FileSpreadsheet,
+  ClipboardCheck,
   Check,
   CheckCircle2,
   Clock,
@@ -45,6 +46,8 @@ import { EnregistrerVersementModal } from "@/modules/financier/components/Enregi
 import { SaisirSortieModal } from "@/modules/financier/components/SaisirSortieModal";
 import { FicheBilanPrintModal } from "@/modules/financier/components/FicheBilanPrintModal";
 import { SyntheseNationaleView } from "./SyntheseNationaleView";
+import { TableauControleBilansView } from "./TableauControleBilansView";
+import { Logo } from "@/shared/ui";
 
 interface SessionUserExtended {
   id?: string;
@@ -107,8 +110,8 @@ export function BilanJournalierView() {
     user?.role === "COMPTABLE" ||
     user?.role === "DIRECTEUR";
 
-  const [vueDirecteur, setVueDirecteur] = useState<"synthese" | "detail">("synthese");
-  // Si l'utilisateur n'est pas un directeur ou contrôleur national, il ne peut JAMAIS voir la synthèse nationale
+  const [vueDirecteur, setVueDirecteur] = useState<"liste" | "synthese" | "detail">("detail");
+  // Si l'utilisateur n'est pas un directeur ou contrôleur national, il ne peut JAMAIS voir la synthèse nationale ni la liste
   const vueEffective = estDirecteurOuControleur ? vueDirecteur : "detail";
 
   // Navigation Date (par défaut aujourd'hui)
@@ -438,34 +441,38 @@ export function BilanJournalierView() {
   };
 
   const handleVisaComptable = () => {
-    if (!bilan?.id) {
+    if (!bilan?.id && (!centreActifId || !sessionActive?.id)) {
       setMessageNotification({
         type: "erreur",
-        message: "Le bilan doit d'abord faire l'objet du visa de direction avant la clôture comptable.",
+        message: "Centre ou session active non défini.",
       });
       return;
     }
     setMessageNotification(null);
-    validerControleur(
-      {
-        bilanId: bilan.id,
-        validateurUtilisateurId: currentUserId,
+    const params = bilan?.id
+      ? { bilanId: bilan.id, validateurUtilisateurId: currentUserId }
+      : {
+          centreId: centreActifId,
+          sessionId: sessionActive!.id,
+          date,
+          validateurUtilisateurId: currentUserId,
+        };
+
+    validerControleur(params, {
+      onSuccess: () => {
+        setMessageNotification({
+          type: "succes",
+          message:
+            "Visa et validation du bilan enregistrés. L'ensemble des écritures du jour passe à l'état validé.",
+        });
       },
-      {
-        onSuccess: () => {
-          setMessageNotification({
-            type: "succes",
-            message: "Clôture comptable enregistrée avec succès.",
-          });
-        },
-        onError: (err: any) => {
-          setMessageNotification({
-            type: "erreur",
-            message: err?.message || "Erreur lors de la clôture comptable.",
-          });
-        },
+      onError: (err: any) => {
+        setMessageNotification({
+          type: "erreur",
+          message: err?.message || "Erreur lors de la validation du bilan.",
+        });
       },
-    );
+    });
   };
 
   return (
@@ -502,6 +509,18 @@ export function BilanJournalierView() {
           <div className="inline-flex items-center rounded-xl bg-slate-100 p-1 shadow-inner">
             <button
               type="button"
+              onClick={() => setVueDirecteur("liste")}
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all cursor-pointer ${
+                vueEffective === "liste"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <ClipboardCheck className="h-4 w-4 text-brand-orange" />
+              <span>Contrôle des Bilans</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setVueDirecteur("synthese")}
               className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all cursor-pointer ${
                 vueEffective === "synthese"
@@ -510,7 +529,7 @@ export function BilanJournalierView() {
               }`}
             >
               <Building2 className="h-4 w-4 text-brand-orange" />
-              <span>Synthèse Nationale (Vue d&apos;ensemble)</span>
+              <span>Synthèse du Jour</span>
             </button>
             <button
               type="button"
@@ -522,14 +541,22 @@ export function BilanJournalierView() {
               }`}
             >
               <FileSpreadsheet className="h-4 w-4 text-brand-orange" />
-              <span>Fiche du Centre ({centreActif?.nom || "Centre"})</span>
+              <span>Fiche Journalière</span>
             </button>
           </div>
         </div>
       )}
 
       {/* ── AFFICHAGE SELON L'ONGLET SÉLECTIONNÉ ── */}
-      {vueEffective === "synthese" ? (
+      {vueEffective === "liste" ? (
+        <TableauControleBilansView
+          onSelectBilan={(id, d) => {
+            setCentreSelectionneId(id);
+            setDate(d);
+            setVueDirecteur("detail");
+          }}
+        />
+      ) : vueEffective === "synthese" ? (
         <SyntheseNationaleView
           date={date}
           onChangerDate={setDate}
@@ -798,15 +825,15 @@ export function BilanJournalierView() {
                       </p>
                     )}
                   </div>
-                  {bilan?.dateValidationChefCentre && !estCloture && peutViserComptable && (
+                  {!estCloture && peutViserComptable && (
                     <div className="mt-2.5">
                       <button
                         onClick={handleVisaComptable}
-                        disabled={enCoursCloture || !bilan?.id}
+                        disabled={enCoursCloture}
                         type="button"
                         className="rounded-lg bg-brand-anthracite hover:bg-black px-5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
                       >
-                        {enCoursCloture ? "Clôture..." : "Clôturer le bilan"}
+                        {enCoursCloture ? "Visa en cours..." : "Viser et clôturer le bilan"}
                       </button>
                     </div>
                   )}
@@ -822,17 +849,16 @@ export function BilanJournalierView() {
             
             {/* ── 1. EN-TÊTE OFFICIEL EXCELIS PREPAS ── */}
             <div className="flex flex-col sm:flex-row items-stretch justify-between gap-4 border-b-2 border-slate-900 pb-4">
-              <div className="flex flex-col justify-center">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
-                    EX<span className="text-brand-orange">CELIS</span>
-                  </span>
-                </div>
-                <div className="text-[11px] tracking-[0.25em] font-extrabold text-slate-700">
-                  P R E P A S
-                </div>
+              <div className="flex flex-col justify-center gap-1.5">
+                <img
+                  src="/images/logo-excelis.png"
+                  alt="EXCELIS PRÉPAS"
+                  className="h-11 sm:h-12 w-auto object-contain shrink-0"
+                  loading="eager"
+                  decoding="sync"
+                />
                 <div className="text-xs font-bold text-slate-800 mt-1">
-                  Centre : <span className="text-brand-orange">{centreActif?.nom || "Centre Yaoundé"}</span>
+                  Centre : <span className="text-brand-orange font-black">{centreActif?.nom || "Centre Yaoundé"}</span>
                 </div>
               </div>
 
@@ -1125,6 +1151,16 @@ export function BilanJournalierView() {
             <div className="rounded-lg overflow-hidden border border-slate-900 shadow-2xs">
               <div className="bg-[#8B0000] text-white py-1 px-4 font-black text-center sm:text-left text-xs uppercase tracking-wider flex items-center justify-between">
                 <span>SORTIES ({sortiesDuJour.length} décaissement{sortiesDuJour.length > 1 ? "s" : ""})</span>
+                {peutViserComptable && !estCloture && sortiesDuJour.some((s) => s.statut !== "VALIDE") && (
+                  <button
+                    type="button"
+                    onClick={() => handleValiderGroupe(sortiesDuJour)}
+                    className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-white text-rose-900 hover:bg-rose-50 shadow-2xs transition-colors cursor-pointer"
+                    title="Viser tous les décaissements en attente"
+                  >
+                    Tout viser ({sortiesDuJour.filter((s) => s.statut !== "VALIDE").length})
+                  </button>
+                )}
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-xs">
@@ -1135,41 +1171,67 @@ export function BilanJournalierView() {
                       <th className="border-r border-slate-900 p-2 text-right w-36">Montant (XAF)</th>
                       <th className="border-r border-slate-900 p-2">Ordonnateur</th>
                       <th className="border-r border-slate-900 p-2">Validateur / Caisse</th>
-                      <th className="p-2 text-center w-28">Signature</th>
+                      <th className="p-2 text-center w-32">Statut & Contrôle</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-300">
                     {sortiesDuJour.length > 0 ? (
-                      sortiesDuJour.map((s, index) => (
-                        <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="border-r border-slate-900 p-2 text-center font-bold text-slate-600">
-                            {index + 1}
-                          </td>
-                          <td className="border-r border-slate-900 p-2 font-medium text-slate-900">
-                            {getNomMotif(s.motifId)}
-                          </td>
-                          <td className="border-r border-slate-900 p-2 text-right font-bold text-rose-700 tabular-nums">
-                            {FCFA.format(s.montant)}
-                          </td>
-                          <td className="border-r border-slate-900 p-2 font-semibold text-slate-800">
-                            {s.ordonnateur || "Direction de centre"}
-                          </td>
-                          <td className="border-r border-slate-900 p-2 text-slate-700">
-                            {bilan?.nomCaissier || "Caisse centrale"}
-                          </td>
-                          <td className="p-2 text-center">
-                            <span
-                              className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                bilan?.dateVisaCaissier
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : "bg-amber-100 text-amber-800"
-                              }`}
-                            >
-                              {bilan?.dateVisaCaissier ? "Validé" : "En cours"}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
+                      sortiesDuJour.map((s, index) => {
+                        const estItemValide = s.statut === "VALIDE";
+                        const enChargement = enCoursValidationId === s.id;
+
+                        return (
+                          <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="border-r border-slate-900 p-2 text-center font-bold text-slate-600">
+                              {index + 1}
+                            </td>
+                            <td className="border-r border-slate-900 p-2 font-medium text-slate-900">
+                              {getNomMotif(s.motifId)}
+                            </td>
+                            <td className="border-r border-slate-900 p-2 text-right font-bold text-rose-700 tabular-nums">
+                              {FCFA.format(s.montant)}
+                            </td>
+                            <td className="border-r border-slate-900 p-2 font-semibold text-slate-800">
+                              {s.ordonnateur || "Direction de centre"}
+                            </td>
+                            <td className="border-r border-slate-900 p-2 text-slate-700">
+                              {bilan?.nomCaissier || "Caisse centrale"}
+                            </td>
+                            <td className="p-2 text-center">
+                              {estItemValide ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                  <CheckCircle2 size={12} className="text-emerald-700" />
+                                  Visé & Validé
+                                </span>
+                              ) : peutViserComptable && !estCloture ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleValiderMouvement(s.id)}
+                                  disabled={enChargement}
+                                  className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                                  title="Viser directement ce décaissement"
+                                >
+                                  {enChargement ? (
+                                    <>
+                                      <Loader2 size={12} className="animate-spin" />
+                                      Visa...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle2 size={12} />
+                                      Viser
+                                    </>
+                                  )}
+                                </button>
+                              ) : (
+                                <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300">
+                                  En attente
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
                         <td colSpan={6} className="p-4 text-center text-slate-400 italic bg-white">
@@ -1339,14 +1401,14 @@ export function BilanJournalierView() {
                   ) : (
                     <div className="my-auto flex flex-col items-center gap-2">
                       <span className="text-xs text-slate-400 italic">Cadre réservé au visa</span>
-                      {bilan?.dateValidationChefCentre && !estCloture && peutViserComptable && (
+                      {!estCloture && peutViserComptable && (
                         <button
                           onClick={handleVisaComptable}
-                          disabled={enCoursCloture || !bilan?.id}
+                          disabled={enCoursCloture}
                           type="button"
                           className="rounded-lg bg-brand-anthracite hover:bg-black px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer"
                         >
-                          {enCoursCloture ? "Clôture..." : "Clôturer le bilan"}
+                          {enCoursCloture ? "Visa en cours..." : "Viser et clôturer"}
                         </button>
                       )}
                     </div>

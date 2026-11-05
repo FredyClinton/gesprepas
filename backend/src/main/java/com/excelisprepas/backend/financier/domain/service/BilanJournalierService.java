@@ -324,7 +324,26 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
     public BilanJournalier validerBilanControleur(UUID bilanId, UUID validateurUtilisateurId) {
         BilanJournalier bilan = bilanRepository.findById(bilanId)
                 .orElseThrow(() -> new BilanJournalierIntrouvableException(bilanId));
+        return cloturerEtValiderBilan(bilan, validateurUtilisateurId);
+    }
 
+    @Override
+    public BilanJournalier validerBilanControleur(UUID centreId, UUID sessionId, LocalDate date, UUID validateurUtilisateurId) {
+        if (centreRepository.findById(centreId).isEmpty()) {
+            throw new CentreIntrouvableException(centreId);
+        }
+        verifierSessionUtilisable(sessionId);
+        if (utilisateurRepository.findById(validateurUtilisateurId).isEmpty()) {
+            throw new UtilisateurIntrouvableException(validateurUtilisateurId);
+        }
+
+        BilanJournalier bilan = bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date)
+                .orElseGet(() -> new BilanJournalier(UUID.randomUUID(), centreId, sessionId, date));
+
+        return cloturerEtValiderBilan(bilan, validateurUtilisateurId);
+    }
+
+    private BilanJournalier cloturerEtValiderBilan(BilanJournalier bilan, UUID validateurUtilisateurId) {
         verifierSessionUtilisable(bilan.getSessionId());
         if (utilisateurRepository.findById(validateurUtilisateurId).isEmpty()) {
             throw new UtilisateurIntrouvableException(validateurUtilisateurId);
@@ -339,7 +358,7 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
                 totaux.totalEntrees(), totaux.totalSorties(),
                 totaux.effectifNouveauxEleves(), totaux.effectifTotalCentre(),
                 nbSallesFinal, nbCoursFinal);
-        bilanRepository.save(bilan);
+        bilan = bilanRepository.save(bilan);
 
         List<Entree> entreesEnAttente = entreeRepository.findByCentreIdAndSessionIdAndDateAndStatut(
                 bilan.getCentreId(), bilan.getSessionId(), bilan.getDate(), StatutMouvement.EN_ATTENTE);
@@ -375,7 +394,7 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
             }
         }
 
-        log.info("Bilan journalier validé par le contrôleur : id={}", bilanId);
+        log.info("Bilan journalier validé par le contrôleur : id={}, centreId={}, date={}", bilan.getId(), bilan.getCentreId(), bilan.getDate());
         if (auditEventHelper != null) {
             auditEventHelper.audit(
                     com.excelisprepas.backend.shared.audit.domain.event.AuditModule.BILAN_JOURNALIER,

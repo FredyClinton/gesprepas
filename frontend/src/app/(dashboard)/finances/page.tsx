@@ -14,6 +14,10 @@ export default async function FinancesPage() {
   }
 
   const user = session.user;
+  if (user.role === "COMPTABLE") {
+    redirect("/grand-livre");
+  }
+
   const centreId = user.centreId || "";
 
   return <FinancesCaissierView centreId={centreId} />;

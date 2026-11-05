@@ -61,11 +61,13 @@ export function InformationsTab({
   nomFormation,
   nomCentre,
   cursus,
+  peutModifier = true,
 }: {
   apprenant: Apprenant;
   nomFormation: string | undefined;
   nomCentre: string | undefined;
   cursus?: CursusApprenant | null;
+  peutModifier?: boolean;
 }) {
   const { data: phases = [] } = usePhases();
   const { data: formations = [] } = useFormations();
@@ -99,7 +101,7 @@ export function InformationsTab({
             </p>
           </div>
 
-          {inscriptionActive && (
+          {peutModifier && inscriptionActive && (
             <Button
               type="button"
               variant="secondary"

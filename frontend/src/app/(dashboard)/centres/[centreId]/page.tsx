@@ -12,11 +12,12 @@ export default async function CentreDetailPage({
 
   if (
     utilisateur.role !== "DIRECTEUR" &&
-    utilisateur.role !== "DIRECTEUR_ACADEMIQUE"
+    utilisateur.role !== "DIRECTEUR_ACADEMIQUE" &&
+    utilisateur.role !== "COMPTABLE"
   ) {
     return (
       <main className="text-brand-gray p-8 text-sm">
-        Cet écran est réservé au Directeur et au Directeur Académique.
+        Cet écran est réservé au Directeur, au Directeur Académique et au Contrôleur Financier.
       </main>
     );
   }

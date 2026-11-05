@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState } from "react";
 import {
   TrendingUp,
   Users,
@@ -16,6 +16,15 @@ import { Card } from "@/shared/ui";
 import type { Apprenant } from "@/modules/apprenants";
 import type { MouvementFinancier } from "@/modules/financier";
 import type { Centre, SessionAcademique } from "../domain/types";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from "recharts";
 
 const FCFA = new Intl.NumberFormat("fr-FR");
 
@@ -34,33 +43,6 @@ const COULEURS_CENTRES = [
   { stroke: "#0d9488", bg: "bg-[#0d9488]", text: "text-[#0d9488]", pill: "bg-teal-50 text-teal-800 border-teal-200" },
 ];
 
-function getNiceTicks(maxVal: number, tickCount = 4): { max: number; ticks: number[] } {
-  if (maxVal <= 0) return { max: 10, ticks: [0, 5, 10] };
-
-  const rawStep = maxVal / tickCount;
-  const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
-  const norm = rawStep / mag;
-
-  let niceNorm = 1;
-  if (norm <= 1) niceNorm = 1;
-  else if (norm <= 2) niceNorm = 2;
-  else if (norm <= 2.5) niceNorm = 2.5;
-  else if (norm <= 5) niceNorm = 5;
-  else niceNorm = 10;
-
-  const step = niceNorm * mag;
-  const ticks: number[] = [];
-  let curr = 0;
-  while (curr <= maxVal || ticks.length <= 2) {
-    ticks.push(curr);
-    curr += step;
-  }
-  ticks.push(curr);
-  const max = ticks[ticks.length - 1];
-
-  return { max, ticks };
-}
-
 function formatCompactFCFA(val: number): string {
   if (val >= 1_000_000) {
     const m = (val / 1_000_000).toFixed(val % 1_000_000 === 0 ? 0 : 1);
@@ -71,35 +53,6 @@ function formatCompactFCFA(val: number): string {
     return `${k}k F`;
   }
   return `${val} F`;
-}
-
-function generateSmoothPath(
-  points: { x: number; y: number }[],
-): string {
-  if (points.length === 0) return "";
-  if (points.length === 1) {
-    const p = points[0];
-    return `M ${p.x - 20} ${p.y} L ${p.x + 20} ${p.y}`;
-  }
-
-  let linePath = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
-
-  for (let i = 0; i < points.length - 1; i++) {
-    const p0 = i > 0 ? points[i - 1] : points[i];
-    const p1 = points[i];
-    const p2 = points[i + 1];
-    const p3 = i < points.length - 2 ? points[i + 2] : p2;
-
-    const tension = 0.2;
-    const cp1x = p1.x + (p2.x - p0.x) * tension;
-    const cp1y = p1.y + (p2.y - p0.y) * tension;
-    const cp2x = p2.x + (p1.x - p3.x) * tension;
-    const cp2y = p2.y + (p1.y - p3.y) * tension;
-
-    linePath += ` C ${cp1x.toFixed(2)} ${cp1y.toFixed(2)}, ${cp2x.toFixed(2)} ${cp2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
-  }
-
-  return linePath;
 }
 
 export interface EvolutionPerformancesMultiCentresProps {
@@ -138,9 +91,6 @@ export function EvolutionPerformancesMultiCentres({
   const [modeVue, setModeVue] = useState<ModeVue>("FLUX");
   const [centresMasques, setCentresMasques] = useState<Set<string>>(new Set());
   const [afficherTotalReseau, setAfficherTotalReseau] = useState(true);
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-
-  const containerRef = useRef<HTMLDivElement>(null);
 
   // Filtrer les centres ouverts
   const centresActifs = useMemo(() => {
@@ -463,105 +413,28 @@ export function EvolutionPerformancesMultiCentres({
     });
   }
 
-  // Dimensions SVG
-  const svgWidth = 840;
-  const svgHeight = 280;
-  const padLeft = indicateur === "EFFECTIF" ? 44 : 72;
-  const padRight = 32;
-  const padTop = 26;
-  const padBottom = 42;
-
-  const chartW = svgWidth - padLeft - padRight;
-  const chartH = svgHeight - padTop - padBottom;
-  const baselineY = padTop + chartH;
-
-  // Calcul des coordonnées et échelles
-  const { pathsCentres, pathTotal, ticksInfo, xCoords } = useMemo(() => {
-    if (buckets.length === 0 || seriesParCentre.length === 0) {
-      return {
-        pathsCentres: [],
-        pathTotal: "",
-        ticksInfo: { max: 10, ticks: [0, 5, 10] },
-        xCoords: [],
+  // Données structurées pour Recharts
+  const donneesRecharts = useMemo(() => {
+    return buckets.map((b, i) => {
+      const row: Record<string, any> = {
+        label: b.label,
+        subLabel: b.subLabel,
+        index: i,
       };
-    }
-
-    const n = buckets.length;
-    const xCoords = buckets.map((_, i) =>
-      n === 1 ? padLeft + chartW / 2 : padLeft + (i / (n - 1)) * chartW,
-    );
-
-    // Déterminer la valeur maximale pour l'axe Y
-    let maxVal = 0;
-    seriesParCentre.forEach((s) => {
-      if (!centresMasques.has(s.centre.id)) {
+      seriesParCentre.forEach((s) => {
         const vals = modeVue === "CUMUL" ? s.valeursCumul : s.valeursNouveau;
-        const localMax = Math.max(...vals, 0);
-        if (localMax > maxVal) maxVal = localMax;
-      }
-    });
-
-    if (afficherTotalReseau && serieTotalReseau) {
-      const valsTotal =
-        modeVue === "CUMUL"
-          ? serieTotalReseau.valeursCumul
-          : serieTotalReseau.valeursNouveau;
-      const totalMax = Math.max(...valsTotal, 0);
-      if (totalMax > maxVal) maxVal = totalMax;
-    }
-
-    const ticksInfo = getNiceTicks(maxVal, 4);
-    const topY = ticksInfo.max;
-
-    // Chemins pour chaque centre visible
-    const pathsCentres = seriesParCentre.map((s) => {
-      if (centresMasques.has(s.centre.id)) {
-        return { centre: s.centre, couleur: s.couleur, path: "", points: [] };
-      }
-      const vals = modeVue === "CUMUL" ? s.valeursCumul : s.valeursNouveau;
-      const pts = vals.map((val, i) => {
-        const x = xCoords[i];
-        const y = baselineY - (topY > 0 ? (val / topY) * chartH : 0);
-        return { x, y, val };
+        row[s.centre.id] = vals[i] || 0;
       });
-      const path = generateSmoothPath(pts);
-      return { centre: s.centre, couleur: s.couleur, path, points: pts };
+      if (serieTotalReseau) {
+        const valsTotal =
+          modeVue === "CUMUL"
+            ? serieTotalReseau.valeursCumul
+            : serieTotalReseau.valeursNouveau;
+        row["totalReseau"] = valsTotal[i] || 0;
+      }
+      return row;
     });
-
-    // Chemin consolidé réseau
-    let pathTotal = "";
-    if (afficherTotalReseau && serieTotalReseau) {
-      const vals =
-        modeVue === "CUMUL"
-          ? serieTotalReseau.valeursCumul
-          : serieTotalReseau.valeursNouveau;
-      const ptsTotal = vals.map((val, i) => {
-        const x = xCoords[i];
-        const y = baselineY - (topY > 0 ? (val / topY) * chartH : 0);
-        return { x, y, val };
-      });
-      pathTotal = generateSmoothPath(ptsTotal);
-    }
-
-    return { pathsCentres, pathTotal, ticksInfo, xCoords };
-  }, [
-    buckets,
-    seriesParCentre,
-    serieTotalReseau,
-    centresMasques,
-    afficherTotalReseau,
-    modeVue,
-    chartW,
-    chartH,
-    padLeft,
-    baselineY,
-  ]);
-
-  const activeIndex =
-    hoverIndex !== null && hoverIndex >= 0 && hoverIndex < buckets.length
-      ? hoverIndex
-      : buckets.length - 1;
-  const activeBucket = buckets[activeIndex] || null;
+  }, [buckets, seriesParCentre, serieTotalReseau, modeVue]);
 
   return (
     <Card
@@ -802,220 +675,109 @@ export function EvolutionPerformancesMultiCentres({
             </p>
           </div>
         ) : (
-          <div
-            ref={containerRef}
-            className="relative w-full select-none"
-            onMouseLeave={() => setHoverIndex(null)}
-          >
-            {/* Tooltip Multi-Centres */}
-            {activeBucket && (
-              <div
-                className="absolute z-20 pointer-events-none transition-all duration-150 ease-out -translate-x-1/2 -top-1"
-                style={{
-                  left: `${((xCoords[activeIndex] || padLeft) / svgWidth) * 100}%`,
-                }}
-              >
-                <div className="bg-slate-900/95 text-white backdrop-blur-xs rounded-xl p-3 text-xs shadow-xl border border-slate-700/60 min-w-[210px] whitespace-nowrap">
-                  <div className="flex items-center justify-between gap-3 border-b border-slate-700/60 pb-1.5 mb-2">
-                    <span className="font-black text-amber-400">
-                      {activeBucket.label}
-                    </span>
-                    <span className="text-[10px] text-slate-300">
-                      {activeBucket.subLabel}
-                    </span>
-                  </div>
-
-                  {/* Lignes pour chaque centre visible */}
-                  <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
-                    {seriesParCentre
-                      .filter((s) => !centresMasques.has(s.centre.id))
-                      .map((s) => {
-                        const vals =
-                          modeVue === "CUMUL"
-                            ? s.valeursCumul
-                            : s.valeursNouveau;
-                        const val = vals[activeIndex] || 0;
-                        return (
-                          <div
-                            key={s.centre.id}
-                            className="flex items-center justify-between gap-3 text-xs"
-                          >
-                            <div className="flex items-center gap-1.5">
-                              <span
-                                className="h-2 w-2 rounded-full shrink-0"
-                                style={{ backgroundColor: s.couleur.stroke }}
-                              />
-                              <span className="text-slate-300 font-medium truncate max-w-[120px]">
-                                {s.centre.nom}
-                              </span>
-                            </div>
-                            <span className="text-white font-black tabular-nums">
+          <div className="h-[280px] w-full select-none mt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={donneesRecharts} margin={{ top: 12, right: 16, left: 4, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  stroke="#94a3b8"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={{ stroke: "#e2e8f0" }}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(val) =>
+                    indicateur === "EFFECTIF" ? String(val) : formatCompactFCFA(val)
+                  }
+                />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null;
+                    const itemData = payload[0]?.payload;
+                    return (
+                      <div className="bg-slate-900/95 text-white backdrop-blur-xs rounded-xl p-3 text-xs shadow-xl border border-slate-700/60 min-w-[210px] whitespace-nowrap">
+                        <div className="flex items-center justify-between gap-3 border-b border-slate-700/60 pb-1.5 mb-2">
+                          <span className="font-black text-amber-400">{label}</span>
+                          <span className="text-[10px] text-slate-300">{itemData?.subLabel}</span>
+                        </div>
+                        <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
+                          {seriesParCentre
+                            .filter((s) => !centresMasques.has(s.centre.id))
+                            .map((s) => {
+                              const val = itemData?.[s.centre.id] || 0;
+                              return (
+                                <div
+                                  key={s.centre.id}
+                                  className="flex items-center justify-between gap-3 text-xs"
+                                >
+                                  <div className="flex items-center gap-1.5">
+                                    <span
+                                      className="h-2 w-2 rounded-full shrink-0"
+                                      style={{ backgroundColor: s.couleur.stroke }}
+                                    />
+                                    <span className="text-slate-300 font-medium truncate max-w-[120px]">
+                                      {s.centre.nom}
+                                    </span>
+                                  </div>
+                                  <span className="text-white font-black tabular-nums">
+                                    {indicateur === "EFFECTIF"
+                                      ? `${val} él.`
+                                      : `${FCFA.format(val)} F`}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                        </div>
+                        {afficherTotalReseau && serieTotalReseau && (
+                          <div className="pt-2 mt-2 border-t border-slate-700/60 flex items-center justify-between gap-3 text-xs font-black">
+                            <span className="text-amber-300">Total Réseau :</span>
+                            <span className="text-white tabular-nums">
                               {indicateur === "EFFECTIF"
-                                ? `${val} él.`
-                                : `${FCFA.format(val)} F`}
+                                ? `${itemData?.totalReseau || 0} élèves`
+                                : `${FCFA.format(itemData?.totalReseau || 0)} F`}
                             </span>
                           </div>
-                        );
-                      })}
-                  </div>
-
-                  {/* Ligne total consolidé */}
-                  {afficherTotalReseau && serieTotalReseau && (
-                    <div className="pt-2 mt-2 border-t border-slate-700/60 flex items-center justify-between gap-3 text-xs font-black">
-                      <span className="text-amber-300">Total Réseau :</span>
-                      <span className="text-white tabular-nums">
-                        {indicateur === "EFFECTIF"
-                          ? `${modeVue === "CUMUL" ? serieTotalReseau.valeursCumul[activeIndex] || 0 : serieTotalReseau.valeursNouveau[activeIndex] || 0} élèves`
-                          : `${FCFA.format(modeVue === "CUMUL" ? serieTotalReseau.valeursCumul[activeIndex] || 0 : serieTotalReseau.valeursNouveau[activeIndex] || 0)} F`}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Canevas SVG */}
-            <svg
-              viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-              className="w-full h-auto max-h-[300px] overflow-visible"
-              preserveAspectRatio="none"
-            >
-              {/* Lignes horizontales Y */}
-              {ticksInfo.ticks.map((tickVal) => {
-                const y =
-                  baselineY -
-                  (ticksInfo.max > 0 ? (tickVal / ticksInfo.max) * chartH : 0);
-                return (
-                  <g key={tickVal} className="text-slate-200">
-                    <line
-                      x1={padLeft}
-                      y1={y}
-                      x2={svgWidth - padRight}
-                      y2={y}
-                      stroke="currentColor"
-                      strokeDasharray="4 4"
-                      strokeWidth="1"
-                    />
-                    <text
-                      x={padLeft - 8}
-                      y={y + 3.5}
-                      textAnchor="end"
-                      className="fill-slate-400 text-[10px] font-bold select-none tabular-nums"
-                    >
-                      {indicateur === "EFFECTIF"
-                        ? tickVal
-                        : formatCompactFCFA(tickVal)}
-                    </text>
-                  </g>
-                );
-              })}
-
-              {/* Courbes de chaque centre */}
-              {pathsCentres.map((p) => {
-                if (!p.path) return null;
-                return (
-                  <path
-                    key={p.centre.id}
-                    d={p.path}
-                    fill="none"
-                    stroke={p.couleur.stroke}
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="transition-all duration-200"
-                  />
-                );
-              })}
-
-              {/* Courbe consolidée Réseau (traits tiretés sombres) */}
-              {pathTotal && (
-                <path
-                  d={pathTotal}
-                  fill="none"
-                  stroke="#1c1917"
-                  strokeWidth="2.75"
-                  strokeDasharray="6 4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="transition-all duration-200 opacity-90"
-                />
-              )}
-
-              {/* Repère vertical au survol */}
-              {activeBucket && (
-                <g>
-                  <line
-                    x1={xCoords[activeIndex]}
-                    y1={padTop}
-                    x2={xCoords[activeIndex]}
-                    y2={baselineY}
-                    stroke="#1c1917"
-                    strokeWidth="1.5"
-                    strokeDasharray="3 3"
-                    className="opacity-60"
-                  />
-                  {/* Points de chaque centre sur ce repère */}
-                  {pathsCentres.map((p) => {
-                    const pt = p.points[activeIndex];
-                    if (!pt) return null;
-                    return (
-                      <circle
-                        key={`pt-${p.centre.id}`}
-                        cx={pt.x}
-                        cy={pt.y}
-                        r="5"
-                        fill={p.couleur.stroke}
-                        stroke="#ffffff"
-                        strokeWidth="2"
-                        className="drop-shadow-xs"
-                      />
+                        )}
+                      </div>
                     );
-                  })}
-                </g>
-              )}
-
-              {/* Tranches invisibles pour la détection hover */}
-              {buckets.map((b, i) => (
-                <rect
-                  key={`hover-col-${b.id}`}
-                  x={i === 0 ? padLeft : xCoords[i] - chartW / (buckets.length * 2)}
-                  y={padTop}
-                  width={chartW / (buckets.length - 1 || 1)}
-                  height={chartH + padBottom}
-                  fill="transparent"
-                  className="cursor-pointer"
-                  onMouseEnter={() => setHoverIndex(i)}
-                  onTouchStart={() => setHoverIndex(i)}
+                  }}
                 />
-              ))}
-
-              {/* Labels temporels X */}
-              {buckets.map((b, i) => {
-                const total = buckets.length;
-                let afficher = true;
-                if (total > 16) afficher = i % 3 === 0 || i === total - 1;
-                else if (total > 10) afficher = i % 2 === 0 || i === total - 1;
-
-                if (!afficher) return null;
-
-                return (
-                  <g key={`lbl-${b.id}`}>
-                    <text
-                      x={xCoords[i]}
-                      y={baselineY + 18}
-                      textAnchor="middle"
-                      className={`text-[10px] select-none tabular-nums ${
-                        activeIndex === i
-                          ? "fill-slate-900 font-black"
-                          : "fill-slate-500 font-semibold"
-                      }`}
-                    >
-                      {b.label}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
+                {seriesParCentre.map((s) => {
+                  if (centresMasques.has(s.centre.id)) return null;
+                  return (
+                    <Line
+                      key={s.centre.id}
+                      type="monotone"
+                      dataKey={s.centre.id}
+                      name={s.centre.nom}
+                      stroke={s.couleur.stroke}
+                      strokeWidth={2.5}
+                      dot={{ r: 3, fill: s.couleur.stroke }}
+                      activeDot={{ r: 5 }}
+                      isAnimationActive={false}
+                    />
+                  );
+                })}
+                {afficherTotalReseau && serieTotalReseau && (
+                  <Line
+                    type="monotone"
+                    dataKey="totalReseau"
+                    name="Total Réseau"
+                    stroke="#1c1917"
+                    strokeWidth={2.75}
+                    strokeDasharray="6 4"
+                    dot={{ r: 3, fill: "#1c1917" }}
+                    activeDot={{ r: 6 }}
+                    isAnimationActive={false}
+                  />
+                )}
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         )}
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   TrendingUp,
@@ -18,6 +18,15 @@ import { Card, Button } from "@/shared/ui";
 import type { Apprenant } from "@/modules/apprenants";
 import type { MouvementFinancier } from "@/modules/financier";
 import type { SessionAcademique } from "../domain/types";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from "recharts";
 
 const FCFA = new Intl.NumberFormat("fr-FR");
 
@@ -50,33 +59,6 @@ export interface EvolutionPerformancesCentreProps {
   className?: string;
 }
 
-function getNiceTicks(maxVal: number, tickCount = 4): { max: number; ticks: number[] } {
-  if (maxVal <= 0) return { max: 10, ticks: [0, 5, 10] };
-
-  const rawStep = maxVal / tickCount;
-  const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
-  const norm = rawStep / mag;
-
-  let niceNorm = 1;
-  if (norm <= 1) niceNorm = 1;
-  else if (norm <= 2) niceNorm = 2;
-  else if (norm <= 2.5) niceNorm = 2.5;
-  else if (norm <= 5) niceNorm = 5;
-  else niceNorm = 10;
-
-  const step = niceNorm * mag;
-  const ticks: number[] = [];
-  let curr = 0;
-  while (curr <= maxVal || ticks.length <= 2) {
-    ticks.push(curr);
-    curr += step;
-  }
-  ticks.push(curr);
-  const max = ticks[ticks.length - 1];
-
-  return { max, ticks };
-}
-
 function formatCompactFCFA(val: number): string {
   if (val >= 1_000_000) {
     const m = (val / 1_000_000).toFixed(val % 1_000_000 === 0 ? 0 : 1);
@@ -87,43 +69,6 @@ function formatCompactFCFA(val: number): string {
     return `${k}k F`;
   }
   return `${val} F`;
-}
-
-function generateSmoothPath(
-  points: { x: number; y: number }[],
-  baselineY: number,
-): { linePath: string; areaPath: string } {
-  if (points.length === 0) return { linePath: "", areaPath: "" };
-  if (points.length === 1) {
-    const p = points[0];
-    return {
-      linePath: `M ${p.x - 20} ${p.y} L ${p.x + 20} ${p.y}`,
-      areaPath: `M ${p.x - 20} ${p.y} L ${p.x + 20} ${p.y} L ${p.x + 20} ${baselineY} L ${p.x - 20} ${baselineY} Z`,
-    };
-  }
-
-  let linePath = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
-
-  for (let i = 0; i < points.length - 1; i++) {
-    const p0 = i > 0 ? points[i - 1] : points[i];
-    const p1 = points[i];
-    const p2 = points[i + 1];
-    const p3 = i < points.length - 2 ? points[i + 2] : p2;
-
-    const tension = 0.2;
-    const cp1x = p1.x + (p2.x - p0.x) * tension;
-    const cp1y = p1.y + (p2.y - p0.y) * tension;
-    const cp2x = p2.x + (p1.x - p3.x) * tension;
-    const cp2y = p2.y + (p1.y - p3.y) * tension;
-
-    linePath += ` C ${cp1x.toFixed(2)} ${cp1y.toFixed(2)}, ${cp2x.toFixed(2)} ${cp2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
-  }
-
-  const lastPt = points[points.length - 1];
-  const firstPt = points[0];
-  const areaPath = `${linePath} L ${lastPt.x.toFixed(2)} ${baselineY} L ${firstPt.x.toFixed(2)} ${baselineY} Z`;
-
-  return { linePath, areaPath };
 }
 
 export function EvolutionPerformancesCentre({
@@ -137,9 +82,6 @@ export function EvolutionPerformancesCentre({
   const [indicateur, setIndicateur] = useState<TypeIndicateur>("EFFECTIF");
   const [granularite, setGranularite] = useState<TypeGranularite>("SEMAINE");
   const [modeVue, setModeVue] = useState<ModeVue>("FLUX");
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-
-  const containerRef = useRef<HTMLDivElement>(null);
 
   // 1. Détermination de la date de dernière mise à jour réelle
   const derniereDateMAJ = useMemo(() => {
@@ -445,63 +387,30 @@ export function EvolutionPerformancesCentre({
     }
   }, [indicateur]);
 
-  // 5. Calcul des coordonnées SVG
-  const svgWidth = 840;
-  const svgHeight = 270;
-  const padLeft = indicateur === "EFFECTIF" ? 44 : 70;
-  const padRight = 32;
-  const padTop = 26;
-  const padBottom = 42;
-
-  const chartW = svgWidth - padLeft - padRight;
-  const chartH = svgHeight - padTop - padBottom;
-  const baselineY = padTop + chartH;
-
-  const { points, ticksInfo } = useMemo(() => {
-    if (series.length === 0) {
-      return {
-        points: [],
-        ticksInfo: { max: 10, ticks: [0, 5, 10] },
-      };
-    }
-
-    const valeurs = series.map((s) => {
+  // 5. Données formatées pour Recharts
+  const donneesRecharts = useMemo(() => {
+    return series.map((s, i) => {
+      let valeur = 0;
+      let valeurPeriode = 0;
       if (indicateur === "EFFECTIF") {
-        return modeVue === "CUMUL" ? s.effectifCumule : s.effectifNouveau;
+        valeur = modeVue === "CUMUL" ? s.effectifCumule : s.effectifNouveau;
+        valeurPeriode = s.effectifNouveau;
+      } else if (indicateur === "SOUSCRIT") {
+        valeur = modeVue === "CUMUL" ? s.souscritCumule : s.souscritNouveau;
+        valeurPeriode = s.souscritNouveau;
+      } else {
+        valeur = modeVue === "CUMUL" ? s.encaisseCumule : s.encaisseNouveau;
+        valeurPeriode = s.encaisseNouveau;
       }
-      if (indicateur === "SOUSCRIT") {
-        return modeVue === "CUMUL" ? s.souscritCumule : s.souscritNouveau;
-      }
-      return modeVue === "CUMUL" ? s.encaisseCumule : s.encaisseNouveau;
+      return {
+        label: s.label,
+        subLabel: s.subLabel,
+        valeur,
+        valeurPeriode,
+        index: i,
+      };
     });
-
-    const maxVal = Math.max(...valeurs, 0);
-    const ticksInfo = getNiceTicks(maxVal, 4);
-    const topY = ticksInfo.max;
-
-    const n = series.length;
-    const pts = series.map((item, i) => {
-      const val = valeurs[i];
-      const x = n === 1 ? padLeft + chartW / 2 : padLeft + (i / (n - 1)) * chartW;
-      const y = baselineY - (topY > 0 ? (val / topY) * chartH : 0);
-      return { x, y, val, item, index: i };
-    });
-
-    return { points: pts, ticksInfo };
-  }, [series, indicateur, modeVue, chartW, chartH, padLeft, baselineY]);
-
-  const { linePath, areaPath } = useMemo(() => {
-    return generateSmoothPath(points, baselineY);
-  }, [points, baselineY]);
-
-  // Point actif survolé ou dernier point par défaut
-  const activePoint = useMemo(() => {
-    if (points.length === 0) return null;
-    if (hoverIndex !== null && hoverIndex >= 0 && hoverIndex < points.length) {
-      return points[hoverIndex];
-    }
-    return points[points.length - 1];
-  }, [points, hoverIndex]);
+  }, [series, indicateur, modeVue]);
 
   // Nombre total d'apprenants et d'encaissements réels pour vérifier l'état vide
   const aDesDonnees =
@@ -764,213 +673,77 @@ export function EvolutionPerformancesCentre({
             </p>
           </div>
         ) : (
-          <div
-            ref={containerRef}
-            className="relative w-full select-none"
-            onMouseLeave={() => setHoverIndex(null)}
-          >
-            {/* Infobulle de survol (Tooltip) */}
-            {activePoint && (
-              <div
-                className="absolute z-20 pointer-events-none transition-all duration-150 ease-out -translate-x-1/2 -top-1"
-                style={{
-                  left: `${(activePoint.x / svgWidth) * 100}%`,
-                }}
-              >
-                <div className="bg-slate-900/95 text-white backdrop-blur-xs rounded-xl px-3 py-2 text-xs shadow-lg border border-slate-700/60 min-w-[170px] whitespace-nowrap">
-                  <div className="flex items-center justify-between gap-2 border-b border-slate-700/60 pb-1 mb-1.5">
-                    <span className="font-black text-amber-400">
-                      {activePoint.item.label}
-                    </span>
-                    <span className="text-[10px] text-slate-300 font-medium">
-                      {activePoint.item.subLabel}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between gap-3 text-xs font-bold">
-                      <span className="text-slate-300">
-                        {modeVue === "CUMUL" ? "Cumul :" : "Flux :"}
-                      </span>
-                      <span className="text-white font-black tabular-nums">
-                        {indicateur === "EFFECTIF"
-                          ? `${activePoint.val} ${activePoint.val > 1 ? config.unitePluriel : config.uniteSingulier}`
-                          : `${FCFA.format(activePoint.val)} ${config.unite}`}
-                      </span>
-                    </div>
-
-                    {modeVue === "CUMUL" && (
-                      <div className="flex items-center justify-between gap-3 text-[11px] text-slate-400">
-                        <span>Période :</span>
-                        <span className="text-emerald-400 font-semibold tabular-nums">
-                          {indicateur === "EFFECTIF"
-                            ? `+${activePoint.item.effectifNouveau} élève${activePoint.item.effectifNouveau > 1 ? "s" : ""}`
-                            : indicateur === "SOUSCRIT"
-                            ? `+${FCFA.format(activePoint.item.souscritNouveau)} F`
-                            : `+${FCFA.format(activePoint.item.encaisseNouveau)} F`}
-                        </span>
+          <div className="h-[270px] w-full select-none mt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={donneesRecharts} margin={{ top: 12, right: 16, left: 4, bottom: 4 }}>
+                <defs>
+                  <linearGradient id={`gradient-${indicateur}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={config.colorStroke} stopOpacity="0.28" />
+                    <stop offset="85%" stopColor={config.colorStroke} stopOpacity="0.04" />
+                    <stop offset="100%" stopColor={config.colorStroke} stopOpacity="0.0" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  stroke="#94a3b8"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={{ stroke: "#e2e8f0" }}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(val) =>
+                    indicateur === "EFFECTIF" ? String(val) : formatCompactFCFA(val)
+                  }
+                />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null;
+                    const pt = payload[0]?.payload;
+                    return (
+                      <div className="bg-slate-900/95 text-white backdrop-blur-xs rounded-xl p-3 text-xs shadow-xl border border-slate-700/60 min-w-[190px] whitespace-nowrap">
+                        <div className="flex items-center justify-between gap-3 border-b border-slate-700/60 pb-1.5 mb-2">
+                          <span className="font-black text-amber-400">{label}</span>
+                          <span className="text-[10px] text-slate-300">{pt?.subLabel}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 mb-1">
+                          <span className="text-slate-300 font-medium">{config.label} :</span>
+                          <span className="text-white font-black tabular-nums">
+                            {indicateur === "EFFECTIF"
+                              ? `${pt?.valeur || 0} él.`
+                              : `${FCFA.format(pt?.valeur || 0)} F`}
+                          </span>
+                        </div>
+                        {modeVue === "CUMUL" && (
+                          <div className="flex items-center justify-between gap-3 text-[11px] text-slate-400 pt-1 border-t border-slate-800">
+                            <span>Sur la période :</span>
+                            <span className="text-emerald-400 font-semibold tabular-nums">
+                              {indicateur === "EFFECTIF"
+                                ? `+${pt?.valeurPeriode || 0} él.`
+                                : `+${FCFA.format(pt?.valeurPeriode || 0)} F`}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Rendu SVG responsive */}
-            <svg
-              viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-              className="w-full h-auto max-h-[290px] overflow-visible"
-              preserveAspectRatio="none"
-            >
-              <defs>
-                <linearGradient id={`gradient-${indicateur}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={config.colorStroke} stopOpacity="0.28" />
-                  <stop offset="85%" stopColor={config.colorStroke} stopOpacity="0.04" />
-                  <stop offset="100%" stopColor={config.colorStroke} stopOpacity="0.0" />
-                </linearGradient>
-              </defs>
-
-              {/* Lignes de repère horizontales (Y Ticks) */}
-              {ticksInfo.ticks.map((tickVal) => {
-                const y = baselineY - (ticksInfo.max > 0 ? (tickVal / ticksInfo.max) * chartH : 0);
-                return (
-                  <g key={tickVal} className="text-slate-200">
-                    <line
-                      x1={padLeft}
-                      y1={y}
-                      x2={svgWidth - padRight}
-                      y2={y}
-                      stroke="currentColor"
-                      strokeDasharray="4 4"
-                      strokeWidth="1"
-                    />
-                    <text
-                      x={padLeft - 8}
-                      y={y + 3.5}
-                      textAnchor="end"
-                      className="fill-slate-400 text-[10px] font-bold select-none tabular-nums"
-                    >
-                      {indicateur === "EFFECTIF"
-                        ? tickVal
-                        : formatCompactFCFA(tickVal)}
-                    </text>
-                  </g>
-                );
-              })}
-
-              {/* Surface sous la courbe (Area Gradient Fill) */}
-              {areaPath && (
-                <path
-                  d={areaPath}
-                  fill={`url(#gradient-${indicateur})`}
-                  className="transition-all duration-300"
+                    );
+                  }}
                 />
-              )}
-
-              {/* Ligne principale de la courbe */}
-              {linePath && (
-                <path
-                  d={linePath}
-                  fill="none"
+                <Area
+                  type="monotone"
+                  dataKey="valeur"
                   stroke={config.colorStroke}
-                  strokeWidth="2.75"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="transition-all duration-300"
+                  strokeWidth={2.75}
+                  fill={`url(#gradient-${indicateur})`}
+                  dot={{ r: 3, fill: config.colorStroke }}
+                  activeDot={{ r: 6 }}
+                  isAnimationActive={false}
                 />
-              )}
-
-              {/* Repère vertical lors du survol */}
-              {activePoint && (
-                <g>
-                  <line
-                    x1={activePoint.x}
-                    y1={padTop}
-                    x2={activePoint.x}
-                    y2={baselineY}
-                    stroke={config.colorStroke}
-                    strokeWidth="1.5"
-                    strokeDasharray="3 3"
-                    className="opacity-70"
-                  />
-                  {/* Point actif en halo */}
-                  <circle
-                    cx={activePoint.x}
-                    cy={activePoint.y}
-                    r="6.5"
-                    fill={config.colorStroke}
-                    stroke="#ffffff"
-                    strokeWidth="2.5"
-                    className="drop-shadow-sm"
-                  />
-                </g>
-              )}
-
-              {/* Points de données sur la courbe */}
-              {points.map((pt, i) => {
-                const estSurvole = activePoint && activePoint.index === i;
-                return (
-                  <g key={pt.item.id}>
-                    {/* Point discret */}
-                    {!estSurvole && (
-                      <circle
-                        cx={pt.x}
-                        cy={pt.y}
-                        r="3.5"
-                        fill="#ffffff"
-                        stroke={config.colorStroke}
-                        strokeWidth="2"
-                        className="transition-transform duration-150"
-                      />
-                    )}
-
-                    {/* Zone d'interaction invisible plus large */}
-                    <rect
-                      x={i === 0 ? padLeft : pt.x - chartW / (points.length * 2)}
-                      y={padTop}
-                      width={
-                        points.length === 1
-                          ? chartW
-                          : chartW / (points.length - 1)
-                      }
-                      height={chartH + padBottom}
-                      fill="transparent"
-                      className="cursor-pointer"
-                      onMouseEnter={() => setHoverIndex(i)}
-                      onTouchStart={() => setHoverIndex(i)}
-                    />
-                  </g>
-                );
-              })}
-
-              {/* Axe X (Labels temporels) */}
-              {points.map((pt, i) => {
-                // Affiche les labels pour éviter la surcharge visuelle
-                const total = points.length;
-                let afficher = true;
-                if (total > 16) afficher = i % 3 === 0 || i === total - 1;
-                else if (total > 10) afficher = i % 2 === 0 || i === total - 1;
-
-                if (!afficher) return null;
-
-                return (
-                  <g key={`lbl-${pt.item.id}`}>
-                    <text
-                      x={pt.x}
-                      y={baselineY + 18}
-                      textAnchor="middle"
-                      className={`text-[10px] select-none tabular-nums transition-colors ${
-                        activePoint && activePoint.index === i
-                          ? "fill-slate-900 font-black"
-                          : "fill-slate-500 font-semibold"
-                      }`}
-                    >
-                      {pt.item.label}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         )}
       </div>

@@ -13,6 +13,7 @@ import {
   soumettreBilanCaissier,
   validerBilanChefCentre,
   validerBilanControleur,
+  validerBilanControleurDirect,
   listMouvementsFinanciers,
   modifierEntree,
   supprimerEntree,
@@ -167,11 +168,24 @@ export function useValiderBilanChefCentre() {
   });
 }
 
+export type ValiderBilanControleurInput =
+  | { bilanId: string; validateurUtilisateurId?: string }
+  | { centreId: string; sessionId: string; date: string; validateurUtilisateurId?: string };
+
 export function useValiderBilanControleur() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ bilanId, validateurUtilisateurId }: { bilanId: string; validateurUtilisateurId: string }) =>
-      validerBilanControleur(bilanId, validateurUtilisateurId),
+    mutationFn: (params: ValiderBilanControleurInput) => {
+      if ("bilanId" in params && params.bilanId) {
+        return validerBilanControleur(params.bilanId, params.validateurUtilisateurId || "");
+      }
+      return validerBilanControleurDirect(params as {
+        centreId: string;
+        sessionId: string;
+        date: string;
+        validateurUtilisateurId?: string;
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
       queryClient.invalidateQueries({ queryKey: ["bilan-consolide"] });

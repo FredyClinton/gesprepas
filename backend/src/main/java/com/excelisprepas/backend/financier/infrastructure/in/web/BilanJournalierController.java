@@ -185,7 +185,38 @@ public class BilanJournalierController {
     public ResponseEntity<BilanJournalierResponse> validerControleur(
             @Parameter(description = "Identifiant du bilan journalier") @PathVariable UUID id,
             @Valid @RequestBody ValiderBilanControleurRequest request) {
-        BilanJournalier bilan = validerBilanControleurUseCase.validerBilanControleur(id, request.validateurUtilisateurId());
+        UUID validateurId = request.validateurUtilisateurId();
+        if (validateurId == null || "00000000-0000-0000-0000-000000000000".equals(validateurId.toString())) {
+            var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof com.excelisprepas.backend.auth.domain.model.ClaimsAccessToken claims) {
+                validateurId = claims.utilisateurId();
+            }
+        }
+        BilanJournalier bilan = validerBilanControleurUseCase.validerBilanControleur(id, validateurId);
+        return ResponseEntity.ok(versReponse(bilan));
+    }
+
+    @Operation(summary = "Valider et clôturer directement un bilan journalier par centre, session et date (contrôleur / comptable)",
+            description = "Valide et clôture le bilan journalier d'un centre à date, initialisant le bilan si besoin et validant l'ensemble des mouvements du jour.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Bilan validé et clôturé par le contrôleur",
+                    content = @Content(schema = @Schema(implementation = BilanJournalierResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Centre, session ou utilisateur introuvable", content = @Content)
+    })
+    @PreAuthorize("hasAuthority('FINANCIER_VALIDER_BILAN_CONTROLEUR')")
+    @PostMapping("/valider-controleur")
+    public ResponseEntity<BilanJournalierResponse> validerControleurDirect(
+            @Valid @RequestBody com.excelisprepas.backend.financier.infrastructure.in.web.dto.ValiderBilanControleurDirectRequest request) {
+        UUID validateurId = request.validateurUtilisateurId();
+        if (validateurId == null || "00000000-0000-0000-0000-000000000000".equals(validateurId.toString())) {
+            var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof com.excelisprepas.backend.auth.domain.model.ClaimsAccessToken claims) {
+                validateurId = claims.utilisateurId();
+            }
+        }
+        BilanJournalier bilan = validerBilanControleurUseCase.validerBilanControleur(
+                request.centreId(), request.sessionId(), request.date(), validateurId);
         return ResponseEntity.ok(versReponse(bilan));
     }
 

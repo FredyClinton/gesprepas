@@ -20,6 +20,8 @@ import {
   GraduationCap,
   BookOpen,
   ShieldCheck,
+  Receipt,
+  Scale,
 } from "lucide-react";
 
 import type { Role } from "@/types/roles";
@@ -114,14 +116,29 @@ const NAV_CHEF_DEPARTEMENT: NavItem[] = [
 
 const NAV_COMPTABLE: NavItem[] = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
-  { href: "/finances", label: "Finances", icon: Wallet },
+  { href: "/centres", label: "Centres", icon: MapPin },
+  { href: "/apprenants", label: "Apprenants", icon: Users },
   {
     href: "/bilan-journalier",
     label: "Bilan Journalier",
     icon: ClipboardCheck,
   },
+  {
+    href: "/decaissements",
+    label: "Décaissements",
+    icon: Receipt,
+  },
+  {
+    href: "/analyse-centres",
+    label: "Analyse par centre",
+    icon: Building2,
+  },
+  {
+    href: "/grand-livre",
+    label: "Grand Livre",
+    icon: Scale,
+  },
   { href: "/paie", label: "Paie", icon: Banknote },
-  { href: "/rapports", label: "Rapports", icon: BarChart3 },
 ];
 
 const NAV_CAISSIER: NavItem[] = [

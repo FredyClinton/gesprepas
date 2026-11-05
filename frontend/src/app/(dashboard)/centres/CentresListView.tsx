@@ -28,6 +28,7 @@ import { z } from "zod";
 import { Button, Card, Input, Modal, SortableHeader } from "@/shared/ui";
 import { messageErreurApi } from "@/shared/lib/api-client";
 import { compareStrings, compareNumbers, type SortDirection } from "@/shared/lib/sort-utils";
+import { useSession } from "next-auth/react";
 import {
   useCentres,
   useSessions,
@@ -62,6 +63,10 @@ const relocaliserCentreSchema = z.object({
 type RelocaliserCentreForm = z.infer<typeof relocaliserCentreSchema>;
 
 export function CentresListView() {
+  const { data: authSession } = useSession();
+  const userRole = authSession?.user?.role;
+  const peutCreerCentre = userRole === "DIRECTEUR" || userRole === "DIRECTEUR_ACADEMIQUE";
+
   const { data: centres = [], isLoading: chargementCentres } = useCentres();
   const { data: sessions = [] } = useSessions();
   const { data: sessionActive } = useSessionActive();
@@ -289,18 +294,20 @@ export function CentresListView() {
               : `${stats.total} campus (${stats.ouverts} actif${stats.ouverts > 1 ? "s" : ""}${stats.fermes > 0 ? `, ${stats.fermes} fermé${stats.fermes > 1 ? "s" : ""}` : ""}) · ${stats.nbVilles} pôle${stats.nbVilles > 1 ? "s" : ""} géographique${stats.nbVilles > 1 ? "s" : ""}`}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setErreurAction(null);
-            formCreer.reset();
-            setModalCreerOuverte(true);
-          }}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-orange px-3.5 py-2 text-xs font-semibold text-white hover:bg-brand-orange/90 shadow-2xs transition-colors cursor-pointer shrink-0 self-start sm:self-auto"
-        >
-          <Plus size={15} />
-          <span>Nouveau centre</span>
-        </button>
+        {peutCreerCentre && (
+          <button
+            type="button"
+            onClick={() => {
+              setErreurAction(null);
+              formCreer.reset();
+              setModalCreerOuverte(true);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-orange px-3.5 py-2 text-xs font-semibold text-white hover:bg-brand-orange/90 shadow-2xs transition-colors cursor-pointer shrink-0 self-start sm:self-auto"
+          >
+            <Plus size={15} />
+            <span>Nouveau centre</span>
+          </button>
+        )}
       </div>
 
       {/* Alerte d'erreur globale si action échouée */}

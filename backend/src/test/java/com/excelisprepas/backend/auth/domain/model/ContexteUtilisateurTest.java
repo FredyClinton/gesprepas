@@ -51,9 +51,9 @@ class ContexteUtilisateurTest {
         AttributionRole attributionCaissier = new AttributionRole(
                 UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), RoleUtilisateur.CAISSIER);
 
-        // COMPTABLE comme rôle global : n'a pas FINANCIER_SAISIR_MOUVEMENT (cf. matrice)
+        // CHARGE_DOSSIER comme rôle global : n'a pas FINANCIER_SAISIR_MOUVEMENT (cf. matrice)
         ContexteUtilisateur contexte = ContexteUtilisateur.depuis(
-                UUID.randomUUID(), RoleUtilisateur.COMPTABLE, centreA, List.of(attributionCaissier));
+                UUID.randomUUID(), RoleUtilisateur.CHARGE_DOSSIER, centreA, List.of(attributionCaissier));
 
         // Then : accordé sur le centre de rattachement...
         assertThat(contexte.possedePourCentre(Permission.FINANCIER_SAISIR_MOUVEMENT, centreA)).isTrue();
@@ -71,7 +71,7 @@ class ContexteUtilisateurTest {
                 UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), RoleUtilisateur.CAISSIER);
 
         ContexteUtilisateur contexte = ContexteUtilisateur.depuis(
-                UUID.randomUUID(), RoleUtilisateur.COMPTABLE, null, List.of(attributionCaissier));
+                UUID.randomUUID(), RoleUtilisateur.CHARGE_DOSSIER, null, List.of(attributionCaissier));
 
         // Then
         assertThat(contexte.possedePourCentre(Permission.FINANCIER_SAISIR_MOUVEMENT, UUID.randomUUID())).isFalse();
