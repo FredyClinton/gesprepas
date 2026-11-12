@@ -1,6 +1,11 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import {
   ajouterConcoursAuDossier,
@@ -17,6 +22,7 @@ import {
   listConcoursDuDossier,
   listConcoursSession,
   listDossiers,
+  rechercherDossiers,
   listPiecesDossierConcours,
   listPiecesDuConcours,
   listPiecesRequises,
@@ -35,7 +41,22 @@ import type {
   CreerPieceRequiseInput,
   EnregistrerPaiementDossierInput,
   ModifierPieceRequiseInput,
+  CriteresRechercheDossiers,
 } from "../domain/types";
+
+// Liste paginée (page 0-based). Clé sous ["dossiers"] : les mutations qui
+// invalident ["dossiers"] la rafraîchissent aussi.
+export function useRechercheDossiers(
+  criteres: CriteresRechercheDossiers,
+  page: number,
+  taille: number,
+) {
+  return useQuery({
+    queryKey: ["dossiers", "recherche", criteres, page, taille],
+    queryFn: () => rechercherDossiers(criteres, page, taille),
+    placeholderData: keepPreviousData,
+  });
+}
 
 export function useDossiers(sessionId?: string, centreId?: string) {
   return useQuery({

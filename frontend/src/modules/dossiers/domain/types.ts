@@ -14,6 +14,39 @@ export type Dossier = {
   observation: string | null;
 };
 
+// Ligne de la liste paginée (GET /api/dossiers/recherche) : le dossier, son
+// apprenant et l'échéance de dépôt la plus proche parmi ses concours.
+export type LigneDossier = Dossier & {
+  apprenantNom: string | null;
+  apprenantPrenom: string | null;
+  apprenantReferenceRecu: string | null;
+  apprenantFormationId: string | null;
+  dateLimiteDepot: string | null;
+};
+
+export type TriDossiers =
+  "APPRENANT" | "CENTRE" | "FILIERE" | "DATE" | "DATE_LIMITE" | "STATUT";
+
+export type CriteresRechercheDossiers = {
+  sessionId?: string;
+  centreId?: string;
+  statut?: StatutDossier;
+  formationId?: string;
+  recherche?: string;
+  tri?: TriDossiers;
+  sens?: "ASC" | "DESC";
+};
+
+// Page de dossiers + compteurs par statut du périmètre session/centre
+// (indépendants des filtres statut/formation/recherche).
+export type ResultatRechercheDossiers = {
+  page: import("@/shared/lib/pagination").PageResponse<LigneDossier>;
+  total: number;
+  ouverts: number;
+  complets: number;
+  clotures: number;
+};
+
 // Miroir de `ConcoursResponse` (backend, module dossier) : un concours auquel un
 // centre peut inscrire des apprenants, avec ses échéances.
 export type Concours = {
@@ -99,4 +132,3 @@ export type ModifierPieceRequiseInput = {
   nom: string;
   montant: number;
 };
-

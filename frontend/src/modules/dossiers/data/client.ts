@@ -1,16 +1,19 @@
 import { apiFetch } from "@/shared/lib/api-client";
+import { construireParams } from "@/shared/lib/pagination";
 
 import type {
   AjouterConcoursAuDossierInput,
   Concours,
   CreerConcoursInput,
   CreerPieceRequiseInput,
+  CriteresRechercheDossiers,
   Dossier,
   DossierConcours,
   EnregistrerPaiementDossierInput,
   ModifierPieceRequiseInput,
   PieceDossier,
   PieceRequise,
+  ResultatRechercheDossiers,
   SoldeDossierConcours,
 } from "../domain/types";
 
@@ -21,6 +24,17 @@ export function getDossier(dossierId: string): Promise<Dossier> {
 export function getDossierParApprenant(apprenantId: string): Promise<Dossier> {
   const params = new URLSearchParams({ apprenantId });
   return apiFetch<Dossier>(`/api/dossiers?${params}`);
+}
+
+export function rechercherDossiers(
+  criteres: CriteresRechercheDossiers,
+  page: number,
+  taille: number,
+): Promise<ResultatRechercheDossiers> {
+  const params = construireParams({ ...criteres, page, taille });
+  return apiFetch<ResultatRechercheDossiers>(
+    `/api/dossiers/recherche?${params}`,
+  );
 }
 
 export function listDossiers(
@@ -133,9 +147,7 @@ export function getConcours(id: string): Promise<Concours> {
   return apiFetch<Concours>(`/api/concours/${id}`);
 }
 
-export function listConcoursSession(
-  sessionId?: string,
-): Promise<Concours[]> {
+export function listConcoursSession(sessionId?: string): Promise<Concours[]> {
   const params = new URLSearchParams();
   if (sessionId) params.set("sessionId", sessionId);
   const query = params.toString();
@@ -153,8 +165,12 @@ export function creerConcours(input: CreerConcoursInput): Promise<Concours> {
 export async function listPiecesDuConcours(
   concoursId: string,
 ): Promise<PieceRequise[]> {
-  const pieces = await apiFetch<PieceRequise[]>(`/api/concours/${concoursId}/pieces-requises`);
-  return [...pieces].sort((a, b) => a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }));
+  const pieces = await apiFetch<PieceRequise[]>(
+    `/api/concours/${concoursId}/pieces-requises`,
+  );
+  return [...pieces].sort((a, b) =>
+    a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }),
+  );
 }
 
 export function ajouterPieceAuConcours(
@@ -182,7 +198,9 @@ export function retirerPieceDuConcours(
 
 export async function listPiecesRequises(): Promise<PieceRequise[]> {
   const pieces = await apiFetch<PieceRequise[]>("/api/pieces-requises");
-  return [...pieces].sort((a, b) => a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }));
+  return [...pieces].sort((a, b) =>
+    a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }),
+  );
 }
 
 export function creerPieceRequise(

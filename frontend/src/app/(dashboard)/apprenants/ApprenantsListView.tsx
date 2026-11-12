@@ -24,20 +24,26 @@ import {
 } from "lucide-react";
 
 import { Button, Card, Pagination, Skeleton } from "@/shared/ui";
-import { useApprenants, type Apprenant } from "@/modules/apprenants";
+import {
+  rechercherApprenants,
+  useRechercheApprenants,
+  useSyntheseApprenants,
+  type Apprenant,
+  type CriteresRechercheApprenants,
+  type LigneApprenant as LigneApprenantListe,
+  type TriApprenants,
+} from "@/modules/apprenants";
+import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
+import { chargerToutesLesPages } from "@/shared/lib/pagination";
 import { useFormations, type Formation } from "@/modules/academique";
 import { useSessionActive, useCentres } from "@/modules/centres-sessions";
-import { useDossiers, type Dossier } from "@/modules/dossiers";
 import {
-  useMouvementsFinanciers,
-  useMotifs,
   EnregistrerVersementModal,
   RecuPaiementModal,
   type DonneesRecuPaiement,
 } from "@/modules/financier";
 import { ListeApprenantsPrintModal } from "./ListeApprenantsPrintModal";
 
-const MOTIF_ACHAT_LIVRES_ID = "00000000-0000-0000-0000-000000000012";
 const TAILLE_PAGE = 10;
 const FORMATEUR_FCFA = new Intl.NumberFormat("fr-FR");
 
@@ -70,6 +76,15 @@ type ColonneTri =
   "nom" | "formation" | "etablissement" | "paiement" | "dossier" | "date";
 type DirectionTri = "asc" | "desc";
 
+const TRI_BACKEND: Record<ColonneTri, TriApprenants> = {
+  nom: "NOM",
+  formation: "FORMATION",
+  etablissement: "ETABLISSEMENT",
+  paiement: "PAIEMENT",
+  dossier: "DOSSIER",
+  date: "DATE",
+};
+
 export function ApprenantsListView({
   centreId,
   userRole,
@@ -89,17 +104,10 @@ export function ApprenantsListView({
   const isTousCentres = !centreId || centreId === "TOUS";
   const centreIdFiltre = isTousCentres ? undefined : centreId;
 
-  const { data: apprenants, isLoading: chargementApprenants } = useApprenants();
   const { data: formations = [] } = useFormations();
   const { data: centres = [] } = useCentres();
-  const { data: sessionActive } = useSessionActive();
-  const { data: motifs = [] } = useMotifs("ENTREE");
-  const { data: mouvements = [], isLoading: chargementMouvements } =
-    useMouvementsFinanciers(sessionActive?.id, centreIdFiltre);
-  const { data: dossiers = [], isLoading: chargementDossiers } = useDossiers(
-    sessionActive?.id,
-    centreIdFiltre,
-  );
+  const { data: sessionActive, isLoading: chargementSession } =
+    useSessionActive();
 
   const centreActuel = centres.find((c) => c.id === centreId);
 
@@ -119,7 +127,15 @@ export function ApprenantsListView({
   const [triDirection, setTriDirection] = useState<DirectionTri>("asc");
 
   // État de sélection pour export
-  const [selectionIds, setSelectionIds] = useState<Set<string>>(new Set());
+  // Map id -> ligne : une sélection peut couvrir plusieurs pages, on garde donc
+  // les lignes elles-mêmes pour l'export/impression.
+  const [selectionIds, setSelectionIds] = useState<
+    Map<string, LigneApprenantListe>
+  >(new Map());
+  const [lignesImpression, setLignesImpression] = useState<
+    LigneApprenantListe[]
+  >([]);
+  const [preparationExport, setPreparationExport] = useState(false);
 
   // État modal encaissement rapide, reçu et impression liste
   const [recuAImprimer, setRecuAImprimer] =
@@ -172,169 +188,51 @@ export function ApprenantsListView({
     }
   }
 
-  const apprenantsDuCentre = useMemo(() => {
-    if (!sessionActive?.id) {
-      return (apprenants ?? []).filter((a) =>
-        isTousCentres ? true : a.centreId === centreId,
-      );
-    }
-    return (apprenants ?? []).filter(
-      (a) =>
-        (isTousCentres ? true : a.centreId === centreId) &&
-        (!a.sessionId || a.sessionId === sessionActive.id),
-    );
-  }, [apprenants, centreId, isTousCentres, sessionActive]);
+  const rechercheStable = useDebouncedValue(recherche);
 
-  // Calcul groupé des montants payés par apprenant pour éviter les requêtes N+1
-  // Les achats de livres sont des ventes annexes et ne sont pas déduits du contrat de scolarité
-  const paiementsParApprenant = useMemo(() => {
-    const isLivre = (motifId?: string) => {
-      if (!motifId) return false;
-      if (motifId === MOTIF_ACHAT_LIVRES_ID) return true;
-      const m = motifs.find((item) => item.id === motifId);
-      return m?.nom ? m.nom.toLowerCase().includes("livre") : false;
-    };
-
-    const map = new Map<string, number>();
-    mouvements
-      .filter(
-        (m) =>
-          m.type === "ENTREE" &&
-          m.statut !== "REJETE" &&
-          m.apprenantId &&
-          !isLivre(m.motifId),
-      )
-      .forEach((m) => {
-        map.set(m.apprenantId!, (map.get(m.apprenantId!) || 0) + m.montant);
-      });
-    return map;
-  }, [mouvements, motifs]);
-
-  // Indexation des dossiers de concours par apprenant
-  const dossiersParApprenant = useMemo(() => {
-    const map = new Map<string, Dossier>();
-    dossiers.forEach((d) => {
-      map.set(d.apprenantId, d);
-    });
-    return map;
-  }, [dossiers]);
-
-  const listeEtablissements = useMemo(() => {
-    const set = new Set<string>();
-    apprenantsDuCentre.forEach((a) => {
-      if (a.etablissementOrigine && a.etablissementOrigine.trim()) {
-        set.add(a.etablissementOrigine.trim());
-      }
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "fr-FR"));
-  }, [apprenantsDuCentre]);
-
-  const stats = useMemo(() => {
-    const total = apprenantsDuCentre.length;
-    const preInscrits = apprenantsDuCentre.filter((a) => a.preInscrit).length;
-    const definitifs = total - preInscrits;
-    return { total, preInscrits, definitifs };
-  }, [apprenantsDuCentre]);
-
-  // Filtrage combiné multi-critères et tri
-  const apprenantsFiltres = useMemo(() => {
-    const resultat = apprenantsDuCentre.filter((a) => {
-      // 1. Filtre par formation
-      if (filtreFormation && a.formationId !== filtreFormation) return false;
-
-      // 2. Filtre par établissement
-      if (filtreEtablissement && a.etablissementOrigine !== filtreEtablissement)
-        return false;
-
-      // 3. Filtre par type d'admission
-      if (filtreAdmission === "PRE_INSCRIT" && !a.preInscrit) return false;
-      if (filtreAdmission === "DEFINITIF" && a.preInscrit) return false;
-
-      // 4. Filtre par statut de paiement
-      const paye = paiementsParApprenant.get(a.id) || 0;
-      const soldeRestant = Math.max(0, (a.montantContrat || 0) - paye);
-      if (filtrePaiement === "SOLDE" && soldeRestant > 0) return false;
-      if (filtrePaiement === "RESTANT" && soldeRestant === 0) return false;
-
-      // 5. Filtre recherche textuelle
-      if (recherche.trim()) {
-        const q = recherche.trim().toLowerCase();
-        const nomComplet = `${a.prenom} ${a.nom}`.toLowerCase();
-        const contact = a.contactApprenant?.toLowerCase() || "";
-        const etab = a.etablissementOrigine?.toLowerCase() || "";
-        const parent = a.nomParent?.toLowerCase() || "";
-        if (
-          !nomComplet.includes(q) &&
-          !contact.includes(q) &&
-          !etab.includes(q) &&
-          !parent.includes(q)
-        ) {
-          return false;
-        }
-      }
-      return true;
-    });
-
-    // Tri
-    resultat.sort((a, b) => {
-      let comparaison = 0;
-      if (triColonne === "nom") {
-        const nomA = `${a.nom} ${a.prenom}`.toLowerCase();
-        const nomB = `${b.nom} ${b.prenom}`.toLowerCase();
-        comparaison = nomA.localeCompare(nomB, "fr-FR");
-      } else if (triColonne === "formation") {
-        const nomFA = formations.find((f) => f.id === a.formationId)?.nom || "";
-        const nomFB = formations.find((f) => f.id === b.formationId)?.nom || "";
-        comparaison = nomFA.localeCompare(nomFB, "fr-FR");
-      } else if (triColonne === "etablissement") {
-        const etabA = (a.etablissementOrigine || "").toLowerCase();
-        const etabB = (b.etablissementOrigine || "").toLowerCase();
-        comparaison = etabA.localeCompare(etabB, "fr-FR");
-      } else if (triColonne === "paiement") {
-        const soldeA = Math.max(
-          0,
-          (a.montantContrat || 0) - (paiementsParApprenant.get(a.id) || 0),
-        );
-        const soldeB = Math.max(
-          0,
-          (b.montantContrat || 0) - (paiementsParApprenant.get(b.id) || 0),
-        );
-        comparaison = soldeA - soldeB;
-      } else if (triColonne === "dossier") {
-        const statutA = dossiersParApprenant.get(a.id)?.statut || "Z";
-        const statutB = dossiersParApprenant.get(b.id)?.statut || "Z";
-        comparaison = statutA.localeCompare(statutB);
-      } else if (triColonne === "date") {
-        const dateA = a.dateInscription
-          ? new Date(a.dateInscription).getTime()
-          : 0;
-        const dateB = b.dateInscription
-          ? new Date(b.dateInscription).getTime()
-          : 0;
-        comparaison = dateA - dateB;
-      }
-      return triDirection === "asc" ? comparaison : -comparaison;
-    });
-
-    return resultat;
-  }, [
-    apprenantsDuCentre,
-    filtreFormation,
-    filtreEtablissement,
-    filtreAdmission,
-    filtrePaiement,
-    recherche,
-    paiementsParApprenant,
-    dossiersParApprenant,
-    formations,
-    triColonne,
-    triDirection,
-  ]);
-
-  const apprenantsPage = useMemo(
-    () => apprenantsFiltres.slice((page - 1) * TAILLE_PAGE, page * TAILLE_PAGE),
-    [apprenantsFiltres, page],
+  const criteres = useMemo<CriteresRechercheApprenants>(
+    () => ({
+      sessionId: sessionActive?.id,
+      centreId: centreIdFiltre,
+      formationId: filtreFormation || undefined,
+      etablissement: filtreEtablissement || undefined,
+      admission: filtreAdmission,
+      paiement: filtrePaiement,
+      recherche: rechercheStable.trim() || undefined,
+      tri: TRI_BACKEND[triColonne],
+      sens: triDirection === "asc" ? "ASC" : "DESC",
+    }),
+    [
+      sessionActive?.id,
+      centreIdFiltre,
+      filtreFormation,
+      filtreEtablissement,
+      filtreAdmission,
+      filtrePaiement,
+      rechercheStable,
+      triColonne,
+      triDirection,
+    ],
   );
+
+  // Filtrage, tri, calcul du payé/reste dû et pagination faits par le backend.
+  const { data: pageApprenants, isLoading: chargementApprenants } =
+    useRechercheApprenants(criteres, page - 1, TAILLE_PAGE, !chargementSession);
+  // Compteurs du périmètre (indépendants des filtres) + établissements connus.
+  const { data: synthese } = useSyntheseApprenants(
+    sessionActive?.id,
+    centreIdFiltre,
+  );
+
+  const apprenantsPage = pageApprenants?.contenu ?? [];
+  const totalFiltres = pageApprenants?.totalElements ?? 0;
+  const totalPages = Math.max(1, pageApprenants?.totalPages ?? 1);
+  const listeEtablissements = synthese?.etablissements ?? [];
+  const stats = {
+    total: synthese?.total ?? 0,
+    preInscrits: synthese?.preInscrits ?? 0,
+    definitifs: synthese?.definitifs ?? 0,
+  };
 
   const tousSelectionnesSurPage =
     apprenantsPage.length > 0 &&
@@ -342,21 +240,21 @@ export function ApprenantsListView({
 
   function toggleSelectAllPage() {
     setSelectionIds((prev) => {
-      const next = new Set(prev);
+      const next = new Map(prev);
       if (tousSelectionnesSurPage) {
         apprenantsPage.forEach((a) => next.delete(a.id));
       } else {
-        apprenantsPage.forEach((a) => next.add(a.id));
+        apprenantsPage.forEach((a) => next.set(a.id, a));
       }
       return next;
     });
   }
 
-  function toggleSelectApprenant(id: string) {
+  function toggleSelectApprenant(apprenant: LigneApprenantListe) {
     setSelectionIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      const next = new Map(prev);
+      if (next.has(apprenant.id)) next.delete(apprenant.id);
+      else next.set(apprenant.id, apprenant);
       return next;
     });
   }
@@ -368,12 +266,34 @@ export function ApprenantsListView({
     filtreAdmission !== "TOUS" ||
     filtrePaiement !== "TOUS";
 
+  // Cibles d'un export/impression : la sélection si elle existe, sinon toute la
+  // liste filtrée (toutes pages confondues, rechargée depuis le backend).
+  async function chargerCibles(): Promise<LigneApprenantListe[]> {
+    if (selectionIds.size > 0) return Array.from(selectionIds.values());
+    return chargerToutesLesPages((p, t) =>
+      rechercherApprenants(criteres, p, t),
+    );
+  }
+
+  async function ouvrirImpression() {
+    setPreparationExport(true);
+    try {
+      setLignesImpression(await chargerCibles());
+      setModalPrintOuverte(true);
+    } finally {
+      setPreparationExport(false);
+    }
+  }
+
   // Fonction d'export CSV (adaptée à la sélection)
-  function exporterCSV() {
-    const cibles =
-      selectionIds.size > 0
-        ? apprenantsDuCentre.filter((a) => selectionIds.has(a.id))
-        : apprenantsFiltres;
+  async function exporterCSV() {
+    setPreparationExport(true);
+    let cibles: LigneApprenantListe[];
+    try {
+      cibles = await chargerCibles();
+    } finally {
+      setPreparationExport(false);
+    }
 
     if (cibles.length === 0) return;
 
@@ -398,12 +318,11 @@ export function ApprenantsListView({
     const lignes = cibles.map((a) => {
       const nomFormation =
         formations.find((f) => f.id === a.formationId)?.nom || "Non définie";
-      const paye = paiementsParApprenant.get(a.id) || 0;
-      const reste = Math.max(0, (a.montantContrat || 0) - paye);
+      const paye = a.montantPaye || 0;
+      const reste = a.soldeRestant || 0;
       const statutPaye =
         reste === 0 ? "Soldé" : paye > 0 ? "Partiel" : "Non démarré";
-      const statutDossier =
-        dossiersParApprenant.get(a.id)?.statut || "Aucun dossier";
+      const statutDossier = a.statutDossier || "Aucun dossier";
 
       return [
         a.id,
@@ -441,8 +360,7 @@ export function ApprenantsListView({
     URL.revokeObjectURL(url);
   }
 
-  const chargement =
-    chargementApprenants || chargementMouvements || chargementDossiers;
+  const chargement = chargementSession || chargementApprenants;
 
   return (
     <div className="w-full space-y-6">
@@ -463,7 +381,7 @@ export function ApprenantsListView({
             type="button"
             variant="secondary"
             onClick={exporterCSV}
-            disabled={apprenantsFiltres.length === 0}
+            disabled={totalFiltres === 0 || preparationExport}
             className={`flex items-center gap-1.5 text-xs font-bold transition-all ${
               selectionIds.size > 0
                 ? "border-brand-orange text-brand-orange bg-orange-50/70"
@@ -481,8 +399,8 @@ export function ApprenantsListView({
           <Button
             type="button"
             variant="secondary"
-            onClick={() => setModalPrintOuverte(true)}
-            disabled={apprenantsFiltres.length === 0}
+            onClick={ouvrirImpression}
+            disabled={totalFiltres === 0 || preparationExport}
             className="flex items-center gap-1.5 text-xs font-bold transition-all"
           >
             <Printer size={14} />
@@ -707,9 +625,9 @@ export function ApprenantsListView({
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2 text-xs text-slate-500">
           <div className="flex items-center gap-2">
             <span>
-              {apprenantsFiltres.length} apprenant
-              {apprenantsFiltres.length > 1 ? "s" : ""} trouvé
-              {apprenantsFiltres.length > 1 ? "s" : ""}
+              {totalFiltres} apprenant
+              {totalFiltres > 1 ? "s" : ""} trouvé
+              {totalFiltres > 1 ? "s" : ""}
             </span>
             {selectionIds.size > 0 && (
               <span className="text-brand-orange rounded-full border border-orange-200/60 bg-orange-50 px-2 py-0.5 font-bold">
@@ -889,7 +807,7 @@ export function ApprenantsListView({
                     </td>
                   </tr>
                 ))}
-              {!chargement && apprenantsFiltres.length === 0 && (
+              {!chargement && totalFiltres === 0 && (
                 <tr>
                   <td
                     colSpan={7}
@@ -906,8 +824,6 @@ export function ApprenantsListView({
                 const nomCentre = isTousCentres
                   ? centres.find((c) => c.id === a.centreId)?.nom
                   : undefined;
-                const montantPaye = paiementsParApprenant.get(a.id) || 0;
-                const dossier = dossiersParApprenant.get(a.id);
                 const estSelectionne = selectionIds.has(a.id);
 
                 return (
@@ -916,11 +832,11 @@ export function ApprenantsListView({
                     apprenant={a}
                     nomFormation={nomFormation}
                     nomCentre={nomCentre}
-                    montantPaye={montantPaye}
-                    dossier={dossier}
+                    montantPaye={a.montantPaye || 0}
+                    statutDossier={a.statutDossier}
                     estSelectionne={estSelectionne}
                     peutEncaisser={peutEncaisser}
-                    onToggleSelect={() => toggleSelectApprenant(a.id)}
+                    onToggleSelect={() => toggleSelectApprenant(a)}
                     onFiltrerEtablissement={changerFiltreEtablissement}
                     onEncaisser={(soldeRestant) =>
                       setVersementApprenant({
@@ -936,21 +852,18 @@ export function ApprenantsListView({
             </tbody>
           </table>
         </div>
-        {!chargement && apprenantsFiltres.length > 0 && (
+        {!chargement && totalFiltres > 0 && (
           <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/60 px-4 py-3 sm:flex-row">
             <span className="text-xs text-slate-500">
               Affichage de {(page - 1) * TAILLE_PAGE + 1} à{" "}
-              {Math.min(page * TAILLE_PAGE, apprenantsFiltres.length)} sur{" "}
-              {apprenantsFiltres.length} apprenant
-              {apprenantsFiltres.length > 1 ? "s" : ""}
+              {Math.min(page * TAILLE_PAGE, totalFiltres)} sur {totalFiltres}{" "}
+              apprenant
+              {totalFiltres > 1 ? "s" : ""}
             </span>
             <Pagination
               page={page}
-              totalPages={Math.max(
-                1,
-                Math.ceil(apprenantsFiltres.length / TAILLE_PAGE),
-              )}
-              totalItems={apprenantsFiltres.length}
+              totalPages={totalPages}
+              totalItems={totalFiltres}
               pageSize={TAILLE_PAGE}
               onChange={setPage}
             />
@@ -989,16 +902,14 @@ export function ApprenantsListView({
         <ListeApprenantsPrintModal
           isOpen={modalPrintOuverte}
           onClose={() => setModalPrintOuverte(false)}
-          apprenants={
-            selectionIds.size > 0
-              ? apprenantsFiltres.filter((a) => selectionIds.has(a.id))
-              : apprenantsFiltres
-          }
+          apprenants={lignesImpression}
           formations={formations}
           centres={centres}
           sessionActive={sessionActive || undefined}
           nomCentre={centreActuel?.nom}
-          paiementsParApprenant={paiementsParApprenant}
+          paiementsParApprenant={
+            new Map(lignesImpression.map((l) => [l.id, l.montantPaye || 0]))
+          }
           isTousCentres={isTousCentres}
         />
       )}
@@ -1011,7 +922,7 @@ function LigneApprenant({
   nomFormation,
   nomCentre,
   montantPaye,
-  dossier,
+  statutDossier,
   estSelectionne,
   peutEncaisser,
   onToggleSelect,
@@ -1022,7 +933,7 @@ function LigneApprenant({
   nomFormation?: string;
   nomCentre?: string;
   montantPaye: number;
-  dossier?: Dossier;
+  statutDossier?: string | null;
   estSelectionne: boolean;
   peutEncaisser?: boolean;
   onToggleSelect: () => void;
@@ -1201,16 +1112,16 @@ function LigneApprenant({
 
       {/* 4. Statut Dossier Concours */}
       <td className="p-3.5">
-        {!dossier ? (
+        {!statutDossier ? (
           <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-500">
             Aucun dossier
           </span>
-        ) : dossier.statut === "COMPLET" ? (
+        ) : statutDossier === "COMPLET" ? (
           <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200/80 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
             <CheckCircle2 size={12} className="text-emerald-600" />
             Complet
           </span>
-        ) : dossier.statut === "CLOTURE" ? (
+        ) : statutDossier === "CLOTURE" ? (
           <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600">
             Clôturé
           </span>

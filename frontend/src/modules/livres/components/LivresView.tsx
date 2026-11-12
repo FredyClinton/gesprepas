@@ -37,11 +37,14 @@ import {
   SkeletonCard,
   SkeletonTable,
   SortableHeader,
+  Pagination,
 } from "@/shared/ui";
+import { TAILLE_PAGE_LISTE } from "@/shared/lib/pagination";
+import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
+import { usePageParCriteres } from "@/shared/hooks/usePageParCriteres";
 import {
   compareStrings,
   compareNumbers,
-  compareDates,
   type SortDirection,
 } from "@/shared/lib/sort-utils";
 import {
@@ -49,12 +52,14 @@ import {
   useCreerLivre,
   useModifierLivre,
   useSupprimerLivre,
-  useVentesLivres,
+  useRechercheVentesLivres,
   useStatsVentesLivres,
 } from "../data/queries";
 import { useSessionActive, useCentres } from "@/modules/centres-sessions";
 import { EnregistrerVenteLivreModal } from "./EnregistrerVenteLivreModal";
 import type {
+  CriteresRechercheVentes,
+  TriVentes,
   Livre,
   CreerLivreDTO,
   ModifierLivreDTO,
@@ -69,6 +74,17 @@ interface LivresViewProps {
   userRole?: string;
   userCentreId?: string;
 }
+
+const TRI_VENTES_BACKEND: Record<string, TriVentes> = {
+  date: "DATE",
+  centre: "CENTRE",
+  acheteur: "ACHETEUR",
+  type: "TYPE",
+  livre: "LIVRE",
+  quantite: "QUANTITE",
+  prix: "PRIX",
+  total: "TOTAL",
+};
 
 export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
   const { data: authSession } = useSession();
@@ -244,65 +260,49 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
     userCentreIdEffectif ?? undefined,
   );
 
-  const {
-    data: ventes = [],
-    isLoading: ventesLoading,
-    error: ventesError,
-  } = useVentesLivres(
-    {
+  // Journal des ventes : filtrage (type d'acheteur, texte), tri, pagination et
+  // agrégats faits par le backend.
+  const rechercheVenteStable = useDebouncedValue(rechercheVente);
+  const criteresVentes = useMemo<CriteresRechercheVentes>(
+    () => ({
       sessionId: sessionActive?.id || "",
       centreId: centreIdQuery,
       livreId: selectedLivreId || undefined,
       dateDebut: dateDebut || undefined,
       dateFin: dateFin || undefined,
-    },
+      typeAcheteur: selectedTypeAcheteur,
+      recherche: rechercheVenteStable.trim() || undefined,
+      tri: TRI_VENTES_BACKEND[triVenteColonne],
+      sens: triVenteDirection === "asc" ? "ASC" : "DESC",
+    }),
+    [
+      sessionActive?.id,
+      centreIdQuery,
+      selectedLivreId,
+      dateDebut,
+      dateFin,
+      selectedTypeAcheteur,
+      rechercheVenteStable,
+      triVenteColonne,
+      triVenteDirection,
+    ],
+  );
+  const [pageVentes, setPageVentes] = usePageParCriteres(
+    JSON.stringify(criteresVentes),
+  );
+  const {
+    data: resultatVentes,
+    isLoading: ventesLoading,
+    error: ventesError,
+  } = useRechercheVentesLivres(
+    criteresVentes,
+    pageVentes - 1,
+    TAILLE_PAGE_LISTE,
     roleEffectif ?? undefined,
     userCentreIdEffectif ?? undefined,
   );
-
-  // Filtrage et Tri local des ventes (acheteur / texte)
-  const ventesFiltrees = useMemo(() => {
-    const filtered = (ventes || []).filter((v: VenteLivre) => {
-      if (selectedTypeAcheteur === "INTERNE" && v.estExterne) return false;
-      if (selectedTypeAcheteur === "EXTERNE" && !v.estExterne) return false;
-      if (rechercheVente.trim() !== "") {
-        const q = rechercheVente.toLowerCase();
-        const matchAcheteur = v.nomAcheteur?.toLowerCase().includes(q);
-        const matchLivre = v.livreTitre?.toLowerCase().includes(q);
-        const matchCentre = v.centreNom?.toLowerCase().includes(q);
-        if (!matchAcheteur && !matchLivre && !matchCentre) return false;
-      }
-      return true;
-    });
-
-    return [...filtered].sort((a: VenteLivre, b: VenteLivre) => {
-      let cmp = 0;
-      if (triVenteColonne === "date") {
-        cmp = compareDates(a.dateVente, b.dateVente);
-      } else if (triVenteColonne === "centre") {
-        cmp = compareStrings(a.centreNom, b.centreNom);
-      } else if (triVenteColonne === "acheteur") {
-        cmp = compareStrings(a.nomAcheteur, b.nomAcheteur);
-      } else if (triVenteColonne === "type") {
-        cmp = Number(b.estExterne) - Number(a.estExterne);
-      } else if (triVenteColonne === "livre") {
-        cmp = compareStrings(a.livreTitre, b.livreTitre);
-      } else if (triVenteColonne === "quantite") {
-        cmp = compareNumbers(a.quantite, b.quantite);
-      } else if (triVenteColonne === "prix") {
-        cmp = compareNumbers(a.prixUnitaire, b.prixUnitaire);
-      } else if (triVenteColonne === "total") {
-        cmp = compareNumbers(a.montantTotal, b.montantTotal);
-      }
-      return triVenteDirection === "asc" ? cmp : -cmp;
-    });
-  }, [
-    ventes,
-    selectedTypeAcheteur,
-    rechercheVente,
-    triVenteColonne,
-    triVenteDirection,
-  ]);
+  const ventesPage = resultatVentes?.page.contenu ?? [];
+  const nbVentes = resultatVentes?.page.totalElements ?? 0;
 
   const statsParLivreTries = useMemo(() => {
     if (!statsVentes?.parLivre) return [];
@@ -338,41 +338,15 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
     });
   }, [statsVentes?.parCentre, triCentreColonne, triCentreDirection]);
 
-  // Agrégats complémentaires des ventes filtrées
-  const aggregatesFiltres = useMemo(() => {
-    const totalMontant = (ventesFiltrees as VenteLivre[]).reduce(
-      (acc: number, v: VenteLivre) => acc + (v.montantTotal || 0),
-      0,
-    );
-    const totalQuantite = (ventesFiltrees as VenteLivre[]).reduce(
-      (acc: number, v: VenteLivre) => acc + (v.quantite || 0),
-      0,
-    );
-    const ventesInternes = (ventesFiltrees as VenteLivre[]).filter(
-      (v: VenteLivre) => !v.estExterne,
-    );
-    const ventesExternes = (ventesFiltrees as VenteLivre[]).filter(
-      (v: VenteLivre) => v.estExterne,
-    );
-
-    const montantInternes = ventesInternes.reduce(
-      (acc: number, v: VenteLivre) => acc + (v.montantTotal || 0),
-      0,
-    );
-    const montantExternes = ventesExternes.reduce(
-      (acc: number, v: VenteLivre) => acc + (v.montantTotal || 0),
-      0,
-    );
-
-    return {
-      totalMontant,
-      totalQuantite,
-      nbInternes: ventesInternes.length,
-      montantInternes,
-      nbExternes: ventesExternes.length,
-      montantExternes,
-    };
-  }, [ventesFiltrees]);
+  // Agrégats de toute la sélection filtrée (renvoyés avec la page).
+  const aggregatesFiltres = {
+    totalMontant: resultatVentes?.totalMontant ?? 0,
+    totalQuantite: resultatVentes?.totalQuantite ?? 0,
+    nbInternes: resultatVentes?.nbInternes ?? 0,
+    montantInternes: resultatVentes?.montantInternes ?? 0,
+    nbExternes: resultatVentes?.nbExternes ?? 0,
+    montantExternes: resultatVentes?.montantExternes ?? 0,
+  };
 
   const statsCatalogue = useMemo(() => {
     const total = livres.length;
@@ -605,9 +579,9 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
           >
             <BarChart3 size={16} />
             <span>Traçabilité & Bilans des Ventes</span>
-            {ventes.length > 0 && (
+            {nbVentes > 0 && (
               <span className="text-brand-orange py-0.2 rounded-full bg-orange-100 px-2 text-[10px] font-black">
-                {ventes.length}
+                {nbVentes}
               </span>
             )}
           </button>
@@ -1684,8 +1658,7 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
               <div className="flex items-center gap-2">
                 <Receipt size={16} className="text-brand-orange" />
                 <h2 className="text-sm font-black text-slate-900">
-                  Journal Détaillé des Ventes & Traçabilité (
-                  {ventesFiltrees.length} lignes)
+                  Journal Détaillé des Ventes & Traçabilité ({nbVentes} lignes)
                 </h2>
               </div>
 
@@ -1707,7 +1680,7 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
               <div className="p-6 text-center text-xs text-rose-600">
                 Erreur lors du chargement des ventes.
               </div>
-            ) : ventesFiltrees.length === 0 ? (
+            ) : ventesPage.length === 0 ? (
               <div className="p-10 text-center text-slate-400">
                 <ShoppingCart
                   size={32}
@@ -1788,7 +1761,7 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {ventesFiltrees.map((v: VenteLivre) => (
+                    {ventesPage.map((v: VenteLivre) => (
                       <tr
                         key={v.id}
                         className="transition-colors hover:bg-slate-50/70"
@@ -1836,6 +1809,14 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                     ))}
                   </tbody>
                 </table>
+                <Pagination
+                  page={pageVentes}
+                  totalPages={Math.max(1, resultatVentes?.page.totalPages ?? 1)}
+                  totalItems={nbVentes}
+                  pageSize={TAILLE_PAGE_LISTE}
+                  onChange={setPageVentes}
+                  label="vente"
+                />
               </div>
             )}
           </Card>

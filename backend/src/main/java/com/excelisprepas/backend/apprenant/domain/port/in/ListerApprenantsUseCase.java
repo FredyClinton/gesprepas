@@ -6,4 +6,7 @@ import java.util.List;
 
 public interface ListerApprenantsUseCase {
     List<Apprenant> listerApprenants();
+
+    /** Apprenants d'une session et/ou d'un centre (paramètre null = pas de filtre sur ce critère). */
+    List<Apprenant> listerApprenants(java.util.UUID sessionId, java.util.UUID centreId);
 }

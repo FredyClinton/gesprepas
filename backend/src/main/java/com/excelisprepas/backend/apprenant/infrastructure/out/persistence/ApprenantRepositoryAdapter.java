@@ -61,4 +61,14 @@ public class ApprenantRepositoryAdapter implements ApprenantRepositoryPort {
                 .map(mapper::toDomain)
                 .toList();
     }
+
+    @Override
+    public List<Apprenant> findBySessionId(UUID sessionId) {
+        return jpaRepository.findBySessionId(sessionId).stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Apprenant> findByCentreId(UUID centreId) {
+        return jpaRepository.findByCentreId(centreId).stream().map(mapper::toDomain).toList();
+    }
 }

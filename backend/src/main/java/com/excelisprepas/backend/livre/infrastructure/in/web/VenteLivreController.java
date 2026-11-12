@@ -2,6 +2,7 @@ package com.excelisprepas.backend.livre.infrastructure.in.web;
 
 import org.springframework.web.server.ResponseStatusException;
 import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
+import com.excelisprepas.backend.auth.infrastructure.in.web.PerimetreCentre;
 import com.excelisprepas.backend.auth.infrastructure.in.web.UtilisateurCourant;
 import com.excelisprepas.backend.centre.domain.model.Centre;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
@@ -51,13 +52,12 @@ public class VenteLivreController {
         this.livreRepositoryPort = livreRepositoryPort;
     }
 
+    /**
+     * Un rôle rattaché à un centre (chef de centre, mais aussi caissier et chargé de dossier) ne lit que les
+     * ventes de son centre - avant, seul le chef de centre était restreint. Voir {@link PerimetreCentre}.
+     */
     private UUID filtrerCentreParRole(String userRole, UUID headerCentreId, UUID queryCentreId) {
-        if (userRole != null && "CHEF_CENTRE".equalsIgnoreCase(userRole.trim())) {
-            if (headerCentreId != null) {
-                return headerCentreId;
-            }
-        }
-        return queryCentreId;
+        return PerimetreCentre.centreEffectif(headerCentreId, queryCentreId);
     }
 
     @Operation(summary = "Enregistrer une vente de livres",
@@ -111,7 +111,7 @@ public class VenteLivreController {
     }
 
     @Operation(summary = "Lister les ventes de livres",
-               description = "Historique détaillé des ventes. Le Chef de Centre ne voit que les ventes de son centre.")
+               description = "Historique détaillé des ventes. Un rôle rattaché à un centre ne voit que les ventes de son centre.")
     @PreAuthorize("hasAuthority('FINANCIER_CONSULTER')")
     @GetMapping
     public ResponseEntity<List<VenteLivreResponse>> listerVentes(

@@ -1,10 +1,41 @@
 import { apiFetch } from "@/shared/lib/api-client";
 
-import type { Apprenant } from "../domain/types";
+import { construireParams, type PageResponse } from "@/shared/lib/pagination";
+
+import type {
+  Apprenant,
+  CriteresRechercheApprenants,
+  LigneApprenant,
+  SyntheseApprenants,
+} from "../domain/types";
 import { Affectation } from "@/modules/affectation";
 
-export function listApprenants(): Promise<Apprenant[]> {
-  return apiFetch<Apprenant[]>("/api/apprenants");
+// Liste non paginée, éventuellement restreinte côté serveur à une session et/ou
+// un centre (sans filtre : tous les apprenants de toutes les sessions).
+export function listApprenants(
+  filtres: { sessionId?: string; centreId?: string } = {},
+): Promise<Apprenant[]> {
+  const params = construireParams(filtres).toString();
+  return apiFetch<Apprenant[]>(`/api/apprenants${params ? `?${params}` : ""}`);
+}
+
+export function rechercherApprenants(
+  criteres: CriteresRechercheApprenants,
+  page: number,
+  taille: number,
+): Promise<PageResponse<LigneApprenant>> {
+  const params = construireParams({ ...criteres, page, taille });
+  return apiFetch<PageResponse<LigneApprenant>>(
+    `/api/apprenants/recherche?${params}`,
+  );
+}
+
+export function getSyntheseApprenants(
+  sessionId?: string,
+  centreId?: string,
+): Promise<SyntheseApprenants> {
+  const params = construireParams({ sessionId, centreId });
+  return apiFetch<SyntheseApprenants>(`/api/apprenants/synthese?${params}`);
 }
 
 export function getApprenant(id: string): Promise<Apprenant> {

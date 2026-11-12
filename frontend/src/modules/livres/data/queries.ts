@@ -1,19 +1,30 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   listLivres,
   creerLivre,
   modifierLivre,
   supprimerLivre,
   listerVentesLivres,
+  rechercherVentesLivres,
   listerVentesApprenant,
   getStatsVentesLivres,
   enregistrerVenteLivre,
 } from "./client";
-import type { CreerLivreDTO, ModifierLivreDTO } from "../domain/types";
+import type {
+  CreerLivreDTO,
+  CriteresRechercheVentes,
+  ModifierLivreDTO,
+} from "../domain/types";
 
 export const LIVRES_KEYS = {
   all: ["livres"] as const,
-  list: (actifsSeulement?: boolean) => [...LIVRES_KEYS.all, "list", { actifsSeulement }] as const,
+  list: (actifsSeulement?: boolean) =>
+    [...LIVRES_KEYS.all, "list", { actifsSeulement }] as const,
 };
 
 export function useLivres(actifsSeulement = false) {
@@ -56,9 +67,36 @@ export function useSupprimerLivre(role?: string) {
 
 export const VENTES_LIVRES_KEYS = {
   all: ["ventes-livres"] as const,
-  list: (params: Record<string, unknown>) => [...VENTES_LIVRES_KEYS.all, "list", params] as const,
-  stats: (params: Record<string, unknown>) => [...VENTES_LIVRES_KEYS.all, "stats", params] as const,
+  list: (params: Record<string, unknown>) =>
+    [...VENTES_LIVRES_KEYS.all, "list", params] as const,
+  stats: (params: Record<string, unknown>) =>
+    [...VENTES_LIVRES_KEYS.all, "stats", params] as const,
+  recherche: (params: Record<string, unknown>) =>
+    [...VENTES_LIVRES_KEYS.all, "recherche", params] as const,
 };
+
+// Recherche paginée (page 0-based) avec agrégats de la sélection.
+export function useRechercheVentesLivres(
+  criteres: CriteresRechercheVentes,
+  page: number,
+  taille: number,
+  role?: string,
+  userCentreId?: string,
+) {
+  return useQuery({
+    queryKey: VENTES_LIVRES_KEYS.recherche({
+      ...criteres,
+      page,
+      taille,
+      role,
+      userCentreId,
+    }),
+    queryFn: () =>
+      rechercherVentesLivres(criteres, page, taille, role, userCentreId),
+    enabled: Boolean(criteres.sessionId),
+    placeholderData: keepPreviousData,
+  });
+}
 
 export function useVentesLivres(
   params: {
@@ -115,12 +153,14 @@ export function useEnregistrerVenteLivre(role?: string, userCentreId?: string) {
       queryClient.invalidateQueries({ queryKey: ["bilan-journalier"] });
       queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
       if (variables?.apprenantId) {
-        queryClient.invalidateQueries({ queryKey: ["versements-apprenant", variables.apprenantId] });
-        queryClient.invalidateQueries({ queryKey: ["ventes-livres", "apprenant", variables.apprenantId] });
+        queryClient.invalidateQueries({
+          queryKey: ["versements-apprenant", variables.apprenantId],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ["ventes-livres", "apprenant", variables.apprenantId],
+        });
       }
       queryClient.invalidateQueries({ queryKey: ["apprenants"] });
     },
   });
 }
-
-

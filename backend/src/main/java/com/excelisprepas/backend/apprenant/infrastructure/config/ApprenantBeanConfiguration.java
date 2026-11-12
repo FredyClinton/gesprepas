@@ -86,4 +86,10 @@ public class ApprenantBeanConfiguration {
             com.excelisprepas.backend.apprenant.domain.service.CursusApprenantService cursusApprenantService) {
         return cursusApprenantService;
     }
+
+    @Bean
+    public com.excelisprepas.backend.apprenant.domain.port.in.RechercherApprenantsUseCase rechercherApprenantsUseCase(
+            com.excelisprepas.backend.apprenant.domain.port.out.RechercheApprenantsPort rechercheApprenantsPort) {
+        return new com.excelisprepas.backend.apprenant.domain.service.RechercheApprenantsService(rechercheApprenantsPort);
+    }
 }

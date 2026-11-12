@@ -147,7 +147,7 @@ export function CaissierDashboard({ centreId }: { centreId: string }) {
   const { data: centres = [] } = useCentres();
   const { data: sessionActive, isLoading: chargementSession } = useSessionActive();
   const { data: phases = [] } = usePhases();
-  const { data: apprenants = [], isLoading: chargementApprenants } = useApprenants();
+  const { data: apprenants = [], isLoading: chargementApprenants } = useApprenants({ centreId, sessionId: sessionActive?.id });
   const { data: formations = [], isLoading: chargementFormations } = useFormations();
   const { data: bilan, isLoading: chargementBilan } = useBilanDuJour(
     centreId,

@@ -1,4 +1,5 @@
 import { apiFetch } from "@/shared/lib/api-client";
+import type { PageResponse } from "@/shared/lib/pagination";
 
 import type {
   Entree,
@@ -103,6 +104,74 @@ export type MouvementFinancier = {
   livreTitre?: string | null;
 };
 
+// Ligne de la recherche paginée : le mouvement plus le tiers résolu (apprenant,
+// ordonnateur ou "Divers") et le solde progressif de toute la session (calculé
+// par le backend avant filtres, rejetés exclus).
+export type LigneMouvementFinancier = MouvementFinancier & {
+  tiers: string;
+  soldeProgressif: number;
+};
+
+export type TriMouvements =
+  | "DATE"
+  | "REF"
+  | "CENTRE"
+  | "TIERS"
+  | "MOTIF"
+  | "ORDRE_MOTIFS"
+  | "MONTANT"
+  | "DEBIT"
+  | "CREDIT"
+  | "SOLDE"
+  | "STATUT"
+  | "ORDONNATEUR";
+
+export type CriteresRechercheMouvements = {
+  sessionId: string;
+  centreId?: string;
+  type?: "ENTREE" | "SORTIE";
+  // Restreint aux motifs listés (vide = tous) : sert au filtre par catégorie.
+  motifIds?: string[];
+  statut?: StatutMouvement;
+  dateDebut?: string;
+  dateFin?: string;
+  recherche?: string;
+  pointage?: "TOUS" | "POINTE" | "NON_POINTE";
+  idsPointes?: string[];
+  tri?: TriMouvements;
+  // Ordre des motifs pour le tri ORDRE_MOTIFS (ex. par catégorie).
+  ordreMotifIds?: string[];
+  sens?: "ASC" | "DESC";
+};
+
+export type TotalMotif = {
+  motifId: string;
+  type: "ENTREE" | "SORTIE";
+  total: number;
+  nombre: number;
+};
+
+// totalEntrees/totalSorties excluent les rejetés ; totauxParMotif les inclut.
+export type ResultatRechercheMouvements = {
+  page: PageResponse<LigneMouvementFinancier>;
+  totalEntrees: number;
+  totalSorties: number;
+  totauxParMotif: TotalMotif[];
+};
+
+// POST en lecture seule : les listes d'identifiants (pointage, motifs) ne
+// tiennent pas forcément dans une URL.
+export function rechercherMouvementsFinanciers(
+  criteres: CriteresRechercheMouvements,
+  page: number,
+  taille: number,
+): Promise<ResultatRechercheMouvements> {
+  return apiFetch<ResultatRechercheMouvements>(
+    "/api/mouvements-financiers/recherche",
+    { method: "POST", body: JSON.stringify({ ...criteres, page, taille }) },
+  );
+}
+
 export function listMouvementsFinanciers(
   sessionId: string,
   centreId?: string,
@@ -145,10 +214,13 @@ export type SoumettreBilanCaissierInput = {
 export function soumettreBilanCaissier(
   input: SoumettreBilanCaissierInput,
 ): Promise<BilanJournalier> {
-  return apiFetch<BilanJournalier>("/api/bilans-journaliers/soumettre-caissier", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+  return apiFetch<BilanJournalier>(
+    "/api/bilans-journaliers/soumettre-caissier",
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
 }
 
 export type ValiderBilanChefCentreInput = {
@@ -161,10 +233,13 @@ export type ValiderBilanChefCentreInput = {
 export function validerBilanChefCentre(
   input: ValiderBilanChefCentreInput,
 ): Promise<BilanJournalier> {
-  return apiFetch<BilanJournalier>("/api/bilans-journaliers/valider-chef-centre", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+  return apiFetch<BilanJournalier>(
+    "/api/bilans-journaliers/valider-chef-centre",
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
 }
 
 export function validerBilanControleur(
@@ -190,10 +265,13 @@ export interface ValiderBilanControleurDirectInput {
 export function validerBilanControleurDirect(
   input: ValiderBilanControleurDirectInput,
 ): Promise<BilanJournalier> {
-  return apiFetch<BilanJournalier>("/api/bilans-journaliers/valider-controleur", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+  return apiFetch<BilanJournalier>(
+    "/api/bilans-journaliers/valider-controleur",
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
 }
 
 export type AjusterActiviteBilanInput = {

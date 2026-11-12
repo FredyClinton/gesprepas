@@ -3,7 +3,6 @@
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { useQueries } from "@tanstack/react-query";
 import {
   FolderOpen,
   Award,
@@ -25,7 +24,7 @@ import {
   ChevronDown,
   AlertCircle,
 } from "lucide-react";
-import { Button, SortableHeader } from "@/shared/ui";
+import { Button, Pagination, SortableHeader } from "@/shared/ui";
 import {
   compareStrings,
   compareNumbers,
@@ -33,14 +32,13 @@ import {
   type SortDirection,
 } from "@/shared/lib/sort-utils";
 import {
-  useDossiers,
+  useRechercheDossiers,
   useConcoursSession,
   usePiecesRequises,
   useDesactiverPieceRequise,
   useReactiverPieceRequise,
   useCreerPieceRequise,
   usePiecesDuConcours,
-  listConcoursDuDossier,
   SouscrireDossierModal,
   CreerConcoursModal,
   CreerModifierPieceModal,
@@ -48,18 +46,32 @@ import {
   ProgressionPiecesDossierCell,
   DateLimiteDepotDossierCell,
   calculerCompteARebours,
-  type Dossier,
   type Concours,
+  type CriteresRechercheDossiers,
+  type StatutDossier,
+  type TriDossiers,
   type PieceRequise,
 } from "@/modules/dossiers";
 import { useCentres, useSessionActive } from "@/modules/centres-sessions";
 import { useFormations } from "@/modules/academique";
-import { useApprenants, type Apprenant } from "@/modules/apprenants";
+import { useApprenants } from "@/modules/apprenants";
+import { TAILLE_PAGE_LISTE } from "@/shared/lib/pagination";
+import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
+import { usePageParCriteres } from "@/shared/hooks/usePageParCriteres";
 
 const FCFA = new Intl.NumberFormat("fr-FR");
 
+const TRI_DOSSIERS_BACKEND: Record<string, TriDossiers> = {
+  apprenant: "APPRENANT",
+  centre: "CENTRE",
+  filiere: "FILIERE",
+  date: "DATE",
+  dateLimite: "DATE_LIMITE",
+  statut: "STATUT",
+};
+
 const STATUT_BADGES: Record<
-  Dossier["statut"],
+  StatutDossier,
   { label: string; dot: string; bg: string; text: string }
 > = {
   OUVERT: {
@@ -256,8 +268,6 @@ export function DossiersView() {
 
   const { data: centres = [] } = useCentres();
   const { data: formations = [] } = useFormations();
-  const { data: apprenants = [], isLoading: chargementApprenants } =
-    useApprenants();
 
   // Centre filtré (verrouillé si chef de centre ou chargé de dossier)
   const [centreSelectionne, setCentreSelectionne] = useState<string>(
@@ -270,11 +280,7 @@ export function DossiersView() {
   const [formationFiltre, setFormationFiltre] = useState<string>("");
 
   // Données dossiers & concours
-  const {
-    data: dossiers = [],
-    isLoading: chargementDossiers,
-    refetch: refetchDossiers,
-  } = useDossiers(sessionId || undefined, centreSelectionne || undefined);
+
   const {
     data: concoursList = [],
     isLoading: chargementConcours,
@@ -290,6 +296,11 @@ export function DossiersView() {
 
   // Modals
   const [modalSouscrireOuverte, setModalSouscrireOuverte] = useState(false);
+  // Liste complète des apprenants : seulement pour le sélecteur de la modale.
+  const { data: apprenants = [] } = useApprenants({
+    sessionId: sessionId || undefined,
+    enabled: modalSouscrireOuverte,
+  });
   const [apprenantPourNouveauConcoursId, setApprenantPourNouveauConcoursId] =
     useState<string | null>(null);
   const [modalCreerConcoursOuverte, setModalCreerConcoursOuverte] =
@@ -424,13 +435,6 @@ export function DossiersView() {
     triConcoursDirection,
   ]);
 
-  // Apprenants mappés par ID pour enrichir les lignes du tableau
-  const apprenantsParId = useMemo(() => {
-    const map = new Map<string, Apprenant>();
-    apprenants.forEach((a) => map.set(a.id, a));
-    return map;
-  }, [apprenants]);
-
   // Tri des dossiers
   type ColonneTriDossiers =
     "apprenant" | "centre" | "filiere" | "date" | "dateLimite" | "statut";
@@ -447,142 +451,52 @@ export function DossiersView() {
     }
   }
 
-  // Requêtes en parallèle pour obtenir les concours de chaque dossier (partage le cache avec les cellules du tableau)
-  const concoursDossiersQueries = useQueries({
-    queries: dossiers.map((d) => ({
-      queryKey: ["dossier-concours", d.id],
-      queryFn: () => listConcoursDuDossier(d.id),
-      enabled: Boolean(d.id),
-      staleTime: 30000,
-    })),
-  });
+  // Filtrage, tri (dont l'échéance de dépôt la plus proche), pagination et
+  // compteurs par statut faits par le backend.
+  const rechercheStable = useDebouncedValue(recherche);
+  const criteresDossiers = useMemo<CriteresRechercheDossiers>(
+    () => ({
+      sessionId: sessionId || undefined,
+      centreId: centreSelectionne || undefined,
+      statut:
+        statutFiltre !== "TOUS" ? (statutFiltre as StatutDossier) : undefined,
+      formationId: formationFiltre || undefined,
+      recherche: rechercheStable.trim() || undefined,
+      tri: TRI_DOSSIERS_BACKEND[triColonne],
+      sens: triDirection === "asc" ? "ASC" : "DESC",
+    }),
+    [
+      sessionId,
+      centreSelectionne,
+      statutFiltre,
+      formationFiltre,
+      rechercheStable,
+      triColonne,
+      triDirection,
+    ],
+  );
+  const [pageDossiers, setPageDossiers] = usePageParCriteres(
+    JSON.stringify(criteresDossiers),
+  );
+  const {
+    data: resultatDossiers,
+    isLoading: chargementDossiers,
+    refetch: refetchDossiers,
+  } = useRechercheDossiers(
+    criteresDossiers,
+    pageDossiers - 1,
+    TAILLE_PAGE_LISTE,
+  );
+  const dossiersPage = resultatDossiers?.page.contenu ?? [];
+  const nbDossiersFiltres = resultatDossiers?.page.totalElements ?? 0;
 
-  // Map dossierId -> date limite la plus proche (string ISO)
-  const datesLimitesParDossier = useMemo(() => {
-    const map = new Map<string, string>();
-    if (concoursList.length === 0 || dossiers.length === 0) return map;
-
-    const catalogueMap = new Map(concoursList.map((c) => [c.id, c]));
-
-    dossiers.forEach((dossier, idx) => {
-      const concoursDuDossier = concoursDossiersQueries[idx]?.data;
-      if (!concoursDuDossier || concoursDuDossier.length === 0) return;
-
-      const concoursAssocies = concoursDuDossier
-        .map((dc) => catalogueMap.get(dc.concoursId))
-        .filter((c): c is Concours => Boolean(c));
-
-      if (concoursAssocies.length === 0) return;
-
-      // Trier par échéance la plus proche
-      concoursAssocies.sort(
-        (a, b) =>
-          new Date(a.dateLimiteDepot).getTime() -
-          new Date(b.dateLimiteDepot).getTime(),
-      );
-
-      map.set(dossier.id, concoursAssocies[0].dateLimiteDepot);
-    });
-
-    return map;
-  }, [dossiers, concoursDossiersQueries, concoursList]);
-
-  // Dossiers filtrés et triés
-  const dossiersFiltres = useMemo(() => {
-    const list = dossiers.filter((dossier) => {
-      // Filtre statut
-      if (statutFiltre !== "TOUS" && dossier.statut !== statutFiltre) {
-        return false;
-      }
-
-      // Apprenant associé
-      const app = apprenantsParId.get(dossier.apprenantId);
-
-      // Filtre formation
-      if (formationFiltre && app && app.formationId !== formationFiltre) {
-        return false;
-      }
-
-      // Filtre recherche
-      if (recherche.trim()) {
-        const q = recherche.toLowerCase();
-        const nom = app?.nom?.toLowerCase() || "";
-        const prenom = app?.prenom?.toLowerCase() || "";
-        const recu = app?.referenceRecu?.toLowerCase() || "";
-        const obs = dossier.observation?.toLowerCase() || "";
-        if (
-          !nom.includes(q) &&
-          !prenom.includes(q) &&
-          !recu.includes(q) &&
-          !obs.includes(q)
-        ) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-
-    return [...list].sort((a, b) => {
-      let cmp = 0;
-      if (triColonne === "apprenant") {
-        const appA = apprenantsParId.get(a.apprenantId);
-        const appB = apprenantsParId.get(b.apprenantId);
-        const nomA = appA ? `${appA.nom} ${appA.prenom}` : "";
-        const nomB = appB ? `${appB.nom} ${appB.prenom}` : "";
-        cmp = compareStrings(nomA, nomB);
-      } else if (triColonne === "centre") {
-        const centreA = centres.find((c) => c.id === a.centreId)?.nom || "";
-        const centreB = centres.find((c) => c.id === b.centreId)?.nom || "";
-        cmp = compareStrings(centreA, centreB);
-      } else if (triColonne === "filiere") {
-        const appA = apprenantsParId.get(a.apprenantId);
-        const appB = apprenantsParId.get(b.apprenantId);
-        const formA =
-          formations.find((f) => f.id === appA?.formationId)?.nom || "";
-        const formB =
-          formations.find((f) => f.id === appB?.formationId)?.nom || "";
-        cmp = compareStrings(formA, formB);
-      } else if (triColonne === "date") {
-        cmp = compareDates(a.dateOuverture, b.dateOuverture);
-      } else if (triColonne === "dateLimite") {
-        const dateA = datesLimitesParDossier.get(a.id);
-        const dateB = datesLimitesParDossier.get(b.id);
-        if (!dateA && !dateB) {
-          cmp = 0;
-        } else if (!dateA) {
-          return 1;
-        } else if (!dateB) {
-          return -1;
-        } else {
-          cmp = compareDates(dateA, dateB);
-        }
-      } else if (triColonne === "statut") {
-        cmp = compareStrings(a.statut, b.statut);
-      }
-      return triDirection === "asc" ? cmp : -cmp;
-    });
-  }, [
-    dossiers,
-    statutFiltre,
-    formationFiltre,
-    recherche,
-    apprenantsParId,
-    triColonne,
-    triDirection,
-    centres,
-    formations,
-    datesLimitesParDossier,
-  ]);
-
-  // KPIs synthétiques
-  const kpis = useMemo(() => {
-    const total = dossiers.length;
-    const ouverts = dossiers.filter((d) => d.statut === "OUVERT").length;
-    const complets = dossiers.filter((d) => d.statut === "COMPLET").length;
-    const clotures = dossiers.filter((d) => d.statut === "CLOTURE").length;
-    return { total, ouverts, complets, clotures };
-  }, [dossiers]);
+  // KPIs du périmètre session/centre (indépendants des autres filtres).
+  const kpis = {
+    total: resultatDossiers?.total ?? 0,
+    ouverts: resultatDossiers?.ouverts ?? 0,
+    complets: resultatDossiers?.complets ?? 0,
+    clotures: resultatDossiers?.clotures ?? 0,
+  };
 
   // Handler pour initialiser le catalogue standard
   async function handleInitialiserPiecesStandard() {
@@ -690,7 +604,7 @@ export function DossiersView() {
           <FolderOpen size={14} />
           <span>Suivi des Dossiers</span>
           <span className="py-0.2 rounded bg-slate-100 px-1.5 font-mono text-[10px] text-slate-600">
-            {dossiers.length}
+            {kpis.total}
           </span>
         </button>
 
@@ -967,14 +881,14 @@ export function DossiersView() {
 
           {/* ── 3. Tableau de Suivi Aéré & Lignes Épurées ── */}
           <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xs">
-            {chargementDossiers || chargementApprenants ? (
+            {chargementDossiers ? (
               <div className="space-y-3 p-12 text-center">
                 <div className="border-brand-orange inline-block h-6 w-6 animate-spin rounded-full border-2 border-r-transparent" />
                 <p className="text-xs text-slate-400">
                   Chargement des dossiers souscrits...
                 </p>
               </div>
-            ) : dossiersFiltres.length === 0 ? (
+            ) : dossiersPage.length === 0 ? (
               <div className="space-y-3 p-12 text-center">
                 <div className="text-brand-orange mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50">
                   <FolderOpen size={24} />
@@ -1063,10 +977,17 @@ export function DossiersView() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100/70">
-                    {dossiersFiltres.map((dossier) => {
-                      const apprenant = apprenantsParId.get(
-                        dossier.apprenantId,
-                      );
+                    {dossiersPage.map((dossier) => {
+                      const apprenant =
+                        dossier.apprenantNom !== null ||
+                        dossier.apprenantPrenom !== null
+                          ? {
+                              nom: dossier.apprenantNom ?? "",
+                              prenom: dossier.apprenantPrenom ?? "",
+                              formationId: dossier.apprenantFormationId,
+                              referenceRecu: dossier.apprenantReferenceRecu,
+                            }
+                          : undefined;
                       const centre = centres.find(
                         (c) => c.id === dossier.centreId,
                       );
@@ -1239,6 +1160,17 @@ export function DossiersView() {
                     })}
                   </tbody>
                 </table>
+                <Pagination
+                  page={pageDossiers}
+                  totalPages={Math.max(
+                    1,
+                    resultatDossiers?.page.totalPages ?? 1,
+                  )}
+                  totalItems={nbDossiersFiltres}
+                  pageSize={TAILLE_PAGE_LISTE}
+                  onChange={setPageDossiers}
+                  label="dossier"
+                />
               </div>
             )}
           </div>

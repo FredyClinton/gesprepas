@@ -1,6 +1,11 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import {
   getBilanDuJour,
@@ -25,6 +30,8 @@ import {
   type SoumettreBilanCaissierInput,
   type ValiderBilanChefCentreInput,
   type ValiderMouvementInput,
+  rechercherMouvementsFinanciers,
+  type CriteresRechercheMouvements,
 } from "./client";
 import type { TypeMotif } from "../domain/types";
 
@@ -149,7 +156,8 @@ export function useSupprimerEntree() {
 export function useSoumettreBilanCaissier() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: SoumettreBilanCaissierInput) => soumettreBilanCaissier(input),
+    mutationFn: (input: SoumettreBilanCaissierInput) =>
+      soumettreBilanCaissier(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
       queryClient.invalidateQueries({ queryKey: ["bilan-consolide"] });
@@ -160,7 +168,8 @@ export function useSoumettreBilanCaissier() {
 export function useValiderBilanChefCentre() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: ValiderBilanChefCentreInput) => validerBilanChefCentre(input),
+    mutationFn: (input: ValiderBilanChefCentreInput) =>
+      validerBilanChefCentre(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
       queryClient.invalidateQueries({ queryKey: ["bilan-consolide"] });
@@ -170,21 +179,31 @@ export function useValiderBilanChefCentre() {
 
 export type ValiderBilanControleurInput =
   | { bilanId: string; validateurUtilisateurId?: string }
-  | { centreId: string; sessionId: string; date: string; validateurUtilisateurId?: string };
+  | {
+      centreId: string;
+      sessionId: string;
+      date: string;
+      validateurUtilisateurId?: string;
+    };
 
 export function useValiderBilanControleur() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (params: ValiderBilanControleurInput) => {
       if ("bilanId" in params && params.bilanId) {
-        return validerBilanControleur(params.bilanId, params.validateurUtilisateurId || "");
+        return validerBilanControleur(
+          params.bilanId,
+          params.validateurUtilisateurId || "",
+        );
       }
-      return validerBilanControleurDirect(params as {
-        centreId: string;
-        sessionId: string;
-        date: string;
-        validateurUtilisateurId?: string;
-      });
+      return validerBilanControleurDirect(
+        params as {
+          centreId: string;
+          sessionId: string;
+          date: string;
+          validateurUtilisateurId?: string;
+        },
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
@@ -197,7 +216,8 @@ export function useValiderBilanControleur() {
 export function useAjusterActiviteBilan() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: AjusterActiviteBilanInput) => ajusterActiviteBilan(input),
+    mutationFn: (input: AjusterActiviteBilanInput) =>
+      ajusterActiviteBilan(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bilan-du-jour"] });
       queryClient.invalidateQueries({ queryKey: ["bilan-consolide"] });
@@ -211,8 +231,26 @@ export function useMouvementsFinanciers(
 ) {
   return useQuery({
     queryKey: ["mouvements-financiers", sessionId, centreId],
-    queryFn: () => (sessionId ? listMouvementsFinanciers(sessionId, centreId) : Promise.resolve([])),
+    queryFn: () =>
+      sessionId
+        ? listMouvementsFinanciers(sessionId, centreId)
+        : Promise.resolve([]),
     enabled: Boolean(sessionId),
+  });
+}
+
+// Recherche paginée (page 0-based). Clé sous ["mouvements-financiers"] : toutes
+// les mutations financières qui invalident ce préfixe la rafraîchissent aussi.
+export function useRechercheMouvementsFinanciers(
+  criteres: CriteresRechercheMouvements | undefined,
+  page: number,
+  taille: number,
+) {
+  return useQuery({
+    queryKey: ["mouvements-financiers", "recherche", criteres, page, taille],
+    queryFn: () => rechercherMouvementsFinanciers(criteres!, page, taille),
+    enabled: Boolean(criteres?.sessionId),
+    placeholderData: keepPreviousData,
   });
 }
 

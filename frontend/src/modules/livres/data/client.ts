@@ -1,4 +1,5 @@
 import { apiFetch } from "@/shared/lib/api-client";
+import { construireParams } from "@/shared/lib/pagination";
 import type { Livre, CreerLivreDTO, ModifierLivreDTO } from "../domain/types";
 
 export function listLivres(actifsSeulement = false): Promise<Livre[]> {
@@ -6,7 +7,10 @@ export function listLivres(actifsSeulement = false): Promise<Livre[]> {
   return apiFetch<Livre[]>(`/api/livres${query}`);
 }
 
-export function creerLivre(payload: CreerLivreDTO, role?: string): Promise<Livre> {
+export function creerLivre(
+  payload: CreerLivreDTO,
+  role?: string,
+): Promise<Livre> {
   const headers: Record<string, string> = {};
   if (role) headers["X-User-Role"] = role;
   return apiFetch<Livre>("/api/livres", {
@@ -47,11 +51,14 @@ export function enregistrerVenteLivre(
   const headers: Record<string, string> = {};
   if (role) headers["X-User-Role"] = role;
   if (userCentreId) headers["X-Centre-Id"] = userCentreId;
-  return apiFetch<import("../domain/types").VenteLivre[]>("/api/livres/ventes", {
-    method: "POST",
-    headers,
-    body: JSON.stringify(payload),
-  });
+  return apiFetch<import("../domain/types").VenteLivre[]>(
+    "/api/livres/ventes",
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    },
+  );
 }
 
 export function listerVentesLivres(
@@ -76,9 +83,29 @@ export function listerVentesLivres(
   if (params.dateDebut) q.append("dateDebut", params.dateDebut);
   if (params.dateFin) q.append("dateFin", params.dateFin);
 
-  return apiFetch<import("../domain/types").VenteLivre[]>(`/api/livres/ventes?${q.toString()}`, {
-    headers,
-  });
+  return apiFetch<import("../domain/types").VenteLivre[]>(
+    `/api/livres/ventes?${q.toString()}`,
+    {
+      headers,
+    },
+  );
+}
+
+export function rechercherVentesLivres(
+  criteres: import("../domain/types").CriteresRechercheVentes,
+  page: number,
+  taille: number,
+  role?: string,
+  userCentreId?: string,
+): Promise<import("../domain/types").ResultatRechercheVentes> {
+  const headers: Record<string, string> = {};
+  if (role) headers["X-User-Role"] = role;
+  if (userCentreId) headers["X-Centre-Id"] = userCentreId;
+  const q = construireParams({ ...criteres, page, taille });
+  return apiFetch<import("../domain/types").ResultatRechercheVentes>(
+    `/api/livres/ventes/recherche?${q.toString()}`,
+    { headers },
+  );
 }
 
 export function getStatsVentesLivres(
@@ -101,15 +128,19 @@ export function getStatsVentesLivres(
   if (params.dateDebut) q.append("dateDebut", params.dateDebut);
   if (params.dateFin) q.append("dateFin", params.dateFin);
 
-  return apiFetch<import("../domain/types").StatsVentesLivres>(`/api/livres/ventes/stats?${q.toString()}`, {
-    headers,
-  });
+  return apiFetch<import("../domain/types").StatsVentesLivres>(
+    `/api/livres/ventes/stats?${q.toString()}`,
+    {
+      headers,
+    },
+  );
 }
 
 export function listerVentesApprenant(
   apprenantId: string,
 ): Promise<import("../domain/types").VenteLivre[]> {
   const q = new URLSearchParams({ apprenantId });
-  return apiFetch<import("../domain/types").VenteLivre[]>(`/api/livres/ventes?${q.toString()}`);
+  return apiFetch<import("../domain/types").VenteLivre[]>(
+    `/api/livres/ventes?${q.toString()}`,
+  );
 }
-

@@ -23,7 +23,13 @@ export type {
   ValiderMouvementInput,
   ValidationMouvementResponse,
   MouvementFinancier,
+  LigneMouvementFinancier,
+  CriteresRechercheMouvements,
+  ResultatRechercheMouvements,
+  TotalMotif,
+  TriMouvements,
 } from "./data/client";
+export { rechercherMouvementsFinanciers } from "./data/client";
 
 export {
   useBilanDuJour,
@@ -39,6 +45,7 @@ export {
   useValiderMouvement,
   useAjusterActiviteBilan,
   useMouvementsFinanciers,
+  useRechercheMouvementsFinanciers,
   useModifierEntree,
   useSupprimerEntree,
 } from "./data/queries";
@@ -49,12 +56,13 @@ export { SaisirSortieModal } from "./components/SaisirSortieModal";
 export { FicheBilanPrintModal } from "./components/FicheBilanPrintModal";
 export { FicheSyntheseNationalePrintModal } from "./components/FicheSyntheseNationalePrintModal";
 export { DernieresTransactionsModal } from "./components/DernieresTransactionsModal";
-export { RecuPaiementModal, type DonneesRecuPaiement } from "./components/RecuPaiementModal";
+export {
+  RecuPaiementModal,
+  type DonneesRecuPaiement,
+} from "./components/RecuPaiementModal";
 export type { VersementItem } from "./components/ModifierVersementModal";
 export {
   ComparatifRecouvrementView,
   type ItemComparatifRecouvrement,
   type ComparatifRecouvrementProps,
 } from "./components/ComparatifRecouvrementView";
-
-

@@ -99,4 +99,10 @@ public class FinancierBeanConfiguration {
     public SupprimerEntreeUseCase supprimerEntreeUseCase(MouvementFinancierService mouvementFinancierService) {
         return mouvementFinancierService;
     }
+
+    @Bean
+    public com.excelisprepas.backend.financier.domain.port.in.RechercherMouvementsUseCase rechercherMouvementsUseCase(
+            com.excelisprepas.backend.financier.domain.port.out.RechercheMouvementsPort rechercheMouvementsPort) {
+        return new com.excelisprepas.backend.financier.domain.service.RechercheMouvementsService(rechercheMouvementsPort);
+    }
 }

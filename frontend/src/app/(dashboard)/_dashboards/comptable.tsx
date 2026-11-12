@@ -116,10 +116,10 @@ export function ComptableDashboard() {
   }, [sessionIdSelectionnee, sessions, sessionActive]);
 
   const activeSessionId = sessionCourante?.id;
+  const { data: apprenants = [], isLoading: chargementApprenants } = useApprenants({ sessionId: activeSessionId, enabled: Boolean(activeSessionId) });
 
   // Données financières
   const { data: centres = [], isLoading: chargementCentres } = useCentres();
-  const { data: apprenants = [], isLoading: chargementApprenants } = useApprenants();
   const { data: motifs = [] } = useMotifs();
   const { data: mouvements = [], isLoading: chargementMouvements } = useMouvementsFinanciers(activeSessionId);
 

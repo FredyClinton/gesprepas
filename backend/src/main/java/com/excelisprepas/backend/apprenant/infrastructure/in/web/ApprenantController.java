@@ -88,13 +88,20 @@ public class ApprenantController {
         return ResponseEntity.ok(versReponse(recupererApprenantUseCase.recupererApprenant(id)));
     }
 
-    @Operation(summary = "Lister les apprenants", description = "Retourne la liste complète des apprenants.")
+    @Operation(summary = "Lister les apprenants",
+            description = "Liste non paginée, éventuellement restreinte à une session et/ou un centre. Pour " +
+                    "afficher une liste, préférer GET /api/apprenants/recherche (paginée).")
     @ApiResponse(responseCode = "200", description = "Liste des apprenants",
             content = @Content(array = @ArraySchema(schema = @Schema(implementation = ApprenantResponse.class))))
     @PreAuthorize("hasAuthority('APPRENANT_CONSULTER')")
     @GetMapping
-    public ResponseEntity<List<ApprenantResponse>> listerApprenants() {
-        List<ApprenantResponse> reponses = listerApprenantsUseCase.listerApprenants().stream()
+    public ResponseEntity<List<ApprenantResponse>> listerApprenants(
+            @Parameter(description = "Session académique (optionnel)") @RequestParam(required = false) UUID sessionId,
+            @Parameter(description = "Centre (optionnel)") @RequestParam(required = false) UUID centreId) {
+        List<Apprenant> apprenants = sessionId == null && centreId == null
+                ? listerApprenantsUseCase.listerApprenants()
+                : listerApprenantsUseCase.listerApprenants(sessionId, centreId);
+        List<ApprenantResponse> reponses = apprenants.stream()
                 .map(ApprenantController::versReponse)
                 .toList();
         return ResponseEntity.ok(reponses);

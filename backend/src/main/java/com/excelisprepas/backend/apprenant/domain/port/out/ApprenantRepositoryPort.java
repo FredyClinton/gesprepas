@@ -23,4 +23,8 @@ public interface ApprenantRepositoryPort {
     long countByCentreIdAndSessionIdAndDateInscription(UUID centreId, UUID sessionId, LocalDate dateInscription);
 
     List<Apprenant> findByCentreIdAndSessionId(UUID centreId, UUID sessionId);
+
+    List<Apprenant> findBySessionId(UUID sessionId);
+
+    List<Apprenant> findByCentreId(UUID centreId);
 }

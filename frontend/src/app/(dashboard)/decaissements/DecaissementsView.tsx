@@ -18,23 +18,60 @@ import {
   Plus,
 } from "lucide-react";
 
-import { Card, Button, Modal, SkeletonTable, SortableHeader } from "@/shared/ui";
-import { compareStrings, compareNumbers, compareDates, type SortDirection } from "@/shared/lib/sort-utils";
+import {
+  Card,
+  Button,
+  Modal,
+  Pagination,
+  SkeletonTable,
+  SortableHeader,
+} from "@/shared/ui";
+import { type SortDirection } from "@/shared/lib/sort-utils";
+import { bornesPeriode, type PeriodeFiltre } from "@/shared/lib/periode";
+import { TAILLE_PAGE_LISTE } from "@/shared/lib/pagination";
+import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
+import { usePageParCriteres } from "@/shared/hooks/usePageParCriteres";
 import { useCentres, useSessionActive } from "@/modules/centres-sessions";
 import {
-  useMouvementsFinanciers,
+  useRechercheMouvementsFinanciers,
   useMotifs,
   useValiderMouvement,
   SaisirSortieModal,
+  type CriteresRechercheMouvements,
   type MouvementFinancier,
+  type StatutMouvement,
+  type TriMouvements,
 } from "@/modules/financier";
 
 const FCFA = new Intl.NumberFormat("fr-FR");
 
 type CategorieFonctionnelle = "TOUS" | "PAIE" | "FONCTIONNEMENT" | "ACHATS";
-type PeriodeFiltre = "AUJOURDHUI" | "HIER" | "7_JOURS" | "MOIS" | "DATE_SPECIFIQUE" | "TOUS";
+// Identifiant qui ne correspond à aucun motif : une catégorie sans motif doit
+// renvoyer une liste vide, pas "tous les motifs" (motifIds vide = pas de filtre).
+const AUCUN_MOTIF = "00000000-0000-0000-0000-000000000000";
 
-function categoriserMotif(nomMotif: string): "PAIE" | "FONCTIONNEMENT" | "ACHATS" {
+type ColonneTri =
+  | "date"
+  | "centre"
+  | "ordonnateur"
+  | "motif"
+  | "categorie"
+  | "montant"
+  | "statut";
+
+const TRI_BACKEND: Record<ColonneTri, TriMouvements> = {
+  date: "DATE",
+  centre: "CENTRE",
+  ordonnateur: "ORDONNATEUR",
+  motif: "MOTIF",
+  categorie: "ORDRE_MOTIFS",
+  montant: "MONTANT",
+  statut: "STATUT",
+};
+
+function categoriserMotif(
+  nomMotif: string,
+): "PAIE" | "FONCTIONNEMENT" | "ACHATS" {
   const nom = (nomMotif || "").toLowerCase();
   if (
     nom.includes("salaire") ||
@@ -65,10 +102,10 @@ export function DecaissementsView() {
   const user = sessionAuth?.user;
   const peutValider = user?.role === "COMPTABLE" || user?.role === "DIRECTEUR";
 
-  const { data: sessionActive, isLoading: chargementSession } = useSessionActive();
+  const { data: sessionActive, isLoading: chargementSession } =
+    useSessionActive();
   const { data: centres = [], isLoading: chargementCentres } = useCentres();
   const { data: motifs = [] } = useMotifs();
-  const { data: mouvements = [], isLoading: chargementMouvements } = useMouvementsFinanciers(sessionActive?.id);
 
   const validerMouvementMutation = useValiderMouvement();
 
@@ -77,11 +114,12 @@ export function DecaissementsView() {
   const [centreFiltre, setCentreFiltre] = useState<string>("TOUS");
   const [statutFiltre, setStatutFiltre] = useState<string>("TOUS");
   const [periode, setPeriode] = useState<PeriodeFiltre>("TOUS");
-  const [dateSpecifique, setDateSpecifique] = useState(new Date().toISOString().split("T")[0]);
+  const [dateSpecifique, setDateSpecifique] = useState(
+    new Date().toISOString().split("T")[0],
+  );
   const [recherche, setRecherche] = useState("");
 
   // Tri
-  type ColonneTri = "date" | "centre" | "ordonnateur" | "motif" | "categorie" | "montant" | "statut";
   const [triColonne, setTriColonne] = useState<ColonneTri>("date");
   const [triDirection, setTriDirection] = useState<SortDirection>("desc");
 
@@ -95,8 +133,12 @@ export function DecaissementsView() {
   }
 
   // Modale de détail d'une opération
-  const [operationDetail, setOperationDetail] = useState<MouvementFinancier | null>(null);
-  const [messageNotification, setMessageNotification] = useState<{ type: "succes" | "erreur"; message: string } | null>(null);
+  const [operationDetail, setOperationDetail] =
+    useState<MouvementFinancier | null>(null);
+  const [messageNotification, setMessageNotification] = useState<{
+    type: "succes" | "erreur";
+    message: string;
+  } | null>(null);
   const [enCoursId, setEnCoursId] = useState<string | null>(null);
   const [modalSortieOuverte, setModalSortieOuverte] = useState(false);
 
@@ -113,122 +155,97 @@ export function DecaissementsView() {
     return map;
   }, [centres]);
 
-  // Filtrage exclusif des dépenses (SORTIES)
-  const sortiesFiltrees = useMemo(() => {
-    const aujourdhui = new Date();
-    aujourdhui.setHours(0, 0, 0, 0);
-
-    const hier = new Date(aujourdhui);
-    hier.setDate(hier.getDate() - 1);
-
-    const septJoursAvant = new Date(aujourdhui);
-    septJoursAvant.setDate(septJoursAvant.getDate() - 7);
-
-    const premierDuMois = new Date(aujourdhui.getFullYear(), aujourdhui.getMonth(), 1);
-
-    return mouvements.filter((m) => {
-      if (m.type !== "SORTIE") return false;
-      if (centreFiltre !== "TOUS" && m.centreId !== centreFiltre) return false;
-      if (statutFiltre !== "TOUS" && m.statut !== statutFiltre) return false;
-
-      const nomMotif = mapMotifs.get(m.motifId) || "";
-      const cat = categoriserMotif(nomMotif);
-      if (categorie !== "TOUS" && cat !== categorie) return false;
-
-      const dateMvt = new Date(m.date);
-      dateMvt.setHours(0, 0, 0, 0);
-
-      const dIso = m.date ? m.date.split("T")[0] : "";
-      if (periode === "AUJOURDHUI") {
-        if (dIso !== new Date().toISOString().split("T")[0]) return false;
-      } else if (periode === "HIER") {
-        if (dIso !== hier.toISOString().split("T")[0]) return false;
-      } else if (periode === "7_JOURS") {
-        if (dateMvt < septJoursAvant) return false;
-      } else if (periode === "MOIS") {
-        if (dateMvt < premierDuMois) return false;
-      } else if (periode === "DATE_SPECIFIQUE") {
-        if (dIso !== dateSpecifique) return false;
-      }
-
-      if (recherche.trim()) {
-        const q = recherche.toLowerCase();
-        const ord = (m.ordonnateur || "").toLowerCase();
-        const motif = nomMotif.toLowerCase();
-        const centre = (mapCentres.get(m.centreId || "") || "").toLowerCase();
-        const montantStr = (m.montant || 0).toString();
-        if (!ord.includes(q) && !motif.includes(q) && !centre.includes(q) && !montantStr.includes(q)) {
-          return false;
-        }
-      }
-
-      return true;
+  // La catégorie est déduite du nom du motif (categoriserMotif) : on la traduit en
+  // liste de motifs pour le filtre serveur, et en ordre de motifs pour le tri.
+  const motifsParCategorie = useMemo(() => {
+    const map = new Map<string, string[]>();
+    motifs.forEach((m) => {
+      const cat = categoriserMotif(m.nom);
+      map.set(cat, [...(map.get(cat) ?? []), m.id]);
     });
+    return map;
+  }, [motifs]);
+
+  const ordreMotifsParCategorie = useMemo(
+    () =>
+      [...motifs]
+        .sort((a, b) =>
+          categoriserMotif(a.nom).localeCompare(categoriserMotif(b.nom)),
+        )
+        .map((m) => m.id),
+    [motifs],
+  );
+
+  const rechercheStable = useDebouncedValue(recherche);
+  const sessionActiveId = sessionActive?.id;
+  const criteres = useMemo<CriteresRechercheMouvements | undefined>(() => {
+    if (!sessionActiveId) return undefined;
+    const bornes = bornesPeriode(periode, dateSpecifique);
+    const motifsCategorie = motifsParCategorie.get(categorie) ?? [];
+    return {
+      sessionId: sessionActiveId,
+      type: "SORTIE",
+      centreId: centreFiltre !== "TOUS" ? centreFiltre : undefined,
+      statut:
+        statutFiltre !== "TOUS" ? (statutFiltre as StatutMouvement) : undefined,
+      motifIds:
+        categorie === "TOUS"
+          ? undefined
+          : motifsCategorie.length > 0
+            ? motifsCategorie
+            : [AUCUN_MOTIF],
+      dateDebut: bornes.dateDebut,
+      dateFin: bornes.dateFin,
+      recherche: rechercheStable.trim() || undefined,
+      tri: TRI_BACKEND[triColonne],
+      ordreMotifIds:
+        triColonne === "categorie" ? ordreMotifsParCategorie : undefined,
+      sens: triDirection === "asc" ? "ASC" : "DESC",
+    };
   }, [
-    mouvements,
+    sessionActiveId,
     centreFiltre,
     statutFiltre,
     categorie,
+    motifsParCategorie,
     periode,
     dateSpecifique,
-    recherche,
-    mapMotifs,
-    mapCentres,
+    rechercheStable,
+    triColonne,
+    triDirection,
+    ordreMotifsParCategorie,
   ]);
 
-  // Tri des données
-  const sortiesTriees = useMemo(() => {
-    return [...sortiesFiltrees].sort((a, b) => {
-      let cmp = 0;
-      if (triColonne === "date") cmp = compareDates(a.date, b.date);
-      else if (triColonne === "centre") {
-        const cA = a.centreId ? mapCentres.get(a.centreId) || "" : "National";
-        const cB = b.centreId ? mapCentres.get(b.centreId) || "" : "National";
-        cmp = compareStrings(cA, cB);
-      } else if (triColonne === "ordonnateur") {
-        cmp = compareStrings(a.ordonnateur || "", b.ordonnateur || "");
-      } else if (triColonne === "motif") {
-        const mA = mapMotifs.get(a.motifId) || "";
-        const mB = mapMotifs.get(b.motifId) || "";
-        cmp = compareStrings(mA, mB);
-      } else if (triColonne === "categorie") {
-        const cA = categoriserMotif(mapMotifs.get(a.motifId) || "");
-        const cB = categoriserMotif(mapMotifs.get(b.motifId) || "");
-        cmp = compareStrings(cA, cB);
-      } else if (triColonne === "montant") {
-        cmp = compareNumbers(a.montant, b.montant);
-      } else if (triColonne === "statut") {
-        cmp = compareStrings(a.statut, b.statut);
-      }
-      return triDirection === "asc" ? cmp : -cmp;
-    });
-  }, [sortiesFiltrees, triColonne, triDirection, mapCentres, mapMotifs]);
+  const [page, setPage] = usePageParCriteres(JSON.stringify(criteres ?? null));
+  const { data: resultat, isLoading: chargementMouvements } =
+    useRechercheMouvementsFinanciers(criteres, page - 1, TAILLE_PAGE_LISTE);
 
-  // Totaux statistiques sur la sélection
-  const totalDecaisse = useMemo(() => {
-    return sortiesFiltrees.reduce((acc, s) => acc + (s.montant || 0), 0);
-  }, [sortiesFiltrees]);
+  const sortiesPage = resultat?.page.contenu ?? [];
+  const nbSorties = resultat?.page.totalElements ?? 0;
+  const totalPages = Math.max(1, resultat?.page.totalPages ?? 1);
 
-  const totalPaie = useMemo(() => {
-    return sortiesFiltrees
-      .filter((s) => categoriserMotif(mapMotifs.get(s.motifId) || "") === "PAIE")
-      .reduce((acc, s) => acc + (s.montant || 0), 0);
-  }, [sortiesFiltrees, mapMotifs]);
-
-  const totalFonctionnement = useMemo(() => {
-    return sortiesFiltrees
-      .filter((s) => categoriserMotif(mapMotifs.get(s.motifId) || "") === "FONCTIONNEMENT")
-      .reduce((acc, s) => acc + (s.montant || 0), 0);
-  }, [sortiesFiltrees, mapMotifs]);
-
-  const totalAchats = useMemo(() => {
-    return sortiesFiltrees
-      .filter((s) => categoriserMotif(mapMotifs.get(s.motifId) || "") === "ACHATS")
-      .reduce((acc, s) => acc + (s.montant || 0), 0);
-  }, [sortiesFiltrees, mapMotifs]);
+  // Totaux de toute la sélection filtrée (rejetés compris, comme avant), ventilés
+  // par catégorie à partir des totaux par motif renvoyés par le backend.
+  const totauxCategories = useMemo(() => {
+    const totaux = { TOTAL: 0, PAIE: 0, FONCTIONNEMENT: 0, ACHATS: 0 };
+    (resultat?.totauxParMotif ?? [])
+      .filter((t) => t.type === "SORTIE")
+      .forEach((t) => {
+        totaux.TOTAL += t.total;
+        totaux[categoriserMotif(mapMotifs.get(t.motifId) || "")] += t.total;
+      });
+    return totaux;
+  }, [resultat, mapMotifs]);
+  const totalDecaisse = totauxCategories.TOTAL;
+  const totalPaie = totauxCategories.PAIE;
+  const totalFonctionnement = totauxCategories.FONCTIONNEMENT;
+  const totalAchats = totauxCategories.ACHATS;
 
   // Actions de validation ou rejet
-  const handleDecision = async (mouvementId: string, decision: "VALIDE" | "REJETE") => {
+  const handleDecision = async (
+    mouvementId: string,
+    decision: "VALIDE" | "REJETE",
+  ) => {
     try {
       setEnCoursId(mouvementId);
       await validerMouvementMutation.mutateAsync({
@@ -238,7 +255,10 @@ export function DecaissementsView() {
       });
       setMessageNotification({
         type: "succes",
-        message: decision === "VALIDE" ? "Décaissement validé avec succès." : "Décaissement rejeté.",
+        message:
+          decision === "VALIDE"
+            ? "Décaissement validé avec succès."
+            : "Décaissement rejeté.",
       });
       if (operationDetail?.id === mouvementId) {
         setOperationDetail(null);
@@ -246,22 +266,24 @@ export function DecaissementsView() {
     } catch {
       setMessageNotification({
         type: "erreur",
-        message: "Une erreur est survenue lors de l'enregistrement de la décision.",
+        message:
+          "Une erreur est survenue lors de l'enregistrement de la décision.",
       });
     } finally {
       setEnCoursId(null);
     }
   };
 
-  const chargement = chargementSession || chargementCentres || chargementMouvements;
+  const chargement =
+    chargementSession || chargementCentres || chargementMouvements;
 
   return (
     <div className="flex min-h-full w-full flex-col gap-4">
       {/* ── 1. EN-TÊTE OPÉRATIONNEL ERP ── */}
-      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-3">
+      <div className="flex shrink-0 flex-col gap-3 border-b border-slate-200 pb-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
+            <h1 className="text-xl font-black tracking-tight text-slate-900 sm:text-2xl">
               Décaissements & Dépenses
             </h1>
             {sessionActive && (
@@ -271,15 +293,16 @@ export function DecaissementsView() {
               </span>
             )}
           </div>
-          <p className="text-xs text-slate-500 font-medium">
-            Supervision des dépenses par catégorie fonctionnelle, contrôle et ordonnancement de trésorerie.
+          <p className="text-xs font-medium text-slate-500">
+            Supervision des dépenses par catégorie fonctionnelle, contrôle et
+            ordonnancement de trésorerie.
           </p>
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <Button
             onClick={() => setModalSortieOuverte(true)}
-            className="rounded-xl shadow-xs text-xs font-bold py-2 cursor-pointer bg-red-600 hover:bg-red-700 text-white flex items-center gap-1.5"
+            className="flex cursor-pointer items-center gap-1.5 rounded-xl bg-red-600 py-2 text-xs font-bold text-white shadow-xs hover:bg-red-700"
           >
             <Plus size={14} />
             <span>Nouveau décaissement</span>
@@ -290,23 +313,23 @@ export function DecaissementsView() {
       {/* Notification de feedback */}
       {messageNotification && (
         <div
-          className={`flex items-center justify-between rounded-xl p-3 text-xs font-medium border ${
+          className={`flex items-center justify-between rounded-xl border p-3 text-xs font-medium ${
             messageNotification.type === "succes"
-              ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-              : "bg-rose-50 text-rose-800 border-rose-200"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-rose-200 bg-rose-50 text-rose-800"
           }`}
         >
           <div className="flex items-center gap-2">
             {messageNotification.type === "succes" ? (
-              <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+              <CheckCircle2 size={15} className="shrink-0 text-emerald-600" />
             ) : (
-              <AlertCircle size={15} className="text-rose-600 shrink-0" />
+              <AlertCircle size={15} className="shrink-0 text-rose-600" />
             )}
             <span>{messageNotification.message}</span>
           </div>
           <button
             onClick={() => setMessageNotification(null)}
-            className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+            className="cursor-pointer p-1 text-slate-400 hover:text-slate-600"
           >
             <X size={14} />
           </button>
@@ -318,7 +341,7 @@ export function DecaissementsView() {
         {/* Total Décaissements */}
         <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+            <span className="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
               Total Décaissements
             </span>
             <div className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-50 text-rose-600">
@@ -330,8 +353,8 @@ export function DecaissementsView() {
               -{FCFA.format(totalDecaisse)}{" "}
               <span className="text-xs font-normal text-slate-400">FCFA</span>
             </div>
-            <p className="mt-0.5 text-xs text-slate-500 font-medium">
-              {sortiesFiltrees.length} opération{sortiesFiltrees.length > 1 ? "s" : ""}
+            <p className="mt-0.5 text-xs font-medium text-slate-500">
+              {nbSorties} opération{nbSorties > 1 ? "s" : ""}
             </p>
           </div>
         </div>
@@ -339,7 +362,7 @@ export function DecaissementsView() {
         {/* Rémunérations & Paie */}
         <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+            <span className="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
               Rémunérations & Paie
             </span>
             <div className="flex h-5 w-5 items-center justify-center rounded-full bg-purple-50 text-purple-700">
@@ -351,8 +374,11 @@ export function DecaissementsView() {
               {FCFA.format(totalPaie)}{" "}
               <span className="text-xs font-normal text-slate-400">FCFA</span>
             </div>
-            <p className="mt-0.5 text-xs text-slate-500 font-medium">
-              {totalDecaisse > 0 ? Math.round((totalPaie / totalDecaisse) * 100) : 0}% des dépenses
+            <p className="mt-0.5 text-xs font-medium text-slate-500">
+              {totalDecaisse > 0
+                ? Math.round((totalPaie / totalDecaisse) * 100)
+                : 0}
+              % des dépenses
             </p>
           </div>
         </div>
@@ -360,7 +386,7 @@ export function DecaissementsView() {
         {/* Fonctionnement */}
         <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+            <span className="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
               Fonctionnement
             </span>
             <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-50 text-blue-600">
@@ -372,8 +398,11 @@ export function DecaissementsView() {
               {FCFA.format(totalFonctionnement)}{" "}
               <span className="text-xs font-normal text-slate-400">FCFA</span>
             </div>
-            <p className="mt-0.5 text-xs text-slate-500 font-medium">
-              {totalDecaisse > 0 ? Math.round((totalFonctionnement / totalDecaisse) * 100) : 0}% des dépenses
+            <p className="mt-0.5 text-xs font-medium text-slate-500">
+              {totalDecaisse > 0
+                ? Math.round((totalFonctionnement / totalDecaisse) * 100)
+                : 0}
+              % des dépenses
             </p>
           </div>
         </div>
@@ -381,10 +410,10 @@ export function DecaissementsView() {
         {/* Achats & Investissements */}
         <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+            <span className="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
               Achats & Investissements
             </span>
-            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-50 text-brand-orange">
+            <div className="text-brand-orange flex h-5 w-5 items-center justify-center rounded-full bg-amber-50">
               <Receipt className="h-3 w-3" />
             </div>
           </div>
@@ -393,59 +422,64 @@ export function DecaissementsView() {
               {FCFA.format(totalAchats)}{" "}
               <span className="text-xs font-normal text-slate-400">FCFA</span>
             </div>
-            <p className="mt-0.5 text-xs text-slate-500 font-medium">
-              {totalDecaisse > 0 ? Math.round((totalAchats / totalDecaisse) * 100) : 0}% des dépenses
+            <p className="mt-0.5 text-xs font-medium text-slate-500">
+              {totalDecaisse > 0
+                ? Math.round((totalAchats / totalDecaisse) * 100)
+                : 0}
+              % des dépenses
             </p>
           </div>
         </div>
       </div>
 
       {/* ── 3. BARRE DE FILTRES COMPTABLES ── */}
-      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs space-y-2.5">
+      <div className="space-y-2.5 rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
         <div className="flex flex-wrap items-center justify-between gap-2.5">
           {/* Période pills */}
           <div className="flex flex-wrap items-center gap-1 text-xs">
-            <span className="font-semibold text-slate-600 mr-1 flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+            <span className="mr-1 flex items-center gap-1 font-semibold text-slate-600">
+              <Calendar className="h-3.5 w-3.5 text-slate-400" />
               Période :
             </span>
-            {(["TOUS", "AUJOURDHUI", "HIER", "7_JOURS", "MOIS"] as const).map((p) => {
-              const labelMap: Record<string, string> = {
-                TOUS: "Tout",
-                AUJOURDHUI: "Aujourd'hui",
-                HIER: "Hier",
-                "7_JOURS": "7 derniers jours",
-                MOIS: "Ce mois",
-              };
-              const active = periode === p;
-              return (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setPeriode(p)}
-                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
-                    active
-                      ? "bg-brand-orange text-white font-semibold shadow-2xs"
-                      : "bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80"
-                  }`}
-                >
-                  {labelMap[p]}
-                </button>
-              );
-            })}
+            {(["TOUS", "AUJOURDHUI", "HIER", "7_JOURS", "MOIS"] as const).map(
+              (p) => {
+                const labelMap: Record<string, string> = {
+                  TOUS: "Tout",
+                  AUJOURDHUI: "Aujourd'hui",
+                  HIER: "Hier",
+                  "7_JOURS": "7 derniers jours",
+                  MOIS: "Ce mois",
+                };
+                const active = periode === p;
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPeriode(p)}
+                    className={`cursor-pointer rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                      active
+                        ? "bg-brand-orange font-semibold text-white shadow-2xs"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900"
+                    }`}
+                  >
+                    {labelMap[p]}
+                  </button>
+                );
+              },
+            )}
 
             {periode === "DATE_SPECIFIQUE" ? (
               <input
                 type="date"
                 value={dateSpecifique}
                 onChange={(e) => setDateSpecifique(e.target.value)}
-                className="rounded-md border border-brand-orange bg-white px-2 py-0.5 text-xs text-slate-900 font-medium focus:outline-none focus:ring-1 focus:ring-brand-orange"
+                className="border-brand-orange focus:ring-brand-orange rounded-md border bg-white px-2 py-0.5 text-xs font-medium text-slate-900 focus:ring-1 focus:outline-none"
               />
             ) : (
               <button
                 type="button"
                 onClick={() => setPeriode("DATE_SPECIFIQUE")}
-                className="px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80 cursor-pointer"
+                className="cursor-pointer rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-200/80 hover:text-slate-900"
               >
                 Date précise...
               </button>
@@ -454,29 +488,29 @@ export function DecaissementsView() {
 
           {/* Recherche */}
           <div className="relative w-full sm:w-60">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Ordonnateur, motif, montant..."
               value={recherche}
               onChange={(e) => setRecherche(e.target.value)}
-              className="w-full rounded-md border border-slate-200 bg-slate-50 py-1 pl-8 pr-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-brand-orange focus:outline-none focus:ring-1 focus:ring-brand-orange transition-all"
+              className="focus:border-brand-orange focus:ring-brand-orange w-full rounded-md border border-slate-200 bg-slate-50 py-1 pr-2.5 pl-8 text-xs text-slate-900 transition-all placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:outline-none"
             />
           </div>
         </div>
 
         {/* Ligne 2 : Catégorie, Centre, Statut */}
-        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100 text-xs">
+        <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-2 text-xs">
           {/* Catégories fonctionnelles */}
           <div className="flex items-center gap-2">
-            <span className="text-slate-500 font-medium">Catégorie :</span>
+            <span className="font-medium text-slate-500">Catégorie :</span>
             <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100/70 p-0.5 font-medium">
               <button
                 type="button"
                 onClick={() => setCategorie("TOUS")}
-                className={`px-2.5 py-0.5 rounded-md transition-colors cursor-pointer text-xs ${
+                className={`cursor-pointer rounded-md px-2.5 py-0.5 text-xs transition-colors ${
                   categorie === "TOUS"
-                    ? "bg-white text-slate-900 shadow-2xs font-semibold"
+                    ? "bg-white font-semibold text-slate-900 shadow-2xs"
                     : "text-slate-500 hover:text-slate-900"
                 }`}
               >
@@ -485,9 +519,9 @@ export function DecaissementsView() {
               <button
                 type="button"
                 onClick={() => setCategorie("PAIE")}
-                className={`px-2.5 py-0.5 rounded-md transition-colors cursor-pointer text-xs ${
+                className={`cursor-pointer rounded-md px-2.5 py-0.5 text-xs transition-colors ${
                   categorie === "PAIE"
-                    ? "bg-white text-purple-900 shadow-2xs font-semibold"
+                    ? "bg-white font-semibold text-purple-900 shadow-2xs"
                     : "text-slate-500 hover:text-purple-900"
                 }`}
               >
@@ -496,9 +530,9 @@ export function DecaissementsView() {
               <button
                 type="button"
                 onClick={() => setCategorie("FONCTIONNEMENT")}
-                className={`px-2.5 py-0.5 rounded-md transition-colors cursor-pointer text-xs ${
+                className={`cursor-pointer rounded-md px-2.5 py-0.5 text-xs transition-colors ${
                   categorie === "FONCTIONNEMENT"
-                    ? "bg-white text-blue-900 shadow-2xs font-semibold"
+                    ? "bg-white font-semibold text-blue-900 shadow-2xs"
                     : "text-slate-500 hover:text-blue-900"
                 }`}
               >
@@ -507,9 +541,9 @@ export function DecaissementsView() {
               <button
                 type="button"
                 onClick={() => setCategorie("ACHATS")}
-                className={`px-2.5 py-0.5 rounded-md transition-colors cursor-pointer text-xs ${
+                className={`cursor-pointer rounded-md px-2.5 py-0.5 text-xs transition-colors ${
                   categorie === "ACHATS"
-                    ? "bg-white text-amber-900 shadow-2xs font-semibold"
+                    ? "bg-white font-semibold text-amber-900 shadow-2xs"
                     : "text-slate-500 hover:text-amber-900"
                 }`}
               >
@@ -520,11 +554,11 @@ export function DecaissementsView() {
 
           {/* Centre */}
           <div className="flex items-center gap-2">
-            <span className="text-slate-500 font-medium">Centre :</span>
+            <span className="font-medium text-slate-500">Centre :</span>
             <select
               value={centreFiltre}
               onChange={(e) => setCentreFiltre(e.target.value)}
-              className="rounded-md border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-orange focus:outline-none px-2.5 py-1 text-xs text-slate-900 font-medium"
+              className="focus:border-brand-orange rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-900 focus:bg-white focus:outline-none"
             >
               <option value="TOUS">Tous les centres</option>
               {centres.map((c) => (
@@ -537,11 +571,11 @@ export function DecaissementsView() {
 
           {/* Statut */}
           <div className="flex items-center gap-2">
-            <span className="text-slate-500 font-medium">Statut :</span>
+            <span className="font-medium text-slate-500">Statut :</span>
             <select
               value={statutFiltre}
               onChange={(e) => setStatutFiltre(e.target.value)}
-              className="rounded-md border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-orange focus:outline-none px-2.5 py-1 text-xs text-slate-900 font-medium"
+              className="focus:border-brand-orange rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-900 focus:bg-white focus:outline-none"
             >
               <option value="TOUS">Tous les statuts</option>
               <option value="EN_ATTENTE">En attente de visa</option>
@@ -550,24 +584,26 @@ export function DecaissementsView() {
             </select>
           </div>
 
-          <div className="ml-auto text-xs text-slate-500 font-medium">
+          <div className="ml-auto text-xs font-medium text-slate-500">
             <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 font-semibold text-slate-700">
-              <span className="text-slate-900">{sortiesFiltrees.length}</span> dépense{sortiesFiltrees.length > 1 ? "s" : ""}
+              <span className="text-slate-900">{nbSorties}</span> dépense
+              {nbSorties > 1 ? "s" : ""}
             </span>
           </div>
         </div>
       </div>
 
       {/* ── 4. TABLEAU DES OPÉRATIONS DE DÉPENSE ── */}
-      <div className="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+        <div className="flex flex-col justify-between gap-2 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center">
           <div>
-            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900">
               <Receipt className="text-brand-orange" size={16} />
               <span>Registre des Décaissements</span>
             </h2>
             <p className="text-xs text-slate-500">
-              Détail chronologique des sorties de fonds et statuts de validation.
+              Détail chronologique des sorties de fonds et statuts de
+              validation.
             </p>
           </div>
         </div>
@@ -576,27 +612,29 @@ export function DecaissementsView() {
           <div className="p-5">
             <SkeletonTable rows={6} />
           </div>
-        ) : sortiesTriees.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
-            <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+        ) : sortiesPage.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 p-12 text-center text-xs text-slate-400">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400">
               <Receipt size={18} />
             </div>
-            <h3 className="mt-2 text-sm font-bold text-slate-800">Aucun décaissement trouvé</h3>
-            <p className="font-medium text-slate-500 max-w-sm">
+            <h3 className="mt-2 text-sm font-bold text-slate-800">
+              Aucun décaissement trouvé
+            </h3>
+            <p className="max-w-sm font-medium text-slate-500">
               Aucune dépense ne correspond aux critères de filtre sélectionnés.
             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-slate-200 bg-slate-50/80 text-slate-700 text-[11px] font-bold tracking-wider uppercase">
+              <thead className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-bold tracking-wider text-slate-700 uppercase">
                 <tr>
                   <SortableHeader
                     columnKey="date"
                     currentSortKey={triColonne}
                     direction={triDirection}
                     onSort={handleTri}
-                    className="py-3.5 px-4"
+                    className="px-4 py-3.5"
                   >
                     Date
                   </SortableHeader>
@@ -605,7 +643,7 @@ export function DecaissementsView() {
                     currentSortKey={triColonne}
                     direction={triDirection}
                     onSort={handleTri}
-                    className="py-3.5 px-4"
+                    className="px-4 py-3.5"
                   >
                     Centre
                   </SortableHeader>
@@ -614,7 +652,7 @@ export function DecaissementsView() {
                     currentSortKey={triColonne}
                     direction={triDirection}
                     onSort={handleTri}
-                    className="py-3.5 px-4"
+                    className="px-4 py-3.5"
                   >
                     Bénéficiaire / Ordonnateur
                   </SortableHeader>
@@ -623,7 +661,7 @@ export function DecaissementsView() {
                     currentSortKey={triColonne}
                     direction={triDirection}
                     onSort={handleTri}
-                    className="py-3.5 px-4"
+                    className="px-4 py-3.5"
                   >
                     Motif
                   </SortableHeader>
@@ -633,7 +671,7 @@ export function DecaissementsView() {
                     direction={triDirection}
                     onSort={handleTri}
                     align="center"
-                    className="py-3.5 px-4 text-center"
+                    className="px-4 py-3.5 text-center"
                   >
                     Catégorie
                   </SortableHeader>
@@ -643,7 +681,7 @@ export function DecaissementsView() {
                     direction={triDirection}
                     onSort={handleTri}
                     align="right"
-                    className="py-3.5 px-4 text-right"
+                    className="px-4 py-3.5 text-right"
                   >
                     Montant
                   </SortableHeader>
@@ -653,75 +691,82 @@ export function DecaissementsView() {
                     direction={triDirection}
                     onSort={handleTri}
                     align="center"
-                    className="py-3.5 px-4 text-center"
+                    className="px-4 py-3.5 text-center"
                   >
                     Statut
                   </SortableHeader>
-                  <th className="py-3.5 px-4 text-center text-slate-700 font-bold">Actions</th>
+                  <th className="px-4 py-3.5 text-center font-bold text-slate-700">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
-                {sortiesTriees.map((m) => {
+                {sortiesPage.map((m) => {
                   const nomMotif = mapMotifs.get(m.motifId) || "Dépense";
                   const cat = categoriserMotif(nomMotif);
-                  const nomCentre = m.centreId ? mapCentres.get(m.centreId) || "Centre" : "National";
+                  const nomCentre = m.centreId
+                    ? mapCentres.get(m.centreId) || "Centre"
+                    : "National";
                   const dateStr = m.date ? m.date.split("T")[0] : "-";
                   const estEnAttente = m.statut === "EN_ATTENTE";
 
                   return (
                     <tr
                       key={m.id}
-                      className="hover:bg-slate-50/80 transition-colors"
+                      className="transition-colors hover:bg-slate-50/80"
                     >
-                      <td className="py-3 px-4 font-semibold text-slate-900 whitespace-nowrap">
+                      <td className="px-4 py-3 font-semibold whitespace-nowrap text-slate-900">
                         {dateStr}
                       </td>
-                      <td className="py-3 px-4">
-                        <span className="font-bold text-slate-900">{nomCentre}</span>
+                      <td className="px-4 py-3">
+                        <span className="font-bold text-slate-900">
+                          {nomCentre}
+                        </span>
                       </td>
-                      <td className="py-3 px-4">
-                        <span className="font-medium text-slate-800">{m.ordonnateur || "Non spécifié"}</span>
+                      <td className="px-4 py-3">
+                        <span className="font-medium text-slate-800">
+                          {m.ordonnateur || "Non spécifié"}
+                        </span>
                       </td>
-                      <td className="py-3 px-4 font-medium text-slate-700">
+                      <td className="px-4 py-3 font-medium text-slate-700">
                         {nomMotif}
                       </td>
-                      <td className="py-3 px-4 text-center">
+                      <td className="px-4 py-3 text-center">
                         {cat === "PAIE" ? (
-                          <span className="inline-flex items-center rounded-md bg-purple-50 px-2 py-0.5 text-[11px] font-bold text-purple-700 border border-purple-200/60">
+                          <span className="inline-flex items-center rounded-md border border-purple-200/60 bg-purple-50 px-2 py-0.5 text-[11px] font-bold text-purple-700">
                             Paie
                           </span>
                         ) : cat === "ACHATS" ? (
-                          <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-brand-orange border border-amber-200/60">
+                          <span className="text-brand-orange inline-flex items-center rounded-md border border-amber-200/60 bg-amber-50 px-2 py-0.5 text-[11px] font-bold">
                             Achats
                           </span>
                         ) : (
-                          <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700 border border-blue-200/60">
+                          <span className="inline-flex items-center rounded-md border border-blue-200/60 bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700">
                             Fonctionnement
                           </span>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-right font-bold text-rose-700 tabular-nums">
+                      <td className="px-4 py-3 text-right font-bold text-rose-700 tabular-nums">
                         -{FCFA.format(m.montant)} F
                       </td>
-                      <td className="py-3 px-4 text-center">
+                      <td className="px-4 py-3 text-center">
                         {m.statut === "VALIDE" ? (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700 border border-emerald-200/60">
+                          <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200/60 bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">
                             <CheckCircle2 size={12} />
                             Validé
                           </span>
                         ) : m.statut === "EN_ATTENTE" ? (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700 border border-amber-200/60">
-                            <Clock size={12} />
-                            À viser
+                          <span className="inline-flex items-center gap-1 rounded-md border border-amber-200/60 bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700">
+                            <Clock size={12} />À viser
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-xs font-bold text-rose-700 border border-rose-200/60">
+                          <span className="inline-flex items-center gap-1 rounded-md border border-rose-200/60 bg-rose-50 px-2 py-0.5 text-xs font-bold text-rose-700">
                             <XCircle size={12} />
                             Rejeté
                           </span>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-center">
+                      <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <Button
                             variant="secondary"
@@ -761,6 +806,14 @@ export function DecaissementsView() {
                 })}
               </tbody>
             </table>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={nbSorties}
+              pageSize={TAILLE_PAGE_LISTE}
+              onChange={setPage}
+              label="dépense"
+            />
           </div>
         )}
       </div>
@@ -774,45 +827,61 @@ export function DecaissementsView() {
           maxWidth="max-w-xl"
         >
           <div className="space-y-4 text-xs">
-            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-2.5">
+            <div className="space-y-2.5 rounded-xl border border-slate-200 bg-slate-50/50 p-4">
               <div className="flex items-center justify-between border-b border-slate-200/70 pb-2">
-                <span className="text-slate-500 font-medium">Montant décaissé :</span>
+                <span className="font-medium text-slate-500">
+                  Montant décaissé :
+                </span>
                 <span className="text-lg font-black text-rose-700 tabular-nums">
                   -{FCFA.format(operationDetail.montant)} FCFA
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-500 font-medium">Motif opération :</span>
+                <span className="font-medium text-slate-500">
+                  Motif opération :
+                </span>
                 <span className="font-bold text-slate-900">
                   {mapMotifs.get(operationDetail.motifId) || "Non renseigné"}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-500 font-medium">Catégorie :</span>
+                <span className="font-medium text-slate-500">Catégorie :</span>
                 <span className="font-bold text-slate-800">
-                  {categoriserMotif(mapMotifs.get(operationDetail.motifId) || "")}
+                  {categoriserMotif(
+                    mapMotifs.get(operationDetail.motifId) || "",
+                  )}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-500 font-medium">Bénéficiaire :</span>
+                <span className="font-medium text-slate-500">
+                  Bénéficiaire :
+                </span>
                 <span className="font-bold text-slate-900">
                   {operationDetail.ordonnateur || "Non spécifié"}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-500 font-medium">Centre :</span>
+                <span className="font-medium text-slate-500">Centre :</span>
                 <span className="font-semibold text-slate-800">
-                  {operationDetail.centreId ? mapCentres.get(operationDetail.centreId) || "Centre" : "National"}
+                  {operationDetail.centreId
+                    ? mapCentres.get(operationDetail.centreId) || "Centre"
+                    : "National"}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-500 font-medium">Date d&apos;enregistrement :</span>
+                <span className="font-medium text-slate-500">
+                  Date d&apos;enregistrement :
+                </span>
                 <span className="font-semibold text-slate-800">
-                  {operationDetail.date ? operationDetail.date.split("T")[0] : "-"}
+                  {operationDetail.date
+                    ? operationDetail.date.split("T")[0]
+                    : "-"}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-500 font-medium">Statut actuel :</span>
+                <span className="font-medium text-slate-500">
+                  Statut actuel :
+                </span>
                 <span className="font-bold">
                   {operationDetail.statut === "VALIDE" ? (
                     <span className="text-emerald-700">Validé / Clôturé</span>
@@ -827,7 +896,7 @@ export function DecaissementsView() {
 
             {/* Décisions possibles */}
             {peutValider && operationDetail.statut === "EN_ATTENTE" && (
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-2">
                 <Button
                   variant="danger"
                   onClick={() => handleDecision(operationDetail.id, "REJETE")}

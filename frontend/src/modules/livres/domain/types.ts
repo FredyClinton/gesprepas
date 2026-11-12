@@ -76,4 +76,35 @@ export interface StatsVentesLivres {
   parCentre: VentilationCentreItem[];
 }
 
+export type TriVentes =
+  | "DATE"
+  | "CENTRE"
+  | "ACHETEUR"
+  | "TYPE"
+  | "LIVRE"
+  | "QUANTITE"
+  | "PRIX"
+  | "TOTAL";
 
+export interface CriteresRechercheVentes {
+  sessionId: string;
+  centreId?: string;
+  livreId?: string;
+  dateDebut?: string;
+  dateFin?: string;
+  typeAcheteur?: "TOUS" | "INTERNE" | "EXTERNE";
+  recherche?: string;
+  tri?: TriVentes;
+  sens?: "ASC" | "DESC";
+}
+
+// Page de ventes + agrégats de toute la sélection filtrée (pas seulement la page).
+export interface ResultatRechercheVentes {
+  page: import("@/shared/lib/pagination").PageResponse<VenteLivre>;
+  totalMontant: number;
+  totalQuantite: number;
+  nbInternes: number;
+  montantInternes: number;
+  nbExternes: number;
+  montantExternes: number;
+}

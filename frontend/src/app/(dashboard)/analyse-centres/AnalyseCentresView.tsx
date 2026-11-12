@@ -44,9 +44,9 @@ export function AnalyseCentresView() {
   }, [sessionIdSelectionnee, sessions, sessionActive]);
 
   const activeSessionId = sessionCourante?.id;
+  const { data: apprenants = [], isLoading: chargementApprenants } = useApprenants({ sessionId: activeSessionId, enabled: Boolean(activeSessionId) });
 
   const { data: centres = [], isLoading: chargementCentres } = useCentres();
-  const { data: apprenants = [], isLoading: chargementApprenants } = useApprenants();
   const { data: formations = [] } = useFormations();
   const { data: mouvements = [], isLoading: chargementMouvements } = useMouvementsFinanciers(activeSessionId);
   const { data: utilisateurs = [] } = useUtilisateurs();

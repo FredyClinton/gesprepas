@@ -12,4 +12,8 @@ public interface ApprenantJpaRepository extends JpaRepository<ApprenantEntity, U
     long countByCentreIdAndSessionIdAndDateInscription(UUID centreId, UUID sessionId, LocalDate dateInscription);
 
     java.util.List<ApprenantEntity> findByCentreIdAndSessionId(UUID centreId, UUID sessionId);
+
+    java.util.List<ApprenantEntity> findBySessionId(UUID sessionId);
+
+    java.util.List<ApprenantEntity> findByCentreId(UUID centreId);
 }

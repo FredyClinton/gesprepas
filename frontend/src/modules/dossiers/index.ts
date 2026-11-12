@@ -1,5 +1,9 @@
 export type {
   Dossier,
+  LigneDossier,
+  CriteresRechercheDossiers,
+  ResultatRechercheDossiers,
+  TriDossiers,
   StatutDossier,
   Concours,
   PieceRequise,
@@ -17,6 +21,7 @@ export type {
 
 export {
   useDossiers,
+  useRechercheDossiers,
   useDossier,
   useDossierParApprenant,
   useConcoursDuDossier,
@@ -58,4 +63,7 @@ export { CreerModifierPieceModal } from "./components/CreerModifierPieceModal";
 export { GererPiecesConcoursModal } from "./components/GererPiecesConcoursModal";
 export { ProgressionPiecesDossierCell } from "./components/ProgressionPiecesDossierCell";
 export { DateLimiteDepotDossierCell } from "./components/DateLimiteDepotDossierCell";
-export { calculerCompteARebours, type CompteARebours } from "./domain/countdown";
+export {
+  calculerCompteARebours,
+  type CompteARebours,
+} from "./domain/countdown";

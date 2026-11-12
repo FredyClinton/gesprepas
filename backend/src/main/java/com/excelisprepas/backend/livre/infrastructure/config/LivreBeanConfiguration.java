@@ -30,5 +30,10 @@ public class LivreBeanConfiguration {
         return new VenteLivreService(venteLivreRepositoryPort, livreRepositoryPort,
                 saisirEntreeUseCase, motifRepositoryPort, centreRepositoryPort, apprenantRepositoryPort, auditEventHelper);
     }
-}
 
+    @Bean
+    public com.excelisprepas.backend.livre.domain.port.in.RechercherVentesLivresUseCase rechercherVentesLivresUseCase(
+            com.excelisprepas.backend.livre.domain.port.out.RechercheVentesLivresPort rechercheVentesLivresPort) {
+        return new com.excelisprepas.backend.livre.domain.service.RechercheVentesLivresService(rechercheVentesLivresPort);
+    }
+}

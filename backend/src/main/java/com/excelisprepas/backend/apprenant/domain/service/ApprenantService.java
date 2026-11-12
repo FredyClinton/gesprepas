@@ -125,6 +125,20 @@ public class ApprenantService implements CreerApprenantUseCase, RecupererApprena
     }
 
     @Override
+    public List<Apprenant> listerApprenants(UUID sessionId, UUID centreId) {
+        if (sessionId != null && centreId != null) {
+            return apprenantRepository.findByCentreIdAndSessionId(centreId, sessionId);
+        }
+        if (sessionId != null) {
+            return apprenantRepository.findBySessionId(sessionId);
+        }
+        if (centreId != null) {
+            return apprenantRepository.findByCentreId(centreId);
+        }
+        return apprenantRepository.findAll();
+    }
+
+    @Override
     public Apprenant transfererCentre(UUID apprenantId, UUID nouveauCentreId) {
         Apprenant apprenant = recupererApprenant(apprenantId);
         if (centreRepository.findById(nouveauCentreId).isEmpty()) {

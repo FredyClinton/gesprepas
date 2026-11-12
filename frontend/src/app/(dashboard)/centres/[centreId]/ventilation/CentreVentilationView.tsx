@@ -123,7 +123,6 @@ export function CentreVentilationView({
   const { data: sessionActive, isLoading: chargementSessionActive } = useSessionActive();
   const { data: utilisateurs = [] } = useUtilisateurs();
   const { data: formations = [], isLoading: chargementFormations } = useFormations();
-  const { data: apprenants = [], isLoading: chargementApprenants } = useApprenants();
   const { data: motifs = [] } = useMotifs();
 
   const centre = useMemo(() => centres.find((c) => c.id === centreId), [centres, centreId]);
@@ -137,6 +136,7 @@ export function CentreVentilationView({
   }, [sessionIdSelectionnee, sessions, sessionActive]);
 
   const activeSessionId = sessionCourante?.id;
+  const { data: apprenants = [], isLoading: chargementApprenants } = useApprenants({ centreId, sessionId: activeSessionId });
 
   // Données dépendantes de la session et du centre
   const { data: mouvements = [], isLoading: chargementMouvements } = useMouvementsFinanciers(

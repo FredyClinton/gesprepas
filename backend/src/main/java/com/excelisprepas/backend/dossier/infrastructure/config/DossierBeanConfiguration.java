@@ -185,4 +185,10 @@ public class DossierBeanConfiguration {
     public ObtenirStatistiquesDossiersUseCase obtenirStatistiquesDossiersUseCase(DossierFinancierService dossierFinancierService) {
         return dossierFinancierService;
     }
+
+    @Bean
+    public com.excelisprepas.backend.dossier.domain.port.in.RechercherDossiersUseCase rechercherDossiersUseCase(
+            com.excelisprepas.backend.dossier.domain.port.out.RechercheDossiersPort rechercheDossiersPort) {
+        return new com.excelisprepas.backend.dossier.domain.service.RechercheDossiersService(rechercheDossiersPort);
+    }
 }

@@ -94,7 +94,6 @@ export function DirecteurDashboard() {
   const { data: sessionActive, isLoading: chargementSessionActive } = useSessionActive();
   const { data: centres = [], isLoading: chargementCentres } = useCentres();
   const { data: utilisateurs = [] } = useUtilisateurs();
-  const { data: apprenants = [], isLoading: chargementApprenants } = useApprenants();
   const { data: formations = [] } = useFormations();
   const { data: motifs = [] } = useMotifs();
 
@@ -107,6 +106,7 @@ export function DirecteurDashboard() {
   }, [sessionIdSelectionnee, sessions, sessionActive]);
 
   const activeSessionId = sessionCourante?.id;
+  const { data: apprenants = [], isLoading: chargementApprenants } = useApprenants({ sessionId: activeSessionId, enabled: Boolean(activeSessionId) });
 
   // Données liées à la session
   const { data: mouvements = [], isLoading: chargementMouvements } = useMouvementsFinanciers(activeSessionId);
