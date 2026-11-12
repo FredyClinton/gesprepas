@@ -1,10 +1,9 @@
 package com.excelisprepas.backend.shared.audit.infrastructure.in.web;
 
 import com.excelisprepas.backend.shared.audit.application.AuditLogQueryService;
-import com.excelisprepas.backend.shared.audit.infrastructure.in.web.dto.AuditLogResponseDto;
+import com.excelisprepas.backend.shared.audit.infrastructure.in.web.dto.AuditLogPageResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,7 +28,7 @@ public class AuditLogController {
     @GetMapping
     @PreAuthorize("hasAnyRole('DIRECTEUR', 'DIRECTEUR_ACADEMIQUE', 'CHEF_CENTRE') or hasAnyAuthority('FINANCIER_CONSULTER', 'RAPPORT_CONSULTER', 'UTILISATEUR_CONSULTER')")
     @Operation(summary = "Rechercher et filtrer les journaux d'audit")
-    public Page<AuditLogResponseDto> rechercher(
+    public AuditLogPageResponseDto rechercher(
             @RequestParam(required = false) String module,
             @RequestParam(required = false) UUID centreId,
             @RequestParam(required = false) UUID utilisateurId,
@@ -39,8 +38,8 @@ public class AuditLogController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return auditLogQueryService.rechercher(
+        return AuditLogPageResponseDto.de(auditLogQueryService.rechercher(
                 module, centreId, utilisateurId, dateDebut, dateFin, recherche, page, size
-        );
+        ));
     }
 }
