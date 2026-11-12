@@ -14,7 +14,7 @@ public record EnregistrerVenteLivreRequest(
         String nomAcheteur,
         UUID apprenantId,
         boolean estExterne,
-        @NotNull(message = "L'utilisateur qui encaisse est obligatoire") UUID saisiParUtilisateurId,
+        /* ignoré si authentifié : l\'auteur est lu dans le jeton */ UUID saisiParUtilisateurId,
         @NotEmpty(message = "Au moins un livre doit être vendu") List<@Valid LigneVenteLivreRequest> lignes
 ) {}
 

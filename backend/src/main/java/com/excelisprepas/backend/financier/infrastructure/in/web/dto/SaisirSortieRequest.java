@@ -14,7 +14,7 @@ public record SaisirSortieRequest(
         @NotNull(message = "Le montant est obligatoire")
         @DecimalMin(value = "0.01", message = "Le montant doit être strictement positif") BigDecimal montant,
         @NotNull(message = "La date est obligatoire") LocalDate date,
-        @NotNull(message = "L'utilisateur qui saisit est obligatoire") UUID saisiParUtilisateurId,
+        /* ignoré si authentifié : l\'auteur est lu dans le jeton */ UUID saisiParUtilisateurId,
         UUID centreId,
         @NotBlank(message = "L'ordonnateur est obligatoire") String ordonnateur
 ) {

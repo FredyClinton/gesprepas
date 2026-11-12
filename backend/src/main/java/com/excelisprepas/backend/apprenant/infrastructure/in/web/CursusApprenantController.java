@@ -1,5 +1,6 @@
 package com.excelisprepas.backend.apprenant.infrastructure.in.web;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.excelisprepas.backend.apprenant.domain.model.ContratApprenant;
 import com.excelisprepas.backend.apprenant.domain.model.InscriptionPhaseFormation;
 import com.excelisprepas.backend.apprenant.domain.port.in.ChangerFormationPhaseUseCase;
@@ -117,6 +118,7 @@ public class CursusApprenantController {
     }
 
     @Operation(summary = "Négocier un contrat pour une nouvelle phase")
+    @PreAuthorize("hasAuthority('APPRENANT_NEGOCIER_CONTRAT')")
     @PostMapping("/contrats-phase")
     public ResponseEntity<CursusResponse> creerContratPhase(
             @PathVariable UUID apprenantId,
@@ -133,6 +135,7 @@ public class CursusApprenantController {
     }
 
     @Operation(summary = "Changer de formation pendant la phase active")
+    @PreAuthorize("hasAuthority('APPRENANT_GERER')")
     @PatchMapping("/phases/{phaseId}/changer-formation")
     public ResponseEntity<InscriptionPhaseResponse> changerFormation(
             @PathVariable UUID apprenantId,

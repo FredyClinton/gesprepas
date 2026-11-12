@@ -9,6 +9,6 @@ public record ValiderBilanChefCentreRequest(
         @NotNull(message = "Le centre est obligatoire") UUID centreId,
         @NotNull(message = "La session est obligatoire") UUID sessionId,
         @NotNull(message = "La date est obligatoire") LocalDate date,
-        @NotNull(message = "Le validateur est obligatoire") UUID validateurUtilisateurId
+        /* ignoré si authentifié : l\'auteur est lu dans le jeton */ UUID validateurUtilisateurId
 ) {
 }

@@ -131,9 +131,24 @@ block by block; as of now:
 - `Permission` (`auth/domain/model`) - the enum of business actions requiring authorization (e.g.
   `FINANCIER_VALIDER_BILAN_CHEF_CENTRE`). Controllers should check permissions, not `RoleUtilisateur` names directly,
   so role changes don't ripple into every controller.
-- `MatricePermissions` (`auth/domain/model`) - static `RoleUtilisateur -> Set<Permission>` mapping. **Draft, not yet
-  validated with the business** - covers `financier` + `rattachement`, plus one `academie` permission
-  (`PROGRESSION_GERER_QUOTA`, granted to `DIRECTEUR_ACADEMIQUE`; `DIRECTEUR` has it too via `EnumSet.allOf`) so far.
+- `MatricePermissions` (`auth/domain/model`) - static `RoleUtilisateur -> Set<Permission>` mapping, used by every
+  module's `@PreAuthorize`. `DIRECTEUR` is `EnumSet.complementOf(...)`: everything **except** field operations he
+  only reads (`INSCRIPTION_GERER`, `DOSSIER_GERER`, `DOSSIER_ENCAISSER`, `LIVRE_VENDRE`, `FINANCIER_GERER_LIVRES`,
+  `CONCOURS_BLANC_*`; he keeps `DOSSIER_SUPERVISER`) - adding a
+  permission grants it to him automatically unless added to that exclusion list. `peutAttribuer(appelant, cible)`
+  is the anti-escalation guard: a caller may create/manage an account of role `cible` only if `cible`'s permissions
+  are a subset of his own (only `DIRECTEUR` manages `DIRECTEUR` accounts); enforced in `UtilisateurService.creerCompte`,
+  `AccesPersonnelService.definirAcces` and `PersonnelService.modifier/supprimerPersonnel` (caller role comes from the
+  JWT via `UtilisateurCourant.roleOuNull()`, `AttributionRoleInterditeException` -> 403).
+  `PermissionsEndpointsIntegrationTest` checks `@PreAuthorize` with real JWTs per role - extend it when changing
+  the matrix.
+- `EnTetesIdentiteFilter` (after `JwtAuthenticationFilter`) overwrites the `X-User-Role` / `X-Centre-Id` /
+  `X-Departement-Id` headers that some controllers still read (concours blancs, livres, enseignants, affectations
+  départementales) with token values, so a client can't spoof them. For a centre-scoped role, `X-Centre-Id` is
+  the active-session rattachement (via `ContexteUtilisateurPort`, resolved lazily only if a controller reads it),
+  not the account centre frozen in the JWT. Controllers using it fail closed: a centre-scoped role without centre
+  gets 403. Author/ordonnateur fields come from the token too (`UtilisateurCourant.idOu` / `libelleOu`), never
+  from the request body.
 - `ContexteUtilisateur` (`auth/domain/model`) - the effective permissions of the authenticated user for the active
   academic session: global-role permissions (apply everywhere) plus centre-scoped `AttributionRole` permissions
   (apply only to the user's single centre for that session, per `RattachementRoleService`'s one-centre-per-session
@@ -217,10 +232,21 @@ as each piece lands.
 
 ## Configuration notes
 
-- `spring.jpa.hibernate.ddl-auto` defaults to `update`, but **Flyway is enabled by default** (`FLYWAY_ENABLED:true`
-  in `../.env`) and is the actual source of schema changes - migrations live under
-  `src/main/resources/db/migration/` (`V1`...). Despite what this file previously said, don't rely on Hibernate
-  auto-DDL for new schema changes: add a new `V<n>__description.sql` migration instead.
+- **Flyway is the only source of schema changes**; `spring.jpa.hibernate.ddl-auto` defaults to `validate` (the app
+  refuses to start if entities and schema diverge). Add a new `V<n>__description.sql` under
+  `src/main/resources/db/migration/` for every entity change. `V1_1__rattrapage...` recreates the 33 tables that
+  used to exist only through Hibernate auto-DDL, so an empty database now builds from migrations alone;
+  `spring.flyway.out-of-order: true` exists only so databases already at `V31` accept it. A local `../.env` may still
+  carry `JPA_DDL_AUTO=update` from before - that overrides the default.
+- **Transactions are declared outside the domain**: `shared/config/TransactionsDomaineConfig` wraps every public
+  method of every class in a `..domain.service..` package in a REQUIRED transaction (rollback on any exception) -
+  don't add `@Transactional` to domain services. Consequence: don't rely on catching a repository exception and
+  carrying on inside a service method (the transaction is already doomed) - check first instead (see
+  `MatiereRepositoryPort.estReferencee`). Audit logs are written `AFTER_COMMIT`.
+- **Journée de caisse lock**: any write of an entrée/sortie and any bilan status change takes
+  `BilanJournalierRepositoryPort.verrouillerJournee(centre, session, date)` (Postgres advisory transaction lock)
+  before checking/changing state. A bilan in status `OUVERT` doesn't freeze the day; from `SOUMIS_CAISSIER` on,
+  creating/modifying/deleting movements for that day is refused (`BilanDejaValideException`, 409).
 - Datasource/server settings are all environment-variable driven with local defaults (`DB_HOST`, `DB_PORT:5433`,
   `DB_NAME:excelis_prepas`, `DB_USER`, `DB_PASSWORD`, `SERVER_PORT:8080`) - see `application.yaml` and
   `../docker-compose.yml`.

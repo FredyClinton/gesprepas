@@ -10,5 +10,11 @@ import java.util.UUID;
  * à la demande par ContexteUtilisateurPort, pas embarquées dans le token.
  */
 public record ClaimsAccessToken(UUID utilisateurId, String email, RoleUtilisateur role,
-                                 UUID centreId, UUID departementId) {
+                                 UUID centreId, UUID departementId, String nomComplet) {
+
+    /** Sans nom affiché (jetons émis avant l'ajout de la claim, tests). */
+    public ClaimsAccessToken(UUID utilisateurId, String email, RoleUtilisateur role,
+                             UUID centreId, UUID departementId) {
+        this(utilisateurId, email, role, centreId, departementId, null);
+    }
 }

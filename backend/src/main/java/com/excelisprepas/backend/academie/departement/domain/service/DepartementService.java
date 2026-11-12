@@ -136,11 +136,13 @@ public class DepartementService implements CreerDepartementUseCase, RecupererDep
 
         departementRepository.deleteById(id);
 
-        try {
+        // Vérifier avant plutôt qu'attraper l'échec : dans la transaction de cette
+        // méthode, une violation de clé étrangère annulerait toute la suppression.
+        if (matiereRepository.estReferencee(matiereId)) {
+            log.warn("Matière associée id={} conservée : encore utilisée (concours blancs ou quotas)", matiereId);
+        } else {
             matiereRepository.deleteById(matiereId);
             log.info("Matière orpheline supprimée avec succès : id={}", matiereId);
-        } catch (Exception e) {
-            log.warn("Impossible de supprimer la matière associée id={}: {}", matiereId, e.getMessage());
         }
 
         log.info("Département supprimé : id={}", id);

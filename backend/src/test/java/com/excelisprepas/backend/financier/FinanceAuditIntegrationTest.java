@@ -80,7 +80,9 @@ class FinanceAuditIntegrationTest {
         service = new MouvementFinancierService(
                 entreeRepository, sortieRepository, motifRepository, centreRepository,
                 apprenantRepository, sessionRepository, mouvementRepository,
-                null, contratApprenantRepository, null, null, auditEventHelper
+                null, contratApprenantRepository,
+                mock(com.excelisprepas.backend.financier.domain.port.out.BilanJournalierRepositoryPort.class),
+                null, auditEventHelper
         );
     }
 

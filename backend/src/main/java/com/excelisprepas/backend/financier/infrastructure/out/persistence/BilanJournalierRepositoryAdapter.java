@@ -3,6 +3,7 @@ package com.excelisprepas.backend.financier.infrastructure.out.persistence;
 import com.excelisprepas.backend.financier.domain.model.BilanJournalier;
 import com.excelisprepas.backend.financier.domain.port.out.BilanJournalierRepositoryPort;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
 import java.util.Optional;
@@ -32,5 +33,14 @@ public class BilanJournalierRepositoryAdapter implements BilanJournalierReposito
     @Override
     public Optional<BilanJournalier> findByCentreIdAndSessionIdAndDate(UUID centreId, UUID sessionId, LocalDate date) {
         return jpaRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date).map(mapper::toDomain);
+    }
+
+    @Override
+    public void verrouillerJournee(UUID centreId, UUID sessionId, LocalDate date) {
+        // Hors transaction, le verrou serait relâché aussitôt pris : c'est une erreur de câblage.
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new IllegalStateException("verrouillerJournee appelé hors transaction");
+        }
+        jpaRepository.verrouillerJournee("caisse|" + centreId + "|" + sessionId + "|" + date);
     }
 }

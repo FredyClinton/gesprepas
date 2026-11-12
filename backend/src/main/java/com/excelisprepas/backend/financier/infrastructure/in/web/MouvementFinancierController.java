@@ -1,5 +1,6 @@
 package com.excelisprepas.backend.financier.infrastructure.in.web;
 
+import com.excelisprepas.backend.auth.infrastructure.in.web.UtilisateurCourant;
 import com.excelisprepas.backend.financier.domain.model.Entree;
 import com.excelisprepas.backend.financier.domain.model.MouvementFinancier;
 import com.excelisprepas.backend.financier.domain.model.Sortie;
@@ -135,7 +136,7 @@ public class MouvementFinancierController {
     @PostMapping("/entrees")
     public ResponseEntity<EntreeResponse> saisirEntree(@Valid @RequestBody SaisirEntreeRequest request) {
         Entree entree = saisirEntreeUseCase.saisirEntree(request.sessionId(), request.motifId(), request.montant(),
-                request.date(), request.saisiParUtilisateurId(), request.centreId(), request.apprenantId(), null);
+                request.date(), UtilisateurCourant.idOu(request.saisiParUtilisateurId()), request.centreId(), request.apprenantId(), null);
         return ResponseEntity.status(HttpStatus.CREATED).body(versReponse(entree));
     }
 
@@ -196,7 +197,7 @@ public class MouvementFinancierController {
     @PostMapping("/sorties")
     public ResponseEntity<SortieResponse> saisirSortie(@Valid @RequestBody SaisirSortieRequest request) {
         Sortie sortie = saisirSortieUseCase.saisirSortie(request.sessionId(), request.motifId(), request.montant(),
-                request.date(), request.saisiParUtilisateurId(), request.centreId(), request.ordonnateur());
+                request.date(), UtilisateurCourant.idOu(request.saisiParUtilisateurId()), request.centreId(), request.ordonnateur());
         return ResponseEntity.status(HttpStatus.CREATED).body(versReponse(sortie));
     }
 

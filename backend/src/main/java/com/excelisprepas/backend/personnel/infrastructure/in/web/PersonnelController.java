@@ -79,7 +79,7 @@ public class PersonnelController {
     }
 
     @Operation(summary = "Définir ou réviser le salaire d'un personnel pour une session")
-    @PreAuthorize("hasAuthority('PERSONNEL_GERER')")
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_PAIE')")
     @PostMapping("/{personnelId}/sessions/{sessionId}/salaire")
     public ResponseEntity<HistoriqueSalaireResponse> definirSalaire(
             @PathVariable UUID personnelId,
@@ -91,7 +91,7 @@ public class PersonnelController {
     }
 
     @Operation(summary = "Consulter l'historique des salaires d'un personnel pour une session")
-    @PreAuthorize("hasAuthority('PERSONNEL_GERER')")
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_PAIE')")
     @GetMapping("/{personnelId}/sessions/{sessionId}/salaire-historique")
     public ResponseEntity<List<HistoriqueSalaireResponse>> consulterHistorique(
             @PathVariable UUID personnelId,
@@ -110,7 +110,7 @@ public class PersonnelController {
             @PathVariable UUID id,
             @Valid @RequestBody ModifierPersonnelRequest request) {
         Personnel personnel = modifierPersonnelUseCase.modifierPersonnel(
-                id, request.nom(), request.prenom(), request.telephone(), request.numeroCni(), request.email());
+                com.excelisprepas.backend.auth.infrastructure.in.web.UtilisateurCourant.roleOuNull(), id, request.nom(), request.prenom(), request.telephone(), request.numeroCni(), request.email());
         return ResponseEntity.ok(PersonnelResponse.fromDomain(personnel));
     }
 
@@ -118,18 +118,19 @@ public class PersonnelController {
     @PreAuthorize("hasAuthority('PERSONNEL_GERER')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> supprimer(@PathVariable UUID id) {
-        supprimerPersonnelUseCase.supprimerPersonnel(id);
+        supprimerPersonnelUseCase.supprimerPersonnel(com.excelisprepas.backend.auth.infrastructure.in.web.UtilisateurCourant.roleOuNull(), id);
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Créer un compte d'accès pour un personnel existant")
-    @PreAuthorize("hasAuthority('PERSONNEL_GERER')")
+    @Operation(summary = "Créer un compte d'accès pour un personnel existant",
+            description = "Le rôle attribué ne peut pas conférer plus de droits que ceux de l'appelant (403 sinon).")
+    @PreAuthorize("hasAuthority('PERSONNEL_AFFECTER_ROLE')")
     @PostMapping("/{id}/compte")
     public ResponseEntity<UtilisateurResponse> creerCompte(
             @PathVariable UUID id,
             @Valid @RequestBody CreerComptePersonnelRequest request) {
         com.excelisprepas.backend.personnel.domain.model.Utilisateur utilisateur =
-                creerComptePersonnelUseCase.creerCompte(id, request.password(), request.role(), request.centreId());
+                creerComptePersonnelUseCase.creerCompte(com.excelisprepas.backend.auth.infrastructure.in.web.UtilisateurCourant.roleOuNull(), id, request.password(), request.role(), request.centreId());
         return ResponseEntity.status(HttpStatus.CREATED).body(new UtilisateurResponse(
                 utilisateur.getId(), utilisateur.getNom(), utilisateur.getPrenom(),
                 utilisateur.getTelephone(), utilisateur.getNumeroCni(),

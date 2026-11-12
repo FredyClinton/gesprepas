@@ -1,5 +1,7 @@
 package com.excelisprepas.backend.dossier.infrastructure.in.web;
 
+import com.excelisprepas.backend.auth.infrastructure.in.web.UtilisateurCourant;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.excelisprepas.backend.dossier.domain.model.PieceDossier;
 import com.excelisprepas.backend.dossier.domain.model.SoldeDossierConcours;
 import com.excelisprepas.backend.dossier.domain.port.in.*;
@@ -59,6 +61,7 @@ public class DossierConcoursController {
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "404", description = "Dossier-concours ou pièce requise introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('DOSSIER_GERER')")
     @PostMapping("/pieces")
     public ResponseEntity<PieceDossierResponse> ajouterPiece(
             @Parameter(description = "Identifiant du dossier-concours") @PathVariable UUID id,
@@ -91,12 +94,13 @@ public class DossierConcoursController {
             @ApiResponse(responseCode = "404", description = "Dossier-concours, motif ou utilisateur introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Motif inactif ou de type incorrect", content = @Content)
     })
+    @PreAuthorize("hasAuthority('DOSSIER_ENCAISSER')")
     @PostMapping("/paiements")
     public ResponseEntity<PaiementResponse> enregistrerPaiement(
             @Parameter(description = "Identifiant du dossier-concours") @PathVariable UUID id,
             @Valid @RequestBody EnregistrerPaiementRequest request) {
         Entree entree = enregistrerPaiementDossierUseCase.enregistrerPaiementDossier(
-                id, request.motifId(), request.montant(), request.date(), request.saisiParUtilisateurId());
+                id, request.motifId(), request.montant(), request.date(), UtilisateurCourant.idOu(request.saisiParUtilisateurId()));
         return ResponseEntity.status(HttpStatus.CREATED).body(versReponsePaiement(entree));
     }
 

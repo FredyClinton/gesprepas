@@ -1,5 +1,6 @@
 package com.excelisprepas.backend.gelenseignants.infrastructure.in.web;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.excelisprepas.backend.gelenseignants.domain.model.GelEnseignants;
 import com.excelisprepas.backend.gelenseignants.domain.port.in.ConsulterGelEnseignantsUseCase;
 import com.excelisprepas.backend.gelenseignants.domain.port.in.ModifierGelEnseignantsUseCase;
@@ -45,6 +46,7 @@ public class GelEnseignantsController {
     @Operation(summary = "Activer ou désactiver le gel de la gestion des enseignants",
             description = "Réservé au Directeur Académique - non vérifié côté serveur pour l'instant, "
                     + "en attendant une authentification réelle.")
+    @PreAuthorize("hasAuthority('ACADEMIE_GERER_PLANIFICATION')")
     @PutMapping
     public ResponseEntity<GelEnseignantsResponse> modifier(@Valid @RequestBody ModifierGelEnseignantsRequest request) {
         GelEnseignants gel = modifierGelEnseignantsUseCase.modifierGel(request.actif(), request.dateFin());

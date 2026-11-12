@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -45,6 +46,26 @@ import { useCentres, useSessions } from "@/modules/centres-sessions";
 import { useFormations } from "@/modules/academique";
 import { messageErreurApi } from "@/shared/lib/api-client";
 
+// Rôles qui détiennent DOSSIER_ENCAISSER côté backend (MatricePermissions) : le
+// Directeur et le Comptable consultent les paiements sans les encaisser.
+// Rôles qui détiennent DOSSIER_GERER (ouvrir, souscrire, valider les pièces, clôturer) :
+// le Directeur supervise les dossiers en lecture seule.
+const ROLES_GESTION_DOSSIER = new Set([
+  "CAISSIER",
+  "CHARGE_DOSSIER",
+  "SUPERVISEUR_DOSSIERS",
+  "DIRECTEUR_ACADEMIQUE",
+  "CHEF_CENTRE",
+]);
+
+const ROLES_ENCAISSEMENT_DOSSIER = new Set([
+  "CAISSIER",
+  "CHARGE_DOSSIER",
+  "SUPERVISEUR_DOSSIERS",
+  "DIRECTEUR_ACADEMIQUE",
+  "CHEF_CENTRE",
+]);
+
 const FCFA = new Intl.NumberFormat("fr-FR");
 
 const STATUT_CONFIG: Record<
@@ -76,8 +97,11 @@ interface DossierDetailViewProps {
 }
 
 export function DossierDetailView({ dossierId }: DossierDetailViewProps) {
-  const { data: dossier, isLoading: chargementDossier, error: erreurDossier } =
-    useDossier(dossierId);
+  const {
+    data: dossier,
+    isLoading: chargementDossier,
+    error: erreurDossier,
+  } = useDossier(dossierId);
 
   const { data: apprenant } = useApprenant(dossier?.apprenantId);
   const { data: apprenants = [] } = useApprenants();
@@ -86,6 +110,13 @@ export function DossierDetailView({ dossierId }: DossierDetailViewProps) {
   const { data: piecesRequises = [] } = usePiecesRequises();
   const { data: centres = [] } = useCentres();
   const { data: sessions = [] } = useSessions();
+  const { data: authSession } = useSession();
+  const peutEncaisser = ROLES_ENCAISSEMENT_DOSSIER.has(
+    authSession?.user?.role ?? "",
+  );
+  const peutGererDossier = ROLES_GESTION_DOSSIER.has(
+    authSession?.user?.role ?? "",
+  );
   const { data: formations = [] } = useFormations();
 
   // Mutations
@@ -185,28 +216,30 @@ export function DossierDetailView({ dossierId }: DossierDetailViewProps) {
 
   if (chargementDossier) {
     return (
-      <div className="p-12 flex flex-col items-center justify-center gap-3 text-slate-500">
-        <Loader2 size={32} className="animate-spin text-brand-orange" />
-        <p className="text-sm font-semibold">Chargement du dossier administratif...</p>
+      <div className="flex flex-col items-center justify-center gap-3 p-12 text-slate-500">
+        <Loader2 size={32} className="text-brand-orange animate-spin" />
+        <p className="text-sm font-semibold">
+          Chargement du dossier administratif...
+        </p>
       </div>
     );
   }
 
   if (erreurDossier || !dossier) {
     return (
-      <div className="p-8 max-w-2xl mx-auto space-y-4">
-        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 text-red-700">
+      <div className="mx-auto max-w-2xl space-y-4 p-8">
+        <div className="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
           <AlertCircle size={20} className="shrink-0 text-red-500" />
           <div>
-            <h3 className="font-bold text-sm">Dossier introuvable</h3>
-            <p className="text-xs mt-0.5">
+            <h3 className="text-sm font-bold">Dossier introuvable</h3>
+            <p className="mt-0.5 text-xs">
               Le dossier demandé n&rsquo;existe pas ou a été déplacé.
             </p>
           </div>
         </div>
         <Link
           href="/dossiers"
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-orange hover:underline"
+          className="text-brand-orange inline-flex items-center gap-1.5 text-xs font-bold hover:underline"
         >
           <ArrowLeft size={14} /> Retour à la liste des dossiers
         </Link>
@@ -220,27 +253,27 @@ export function DossierDetailView({ dossierId }: DossierDetailViewProps) {
       <div className="flex items-center justify-between">
         <Link
           href="/dossiers"
-          className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-brand-orange transition-colors"
+          className="hover:text-brand-orange inline-flex items-center gap-2 text-xs font-bold text-slate-600 transition-colors"
         >
           <ArrowLeft size={16} />
           <span>Retour au tableau des dossiers</span>
         </Link>
 
         {session && (
-          <span className="text-xs font-mono font-bold px-3 py-1 bg-orange-50 text-brand-orange border border-orange-200 rounded-full">
+          <span className="text-brand-orange rounded-full border border-orange-200 bg-orange-50 px-3 py-1 font-mono text-xs font-bold">
             Session {session.annee}
           </span>
         )}
       </div>
 
       {erreur && (
-        <div className="flex items-center gap-3 p-4 text-xs text-red-700 bg-red-50 border border-red-200 rounded-2xl">
+        <div className="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs text-red-700">
           <AlertCircle size={18} className="shrink-0 text-red-500" />
           <span className="flex-1 font-medium">{erreur}</span>
           <button
             type="button"
             onClick={() => setErreur(null)}
-            className="text-red-500 hover:text-red-700 font-bold cursor-pointer"
+            className="cursor-pointer font-bold text-red-500 hover:text-red-700"
           >
             ✕
           </button>
@@ -248,13 +281,13 @@ export function DossierDetailView({ dossierId }: DossierDetailViewProps) {
       )}
 
       {succes && (
-        <div className="flex items-center gap-3 p-4 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-2xl">
+        <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs text-emerald-800">
           <CheckCircle2 size={18} className="shrink-0 text-emerald-600" />
           <span className="flex-1 font-semibold">{succes}</span>
           <button
             type="button"
             onClick={() => setSucces(null)}
-            className="text-emerald-500 hover:text-emerald-700 font-bold cursor-pointer"
+            className="cursor-pointer font-bold text-emerald-500 hover:text-emerald-700"
           >
             ✕
           </button>
@@ -262,11 +295,11 @@ export function DossierDetailView({ dossierId }: DossierDetailViewProps) {
       )}
 
       {/* ── Bandeau Héro Apprenant & Actions ── */}
-      <Card className="p-6 bg-white border border-slate-200/90 shadow-xs rounded-2xl">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+      <Card className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-xs">
+        <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
           {/* Infos Élève */}
           <div className="flex items-start gap-4">
-            <div className="h-16 w-16 rounded-2xl bg-gradient-to-tr from-brand-orange to-amber-400 text-white font-black text-xl flex items-center justify-center shadow-sm shrink-0">
+            <div className="from-brand-orange flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr to-amber-400 text-xl font-black text-white shadow-sm">
               {apprenant
                 ? `${apprenant.nom?.[0] || ""}${apprenant.prenom?.[0] || ""}`.toUpperCase()
                 : "E"}
@@ -274,12 +307,14 @@ export function DossierDetailView({ dossierId }: DossierDetailViewProps) {
 
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="text-xl font-black text-slate-900 tracking-tight">
-                  {apprenant ? `${apprenant.nom} ${apprenant.prenom}` : "Élève..."}
+                <h1 className="text-xl font-black tracking-tight text-slate-900">
+                  {apprenant
+                    ? `${apprenant.nom} ${apprenant.prenom}`
+                    : "Élève..."}
                 </h1>
                 {statutConfig && StatutIcon && (
                   <span
-                    className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold border ${statutConfig.badge}`}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-xs font-bold ${statutConfig.badge}`}
                   >
                     <StatutIcon size={13} />
                     {statutConfig.label}
@@ -287,9 +322,9 @@ export function DossierDetailView({ dossierId }: DossierDetailViewProps) {
                 )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 font-medium">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium text-slate-500">
                 {apprenant?.referenceRecu && (
-                  <span className="font-mono bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-semibold">
+                  <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono font-semibold text-slate-700">
                     Reçu: {apprenant.referenceRecu}
                   </span>
                 )}
@@ -307,7 +342,8 @@ export function DossierDetailView({ dossierId }: DossierDetailViewProps) {
                 )}
                 <span className="flex items-center gap-1 text-slate-400">
                   <Calendar size={13} />
-                  Ouvert le {new Date(dossier.dateOuverture).toLocaleDateString("fr-FR")}
+                  Ouvert le{" "}
+                  {new Date(dossier.dateOuverture).toLocaleDateString("fr-FR")}
                   {dossier.dateCloture &&
                     ` · Clôturé le ${new Date(dossier.dateCloture).toLocaleDateString("fr-FR")}`}
                 </span>
@@ -316,83 +352,104 @@ export function DossierDetailView({ dossierId }: DossierDetailViewProps) {
           </div>
 
           {/* Boutons d'actions principaux */}
-          <div className="flex flex-wrap items-center gap-2.5 pt-4 lg:pt-0 border-t lg:border-t-0 border-slate-100">
-            {dossier.statut === "OUVERT" && (
+          {peutGererDossier && (
+            <div className="flex flex-wrap items-center gap-2.5 border-t border-slate-100 pt-4 lg:border-t-0 lg:pt-0">
+              {dossier.statut === "OUVERT" && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleSignalerComplet}
+                  disabled={signalerCompletMutation.isPending}
+                  className="border-emerald-300 bg-emerald-50/60 text-xs font-bold text-emerald-700 hover:bg-emerald-100/80"
+                >
+                  {signalerCompletMutation.isPending ? (
+                    <Loader2
+                      size={14}
+                      className="mr-1.5 animate-spin text-emerald-600"
+                    />
+                  ) : (
+                    <CheckCircle2
+                      size={15}
+                      className="mr-1.5 text-emerald-600"
+                    />
+                  )}
+                  <span>
+                    {signalerCompletMutation.isPending
+                      ? "Signalement en cours..."
+                      : "Signaler complet"}
+                  </span>
+                </Button>
+              )}
+
+              {dossier.statut === "COMPLET" && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleCloturer}
+                  disabled={cloturerMutation.isPending}
+                  className="border-slate-300 bg-slate-100 text-xs font-bold text-slate-700 hover:bg-slate-200"
+                >
+                  {cloturerMutation.isPending ? (
+                    <Loader2
+                      size={14}
+                      className="mr-1.5 animate-spin text-slate-600"
+                    />
+                  ) : (
+                    <Lock size={14} className="mr-1.5" />
+                  )}
+                  <span>
+                    {cloturerMutation.isPending
+                      ? "Clôture en cours..."
+                      : "Clôturer le dossier"}
+                  </span>
+                </Button>
+              )}
+
+              {(dossier.statut === "CLOTURE" ||
+                dossier.statut === "COMPLET") && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleRouvrir}
+                  disabled={rouvrirMutation.isPending}
+                  className="border-amber-300 bg-amber-50/60 text-xs font-bold text-amber-700 hover:bg-amber-100/80"
+                  title="Rouvrir ce dossier administratif"
+                >
+                  {rouvrirMutation.isPending ? (
+                    <Loader2
+                      size={14}
+                      className="mr-1.5 animate-spin text-amber-600"
+                    />
+                  ) : (
+                    <RotateCcw size={14} className="mr-1.5 text-amber-600" />
+                  )}
+                  <span>
+                    {rouvrirMutation.isPending
+                      ? "Réouverture..."
+                      : "Rouvrir le dossier"}
+                  </span>
+                </Button>
+              )}
+
               <Button
                 type="button"
-                variant="secondary"
-                onClick={handleSignalerComplet}
-                disabled={signalerCompletMutation.isPending}
-                className="text-xs font-bold text-emerald-700 bg-emerald-50/60 hover:bg-emerald-100/80 border-emerald-300"
+                onClick={() => setModalSouscrireOuverte(true)}
+                className="bg-brand-orange hover:bg-brand-orange/90 text-xs font-bold text-white shadow-xs"
               >
-                {signalerCompletMutation.isPending ? (
-                  <Loader2 size={14} className="animate-spin mr-1.5 text-emerald-600" />
-                ) : (
-                  <CheckCircle2 size={15} className="mr-1.5 text-emerald-600" />
-                )}
-                <span>
-                  {signalerCompletMutation.isPending ? "Signalement en cours..." : "Signaler complet"}
-                </span>
+                <Plus size={15} className="mr-1.5" />
+                Rattacher un concours
               </Button>
-            )}
 
-            {dossier.statut === "COMPLET" && (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={handleCloturer}
-                disabled={cloturerMutation.isPending}
-                className="text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border-slate-300"
+              <Link
+                href={`/apprenants/${dossier.apprenantId}`}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                title="Consulter la fiche complète de l'élève (inscriptions, cursus, notes...)"
               >
-                {cloturerMutation.isPending ? (
-                  <Loader2 size={14} className="animate-spin mr-1.5 text-slate-600" />
-                ) : (
-                  <Lock size={14} className="mr-1.5" />
-                )}
-                <span>
-                  {cloturerMutation.isPending ? "Clôture en cours..." : "Clôturer le dossier"}
-                </span>
-              </Button>
-            )}
-
-            {(dossier.statut === "CLOTURE" || dossier.statut === "COMPLET") && (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={handleRouvrir}
-                disabled={rouvrirMutation.isPending}
-                className="text-xs font-bold text-amber-700 bg-amber-50/60 hover:bg-amber-100/80 border-amber-300"
-                title="Rouvrir ce dossier administratif"
-              >
-                {rouvrirMutation.isPending ? (
-                  <Loader2 size={14} className="animate-spin mr-1.5 text-amber-600" />
-                ) : (
-                  <RotateCcw size={14} className="mr-1.5 text-amber-600" />
-                )}
-                <span>
-                  {rouvrirMutation.isPending ? "Réouverture..." : "Rouvrir le dossier"}
-                </span>
-              </Button>
-            )}
-
-            <Button
-              type="button"
-              onClick={() => setModalSouscrireOuverte(true)}
-              className="text-xs bg-brand-orange text-white hover:bg-brand-orange/90 font-bold shadow-xs"
-            >
-              <Plus size={15} className="mr-1.5" />
-              Rattacher un concours
-            </Button>
-
-            <Link
-              href={`/apprenants/${dossier.apprenantId}`}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors"
-              title="Consulter la fiche complète de l'élève (inscriptions, cursus, notes...)"
-            >
-              <ExternalLink size={13} />
-              <span>Fiche élève</span>
-            </Link>
-          </div>
+                <ExternalLink size={13} />
+                <span>Fiche élève</span>
+              </Link>
+            </div>
+          )}
         </div>
       </Card>
 
@@ -400,48 +457,57 @@ export function DossierDetailView({ dossierId }: DossierDetailViewProps) {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-base font-black text-slate-900 uppercase tracking-wider">
+            <h2 className="text-base font-black tracking-wider text-slate-900 uppercase">
               Concours souscrits ({concoursDuDossier.length})
             </h2>
             <p className="text-xs text-slate-500">
-              Liste des concours auxquels le candidat est inscrit avec le suivi financier et des pièces requises.
+              Liste des concours auxquels le candidat est inscrit avec le suivi
+              financier et des pièces requises.
             </p>
           </div>
 
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => setModalSouscrireOuverte(true)}
-            className="text-xs font-bold text-brand-orange border-orange-200 hover:bg-orange-50 flex items-center gap-1"
-          >
-            <Plus size={14} />
-            <span>+ Ajouter un autre concours</span>
-          </Button>
+          {peutGererDossier && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setModalSouscrireOuverte(true)}
+              className="text-brand-orange flex items-center gap-1 border-orange-200 text-xs font-bold hover:bg-orange-50"
+            >
+              <Plus size={14} />
+              <span>+ Ajouter un autre concours</span>
+            </Button>
+          )}
         </div>
 
         {chargementConcours ? (
           <Card className="p-12 text-center text-xs text-slate-400">
-            <Loader2 size={20} className="animate-spin text-brand-orange inline mr-2" />
+            <Loader2
+              size={20}
+              className="text-brand-orange mr-2 inline animate-spin"
+            />
             Chargement des concours rattachés...
           </Card>
         ) : concoursDuDossier.length === 0 ? (
-          <Card className="p-10 text-center space-y-3">
-            <div className="h-12 w-12 rounded-full bg-orange-100 text-brand-orange flex items-center justify-center mx-auto">
+          <Card className="space-y-3 p-10 text-center">
+            <div className="text-brand-orange mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-orange-100">
               <Award size={24} />
             </div>
-            <h3 className="font-bold text-slate-800 text-sm">
+            <h3 className="text-sm font-bold text-slate-800">
               Aucun concours rattaché à ce dossier
             </h3>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              Ce dossier administratif a été ouvert mais aucun concours officiel n&rsquo;a encore été sélectionné.
+            <p className="mx-auto max-w-sm text-xs text-slate-500">
+              Ce dossier administratif a été ouvert mais aucun concours officiel
+              n&rsquo;a encore été sélectionné.
             </p>
-            <Button
-              type="button"
-              onClick={() => setModalSouscrireOuverte(true)}
-              className="text-xs bg-brand-orange text-white font-bold inline-flex items-center gap-1.5"
-            >
-              <Plus size={14} /> Rattacher un premier concours
-            </Button>
+            {peutGererDossier && (
+              <Button
+                type="button"
+                onClick={() => setModalSouscrireOuverte(true)}
+                className="bg-brand-orange inline-flex items-center gap-1.5 text-xs font-bold text-white"
+              >
+                <Plus size={14} /> Rattacher un premier concours
+              </Button>
+            )}
           </Card>
         ) : (
           <div className="space-y-6">
@@ -451,8 +517,12 @@ export function DossierDetailView({ dossierId }: DossierDetailViewProps) {
                 dossierConcours={dc}
                 cataloguePieces={piecesRequises}
                 dossierStatut={dossier.statut}
-                onOuvrirPaiement={(nomConcours) =>
-                  setPaiementCible({ dossierConcours: dc, nomConcours })
+                peutGerer={peutGererDossier}
+                onOuvrirPaiement={
+                  peutEncaisser
+                    ? (nomConcours) =>
+                        setPaiementCible({ dossierConcours: dc, nomConcours })
+                    : undefined
                 }
               />
             ))}
@@ -461,31 +531,38 @@ export function DossierDetailView({ dossierId }: DossierDetailViewProps) {
       </div>
 
       {/* ── Section Observations & Notes administratives ── */}
-      <Card className="p-5 bg-white border border-slate-200/90 rounded-2xl space-y-3">
-        <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+      <Card className="space-y-3 rounded-2xl border border-slate-200/90 bg-white p-5">
+        <label className="flex items-center gap-2 text-xs font-bold tracking-wider text-slate-700 uppercase">
           <MessageSquare size={15} className="text-brand-orange" />
           <span>Notes & Observations administratives</span>
         </label>
         <p className="text-xs text-slate-500">
-          Indiquez ici toute précision utile sur le candidat (ex : dispense médicale, diplôme étranger en cours d&rsquo;équivalence, bordereau spécial...).
+          Indiquez ici toute précision utile sur le candidat (ex : dispense
+          médicale, diplôme étranger en cours d&rsquo;équivalence, bordereau
+          spécial...).
         </p>
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row">
           <textarea
             value={observation}
             onChange={(e) => setObservation(e.target.value)}
+            readOnly={!peutGererDossier}
             rows={3}
             placeholder="Écrire une observation sur ce dossier..."
-            className="flex-1 p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-orange/30 focus:border-brand-orange transition-all font-medium text-slate-800"
+            className="focus:ring-brand-orange/30 focus:border-brand-orange flex-1 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-medium text-slate-800 transition-all focus:bg-white focus:ring-2 focus:outline-none"
           />
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={handleSauvegarderObservation}
-            disabled={modifierObservationMutation.isPending}
-            className="self-end text-xs font-bold px-4 py-2 text-slate-700 hover:bg-slate-100"
-          >
-            {modifierObservationMutation.isPending ? "Enregistrement..." : "Enregistrer la note"}
-          </Button>
+          {peutGererDossier && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleSauvegarderObservation}
+              disabled={modifierObservationMutation.isPending}
+              className="self-end px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100"
+            >
+              {modifierObservationMutation.isPending
+                ? "Enregistrement..."
+                : "Enregistrer la note"}
+            </Button>
+          )}
         </div>
       </Card>
 
@@ -522,11 +599,15 @@ function ConcoursSectionCard({
   cataloguePieces,
   dossierStatut,
   onOuvrirPaiement,
+  peutGerer,
 }: {
   dossierConcours: DossierConcours;
   cataloguePieces: PieceRequise[];
   dossierStatut: Dossier["statut"];
-  onOuvrirPaiement: (nomConcours: string) => void;
+  /** Absent : l'utilisateur ne peut pas encaisser, le bouton est masqué. */
+  onOuvrirPaiement?: (nomConcours: string) => void;
+  /** Faux : pièces en lecture seule (pas de validation). */
+  peutGerer: boolean;
 }) {
   const { data: concours } = useConcours(dossierConcours.concoursId);
   const { data: pieces = [], isLoading: chargementPieces } =
@@ -535,18 +616,26 @@ function ConcoursSectionCard({
 
   const validerPieceMutation = useValiderPieceDossier();
   const [validerToutEnCours, setValiderToutEnCours] = useState(false);
-  const [filtrePieces, setFiltrePieces] = useState<"TOUTES" | "A_VALIDER" | "VALIDEES">("TOUTES");
+  const [filtrePieces, setFiltrePieces] = useState<
+    "TOUTES" | "A_VALIDER" | "VALIDEES"
+  >("TOUTES");
   const [recherchePiece, setRecherchePiece] = useState("");
 
   const nbValidees = pieces.filter((p) => p.statut === "VALIDEE").length;
   const nbTotal = pieces.length;
-  const progression = nbTotal > 0 ? Math.round((nbValidees / nbTotal) * 100) : 0;
+  const progression =
+    nbTotal > 0 ? Math.round((nbValidees / nbTotal) * 100) : 0;
 
-  const soldeRestant = solde ? solde.soldeRestant : dossierConcours.montantTotal;
+  const soldeRestant = solde
+    ? solde.soldeRestant
+    : dossierConcours.montantTotal;
   const montantPaye = solde ? solde.montantPaye : 0;
   const progressionPaiement =
     dossierConcours.montantTotal > 0
-      ? Math.min(100, Math.round((montantPaye / dossierConcours.montantTotal) * 100))
+      ? Math.min(
+          100,
+          Math.round((montantPaye / dossierConcours.montantTotal) * 100),
+        )
       : 100;
 
   // Filtrage des pièces
@@ -554,7 +643,9 @@ function ConcoursSectionCard({
     if (filtrePieces === "A_VALIDER" && p.statut === "VALIDEE") return false;
     if (filtrePieces === "VALIDEES" && p.statut !== "VALIDEE") return false;
     if (recherchePiece.trim()) {
-      const pieceInfo = cataloguePieces.find((cp) => cp.id === p.pieceRequiseId);
+      const pieceInfo = cataloguePieces.find(
+        (cp) => cp.id === p.pieceRequiseId,
+      );
       const nom = pieceInfo?.nom.toLowerCase() || "";
       if (!nom.includes(recherchePiece.toLowerCase().trim())) return false;
     }
@@ -576,22 +667,22 @@ function ConcoursSectionCard({
   }
 
   return (
-    <Card className="p-6 bg-white border border-slate-200/90 rounded-2xl space-y-5 shadow-xs">
+    <Card className="space-y-5 rounded-2xl border border-slate-200/90 bg-white p-6 shadow-xs">
       {/* ── En-tête Concours & Volet Financier ── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+      <div className="flex flex-col justify-between gap-4 border-b border-slate-100 pb-4 lg:flex-row lg:items-center">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-orange-100 text-brand-orange flex items-center justify-center font-bold text-xs">
+            <div className="text-brand-orange flex h-8 w-8 items-center justify-center rounded-lg bg-orange-100 text-xs font-bold">
               <Award size={16} />
             </div>
             <h3 className="text-lg font-black text-slate-900">
               {concours?.nom || "Concours officiel"}
             </h3>
             <span
-              className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
+              className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${
                 progression === 100
-                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                  : "bg-slate-100 text-slate-700 border-slate-200"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : "border-slate-200 bg-slate-100 text-slate-700"
               }`}
             >
               {nbValidees}/{nbTotal} pièces ({progression}%)
@@ -599,18 +690,22 @@ function ConcoursSectionCard({
           </div>
 
           {concours && (
-            <div className="flex items-center gap-4 text-xs text-slate-400 mt-2">
+            <div className="mt-2 flex items-center gap-4 text-xs text-slate-400">
               <span>
                 Délai centre :{" "}
-                <strong className="text-slate-700 font-mono">
-                  {new Date(concours.dateLimiteRecevabiliteCentre).toLocaleDateString("fr-FR")}
+                <strong className="font-mono text-slate-700">
+                  {new Date(
+                    concours.dateLimiteRecevabiliteCentre,
+                  ).toLocaleDateString("fr-FR")}
                 </strong>
               </span>
               <span>·</span>
               <span>
                 Dépôt officiel :{" "}
-                <strong className="text-slate-700 font-mono">
-                  {new Date(concours.dateLimiteDepot).toLocaleDateString("fr-FR")}
+                <strong className="font-mono text-slate-700">
+                  {new Date(concours.dateLimiteDepot).toLocaleDateString(
+                    "fr-FR",
+                  )}
                 </strong>
               </span>
             </div>
@@ -618,13 +713,17 @@ function ConcoursSectionCard({
         </div>
 
         {/* Bloc Financier & Bouton Paiement */}
-        <div className="flex items-center gap-4 bg-slate-50 p-3 rounded-xl border border-slate-200/80">
+        <div className="flex items-center gap-4 rounded-xl border border-slate-200/80 bg-slate-50 p-3">
           <div className="text-right">
-            <p className="text-[11px] text-slate-500 font-medium">
-              Réglé: <strong className="font-mono text-slate-800">{FCFA.format(montantPaye)}</strong> / {FCFA.format(dossierConcours.montantTotal)} FCFA
+            <p className="text-[11px] font-medium text-slate-500">
+              Réglé:{" "}
+              <strong className="font-mono text-slate-800">
+                {FCFA.format(montantPaye)}
+              </strong>{" "}
+              / {FCFA.format(dossierConcours.montantTotal)} FCFA
             </p>
             <p
-              className={`text-xs font-bold font-mono ${
+              className={`font-mono text-xs font-bold ${
                 soldeRestant <= 0 ? "text-emerald-700" : "text-brand-orange"
               }`}
             >
@@ -634,25 +733,27 @@ function ConcoursSectionCard({
             </p>
           </div>
 
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => onOuvrirPaiement(concours?.nom || "Concours")}
-            className="text-xs px-3 py-2 font-bold text-brand-orange bg-white hover:bg-orange-50 border-orange-200 shadow-2xs flex items-center gap-1.5"
-          >
-            <Coins size={14} />
-            <span>Payer</span>
-          </Button>
+          {onOuvrirPaiement && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => onOuvrirPaiement(concours?.nom || "Concours")}
+              className="text-brand-orange flex items-center gap-1.5 border-orange-200 bg-white px-3 py-2 text-xs font-bold shadow-2xs hover:bg-orange-50"
+            >
+              <Coins size={14} />
+              <span>Payer</span>
+            </Button>
+          )}
         </div>
       </div>
 
       {/* ── Barre d'outils des Pièces (Filtres, Recherche, Tout Valider) ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+        <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
           <button
             type="button"
             onClick={() => setFiltrePieces("TOUTES")}
-            className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+            className={`rounded-lg px-3 py-1 text-xs font-bold transition-all ${
               filtrePieces === "TOUTES"
                 ? "bg-white text-slate-900 shadow-2xs"
                 : "text-slate-600 hover:text-slate-900"
@@ -663,7 +764,7 @@ function ConcoursSectionCard({
           <button
             type="button"
             onClick={() => setFiltrePieces("A_VALIDER")}
-            className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+            className={`rounded-lg px-3 py-1 text-xs font-bold transition-all ${
               filtrePieces === "A_VALIDER"
                 ? "bg-white text-amber-800 shadow-2xs"
                 : "text-slate-600 hover:text-slate-900"
@@ -674,7 +775,7 @@ function ConcoursSectionCard({
           <button
             type="button"
             onClick={() => setFiltrePieces("VALIDEES")}
-            className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+            className={`rounded-lg px-3 py-1 text-xs font-bold transition-all ${
               filtrePieces === "VALIDEES"
                 ? "bg-white text-emerald-800 shadow-2xs"
                 : "text-slate-600 hover:text-slate-900"
@@ -686,27 +787,32 @@ function ConcoursSectionCard({
 
         <div className="flex items-center gap-2">
           <div className="relative">
-            <Search size={13} className="absolute left-2.5 top-2.5 text-slate-400" />
+            <Search
+              size={13}
+              className="absolute top-2.5 left-2.5 text-slate-400"
+            />
             <input
               type="text"
               value={recherchePiece}
               onChange={(e) => setRecherchePiece(e.target.value)}
               placeholder="Filtrer une pièce..."
-              className="pl-8 pr-3 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-orange w-44"
+              className="focus:ring-brand-orange w-44 rounded-lg border border-slate-200 bg-slate-50 py-1 pr-3 pl-8 text-xs focus:bg-white focus:ring-1 focus:outline-none"
             />
           </div>
 
-          {dossierStatut === "OUVERT" && nbValidees < nbTotal && (
+          {peutGerer && dossierStatut === "OUVERT" && nbValidees < nbTotal && (
             <Button
               type="button"
               variant="secondary"
               onClick={handleValiderToutesLesPieces}
               disabled={validerToutEnCours}
-              className="text-xs px-2.5 py-1 font-bold text-emerald-700 bg-emerald-50/70 hover:bg-emerald-100/80 border-emerald-300"
+              className="border-emerald-300 bg-emerald-50/70 px-2.5 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100/80"
               title="Valider en un clic toutes les pièces restantes de ce concours"
             >
               <CheckCheck size={14} className="mr-1 text-emerald-600" />
-              <span>{validerToutEnCours ? "Validation..." : "Tout valider"}</span>
+              <span>
+                {validerToutEnCours ? "Validation..." : "Tout valider"}
+              </span>
             </Button>
           )}
         </div>
@@ -715,66 +821,79 @@ function ConcoursSectionCard({
       {/* ── Liste des pièces en grille responsive ── */}
       {chargementPieces ? (
         <div className="p-8 text-center text-xs text-slate-400">
-          <Loader2 size={16} className="animate-spin text-brand-orange inline mr-1" />
+          <Loader2
+            size={16}
+            className="text-brand-orange mr-1 inline animate-spin"
+          />
           Chargement des pièces...
         </div>
       ) : piecesFiltrees.length === 0 ? (
-        <div className="p-6 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-slate-200">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-xs text-slate-400">
           Aucune pièce ne correspond au filtre sélectionné.
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {piecesFiltrees.map((piece) => {
             const pieceInfo = cataloguePieces.find(
               (cp) => cp.id === piece.pieceRequiseId,
             );
             const estValidee = piece.statut === "VALIDEE";
-            const montantLigne = pieceInfo ? pieceInfo.montant * piece.quantite : 0;
+            const montantLigne = pieceInfo
+              ? pieceInfo.montant * piece.quantite
+              : 0;
 
             return (
               <div
                 key={piece.id}
-                className={`p-3.5 rounded-xl border transition-all flex items-center justify-between gap-3 ${
+                className={`flex items-center justify-between gap-3 rounded-xl border p-3.5 transition-all ${
                   estValidee
-                    ? "bg-emerald-50/20 border-emerald-200/80"
-                    : "bg-white border-slate-200/90 shadow-2xs"
+                    ? "border-emerald-200/80 bg-emerald-50/20"
+                    : "border-slate-200/90 bg-white shadow-2xs"
                 }`}
               >
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="text-xs font-bold text-slate-900 truncate">
+                    <p className="truncate text-xs font-bold text-slate-900">
                       {pieceInfo?.nom || "Pièce non répertoriée"}
                     </p>
                     {piece.quantite > 1 && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded">
+                      <span className="py-0.2 rounded bg-slate-100 px-1.5 text-[10px] font-bold text-slate-600">
                         x{piece.quantite}
                       </span>
                     )}
                   </div>
-                  <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                  <p className="mt-0.5 font-mono text-[11px] text-slate-400">
                     {pieceInfo ? `${FCFA.format(montantLigne)} FCFA` : "—"}
                     {piece.dateValidation &&
                       ` · Validée le ${new Date(piece.dateValidation).toLocaleDateString("fr-FR")}`}
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex shrink-0 items-center gap-2">
                   {estValidee ? (
-                    <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100/60 px-2.5 py-1 rounded-lg border border-emerald-200">
+                    <span className="flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-100/60 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
                       <CheckCircle2 size={13} className="text-emerald-600" />
                       Validée
                     </span>
-                  ) : (
+                  ) : peutGerer ? (
                     <Button
                       type="button"
                       variant="secondary"
                       onClick={() => validerPieceMutation.mutate(piece.id)}
-                      disabled={validerPieceMutation.isPending || dossierStatut !== "OUVERT"}
-                      className="text-xs px-2.5 py-1 font-bold text-amber-700 bg-amber-50/60 hover:bg-amber-100/80 border-amber-300"
+                      disabled={
+                        validerPieceMutation.isPending ||
+                        dossierStatut !== "OUVERT"
+                      }
+                      className="border-amber-300 bg-amber-50/60 px-2.5 py-1 text-xs font-bold text-amber-700 hover:bg-amber-100/80"
                     >
                       <Clock size={12} className="mr-1 text-amber-600" />
                       Valider
                     </Button>
+                  ) : (
+                    <span className="flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50/60 px-2.5 py-1 text-[11px] font-bold text-amber-700">
+                      <Clock size={12} className="text-amber-600" />
+                      En attente
+                    </span>
                   )}
                 </div>
               </div>

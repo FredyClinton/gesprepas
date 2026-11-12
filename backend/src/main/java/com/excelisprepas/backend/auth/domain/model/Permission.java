@@ -15,7 +15,8 @@ public enum Permission {
     FINANCIER_MODIFIER_MOUVEMENT,
     FINANCIER_CONSULTER,
     FINANCIER_GERER_MOTIF,
-    FINANCIER_GERER_LIVRES,
+    FINANCIER_GERER_LIVRES, // catalogue des livres (création, modification, suppression)
+    LIVRE_VENDRE,           // vente de livres (crée une entrée en caisse)
     FINANCIER_GERER_PAIE,
     FINANCIER_CLOTURER_BILAN,
     FINANCIER_CONSULTER_ARCHIVES,
@@ -51,5 +52,19 @@ public enum Permission {
     ACADEMIE_MARQUER_EFFECTUEE,
 
     RAPPORT_CONSULTER,
-    RAPPORT_EXPORTER
+    RAPPORT_EXPORTER,
+
+    // Concours blancs
+    CONCOURS_BLANC_GERER,           // créer, modifier, supprimer, statut, verrouillage des centres, compilation
+    CONCOURS_BLANC_DEFINIR_CONTENU, // contenu et consignes d'une épreuve
+    CONCOURS_BLANC_SAISIR_NOTES,
+
+    // Dossiers de concours
+    DOSSIER_GERER,      // ouvrir, observation, concours, pièces, signaler complet, clôturer, rouvrir
+    DOSSIER_ENCAISSER,  // paiement d'un dossier (crée une entrée en caisse)
+    DOSSIER_SUPERVISER, // campagnes de concours et catalogue des pièces requises
+
+    // Divers
+    DEPARTEMENT_GERER_ENSEIGNANTS, // affectations départementales (roster)
+    APPRENANT_NEGOCIER_CONTRAT     // contrat d'une phase pédagogique
 }

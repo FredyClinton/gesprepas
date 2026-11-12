@@ -1,5 +1,8 @@
 package com.excelisprepas.backend.livre.infrastructure.in.web;
 
+import org.springframework.web.server.ResponseStatusException;
+import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
+import com.excelisprepas.backend.auth.infrastructure.in.web.UtilisateurCourant;
 import com.excelisprepas.backend.centre.domain.model.Centre;
 import com.excelisprepas.backend.centre.domain.port.out.CentreRepositoryPort;
 import com.excelisprepas.backend.livre.domain.model.Livre;
@@ -59,15 +62,21 @@ public class VenteLivreController {
 
     @Operation(summary = "Enregistrer une vente de livres",
                description = "Enregistre la vente d'ouvrages, décrémente les stocks et génère l'entrée en caisse pour le centre.")
-    @PreAuthorize("hasAuthority('FINANCIER_GERER_LIVRES')")
+    @PreAuthorize("hasAuthority('LIVRE_VENDRE')")
     @PostMapping
     public ResponseEntity<List<VenteLivreResponse>> enregistrerVente(
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @RequestHeader(value = "X-Centre-Id", required = false) UUID userCentreId,
             @Valid @RequestBody EnregistrerVenteLivreRequest request) {
 
+        // Un rôle rattaché à un centre (caissier...) ne vend que pour son centre : celui du
+        // jeton (en-têtes réécrits par EnTetesIdentiteFilter), jamais celui de la requête.
         UUID centreIdEffectif = request.centreId();
-        if (userRole != null && "CHEF_CENTRE".equalsIgnoreCase(userRole.trim()) && userCentreId != null) {
+        if (estRoleCentreScope(userRole)) {
+            if (userCentreId == null) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Aucun centre n'est associé à votre compte : vente impossible.");
+            }
             centreIdEffectif = userCentreId;
         }
 
@@ -82,7 +91,7 @@ public class VenteLivreController {
                 request.nomAcheteur(),
                 request.apprenantId(),
                 request.estExterne(),
-                request.saisiParUtilisateurId(),
+                UtilisateurCourant.idOu(request.saisiParUtilisateurId()),
                 lignes
         );
 
@@ -194,5 +203,15 @@ public class VenteLivreController {
                 v.getCreatedAt()
         )).toList();
     }
-}
 
+    private static boolean estRoleCentreScope(String userRole) {
+        if (userRole == null || userRole.isBlank()) {
+            return false;
+        }
+        try {
+            return RoleUtilisateur.valueOf(userRole.trim().toUpperCase()).estCentreScope();
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+}

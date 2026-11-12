@@ -14,6 +14,18 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class PersonnelExceptionHandler {
 
+    @ExceptionHandler(com.excelisprepas.backend.personnel.domain.exception.AttributionRoleInterditeException.class)
+    public ResponseEntity<ApiErrorResponse> gererAttributionRoleInterdite(
+            com.excelisprepas.backend.personnel.domain.exception.AttributionRoleInterditeException ex) {
+        return construireReponse(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    @ExceptionHandler(com.excelisprepas.backend.personnel.domain.exception.MotDePasseActuelIncorrectException.class)
+    public ResponseEntity<ApiErrorResponse> gererMotDePasseActuelIncorrect(
+            com.excelisprepas.backend.personnel.domain.exception.MotDePasseActuelIncorrectException ex) {
+        return construireReponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
     @ExceptionHandler(MatriculeDejaUtiliseException.class)
     public ResponseEntity<ApiErrorResponse> gererMatriculeDejaUtilise(MatriculeDejaUtiliseException ex) {
         return construireReponse(HttpStatus.CONFLICT, ex.getMessage());

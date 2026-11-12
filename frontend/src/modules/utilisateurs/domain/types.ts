@@ -35,8 +35,13 @@ export type LogoutRequest = {
   refreshToken: string;
 };
 
+// Corps de PATCH /api/mon-compte/mot-de-passe (ChangerMonMotDePasseRequest côté backend).
+export type ChangerMonMotDePasseInput = {
+  motDePasseActuel: string;
+  nouveauMotDePasse: string;
+};
+
 export type ModifierUtilisateurInput = {
   role: Role;
   centreId?: string | null;
 };
-

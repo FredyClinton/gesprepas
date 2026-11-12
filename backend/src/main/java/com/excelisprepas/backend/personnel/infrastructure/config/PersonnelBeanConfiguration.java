@@ -22,9 +22,10 @@ public class PersonnelBeanConfiguration {
     public UtilisateurService utilisateurService(UtilisateurRepositoryPort utilisateurRepositoryPort,
                                                  PasswordEncoderPort passwordEncoderPort,
                                                  CentreRepositoryPort centreRepositoryPort,
-                                                 com.excelisprepas.backend.personnel.domain.port.out.PersonnelRepositoryPort personnelRepositoryPort) {
+                                                 com.excelisprepas.backend.personnel.domain.port.out.PersonnelRepositoryPort personnelRepositoryPort,
+                                                 com.excelisprepas.backend.auth.domain.port.out.RefreshTokenRepositoryPort refreshTokenRepositoryPort) {
         return new UtilisateurService(utilisateurRepositoryPort, passwordEncoderPort,
-                centreRepositoryPort, personnelRepositoryPort);
+                centreRepositoryPort, personnelRepositoryPort, refreshTokenRepositoryPort);
     }
 
     @Bean
@@ -49,6 +50,11 @@ public class PersonnelBeanConfiguration {
 
     @Bean
     public ChangerMotDePasseUseCase changerMotDePasseUseCase(UtilisateurService utilisateurService) {
+        return utilisateurService;
+    }
+
+    @Bean
+    public ChangerMonMotDePasseUseCase changerMonMotDePasseUseCase(UtilisateurService utilisateurService) {
         return utilisateurService;
     }
 

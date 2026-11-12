@@ -4,7 +4,9 @@ import com.excelisprepas.backend.auth.domain.model.RefreshToken;
 import com.excelisprepas.backend.auth.domain.port.out.RefreshTokenRepositoryPort;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 public class RefreshTokenRepositoryAdapter implements RefreshTokenRepositoryPort {
@@ -26,5 +28,10 @@ public class RefreshTokenRepositoryAdapter implements RefreshTokenRepositoryPort
     @Override
     public Optional<RefreshToken> findByTokenHash(String tokenHash) {
         return jpaRepository.findByTokenHash(tokenHash).map(mapper::toDomain);
+    }
+
+    @Override
+    public void revoquerTousPourUtilisateur(UUID utilisateurId, Instant dateRevocation) {
+        jpaRepository.revoquerTousPourUtilisateur(utilisateurId, dateRevocation);
     }
 }

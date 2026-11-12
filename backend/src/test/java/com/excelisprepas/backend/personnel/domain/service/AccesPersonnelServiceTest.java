@@ -63,7 +63,7 @@ class AccesPersonnelServiceTest {
         when(accesPersonnelRepository.findByPersonnelIdAndSessionIdAndPhaseId(personnelId, sessionId, phaseId))
                 .thenReturn(Optional.empty());
 
-        AccesPersonnel resultat = service.accorderAcces(personnelId, sessionId, phaseId, "Autorisation accordée");
+        AccesPersonnel resultat = service.accorderAcces(RoleUtilisateur.DIRECTEUR, personnelId, sessionId, phaseId, "Autorisation accordée");
 
         assertThat(resultat).isNotNull();
         assertThat(resultat.getPersonnelId()).isEqualTo(personnelId);
@@ -82,7 +82,7 @@ class AccesPersonnelServiceTest {
         when(accesPersonnelRepository.findByPersonnelIdAndSessionIdAndPhaseId(personnelId, sessionId, phaseId))
                 .thenReturn(Optional.of(existant));
 
-        AccesPersonnel resultat = service.bloquerAcces(personnelId, sessionId, phaseId, "Suspendu par la direction");
+        AccesPersonnel resultat = service.bloquerAcces(RoleUtilisateur.DIRECTEUR, personnelId, sessionId, phaseId, "Suspendu par la direction");
 
         assertThat(resultat.getStatut()).isEqualTo(StatutAcces.BLOQUE);
         assertThat(resultat.getMotif()).isEqualTo("Suspendu par la direction");
@@ -95,7 +95,7 @@ class AccesPersonnelServiceTest {
         UUID inconnu = UUID.randomUUID();
         when(personnelRepository.findById(inconnu)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.bloquerAcces(inconnu, sessionId, phaseId, "Motif"))
+        assertThatThrownBy(() -> service.bloquerAcces(RoleUtilisateur.DIRECTEUR, inconnu, sessionId, phaseId, "Motif"))
                 .isInstanceOf(PersonnelIntrouvableException.class);
     }
 
@@ -105,7 +105,7 @@ class AccesPersonnelServiceTest {
         UUID sessionInconnue = UUID.randomUUID();
         when(sessionRepository.findById(sessionInconnue)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.bloquerAcces(personnelId, sessionInconnue, phaseId, "Motif"))
+        assertThatThrownBy(() -> service.bloquerAcces(RoleUtilisateur.DIRECTEUR, personnelId, sessionInconnue, phaseId, "Motif"))
                 .isInstanceOf(SessionIntrouvableException.class);
     }
 
@@ -126,7 +126,7 @@ class AccesPersonnelServiceTest {
     void personnelSansCompteUtilisateur() {
         when(utilisateurRepository.findById(personnelId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.bloquerAcces(personnelId, sessionId, phaseId, "Motif"))
+        assertThatThrownBy(() -> service.bloquerAcces(RoleUtilisateur.DIRECTEUR, personnelId, sessionId, phaseId, "Motif"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("compte utilisateur");
     }
@@ -137,8 +137,25 @@ class AccesPersonnelServiceTest {
         when(utilisateurRepository.findById(personnelId))
                 .thenReturn(Optional.of(new Utilisateur(personnelId, "Doe", "John", "dir@example.com", "hash", RoleUtilisateur.DIRECTEUR)));
 
-        assertThatThrownBy(() -> service.bloquerAcces(personnelId, sessionId, phaseId, "Motif"))
+        assertThatThrownBy(() -> service.bloquerAcces(RoleUtilisateur.DIRECTEUR, personnelId, sessionId, phaseId, "Motif"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Le compte du Directeur ne peut pas être bloqué");
+    }
+
+    @Test
+    @DisplayName("bloquerAcces refuse qu'un Chef de département bloque le compte d'un Directeur académique")
+    void chefDepartementNePeutPasBloquerDirecteurAcademique() {
+        when(utilisateurRepository.findById(personnelId))
+                .thenReturn(Optional.of(new Utilisateur(personnelId, "Doe", "John", "da@example.com", "hash", RoleUtilisateur.DIRECTEUR_ACADEMIQUE)));
+
+        assertThatThrownBy(() -> service.bloquerAcces(RoleUtilisateur.CHEF_DEPARTEMENT, personnelId, sessionId, phaseId, "Motif"))
+                .isInstanceOf(com.excelisprepas.backend.personnel.domain.exception.AttributionRoleInterditeException.class);
+    }
+
+    @Test
+    @DisplayName("bloquerAcces refuse un appelant sans rôle (pas de jeton)")
+    void appelantInconnuRefuse() {
+        assertThatThrownBy(() -> service.bloquerAcces(null, personnelId, sessionId, phaseId, "Motif"))
+                .isInstanceOf(com.excelisprepas.backend.personnel.domain.exception.AttributionRoleInterditeException.class);
     }
 }

@@ -48,6 +48,8 @@ class MouvementFinancierServiceTest {
     private com.excelisprepas.backend.apprenant.domain.port.out.ContratApprenantRepositoryPort contratApprenantRepository;
     private MouvementFinancierService service;
 
+    private com.excelisprepas.backend.financier.domain.port.out.BilanJournalierRepositoryPort bilanRepository;
+
     @BeforeEach
     void setUp() {
         entreeRepository = mock(EntreeRepositoryPort.class);
@@ -59,8 +61,10 @@ class MouvementFinancierServiceTest {
         mouvementRepository = mock(MouvementFinancierRepositoryPort.class);
         dossierInscriptionRepository = mock(com.excelisprepas.backend.inscription.domain.port.out.DossierInscriptionRepositoryPort.class);
         contratApprenantRepository = mock(com.excelisprepas.backend.apprenant.domain.port.out.ContratApprenantRepositoryPort.class);
+        bilanRepository = mock(com.excelisprepas.backend.financier.domain.port.out.BilanJournalierRepositoryPort.class);
         service = new MouvementFinancierService(entreeRepository, sortieRepository, motifRepository,
-                centreRepository, apprenantRepository, sessionRepository, mouvementRepository, dossierInscriptionRepository, contratApprenantRepository);
+                centreRepository, apprenantRepository, sessionRepository, mouvementRepository, dossierInscriptionRepository,
+                contratApprenantRepository, bilanRepository, null, null);
     }
 
     private Motif unMotifEntree() {
@@ -79,6 +83,45 @@ class MouvementFinancierServiceTest {
     @Nested
     @DisplayName("Saisie d'une Entree")
     class SaisieEntree {
+
+        private Motif preparerSaisieValide() {
+            Motif motif = unMotifEntree();
+            when(motifRepository.findById(motif.getId())).thenReturn(Optional.of(motif));
+            when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(uneSessionEnCours()));
+            when(centreRepository.findById(centreId)).thenReturn(Optional.of(
+                    new Centre(centreId, "Centre NIL", "Adresse", "Yaoundé")));
+            when(entreeRepository.save(any(Entree.class))).thenAnswer(i -> i.getArgument(0));
+            return motif;
+        }
+
+        @Test
+        @DisplayName("refuse une entree datée d'une journée dont le bilan est déjà soumis")
+        void refuseEntreeSurJourneeSoumise() {
+            Motif motif = preparerSaisieValide();
+            when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date)).thenReturn(Optional.of(
+                    BilanJournalier.creerPourCaissier(UUID.randomUUID(), centreId, sessionId, date,
+                            UUID.randomUUID(), "Caissier", java.time.LocalDateTime.now())));
+
+            assertThatThrownBy(() -> service.saisirEntree(sessionId, motif.getId(), new BigDecimal("1000"), date,
+                    saisiParUtilisateurId, centreId, null, null))
+                    .isInstanceOf(BilanDejaValideException.class);
+            verify(entreeRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("accepte une entree quand le bilan du jour est seulement OUVERT, après avoir verrouillé la journée")
+        void accepteEntreeSurBilanOuvertEtVerrouille() {
+            Motif motif = preparerSaisieValide();
+            when(bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date))
+                    .thenReturn(Optional.of(new BilanJournalier(UUID.randomUUID(), centreId, sessionId, date)));
+
+            service.saisirEntree(sessionId, motif.getId(), new BigDecimal("1000"), date,
+                    saisiParUtilisateurId, centreId, null, null);
+
+            var ordre = inOrder(bilanRepository, entreeRepository);
+            ordre.verify(bilanRepository).verrouillerJournee(centreId, sessionId, date);
+            ordre.verify(entreeRepository).save(any(Entree.class));
+        }
 
         @Test
         @DisplayName("saisit une entree quand tout est valide, sans apprenant")

@@ -1,5 +1,6 @@
 package com.excelisprepas.backend.academie.etablissement.infrastructure.in.web;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.excelisprepas.backend.academie.etablissement.domain.model.Etablissement;
 import com.excelisprepas.backend.academie.etablissement.domain.service.EtablissementService;
 import com.excelisprepas.backend.academie.etablissement.infrastructure.in.web.dto.CreerEtablissementRequest;
@@ -34,6 +35,7 @@ public class EtablissementController {
     }
 
     @Operation(summary = "Enregistrer ou récupérer un établissement", description = "Vérifie l'existence par nom (insensible à la casse) et l'enregistre si nouveau")
+    @PreAuthorize("hasAuthority('INSCRIPTION_GERER')")
     @PostMapping
     public ResponseEntity<EtablissementResponse> enregistrerEtablissement(@Valid @RequestBody CreerEtablissementRequest request) {
         Etablissement etablissement = etablissementService.enregistrerOuRecuperer(request.nom(), request.ville());

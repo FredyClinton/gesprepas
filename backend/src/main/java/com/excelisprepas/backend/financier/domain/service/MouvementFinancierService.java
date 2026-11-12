@@ -49,35 +49,6 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
                                      SessionAcademiqueRepositoryPort sessionRepository,
                                      MouvementFinancierRepositoryPort mouvementRepository,
                                      com.excelisprepas.backend.inscription.domain.port.out.DossierInscriptionRepositoryPort dossierInscriptionRepository,
-                                     com.excelisprepas.backend.apprenant.domain.port.out.ContratApprenantRepositoryPort contratApprenantRepository) {
-        this(entreeRepository, sortieRepository, motifRepository, centreRepository, apprenantRepository,
-                sessionRepository, mouvementRepository, dossierInscriptionRepository, contratApprenantRepository, null, null, null);
-    }
-
-    public MouvementFinancierService(EntreeRepositoryPort entreeRepository,
-                                     SortieRepositoryPort sortieRepository,
-                                     MotifRepositoryPort motifRepository,
-                                     CentreRepositoryPort centreRepository,
-                                     ApprenantRepositoryPort apprenantRepository,
-                                     SessionAcademiqueRepositoryPort sessionRepository,
-                                     MouvementFinancierRepositoryPort mouvementRepository,
-                                     com.excelisprepas.backend.inscription.domain.port.out.DossierInscriptionRepositoryPort dossierInscriptionRepository,
-                                     com.excelisprepas.backend.apprenant.domain.port.out.ContratApprenantRepositoryPort contratApprenantRepository,
-                                     com.excelisprepas.backend.financier.domain.port.out.BilanJournalierRepositoryPort bilanRepository,
-                                     com.excelisprepas.backend.livre.domain.port.out.VenteLivreRepositoryPort venteLivreRepository) {
-        this(entreeRepository, sortieRepository, motifRepository, centreRepository, apprenantRepository,
-                sessionRepository, mouvementRepository, dossierInscriptionRepository, contratApprenantRepository,
-                bilanRepository, venteLivreRepository, null);
-    }
-
-    public MouvementFinancierService(EntreeRepositoryPort entreeRepository,
-                                     SortieRepositoryPort sortieRepository,
-                                     MotifRepositoryPort motifRepository,
-                                     CentreRepositoryPort centreRepository,
-                                     ApprenantRepositoryPort apprenantRepository,
-                                     SessionAcademiqueRepositoryPort sessionRepository,
-                                     MouvementFinancierRepositoryPort mouvementRepository,
-                                     com.excelisprepas.backend.inscription.domain.port.out.DossierInscriptionRepositoryPort dossierInscriptionRepository,
                                      com.excelisprepas.backend.apprenant.domain.port.out.ContratApprenantRepositoryPort contratApprenantRepository,
                                      com.excelisprepas.backend.financier.domain.port.out.BilanJournalierRepositoryPort bilanRepository,
                                      com.excelisprepas.backend.livre.domain.port.out.VenteLivreRepositoryPort venteLivreRepository,
@@ -91,7 +62,8 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
         this.mouvementRepository = mouvementRepository;
         this.dossierInscriptionRepository = dossierInscriptionRepository;
         this.contratApprenantRepository = contratApprenantRepository;
-        this.bilanRepository = bilanRepository;
+        this.bilanRepository = java.util.Objects.requireNonNull(bilanRepository,
+                "bilanRepository est obligatoire : sans lui, le verrou des bilans validés serait ignoré");
         this.venteLivreRepository = venteLivreRepository;
         this.auditEventHelper = auditEventHelper;
     }
@@ -139,6 +111,7 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
         if (centreRepository.findById(centreId).isEmpty()) {
             throw new CentreIntrouvableException(centreId);
         }
+        verrouillerJourneeNonValidee(centreId, sessionId, date);
 
         UUID formationId = null;
         if (apprenantId != null) {
@@ -239,6 +212,7 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
         if (centreId != null && centreRepository.findById(centreId).isEmpty()) {
             throw new CentreIntrouvableException(centreId);
         }
+        verrouillerJourneeNonValidee(centreId, sessionId, date);
 
         Sortie sortie = new Sortie(UUID.randomUUID(), sessionId, motifId, montant, date,
                 saisiParUtilisateurId, centreId, ordonnateur);
@@ -304,13 +278,29 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
         return entreeRepository.findByApprenantId(apprenantId);
     }
 
+    /**
+     * Prend le verrou de la journée de caisse puis vérifie que son bilan n'est pas soumis.
+     * Le verrou (tenu jusqu'à la fin de la transaction) empêche une soumission ou une
+     * clôture concurrente de s'intercaler entre ce contrôle et l'écriture.
+     */
+    private void verrouillerJourneeNonValidee(UUID centreId, UUID sessionId, LocalDate date) {
+        if (centreId == null || sessionId == null || date == null) {
+            return; // mouvement sans centre (ex. sortie nationale) : pas de bilan journalier de centre
+        }
+        bilanRepository.verrouillerJournee(centreId, sessionId, date);
+        verifierBilanNonValide(centreId, sessionId, date, null);
+    }
+
     private void verifierBilanNonValide(UUID centreId, UUID sessionId, LocalDate date, UUID bilanJournalierId) {
         if (bilanJournalierId != null) {
             log.warn("Opération refusée : entrée rattachée au bilan clôturé {}", bilanJournalierId);
             throw new BilanDejaValideException("Impossible de modifier ou supprimer ce versement : il est déjà rattaché à un bilan clôturé.");
         }
-        if (bilanRepository != null && centreId != null && sessionId != null && date != null) {
-            var bilanOpt = bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date);
+        if (centreId != null && sessionId != null && date != null) {
+            // Un bilan OUVERT (créé par exemple en ajustant le nombre de salles) ne fige pas
+            // encore la journée : seul un bilan soumis par le caissier, ou au-delà, la verrouille.
+            var bilanOpt = bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date)
+                    .filter(b -> b.getStatut() != StatutBilan.OUVERT);
             if (bilanOpt.isPresent()) {
                 log.warn("Opération refusée : bilan déjà validé pour centreId={}, date={}", centreId, date);
                 throw new BilanDejaValideException("Impossible de modifier ou supprimer ce versement : le bilan journalier du " + date + " a déjà été validé.");
@@ -324,11 +314,15 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
                 .orElseThrow(() -> new MouvementFinancierIntrouvableException(entreeId));
 
         verifierSessionUtilisable(entree.getSessionId());
-        verifierBilanNonValide(entree.getCentreId(), entree.getSessionId(), entree.getDate(), entree.getBilanJournalierId().orElse(null));
-
-        if (date != null && !date.equals(entree.getDate())) {
-            verifierBilanNonValide(entree.getCentreId(), entree.getSessionId(), date, null);
+        java.util.TreeSet<LocalDate> journees = new java.util.TreeSet<>();
+        journees.add(entree.getDate());
+        if (date != null) {
+            journees.add(date);
         }
+        for (LocalDate journee : journees) {
+            verrouillerJourneeNonValidee(entree.getCentreId(), entree.getSessionId(), journee);
+        }
+        verifierBilanNonValide(entree.getCentreId(), entree.getSessionId(), entree.getDate(), entree.getBilanJournalierId().orElse(null));
 
         UUID motifFinal = motifId != null ? motifId : entree.getMotifId();
         Motif motif = verifierMotif(motifFinal, TypeMotif.ENTREE);
@@ -413,6 +407,7 @@ public class MouvementFinancierService implements SaisirEntreeUseCase, SaisirSor
                 .orElseThrow(() -> new MouvementFinancierIntrouvableException(entreeId));
 
         verifierSessionUtilisable(entree.getSessionId());
+        verrouillerJourneeNonValidee(entree.getCentreId(), entree.getSessionId(), entree.getDate());
         verifierBilanNonValide(entree.getCentreId(), entree.getSessionId(), entree.getDate(), entree.getBilanJournalierId().orElse(null));
 
         // Si l'entrée était liée à des ventes de livres, annuler les ventes

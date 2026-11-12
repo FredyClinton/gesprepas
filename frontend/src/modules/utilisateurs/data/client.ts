@@ -1,5 +1,6 @@
 import { apiFetch } from "@/shared/lib/api-client";
 import {
+  ChangerMonMotDePasseInput,
   LoginRequest,
   LoginResponse,
   LogoutRequest,
@@ -57,10 +58,7 @@ export function modifierUtilisateur(
   });
 }
 
-export function changerMotDePasse(
-  id: string,
-  password: string,
-): Promise<void> {
+export function changerMotDePasse(id: string, password: string): Promise<void> {
   return apiFetch<void>(`/api/utilisateurs/${id}/mot-de-passe`, {
     method: "PATCH",
     body: JSON.stringify({ password }),
@@ -73,3 +71,16 @@ export function revoquerCompteUtilisateur(id: string): Promise<void> {
   });
 }
 
+// Compte de l'utilisateur connecté : l'identité vient du jeton côté backend, aucun id à passer.
+export function getMonCompte(): Promise<Utilisateur> {
+  return apiFetch<Utilisateur>("/api/mon-compte");
+}
+
+export function changerMonMotDePasse(
+  input: ChangerMonMotDePasseInput,
+): Promise<void> {
+  return apiFetch<void>("/api/mon-compte/mot-de-passe", {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}

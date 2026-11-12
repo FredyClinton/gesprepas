@@ -251,6 +251,7 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
         }
 
         String nomCaissier = recupererNomCompletUtilisateur(caissierUtilisateurId);
+        bilanRepository.verrouillerJournee(centreId, sessionId, date); // voir BilanJournalierRepositoryPort
         Optional<BilanJournalier> existant = bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date);
 
         BilanJournalier bilan;
@@ -289,6 +290,7 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
         }
 
         String nomChefCentre = recupererNomCompletUtilisateur(validateurUtilisateurId);
+        bilanRepository.verrouillerJournee(centreId, sessionId, date); // voir BilanJournalierRepositoryPort
         Optional<BilanJournalier> existant = bilanRepository.findByCentreIdAndSessionIdAndDate(centreId, sessionId, date);
         if (existant.isPresent() && existant.get().getStatut() != StatutBilan.SOUMIS_CAISSIER) {
             log.warn("Validation de bilan refusée : bilan déjà existant pour centreId={}, date={}", centreId, date);
@@ -345,6 +347,10 @@ public class BilanJournalierService implements SoumettreBilanCaissierUseCase, Va
 
     private BilanJournalier cloturerEtValiderBilan(BilanJournalier bilan, UUID validateurUtilisateurId) {
         verifierSessionUtilisable(bilan.getSessionId());
+        // Verrou pris, puis bilan relu : un mouvement saisi entre la lecture initiale et
+        // ce point est ainsi compté dans les totaux et rattaché au bilan.
+        bilanRepository.verrouillerJournee(bilan.getCentreId(), bilan.getSessionId(), bilan.getDate());
+        bilan = bilanRepository.findById(bilan.getId()).orElse(bilan);
         if (utilisateurRepository.findById(validateurUtilisateurId).isEmpty()) {
             throw new UtilisateurIntrouvableException(validateurUtilisateurId);
         }

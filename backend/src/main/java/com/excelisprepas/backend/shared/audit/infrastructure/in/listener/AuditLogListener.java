@@ -4,11 +4,12 @@ import com.excelisprepas.backend.shared.audit.domain.event.AuditLogEvent;
 import com.excelisprepas.backend.shared.audit.domain.model.AuditLog;
 import com.excelisprepas.backend.shared.audit.infrastructure.out.persistence.AuditLogRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 @Component
 @Slf4j
@@ -20,8 +21,10 @@ public class AuditLogListener {
         this.auditLogRepository = auditLogRepository;
     }
 
+    // Après commit seulement : une opération annulée (rollback) ne doit pas laisser de
+    // trace "SUCCES". fallbackExecution couvre les événements publiés hors transaction.
     @Async
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onAuditLogEvent(AuditLogEvent event) {
         try {

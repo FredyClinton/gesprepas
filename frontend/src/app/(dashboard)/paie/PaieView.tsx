@@ -19,7 +19,11 @@ import {
   CheckCheck,
 } from "lucide-react";
 import { SortableHeader } from "@/shared/ui";
-import { compareStrings, compareNumbers, type SortDirection } from "@/shared/lib/sort-utils";
+import {
+  compareStrings,
+  compareNumbers,
+  type SortDirection,
+} from "@/shared/lib/sort-utils";
 import {
   useSessions,
   useSessionActive,
@@ -83,7 +87,8 @@ export function PaieView() {
   const [printBordereauId, setPrintBordereauId] = useState<string | null>(null);
 
   // Modals state for Personnel
-  const [isPlanifierPersonnelOpen, setIsPlanifierPersonnelOpen] = useState(false);
+  const [isPlanifierPersonnelOpen, setIsPlanifierPersonnelOpen] =
+    useState(false);
   const [isGestionSalairesOpen, setIsGestionSalairesOpen] = useState(false);
   const [selectedPersonnelBordereauId, setSelectedPersonnelBordereauId] =
     useState<string | null>(null);
@@ -126,10 +131,11 @@ export function PaieView() {
   }, [utilisateurs]);
 
   const activePersonnelBordereau = useMemo(() => {
-    if (!bordereauxPersonnel || bordereauxPersonnel.length === 0) return undefined;
+    if (!bordereauxPersonnel || bordereauxPersonnel.length === 0)
+      return undefined;
     if (selectedPersonnelBordereauId) {
       const found = bordereauxPersonnel.find(
-        (b) => b.id === selectedPersonnelBordereauId
+        (b) => b.id === selectedPersonnelBordereauId,
       );
       if (found) return found;
     }
@@ -139,20 +145,23 @@ export function PaieView() {
   const totalPersonnelDecaisse = useMemo(() => {
     return bordereauxPersonnel.reduce(
       (sum, b) => sum + Number(b.montantTotalGlobal || 0),
-      0
+      0,
     );
   }, [bordereauxPersonnel]);
 
   const totalPersonnelsRemuneres = useMemo(() => {
     return bordereauxPersonnel.reduce(
       (sum, b) => sum + Number(b.nombrePersonnelsPayes || 0),
-      0
+      0,
     );
   }, [bordereauxPersonnel]);
 
-  type TriPersonnelFicheColonne = "collaborateur" | "role" | "salaireRef" | "montantPaye";
-  const [triPersonnelColonne, setTriPersonnelColonne] = useState<TriPersonnelFicheColonne>("collaborateur");
-  const [triPersonnelDirection, setTriPersonnelDirection] = useState<SortDirection>("asc");
+  type TriPersonnelFicheColonne =
+    "collaborateur" | "role" | "salaireRef" | "montantPaye";
+  const [triPersonnelColonne, setTriPersonnelColonne] =
+    useState<TriPersonnelFicheColonne>("collaborateur");
+  const [triPersonnelDirection, setTriPersonnelDirection] =
+    useState<SortDirection>("asc");
 
   function handleTriPersonnel(colonne: TriPersonnelFicheColonne) {
     if (triPersonnelColonne === colonne) {
@@ -194,8 +203,12 @@ export function PaieView() {
         const nomB = pB ? `${pB.nom} ${pB.prenom}` : "";
         cmp = compareStrings(nomA, nomB);
       } else if (triPersonnelColonne === "role") {
-        const roleA = roleMap.get(a.personnelId) ? ROLE_LABELS[roleMap.get(a.personnelId)!] : "";
-        const roleB = roleMap.get(b.personnelId) ? ROLE_LABELS[roleMap.get(b.personnelId)!] : "";
+        const roleA = roleMap.get(a.personnelId)
+          ? ROLE_LABELS[roleMap.get(a.personnelId)!]
+          : "";
+        const roleB = roleMap.get(b.personnelId)
+          ? ROLE_LABELS[roleMap.get(b.personnelId)!]
+          : "";
         cmp = compareStrings(roleA, roleB);
       } else if (triPersonnelColonne === "salaireRef") {
         cmp = compareNumbers(a.salaireReference, b.salaireReference);
@@ -224,11 +237,7 @@ export function PaieView() {
   const [expandedFicheId, setExpandedFicheId] = useState<string | null>(null);
 
   type TriEnseignantFicheColonne =
-    | "enseignant"
-    | "departement"
-    | "seances"
-    | "totalNet"
-    | "statut";
+    "enseignant" | "departement" | "seances" | "totalNet" | "statut";
   const [triEnseignantColonne, setTriEnseignantColonne] =
     useState<TriEnseignantFicheColonne>("enseignant");
   const [triEnseignantDirection, setTriEnseignantDirection] =
@@ -463,8 +472,8 @@ export function PaieView() {
       {activeTab === "enseignants" && (
         <div className="space-y-6">
           {loadingBordereaux ? (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              <div className="space-y-3">
+            <div className="flex flex-col items-start gap-5 lg:flex-row">
+              <div className="w-full shrink-0 space-y-3 lg:w-72 xl:w-80">
                 <div className="h-4 w-1/3 animate-pulse rounded bg-gray-200" />
                 <div className="animate-pulse space-y-3 rounded-xl border border-slate-200 bg-white p-4">
                   <div className="h-4 w-1/2 rounded bg-slate-200" />
@@ -477,7 +486,7 @@ export function PaieView() {
                   <div className="h-2 w-full rounded bg-slate-200" />
                 </div>
               </div>
-              <div className="space-y-4 lg:col-span-2">
+              <div className="w-full min-w-0 flex-1 space-y-4">
                 <div className="animate-pulse space-y-4 rounded-2xl border border-slate-200 bg-white p-6">
                   <div className="h-6 w-1/3 rounded bg-slate-200" />
                   <div className="h-4 w-1/2 rounded bg-slate-200" />
@@ -511,9 +520,9 @@ export function PaieView() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="flex flex-col items-start gap-5 lg:flex-row">
               {/* Left Column: List of Bordereaux */}
-              <div className="space-y-3">
+              <div className="w-full shrink-0 space-y-3 lg:w-72 xl:w-80">
                 <h3 className="px-1 text-xs font-bold tracking-wider text-slate-400 uppercase">
                   Bordereaux de la session ({bordereauxEnseignants.length})
                 </h3>
@@ -537,7 +546,7 @@ export function PaieView() {
                         onClick={() => setSelectedBordereauId(b.id)}
                         className={`cursor-pointer rounded-xl border p-3.5 text-left transition-all ${
                           isSelected
-                            ? "border-brand-orange bg-orange-50/50 shadow-2xs ring-1 ring-brand-orange"
+                            ? "border-brand-orange ring-brand-orange bg-orange-50/50 shadow-2xs ring-1"
                             : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50"
                         }`}
                       >
@@ -546,12 +555,12 @@ export function PaieView() {
                             {b.reference}
                           </span>
                           {isFullyPaid ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200/80 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
                               <CheckCircle2 className="h-2.5 w-2.5 text-emerald-600" />
                               Payé
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200/80 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-200/80 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">
                               <Clock className="h-2.5 w-2.5 text-amber-600" />
                               {paidCount}/{b.fiches.length} payé(s)
                             </span>
@@ -559,7 +568,8 @@ export function PaieView() {
                         </div>
 
                         <div className="mb-2.5 text-xs text-slate-500">
-                          Prévu le {formatDatePaiement(b.datePaiement)} • {b.nombreTotalEnseignants} ens.
+                          Prévu le {formatDatePaiement(b.datePaiement)} •{" "}
+                          {b.nombreTotalEnseignants} ens.
                         </div>
 
                         {/* Progress Bar */}
@@ -589,7 +599,7 @@ export function PaieView() {
 
               {/* Right Column: Selected Bordereau Detail */}
               {activeBordereau && (
-                <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs lg:col-span-2">
+                <div className="w-full min-w-0 flex-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
                   {/* 2. En-tête simplifié du bordereau */}
                   <div className="border-b border-slate-100 p-5">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -599,17 +609,17 @@ export function PaieView() {
                             {activeBordereau.reference}
                           </h2>
                           {bordereauStats?.statutGlobal === "PAYE" ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200/80 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
                               <CheckCircle2 className="h-3 w-3 text-emerald-600" />
                               Payé
                             </span>
                           ) : bordereauStats?.statutGlobal === "PARTIEL" ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200/80 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-200/80 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
                               <Clock className="h-3 w-3 text-amber-600" />
                               Partiellement payé
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200/80 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
                               <Clock className="h-3 w-3 text-slate-500" />
                               En attente
                             </span>
@@ -639,18 +649,26 @@ export function PaieView() {
                         <div>
                           <span className="text-slate-400">Enseignants : </span>
                           <span className="font-semibold text-slate-800">
-                            {bordereauStats?.totalEnseignants ?? activeBordereau.fiches.length}
+                            {bordereauStats?.totalEnseignants ??
+                              activeBordereau.fiches.length}
                           </span>
                         </div>
                         <span className="text-slate-200">•</span>
                         <div>
-                          <span className="text-slate-400">Paiements effectués : </span>
+                          <span className="text-slate-400">
+                            Paiements effectués :{" "}
+                          </span>
                           <span className="font-semibold text-slate-800">
-                            {bordereauStats?.nombrePayes ?? 0} sur {bordereauStats?.totalEnseignants ?? 0}
+                            {bordereauStats?.nombrePayes ?? 0} sur{" "}
+                            {bordereauStats?.totalEnseignants ?? 0}
                           </span>
                           {bordereauStats && bordereauStats.montantPaye > 0 && (
-                            <span className="ml-1 font-mono text-emerald-700 font-medium">
-                              ({bordereauStats.montantPaye.toLocaleString("fr-FR")} FCFA)
+                            <span className="ml-1 font-mono font-medium text-emerald-700">
+                              (
+                              {bordereauStats.montantPaye.toLocaleString(
+                                "fr-FR",
+                              )}{" "}
+                              FCFA)
                             </span>
                           )}
                         </div>
@@ -658,9 +676,14 @@ export function PaieView() {
 
                       {/* Montant total affiché une seule fois */}
                       <div className="flex items-baseline gap-2">
-                        <span className="text-xs text-slate-500">Montant total :</span>
+                        <span className="text-xs text-slate-500">
+                          Montant total :
+                        </span>
                         <span className="font-mono text-base font-bold text-slate-900">
-                          {Number(activeBordereau.montantTotalGlobal).toLocaleString("fr-FR")} FCFA
+                          {Number(
+                            activeBordereau.montantTotalGlobal,
+                          ).toLocaleString("fr-FR")}{" "}
+                          FCFA
                         </span>
                       </div>
                     </div>
@@ -675,7 +698,7 @@ export function PaieView() {
                         placeholder="Rechercher par nom, matricule ou matière..."
                         value={teacherSearch}
                         onChange={(e) => setTeacherSearch(e.target.value)}
-                        className="w-full rounded-lg border border-slate-200 bg-white py-1.5 pr-3 pl-9 text-xs text-slate-800 placeholder-slate-400 transition focus:border-brand-orange focus:ring-1 focus:ring-brand-orange/20 focus:outline-none"
+                        className="focus:border-brand-orange focus:ring-brand-orange/20 w-full rounded-lg border border-slate-200 bg-white py-1.5 pr-3 pl-9 text-xs text-slate-800 placeholder-slate-400 transition focus:ring-1 focus:outline-none"
                       />
                     </div>
 
@@ -700,7 +723,13 @@ export function PaieView() {
                             : "text-slate-600 hover:bg-slate-200/60"
                         }`}
                       >
-                        À payer ({activeBordereau.fiches.filter((f) => f.statut === "PROGRAMMEE").length})
+                        À payer (
+                        {
+                          activeBordereau.fiches.filter(
+                            (f) => f.statut === "PROGRAMMEE",
+                          ).length
+                        }
+                        )
                       </button>
                       <button
                         type="button"
@@ -711,7 +740,13 @@ export function PaieView() {
                             : "text-slate-600 hover:bg-slate-200/60"
                         }`}
                       >
-                        Payés ({activeBordereau.fiches.filter((f) => f.statut === "PAYEE").length})
+                        Payés (
+                        {
+                          activeBordereau.fiches.filter(
+                            (f) => f.statut === "PAYEE",
+                          ).length
+                        }
+                        )
                       </button>
                     </div>
                   </div>
@@ -735,7 +770,7 @@ export function PaieView() {
                             currentSortKey={triEnseignantColonne}
                             direction={triEnseignantDirection}
                             onSort={handleTriEnseignant}
-                            className="py-3 px-3"
+                            className="px-3 py-3"
                           />
                           <SortableHeader
                             label="Séances / Volume"
@@ -744,7 +779,7 @@ export function PaieView() {
                             direction={triEnseignantDirection}
                             onSort={handleTriEnseignant}
                             align="center"
-                            className="py-3 px-3"
+                            className="px-3 py-3"
                           />
                           <SortableHeader
                             label="Net à payer"
@@ -753,7 +788,7 @@ export function PaieView() {
                             direction={triEnseignantDirection}
                             onSort={handleTriEnseignant}
                             align="right"
-                            className="py-3 px-3"
+                            className="px-3 py-3"
                           />
                           <SortableHeader
                             label="Statut"
@@ -762,7 +797,7 @@ export function PaieView() {
                             direction={triEnseignantDirection}
                             onSort={handleTriEnseignant}
                             align="center"
-                            className="py-3 px-3"
+                            className="px-3 py-3"
                           />
                           <th className="py-3 pr-5 pl-3 text-right">Action</th>
                         </tr>
@@ -820,10 +855,12 @@ export function PaieView() {
                                       </button>
                                       <div>
                                         <p className="font-semibold text-slate-900">
-                                          {fiche.enseignantNom} {fiche.enseignantPrenom}
+                                          {fiche.enseignantNom}{" "}
+                                          {fiche.enseignantPrenom}
                                         </p>
                                         <p className="font-mono text-[11px] text-slate-400">
-                                          {fiche.enseignantMatricule || "Sans matricule"}
+                                          {fiche.enseignantMatricule ||
+                                            "Sans matricule"}
                                         </p>
                                       </div>
                                     </div>
@@ -842,14 +879,18 @@ export function PaieView() {
                                       {fiche.nombreSeances} sc.
                                     </span>
                                     <span className="ml-1 text-[11px] text-slate-400">
-                                      ({formatVolumeHoraire(fiche.nombreSeances)})
+                                      (
+                                      {formatVolumeHoraire(fiche.nombreSeances)}
+                                      )
                                     </span>
                                   </td>
 
                                   {/* Montant net à payer */}
                                   <td className="px-3 py-3 text-right">
                                     <span className="font-mono font-bold text-slate-900">
-                                      {Number(fiche.montantTotal).toLocaleString("fr-FR")}{" "}
+                                      {Number(
+                                        fiche.montantTotal,
+                                      ).toLocaleString("fr-FR")}{" "}
                                       FCFA
                                     </span>
                                   </td>
@@ -857,14 +898,13 @@ export function PaieView() {
                                   {/* Statut du paiement */}
                                   <td className="px-3 py-3 text-center">
                                     {fiche.statut === "PAYEE" ? (
-                                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200/80 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
                                         <CheckCircle2 className="h-3 w-3" />
                                         Payé
                                       </span>
                                     ) : (
-                                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200/80 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">
-                                        <Clock className="h-3 w-3" />
-                                        À payer
+                                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-200/80 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">
+                                        <Clock className="h-3 w-3" />À payer
                                       </span>
                                     )}
                                   </td>
@@ -896,7 +936,9 @@ export function PaieView() {
 
                                           {/* Accès secondaire : Consulter la fiche / bulletin */}
                                           <button
-                                            onClick={() => setSelectedFicheId(fiche.id)}
+                                            onClick={() =>
+                                              setSelectedFicheId(fiche.id)
+                                            }
                                             title="Consulter le bulletin individuel"
                                             className="rounded-lg border border-slate-200 p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
                                           >
@@ -906,7 +948,9 @@ export function PaieView() {
                                       ) : (
                                         /* Si déjà payé : Action principale "Voir le paiement" */
                                         <button
-                                          onClick={() => setSelectedFicheId(fiche.id)}
+                                          onClick={() =>
+                                            setSelectedFicheId(fiche.id)
+                                          }
                                           title="Consulter le reçu et le détail du paiement"
                                           className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50"
                                         >
@@ -925,41 +969,66 @@ export function PaieView() {
                                       <div className="space-y-2">
                                         <div className="flex items-center justify-between text-xs text-slate-600">
                                           <span className="font-semibold text-slate-800">
-                                            Détail des séances ({fiche.seances?.length || 0}) — {fiche.enseignantNom} {fiche.enseignantPrenom}
+                                            Détail des séances (
+                                            {fiche.seances?.length || 0}) —{" "}
+                                            {fiche.enseignantNom}{" "}
+                                            {fiche.enseignantPrenom}
                                           </span>
                                           <span className="font-mono text-[11px] text-slate-500">
-                                            Volume horaire : {formatVolumeHoraire(fiche.nombreSeances)}
+                                            Volume horaire :{" "}
+                                            {formatVolumeHoraire(
+                                              fiche.nombreSeances,
+                                            )}
                                           </span>
                                         </div>
 
-                                        {!fiche.seances || fiche.seances.length === 0 ? (
+                                        {!fiche.seances ||
+                                        fiche.seances.length === 0 ? (
                                           <p className="py-3 text-center text-xs text-slate-400 italic">
-                                            Aucune séance détaillée enregistrée pour cette ligne.
+                                            Aucune séance détaillée enregistrée
+                                            pour cette ligne.
                                           </p>
                                         ) : (
                                           <div className="overflow-x-auto">
                                             <table className="w-full text-left text-xs">
-                                              <thead className="border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                                              <thead className="border-b border-slate-200 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
                                                 <tr>
-                                                  <th className="py-2 pr-3">Date & Horaire</th>
-                                                  <th className="py-2 px-3">Formation & Matière</th>
-                                                  <th className="py-2 px-3">Thème dispensé</th>
-                                                  <th className="py-2 px-3">Centre & Salle</th>
-                                                  <th className="py-2 pl-3 text-right">Tarif appliqué</th>
+                                                  <th className="py-2 pr-3">
+                                                    Date & Horaire
+                                                  </th>
+                                                  <th className="px-3 py-2">
+                                                    Formation & Matière
+                                                  </th>
+                                                  <th className="px-3 py-2">
+                                                    Thème dispensé
+                                                  </th>
+                                                  <th className="px-3 py-2">
+                                                    Centre & Salle
+                                                  </th>
+                                                  <th className="py-2 pl-3 text-right">
+                                                    Tarif appliqué
+                                                  </th>
                                                 </tr>
                                               </thead>
                                               <tbody className="divide-y divide-slate-100 text-slate-700">
                                                 {fiche.seances.map((s, idx) => {
                                                   const dateTexte = s.dateSeance
-                                                    ? new Date(s.dateSeance).toLocaleDateString("fr-FR", {
-                                                        weekday: "short",
-                                                        day: "numeric",
-                                                        month: "short",
-                                                      })
+                                                    ? new Date(
+                                                        s.dateSeance,
+                                                      ).toLocaleDateString(
+                                                        "fr-FR",
+                                                        {
+                                                          weekday: "short",
+                                                          day: "numeric",
+                                                          month: "short",
+                                                        },
+                                                      )
                                                     : `Sem. ${s.semaine} • ${s.jour}`;
                                                   return (
                                                     <tr
-                                                      key={s.affectationId || idx}
+                                                      key={
+                                                        s.affectationId || idx
+                                                      }
                                                       className="hover:bg-slate-100/50"
                                                     >
                                                       <td className="py-2 pr-3">
@@ -968,10 +1037,12 @@ export function PaieView() {
                                                         </span>
                                                         <span className="flex items-center gap-1 font-mono text-[11px] text-slate-500">
                                                           <Clock className="h-2.5 w-2.5 text-slate-400" />
-                                                          {s.horaire || `Séance ${s.creneauSeance}`} ({s.duree || "2h30"})
+                                                          {s.horaire ||
+                                                            `Séance ${s.creneauSeance}`}{" "}
+                                                          ({s.duree || "2h30"})
                                                         </span>
                                                       </td>
-                                                      <td className="py-2 px-3">
+                                                      <td className="px-3 py-2">
                                                         <span className="font-medium text-slate-900">
                                                           {s.matiereNom}
                                                         </span>
@@ -979,12 +1050,13 @@ export function PaieView() {
                                                           {s.formationNom}
                                                         </span>
                                                       </td>
-                                                      <td className="py-2 px-3 text-slate-600">
+                                                      <td className="px-3 py-2 text-slate-600">
                                                         <span className="text-[11px] font-medium text-slate-700">
-                                                          {s.theme || "Séance de cours"}
+                                                          {s.theme ||
+                                                            "Séance de cours"}
                                                         </span>
                                                       </td>
-                                                      <td className="py-2 px-3 text-slate-600">
+                                                      <td className="px-3 py-2 text-slate-600">
                                                         <div>{s.centreNom}</div>
                                                         <div className="text-[11px] text-slate-400">
                                                           {s.salleNom}
@@ -992,8 +1064,11 @@ export function PaieView() {
                                                       </td>
                                                       <td className="py-2 pl-3 text-right font-mono font-semibold text-slate-900">
                                                         {Number(
-                                                          s.coutApplique || fiche.coutParSeance,
-                                                        ).toLocaleString("fr-FR")}{" "}
+                                                          s.coutApplique ||
+                                                            fiche.coutParSeance,
+                                                        ).toLocaleString(
+                                                          "fr-FR",
+                                                        )}{" "}
                                                         FCFA
                                                       </td>
                                                     </tr>
@@ -1034,7 +1109,7 @@ export function PaieView() {
                 <p className="text-xs font-medium text-slate-500">
                   Total Décaissé Personnel
                 </p>
-                <p className="text-lg font-bold font-mono text-slate-900">
+                <p className="font-mono text-lg font-bold text-slate-900">
                   {totalPersonnelDecaisse.toLocaleString("fr-FR")} FCFA
                 </p>
                 <p className="text-[11px] text-slate-400">
@@ -1051,7 +1126,7 @@ export function PaieView() {
                 <p className="text-xs font-medium text-slate-500">
                   Bordereaux Validés
                 </p>
-                <p className="text-lg font-bold font-mono text-slate-900">
+                <p className="font-mono text-lg font-bold text-slate-900">
                   {bordereauxPersonnel.length}
                 </p>
                 <p className="text-[11px] text-slate-400">
@@ -1068,7 +1143,7 @@ export function PaieView() {
                 <p className="text-xs font-medium text-slate-500">
                   Effectif Cumulé Rémunéré
                 </p>
-                <p className="text-lg font-bold font-mono text-slate-900">
+                <p className="font-mono text-lg font-bold text-slate-900">
                   {totalPersonnelsRemuneres}
                 </p>
                 <p className="text-[11px] text-slate-400">
@@ -1082,7 +1157,9 @@ export function PaieView() {
           {loadingPersonnelBordereaux ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-400">
               <div className="h-8 w-8 animate-spin rounded-full border-3 border-orange-500 border-t-transparent" />
-              <p className="text-xs">Chargement des bordereaux de paie du personnel...</p>
+              <p className="text-xs">
+                Chargement des bordereaux de paie du personnel...
+              </p>
             </div>
           ) : bordereauxPersonnel.length === 0 ? (
             <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-xs">
@@ -1093,9 +1170,11 @@ export function PaieView() {
                 Aucun bordereau de paie pour cette session
               </h3>
               <p className="mx-auto mt-1 max-w-md text-xs text-slate-500">
-                Vous n&apos;avez pas encore émis de bordereau de salaires pour le personnel administratif
-                sur la session {currentSession?.annee}. Configurez d&apos;abord les salaires de référence
-                de vos collaborateurs, puis simulez et validez votre premier cycle de paie.
+                Vous n&apos;avez pas encore émis de bordereau de salaires pour
+                le personnel administratif sur la session{" "}
+                {currentSession?.annee}. Configurez d&apos;abord les salaires de
+                référence de vos collaborateurs, puis simulez et validez votre
+                premier cycle de paie.
               </p>
               <div className="mt-6 flex items-center justify-center gap-3">
                 <button
@@ -1115,9 +1194,9 @@ export function PaieView() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="flex flex-col items-start gap-5 lg:flex-row">
               {/* Left Column: Master List of Bordereaux */}
-              <div className="space-y-3">
+              <div className="w-full shrink-0 space-y-3 lg:w-72 xl:w-80">
                 <div className="flex items-center justify-between px-1">
                   <h3 className="text-xs font-bold tracking-wider text-slate-700 uppercase">
                     Bordereaux émis ({bordereauxPersonnel.length})
@@ -1174,7 +1253,8 @@ export function PaieView() {
                         </div>
 
                         <div className="mt-1 text-right font-mono text-xs font-bold text-slate-900">
-                          {Number(b.montantTotalGlobal).toLocaleString("fr-FR")} FCFA
+                          {Number(b.montantTotalGlobal).toLocaleString("fr-FR")}{" "}
+                          FCFA
                         </div>
                       </div>
                     );
@@ -1183,7 +1263,7 @@ export function PaieView() {
               </div>
 
               {/* Right Column: Active Bordereau Detail */}
-              <div className="space-y-4 lg:col-span-2">
+              <div className="w-full min-w-0 flex-1 space-y-4">
                 {activePersonnelBordereau && (
                   <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
                     {/* Header summary of selected bordereau */}
@@ -1192,17 +1272,19 @@ export function PaieView() {
                         <div>
                           <div className="flex items-center gap-2">
                             <h3 className="text-base font-bold text-slate-900">
-                              {activePersonnelBordereau.intitule || "Bordereau de Salaires"}
+                              {activePersonnelBordereau.intitule ||
+                                "Bordereau de Salaires"}
                             </h3>
                             <span className="font-mono text-xs font-bold text-orange-600">
                               {activePersonnelBordereau.reference}
                             </span>
                           </div>
                           <p className="mt-0.5 text-xs text-slate-500">
-                            Paiement du {activePersonnelBordereau.datePaiement} • Session{" "}
-                            {currentSession?.annee} •{" "}
+                            Paiement du {activePersonnelBordereau.datePaiement}{" "}
+                            • Session {currentSession?.annee} •{" "}
                             <span className="font-semibold text-slate-700">
-                              {activePersonnelBordereau.nombrePersonnelsPayes} collaborateur(s)
+                              {activePersonnelBordereau.nombrePersonnelsPayes}{" "}
+                              collaborateur(s)
                             </span>
                           </p>
                         </div>
@@ -1214,14 +1296,16 @@ export function PaieView() {
                             </span>
                             <p className="font-mono text-base font-black text-slate-900">
                               {Number(
-                                activePersonnelBordereau.montantTotalGlobal
+                                activePersonnelBordereau.montantTotalGlobal,
                               ).toLocaleString("fr-FR")}{" "}
                               FCFA
                             </p>
                           </div>
                           <button
                             onClick={() =>
-                              setPrintPersonnelBordereau(activePersonnelBordereau)
+                              setPrintPersonnelBordereau(
+                                activePersonnelBordereau,
+                              )
                             }
                             className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50"
                           >
@@ -1239,7 +1323,7 @@ export function PaieView() {
                           placeholder="Filtrer les collaborateurs par nom, rôle ou observation..."
                           value={personnelSearch}
                           onChange={(e) => setPersonnelSearch(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-white py-1.5 pr-4 pl-9 text-xs text-slate-800 placeholder-slate-400 transition focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                          className="w-full rounded-xl border border-slate-200 bg-white py-1.5 pr-4 pl-9 text-xs text-slate-800 placeholder-slate-400 transition focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none"
                         />
                       </div>
                     </div>
@@ -1281,7 +1365,9 @@ export function PaieView() {
                               align="right"
                             />
                             <th className="px-3 py-3">Observations / Motif</th>
-                            <th className="py-3 pr-5 pl-3 text-center">Action</th>
+                            <th className="py-3 pr-5 pl-3 text-center">
+                              Action
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -1291,7 +1377,8 @@ export function PaieView() {
                                 colSpan={6}
                                 className="py-8 text-center text-xs text-slate-400"
                               >
-                                Aucun collaborateur ne correspond à la recherche.
+                                Aucun collaborateur ne correspond à la
+                                recherche.
                               </td>
                             </tr>
                           ) : (
@@ -1310,7 +1397,7 @@ export function PaieView() {
                                   {/* Collaborator */}
                                   <td className="py-3 pr-3 pl-5">
                                     <div className="flex items-center gap-2.5">
-                                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[11px] text-slate-700 uppercase">
+                                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-700 uppercase">
                                         {pers?.prenom?.charAt(0) || ""}
                                         {pers?.nom?.charAt(0) || ""}
                                       </div>
@@ -1337,17 +1424,17 @@ export function PaieView() {
                                         {ROLE_LABELS[role]}
                                       </span>
                                     ) : (
-                                      <span className="text-slate-400 italic text-[11px]">
+                                      <span className="text-[11px] text-slate-400 italic">
                                         Personnel
                                       </span>
                                     )}
                                   </td>
 
                                   {/* Reference Salary */}
-                                  <td className="px-3 py-3 text-right font-mono text-slate-600 whitespace-nowrap">
-                                    {Number(fiche.salaireReference).toLocaleString(
-                                      "fr-FR"
-                                    )}{" "}
+                                  <td className="px-3 py-3 text-right font-mono whitespace-nowrap text-slate-600">
+                                    {Number(
+                                      fiche.salaireReference,
+                                    ).toLocaleString("fr-FR")}{" "}
                                     F
                                   </td>
 
@@ -1355,13 +1442,13 @@ export function PaieView() {
                                   <td className="px-3 py-3 text-right whitespace-nowrap">
                                     <span className="font-mono font-bold text-slate-900">
                                       {Number(fiche.montantPaye).toLocaleString(
-                                        "fr-FR"
+                                        "fr-FR",
                                       )}{" "}
                                       F
                                     </span>
                                     {diff !== 0 && (
                                       <span
-                                        className={`ml-1.5 inline-block text-[10px] font-mono font-bold ${
+                                        className={`ml-1.5 inline-block font-mono text-[10px] font-bold ${
                                           diff > 0
                                             ? "text-emerald-600"
                                             : "text-rose-600"
@@ -1377,7 +1464,9 @@ export function PaieView() {
                                     {fiche.observations ? (
                                       <span>{fiche.observations}</span>
                                     ) : (
-                                      <span className="text-slate-300 italic">—</span>
+                                      <span className="text-slate-300 italic">
+                                        —
+                                      </span>
                                     )}
                                   </td>
 
@@ -1387,7 +1476,8 @@ export function PaieView() {
                                       onClick={() => {
                                         setSelectedPersonnelFiche({
                                           ficheId: fiche.id,
-                                          bordereauId: activePersonnelBordereau.id,
+                                          bordereauId:
+                                            activePersonnelBordereau.id,
                                           referenceBordereau:
                                             activePersonnelBordereau.reference,
                                           intituleBordereau:
@@ -1396,9 +1486,11 @@ export function PaieView() {
                                             activePersonnelBordereau.datePaiement,
                                           personnelId: fiche.personnelId,
                                           salaireReference: Number(
-                                            fiche.salaireReference
+                                            fiche.salaireReference,
                                           ),
-                                          montantPaye: Number(fiche.montantPaye),
+                                          montantPaye: Number(
+                                            fiche.montantPaye,
+                                          ),
                                           observations: fiche.observations,
                                           sessionName: currentSession?.annee,
                                         });

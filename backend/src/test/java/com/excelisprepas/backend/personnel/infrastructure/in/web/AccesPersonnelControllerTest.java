@@ -51,7 +51,7 @@ class AccesPersonnelControllerTest {
         AccesPersonnel acces = new AccesPersonnel(UUID.randomUUID(), personnelId, sessionId, phaseId,
                 StatutAcces.ACCORDE, "Validation Directeur", LocalDateTime.now());
 
-        when(gererAccesPersonnelUseCase.definirAcces(eq(personnelId), eq(sessionId), eq(phaseId), eq(StatutAcces.ACCORDE), any()))
+        when(gererAccesPersonnelUseCase.definirAcces(org.mockito.ArgumentMatchers.isNull(), eq(personnelId), eq(sessionId), eq(phaseId), eq(StatutAcces.ACCORDE), any()))
                 .thenReturn(acces);
 
         String json = """

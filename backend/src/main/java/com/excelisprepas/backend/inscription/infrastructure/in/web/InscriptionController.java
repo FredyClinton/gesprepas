@@ -57,7 +57,7 @@ public class InscriptionController {
         return ResponseEntity.status(HttpStatus.CREATED).body(dossier);
     }
 
-    @PreAuthorize("hasAuthority('INSCRIPTION_GERER')")
+    @PreAuthorize("hasAnyAuthority('INSCRIPTION_GERER', 'APPRENANT_CONSULTER')")
     @GetMapping("/{id}")
     public ResponseEntity<DossierInscription> recupererDossier(@PathVariable UUID id) {
         return ResponseEntity.ok(recupererDossierInscriptionUseCase.recupererDossierInscription(id));

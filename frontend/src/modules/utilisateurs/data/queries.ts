@@ -6,7 +6,10 @@ import {
   modifierUtilisateur,
   changerMotDePasse,
   revoquerCompteUtilisateur,
+  getMonCompte,
+  changerMonMotDePasse,
 } from "./client";
+import type { ChangerMonMotDePasseInput } from "../domain/types";
 
 export function useUtilisateurs() {
   return useQuery({
@@ -35,7 +38,9 @@ export function useModifierUtilisateur() {
     }) => modifierUtilisateur(id, input),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["utilisateurs"] });
-      queryClient.invalidateQueries({ queryKey: ["utilisateur", variables.id] });
+      queryClient.invalidateQueries({
+        queryKey: ["utilisateur", variables.id],
+      });
       queryClient.invalidateQueries({ queryKey: ["personnel-list"] });
     },
   });
@@ -61,3 +66,20 @@ export function useRevoquerCompteUtilisateur() {
   });
 }
 
+export function useMonCompte() {
+  return useQuery({
+    queryKey: ["mon-compte"],
+    queryFn: getMonCompte,
+  });
+}
+
+export function useChangerMonMotDePasse() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ChangerMonMotDePasseInput) =>
+      changerMonMotDePasse(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mon-compte"] });
+    },
+  });
+}

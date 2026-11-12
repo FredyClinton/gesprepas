@@ -3,7 +3,7 @@ package com.excelisprepas.backend.shared.testsupport;
 import com.excelisprepas.backend.auth.domain.port.out.TokenPort;
 import org.mockito.Mockito;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.test.context.TestConfiguration;
 
 /**
  * Fournit un TokenPort mocké aux tests de contrôleurs (@WebMvcTest).
@@ -16,7 +16,7 @@ import org.springframework.context.annotation.Configuration;
  * l'exécution des requêtes. Ce mock satisfait cette dépendance de câblage
  * sans qu'aucun test de contrôleur n'ait à s'en soucier individuellement.
  */
-@Configuration
+@TestConfiguration // pas @Configuration : sinon scanné par les @SpringBootTest, qui perdraient le vrai TokenPort
 public class TokenPortTestConfig {
 
     @Bean

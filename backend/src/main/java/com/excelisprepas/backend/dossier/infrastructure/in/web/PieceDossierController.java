@@ -1,5 +1,6 @@
 package com.excelisprepas.backend.dossier.infrastructure.in.web;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.excelisprepas.backend.dossier.domain.model.PieceDossier;
 import com.excelisprepas.backend.dossier.domain.port.in.ValiderPieceDeposeeUseCase;
 import com.excelisprepas.backend.dossier.infrastructure.in.web.dto.PieceDossierResponse;
@@ -39,6 +40,7 @@ public class PieceDossierController {
                     content = @Content(schema = @Schema(implementation = PieceDossierResponse.class))),
             @ApiResponse(responseCode = "404", description = "Pièce déposée introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('DOSSIER_GERER')")
     @PatchMapping("/api/pieces-dossier/{id}/valider")
     public ResponseEntity<PieceDossierResponse> validerPieceDeposee(
             @Parameter(description = "Identifiant de la pièce déposée") @PathVariable UUID id) {

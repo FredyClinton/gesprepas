@@ -1,5 +1,6 @@
 package com.excelisprepas.backend.academie.affectationdepartementale.infrastructure.in.web;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.excelisprepas.backend.academie.affectationdepartementale.domain.model.AffectationDepartementale;
 import com.excelisprepas.backend.academie.affectationdepartementale.domain.port.in.AjouterEnseignantUseCase;
 import com.excelisprepas.backend.academie.affectationdepartementale.domain.port.in.CopierDepuisSessionUseCase;
@@ -71,6 +72,7 @@ public class AffectationDepartementaleController {
             @ApiResponse(responseCode = "404", description = "Département, session ou enseignant introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Session non utilisable ou enseignant déjà dans le roster", content = @Content)
     })
+    @PreAuthorize("hasAuthority('DEPARTEMENT_GERER_ENSEIGNANTS')")
     @PostMapping
     public ResponseEntity<AffectationDepartementaleResponse> ajouterEnseignant(
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
@@ -86,6 +88,7 @@ public class AffectationDepartementaleController {
             @ApiResponse(responseCode = "204", description = "Enseignant retiré du roster", content = @Content),
             @ApiResponse(responseCode = "404", description = "Affectation, département, session ou enseignant introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('DEPARTEMENT_GERER_ENSEIGNANTS')")
     @DeleteMapping
     public ResponseEntity<Void> retirerEnseignant(
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
@@ -105,6 +108,7 @@ public class AffectationDepartementaleController {
             @ApiResponse(responseCode = "404", description = "Département, session ou enseignant introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Session non utilisable ou enseignant absent du roster source", content = @Content)
     })
+    @PreAuthorize("hasAuthority('DEPARTEMENT_GERER_ENSEIGNANTS')")
     @PostMapping("/copier")
     public ResponseEntity<List<AffectationDepartementaleResponse>> copierDepuisSession(
             @RequestHeader(value = "X-User-Role", required = false) String userRole,

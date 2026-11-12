@@ -26,6 +26,8 @@ public class JwtTokenAdapter implements TokenPort {
     private static final String CLAIM_ROLE = "role";
     private static final String CLAIM_CENTRE_ID = "centreId";
     private static final String CLAIM_DEPARTEMENT_ID = "departementId";
+    // Nom affiché (ordonnateur d'un bordereau...) : identité seulement, aucun droit n'en dépend.
+    private static final String CLAIM_NOM = "nom";
 
     private final SecretKey cle;
     private final Duration dureeDeVie;
@@ -43,6 +45,7 @@ public class JwtTokenAdapter implements TokenPort {
                 .subject(utilisateur.getId().toString())
                 .claim(CLAIM_EMAIL, utilisateur.getEmail())
                 .claim(CLAIM_ROLE, utilisateur.getRole().name())
+                .claim(CLAIM_NOM, utilisateur.getNomComplet())
                 .issuedAt(Date.from(maintenant))
                 .expiration(Date.from(maintenant.plus(dureeDeVie)));
 
@@ -68,7 +71,8 @@ public class JwtTokenAdapter implements TokenPort {
                     claims.get(CLAIM_EMAIL, String.class),
                     RoleUtilisateur.valueOf(claims.get(CLAIM_ROLE, String.class)),
                     lireUuid(claims, CLAIM_CENTRE_ID),
-                    lireUuid(claims, CLAIM_DEPARTEMENT_ID));
+                    lireUuid(claims, CLAIM_DEPARTEMENT_ID),
+                    claims.get(CLAIM_NOM, String.class));
         } catch (JwtException | IllegalArgumentException e) {
             throw new TokenInvalideException(e);
         }

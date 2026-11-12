@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  useCallback,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -52,7 +58,9 @@ export function SaisieNotesPageView({
   userCentreId,
 }: Props) {
   const router = useRouter();
-  const estDA = userRole === "DIRECTEUR_ACADEMIQUE" || userRole === "DIRECTEUR";
+  const estDirecteur = userRole === "DIRECTEUR"; // lecture seule
+  const estDA = userRole === "DIRECTEUR_ACADEMIQUE";
+  const voitTousCentres = estDA || estDirecteur;
 
   const { data: concoursBlanc, isLoading: chargementCB } = useConcoursBlanc(
     concoursBlancId,
@@ -98,7 +106,9 @@ export function SaisieNotesPageView({
   // Statuts de verrouillage
   const estCloture = concoursBlanc?.statut === "CLOTURE";
   const estVerrouille =
-    estCloture || Boolean(concoursBlanc?.saisieNotesBloqueeCentre && !estDA);
+    estCloture ||
+    estDirecteur ||
+    Boolean(concoursBlanc?.saisieNotesBloqueeCentre && !estDA);
 
   // Résultats existants
   const { data: resultatsExistants = [], isLoading: chargementResultats } =
@@ -152,7 +162,9 @@ export function SaisieNotesPageView({
   const [etablissementHorsListe, setEtablissementHorsListe] = useState("");
 
   // Filtre d'affichage
-  const [filtreTableau, setFiltreTableau] = useState<"TOUS" | "INCOMPLETS" | "ABSENTS">("TOUS");
+  const [filtreTableau, setFiltreTableau] = useState<
+    "TOUS" | "INCOMPLETS" | "ABSENTS"
+  >("TOUS");
   const [rechercheTableau, setRechercheTableau] = useState("");
   const [panneauAjoutOuvert, setPanneauAjoutOuvert] = useState(false);
 
@@ -173,14 +185,18 @@ export function SaisieNotesPageView({
 
     if (resultatsExistants && resultatsExistants.length > 0) {
       const initLignes: CandidatNotesInput[] = resultatsExistants.map((r) => {
-        const candidatApprenant = apprenants.find((a) => a.id === r.apprenantId);
+        const candidatApprenant = apprenants.find(
+          (a) => a.id === r.apprenantId,
+        );
         return {
           id: r.id,
           formationId: r.formationId || formationId,
           apprenantId: r.apprenantId,
           nomComplet: r.nomComplet,
           etablissementOrigine:
-            r.etablissementOrigine || candidatApprenant?.etablissementOrigine || "",
+            r.etablissementOrigine ||
+            candidatApprenant?.etablissementOrigine ||
+            "",
           horsListe: !r.apprenantId,
           notes: epreuves.map((ep) => {
             const n = r.notes.find((note) => note.epreuveId === ep.id);
@@ -192,7 +208,9 @@ export function SaisieNotesPageView({
           }),
         };
       });
-      initLignes.sort((a, b) => a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" }));
+      initLignes.sort((a, b) =>
+        a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" }),
+      );
       setLignes(initLignes);
       setEstModifie(false);
     } else {
@@ -209,24 +227,36 @@ export function SaisieNotesPageView({
           statut: "NOTE" as StatutNote,
         })),
       }));
-      initLignes.sort((a, b) => a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" }));
+      initLignes.sort((a, b) =>
+        a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" }),
+      );
       setLignes(initLignes);
       setEstModifie(false);
     }
-  }, [concoursBlanc, resultatsExistants, epreuves, apprenantsCentre, apprenants, formationId]);
+  }, [
+    concoursBlanc,
+    resultatsExistants,
+    epreuves,
+    apprenantsCentre,
+    apprenants,
+    formationId,
+  ]);
 
   // Suggestions pour ajout d'élève déjà inscrit
   const apprenantsSuggeres = useMemo(() => {
     if (!rechercheApprenant.trim()) return [];
     const q = rechercheApprenant.trim().toLowerCase();
-    const dejaPresents = new Set(lignes.map((l) => l.apprenantId).filter(Boolean));
+    const dejaPresents = new Set(
+      lignes.map((l) => l.apprenantId).filter(Boolean),
+    );
     return apprenants
       .filter((a) => !dejaPresents.has(a.id))
       .filter(
         (a) =>
           a.nom.toLowerCase().includes(q) ||
           a.prenom.toLowerCase().includes(q) ||
-          (a.etablissementOrigine && a.etablissementOrigine.toLowerCase().includes(q)),
+          (a.etablissementOrigine &&
+            a.etablissementOrigine.toLowerCase().includes(q)),
       )
       .slice(0, 6);
   }, [rechercheApprenant, lignes, apprenants]);
@@ -248,7 +278,9 @@ export function SaisieNotesPageView({
           })),
         },
       ];
-      next.sort((x, y) => x.nomComplet.localeCompare(y.nomComplet, "fr", { sensitivity: "base" }));
+      next.sort((x, y) =>
+        x.nomComplet.localeCompare(y.nomComplet, "fr", { sensitivity: "base" }),
+      );
       return next;
     });
     setRechercheApprenant("");
@@ -274,7 +306,9 @@ export function SaisieNotesPageView({
           })),
         },
       ];
-      next.sort((x, y) => x.nomComplet.localeCompare(y.nomComplet, "fr", { sensitivity: "base" }));
+      next.sort((x, y) =>
+        x.nomComplet.localeCompare(y.nomComplet, "fr", { sensitivity: "base" }),
+      );
       return next;
     });
     setNouveauNomHorsListe("");
@@ -291,7 +325,8 @@ export function SaisieNotesPageView({
     setLignes((prev) => {
       const next = [...prev];
       const c = { ...next[candidatIdx] };
-      const estDejaTousAbs = c.notes.length > 0 && c.notes.every((n) => n.statut === "ABS");
+      const estDejaTousAbs =
+        c.notes.length > 0 && c.notes.every((n) => n.statut === "ABS");
       c.notes = c.notes.map((n) => ({
         ...n,
         statut: estDejaTousAbs ? "NOTE" : "ABS",
@@ -346,7 +381,8 @@ export function SaisieNotesPageView({
   };
 
   const handleEnregistrer = useCallback(async () => {
-    if (estVerrouille || !concoursBlanc || enregistrerMutation.isPending) return;
+    if (estVerrouille || !concoursBlanc || enregistrerMutation.isPending)
+      return;
 
     // Blocage strict si des notes sont hors barème
     if (notesHorsBareme.length > 0) {
@@ -368,27 +404,38 @@ export function SaisieNotesPageView({
         userCentreId,
       });
       if (resultatsEnregistres && resultatsEnregistres.length > 0) {
-        const majLignes: CandidatNotesInput[] = resultatsEnregistres.map((r) => {
-          const candidatApprenant = apprenants.find((a) => a.id === r.apprenantId);
-          return {
-            id: r.id,
-            formationId: r.formationId || formationId,
-            apprenantId: r.apprenantId,
-            nomComplet: r.nomComplet,
-            etablissementOrigine:
-              r.etablissementOrigine || candidatApprenant?.etablissementOrigine || "",
-            horsListe: !r.apprenantId,
-            notes: epreuves.map((ep) => {
-              const n = r.notes.find((note) => note.epreuveId === ep.id);
-              return {
-                epreuveId: ep.id,
-                note: n?.note !== null && n?.note !== undefined ? n.note : null,
-                statut: (n?.statut as StatutNote) || "NOTE",
-              };
-            }),
-          };
-        });
-        majLignes.sort((a, b) => a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" }));
+        const majLignes: CandidatNotesInput[] = resultatsEnregistres.map(
+          (r) => {
+            const candidatApprenant = apprenants.find(
+              (a) => a.id === r.apprenantId,
+            );
+            return {
+              id: r.id,
+              formationId: r.formationId || formationId,
+              apprenantId: r.apprenantId,
+              nomComplet: r.nomComplet,
+              etablissementOrigine:
+                r.etablissementOrigine ||
+                candidatApprenant?.etablissementOrigine ||
+                "",
+              horsListe: !r.apprenantId,
+              notes: epreuves.map((ep) => {
+                const n = r.notes.find((note) => note.epreuveId === ep.id);
+                return {
+                  epreuveId: ep.id,
+                  note:
+                    n?.note !== null && n?.note !== undefined ? n.note : null,
+                  statut: (n?.statut as StatutNote) || "NOTE",
+                };
+              }),
+            };
+          },
+        );
+        majLignes.sort((a, b) =>
+          a.nomComplet.localeCompare(b.nomComplet, "fr", {
+            sensitivity: "base",
+          }),
+        );
         setLignes(majLignes);
       }
       setSauvegardeSucces(true);
@@ -396,7 +443,9 @@ export function SaisieNotesPageView({
       setTimeout(() => setSauvegardeSucces(false), 4000);
     } catch (err) {
       console.error("Erreur lors de l'enregistrement des notes", err);
-      setErreurValidation(messageErreurApi(err, "Erreur lors de l'enregistrement des notes."));
+      setErreurValidation(
+        messageErreurApi(err, "Erreur lors de l'enregistrement des notes."),
+      );
     }
   }, [
     estVerrouille,
@@ -433,15 +482,18 @@ export function SaisieNotesPageView({
 
     for (const lig of lignes) {
       const estToutAbsent =
-        lig.notes.length > 0 &&
-        lig.notes.every((n) => n.statut === "ABS");
+        lig.notes.length > 0 && lig.notes.every((n) => n.statut === "ABS");
       if (estToutAbsent) {
         totalCandidatsAbsents += 1;
       }
       for (const n of lig.notes) {
         if (n.statut === "ABS") {
           totalNotesSaisies += 1;
-        } else if (n.statut === "NOTE" && n.note !== null && n.note !== undefined) {
+        } else if (
+          n.statut === "NOTE" &&
+          n.note !== null &&
+          n.note !== undefined
+        ) {
           totalNotesSaisies += 1;
         }
       }
@@ -449,7 +501,9 @@ export function SaisieNotesPageView({
 
     const totalCandidatsPresents = totalCandidats - totalCandidatsAbsents;
     const nbIncomplets = lignes.filter((lig) =>
-      lig.notes.some((n) => n.statut === "NOTE" && (n.note === null || n.note === undefined))
+      lig.notes.some(
+        (n) => n.statut === "NOTE" && (n.note === null || n.note === undefined),
+      ),
     ).length;
     const pourcentage =
       totalNotesAttendues > 0
@@ -480,11 +534,16 @@ export function SaisieNotesPageView({
         }
 
         if (filtreTableau === "ABSENTS") {
-          return lig.notes.length > 0 && lig.notes.every((n) => n.statut === "ABS");
+          return (
+            lig.notes.length > 0 && lig.notes.every((n) => n.statut === "ABS")
+          );
         }
 
         if (filtreTableau === "INCOMPLETS") {
-          return lig.notes.some((n) => n.statut === "NOTE" && (n.note === null || n.note === undefined));
+          return lig.notes.some(
+            (n) =>
+              n.statut === "NOTE" && (n.note === null || n.note === undefined),
+          );
         }
 
         return true;
@@ -494,7 +553,7 @@ export function SaisieNotesPageView({
   if (chargementCB) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <p className="text-sm font-semibold text-slate-500 animate-pulse">
+        <p className="animate-pulse text-sm font-semibold text-slate-500">
           Chargement de la feuille de notation...
         </p>
       </div>
@@ -523,33 +582,37 @@ export function SaisieNotesPageView({
   return (
     <div className="w-full space-y-6 pb-20">
       {/* ── En-tête Contextuel Unique (Sticky) ── */}
-      <div className="sticky top-0 z-30 -mx-4 sm:-mx-8 px-4 sm:px-8 py-3 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs space-y-2.5">
+      <div className="sticky top-0 z-30 -mx-4 space-y-2.5 border-b border-slate-200/80 bg-white/95 px-4 py-3 shadow-2xs backdrop-blur-md sm:-mx-8 sm:px-8">
         {/* Ligne 1 : Breadcrumb & Titre & Statut */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div className="flex flex-col justify-between gap-2.5 sm:flex-row sm:items-center">
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <Link
               href="/concours-blancs"
-              className="text-slate-500 hover:text-brand-orange flex items-center gap-1 font-semibold transition-colors"
+              className="hover:text-brand-orange flex items-center gap-1 font-semibold text-slate-500 transition-colors"
             >
               <ArrowLeft size={13} />
               Concours Blancs
             </Link>
             <ChevronRight size={12} className="text-slate-300" />
-            <span className="text-slate-700 font-bold">{concoursBlanc.titre}</span>
+            <span className="font-bold text-slate-700">
+              {concoursBlanc.titre}
+            </span>
             <ChevronRight size={12} className="text-slate-300" />
-            <span className="text-brand-orange font-bold">Feuille de notation</span>
+            <span className="text-brand-orange font-bold">
+              Feuille de notation
+            </span>
 
             {estCloture ? (
-              <span className="ml-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 border border-slate-200">
+              <span className="ml-1 rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
                 Clôturé
               </span>
             ) : concoursBlanc.saisieNotesBloqueeCentre ? (
-              <span className="ml-1 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 border border-rose-200 flex items-center gap-1">
+              <span className="ml-1 flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700">
                 <Lock size={10} />
                 Verrouillé centres
               </span>
             ) : (
-              <span className="ml-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+              <span className="ml-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
                 Saisie ouverte
               </span>
             )}
@@ -557,18 +620,18 @@ export function SaisieNotesPageView({
 
           <div className="flex items-center gap-2.5 text-xs">
             {notesHorsBareme.length > 0 ? (
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-lg border border-rose-300 animate-pulse">
+              <span className="inline-flex animate-pulse items-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50 px-2.5 py-0.5 text-[11px] font-bold text-rose-700">
                 <AlertTriangle size={12} className="text-rose-600" />
                 {notesHorsBareme.length} note(s) hors barème
               </span>
             ) : estModifie && !estVerrouille ? (
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-lg border border-amber-200 animate-pulse">
+              <span className="inline-flex animate-pulse items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-600">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
                 Modifié non enregistré (Ctrl+S)
               </span>
             ) : null}
             {sauvegardeSucces && (
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200">
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
                 <CheckCircle2 size={12} className="text-emerald-600" />
                 Enregistré !
               </span>
@@ -577,12 +640,12 @@ export function SaisieNotesPageView({
         </div>
 
         {/* Ligne 2 : Sélecteurs Contextuels (Centre & Filière) + Progression */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-2 border-t border-slate-100">
+        <div className="flex flex-col justify-between gap-3 border-t border-slate-100 pt-2 lg:flex-row lg:items-center">
           <div className="flex flex-wrap items-center gap-3 text-xs">
             {/* Centre d'examen */}
             <div className="flex items-center gap-1.5">
               <Building2 size={14} className="text-brand-orange shrink-0" />
-              {centres.length > 1 && estDA ? (
+              {centres.length > 1 && voitTousCentres ? (
                 <select
                   value={centreId}
                   onChange={(e) => {
@@ -591,7 +654,7 @@ export function SaisieNotesPageView({
                       `/concours-blancs/${concoursBlancId}/saisie?formationId=${formationId}&centreId=${e.target.value}`,
                     );
                   }}
-                  className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-800 outline-none focus:border-brand-orange focus:bg-white cursor-pointer"
+                  className="focus:border-brand-orange cursor-pointer rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-800 outline-none focus:bg-white"
                 >
                   {centres.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -606,7 +669,7 @@ export function SaisieNotesPageView({
               )}
             </div>
 
-            <span className="text-slate-200 hidden sm:inline">|</span>
+            <span className="hidden text-slate-200 sm:inline">|</span>
 
             {/* Filières (pills compactes) */}
             <div className="flex items-center gap-1.5">
@@ -624,7 +687,7 @@ export function SaisieNotesPageView({
                           `/concours-blancs/${concoursBlancId}/saisie?formationId=${f.id}&centreId=${centreId}`,
                         );
                       }}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      className={`cursor-pointer rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
                         estActive
                           ? "bg-brand-orange text-white shadow-2xs"
                           : "bg-slate-100 text-slate-600 hover:bg-slate-200/80"
@@ -639,13 +702,17 @@ export function SaisieNotesPageView({
           </div>
 
           {/* Progression compacte */}
-          <div className="flex items-center gap-2.5 self-start lg:self-auto shrink-0 text-xs">
+          <div className="flex shrink-0 items-center gap-2.5 self-start text-xs lg:self-auto">
             <span className="text-[11px] font-semibold text-slate-500">
-              Progression : <strong className="text-slate-900 font-bold">{stats.totalNotesSaisies}/{stats.totalNotesAttendues}</strong> ({stats.pourcentage}%)
+              Progression :{" "}
+              <strong className="font-bold text-slate-900">
+                {stats.totalNotesSaisies}/{stats.totalNotesAttendues}
+              </strong>{" "}
+              ({stats.pourcentage}%)
             </span>
-            <div className="w-24 sm:w-32 h-1.5 rounded-full bg-slate-100 overflow-hidden border border-slate-200/50">
+            <div className="h-1.5 w-24 overflow-hidden rounded-full border border-slate-200/50 bg-slate-100 sm:w-32">
               <div
-                className="h-full bg-brand-orange rounded-full transition-all duration-300"
+                className="bg-brand-orange h-full rounded-full transition-all duration-300"
                 style={{ width: `${stats.pourcentage}%` }}
               />
             </div>
@@ -653,56 +720,64 @@ export function SaisieNotesPageView({
         </div>
       </div>
 
-        {/* ── Alerte Verrouillage ── */}
-        {estVerrouille && (
-          <div className="flex items-center gap-3 rounded-2xl bg-red-50 p-4 border border-red-200 text-xs font-bold text-red-900">
-            <Lock size={18} className="text-red-600 shrink-0" />
-            <div>
-              {estCloture
-                ? "Ce concours blanc est définitivement clôturé. Les notes sont consultables en lecture seule."
-                : "La saisie des notes est actuellement verrouillée pour les centres par la Direction Académique. Seul le Directeur Académique dispose du droit de modification."}
-            </div>
+      {/* ── Alerte Verrouillage ── */}
+      {estVerrouille && (
+        <div className="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-red-900">
+          <Lock size={18} className="shrink-0 text-red-600" />
+          <div>
+            {estCloture
+              ? "Ce concours blanc est définitivement clôturé. Les notes sont consultables en lecture seule."
+              : "La saisie des notes est actuellement verrouillée pour les centres par la Direction Académique. Seul le Directeur Académique dispose du droit de modification."}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ── Bannière d'Alerte Notes Hors Barème ── */}
-        {(notesHorsBareme.length > 0 || erreurValidation) && (
-          <div className="flex items-start gap-2.5 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-xs text-rose-900 shadow-2xs">
-            <AlertTriangle size={18} className="text-rose-600 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <p className="font-bold">
-                {erreurValidation ||
-                  `${notesHorsBareme.length} note(s) hors barème détectée(s) — Validation et enregistrement bloqués`}
-              </p>
-              {notesHorsBareme.length > 0 && (
-                <ul className="list-disc pl-4 text-[11px] text-rose-800 space-y-0.5">
-                  {notesHorsBareme.slice(0, 5).map((inv, i) => (
-                    <li key={i}>
-                      <span className="font-semibold">{inv.candidatNom}</span> : note de{" "}
-                      <strong>{inv.note}</strong> en <em>{inv.epreuveIntitule}</em> (barème autorisé : 0 à {inv.noteMax})
-                    </li>
-                  ))}
-                  {notesHorsBareme.length > 5 && (
-                    <li>... et {notesHorsBareme.length - 5} autre(s) note(s) hors barème</li>
-                  )}
-                </ul>
-              )}
-              <p className="text-[11px] font-medium text-rose-700">
-                Veuillez corriger chaque note hors barème pour autoriser l&apos;enregistrement de la feuille.
-              </p>
-            </div>
+      {/* ── Bannière d'Alerte Notes Hors Barème ── */}
+      {(notesHorsBareme.length > 0 || erreurValidation) && (
+        <div className="flex items-start gap-2.5 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-xs text-rose-900 shadow-2xs">
+          <AlertTriangle size={18} className="mt-0.5 shrink-0 text-rose-600" />
+          <div className="space-y-1">
+            <p className="font-bold">
+              {erreurValidation ||
+                `${notesHorsBareme.length} note(s) hors barème détectée(s) — Validation et enregistrement bloqués`}
+            </p>
+            {notesHorsBareme.length > 0 && (
+              <ul className="list-disc space-y-0.5 pl-4 text-[11px] text-rose-800">
+                {notesHorsBareme.slice(0, 5).map((inv, i) => (
+                  <li key={i}>
+                    <span className="font-semibold">{inv.candidatNom}</span> :
+                    note de <strong>{inv.note}</strong> en{" "}
+                    <em>{inv.epreuveIntitule}</em> (barème autorisé : 0 à{" "}
+                    {inv.noteMax})
+                  </li>
+                ))}
+                {notesHorsBareme.length > 5 && (
+                  <li>
+                    ... et {notesHorsBareme.length - 5} autre(s) note(s) hors
+                    barème
+                  </li>
+                )}
+              </ul>
+            )}
+            <p className="text-[11px] font-medium text-rose-700">
+              Veuillez corriger chaque note hors barème pour autoriser
+              l&apos;enregistrement de la feuille.
+            </p>
           </div>
-        )}
+        </div>
+      )}
 
       {/* ── Alerte si aucune épreuve configurée ── */}
       {epreuves.length === 0 ? (
-        <Card className="p-12 text-center border-dashed border-2 border-amber-300 bg-amber-50/50">
-          <AlertTriangle size={36} className="mx-auto text-amber-500 mb-3" />
+        <Card className="border-2 border-dashed border-amber-300 bg-amber-50/50 p-12 text-center">
+          <AlertTriangle size={36} className="mx-auto mb-3 text-amber-500" />
           <h3 className="text-base font-bold text-slate-800">
-            Aucune épreuve configurée pour la filière {formationActive?.nom || ""}
+            Aucune épreuve configurée pour la filière{" "}
+            {formationActive?.nom || ""}
           </h3>
-          <p className="text-xs text-slate-600 max-w-md mx-auto mt-1 mb-5">
-            Pour pouvoir saisir les notes, vous devez d&rsquo;abord ajouter et paramétrer les matières et épreuves de ce concours blanc.
+          <p className="mx-auto mt-1 mb-5 max-w-md text-xs text-slate-600">
+            Pour pouvoir saisir les notes, vous devez d&rsquo;abord ajouter et
+            paramétrer les matières et épreuves de ce concours blanc.
           </p>
           <Link href="/concours-blancs">
             <Button type="button">
@@ -715,13 +790,13 @@ export function SaisieNotesPageView({
       ) : (
         <>
           {/* ── Barre d'outils unifiée et minimaliste ── */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
+          <div className="flex flex-col items-stretch justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-2.5 text-xs shadow-2xs sm:flex-row sm:items-center sm:p-3">
             {/* Filtres de statut des notes */}
-            <div className="flex items-center gap-1 bg-slate-100/80 p-0.5 rounded-xl">
+            <div className="flex items-center gap-1 rounded-xl bg-slate-100/80 p-0.5">
               <button
                 type="button"
                 onClick={() => setFiltreTableau("TOUS")}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                className={`cursor-pointer rounded-lg px-3 py-1.5 font-bold transition-all ${
                   filtreTableau === "TOUS"
                     ? "bg-white text-slate-900 shadow-2xs"
                     : "text-slate-600 hover:text-slate-900"
@@ -732,7 +807,7 @@ export function SaisieNotesPageView({
               <button
                 type="button"
                 onClick={() => setFiltreTableau("INCOMPLETS")}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                className={`cursor-pointer rounded-lg px-3 py-1.5 font-bold transition-all ${
                   filtreTableau === "INCOMPLETS"
                     ? "bg-white text-amber-700 shadow-2xs"
                     : "text-slate-600 hover:text-slate-900"
@@ -743,7 +818,7 @@ export function SaisieNotesPageView({
               <button
                 type="button"
                 onClick={() => setFiltreTableau("ABSENTS")}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                className={`cursor-pointer rounded-lg px-3 py-1.5 font-bold transition-all ${
                   filtreTableau === "ABSENTS"
                     ? "bg-white text-rose-700 shadow-2xs"
                     : "text-slate-600 hover:text-slate-900"
@@ -756,13 +831,16 @@ export function SaisieNotesPageView({
             {/* Recherche & Action d'ajout */}
             <div className="flex items-center gap-2">
               <div className="relative flex-1 sm:w-60">
-                <Search size={13} className="absolute left-3 top-2.5 text-slate-400" />
+                <Search
+                  size={13}
+                  className="absolute top-2.5 left-3 text-slate-400"
+                />
                 <input
                   type="text"
                   value={rechercheTableau}
                   onChange={(e) => setRechercheTableau(e.target.value)}
                   placeholder="Filtrer dans la liste..."
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-brand-orange focus:bg-white shadow-2xs"
+                  className="focus:border-brand-orange w-full rounded-xl border border-slate-200 bg-slate-50/50 py-1.5 pr-3 pl-8 text-xs text-slate-800 placeholder-slate-400 shadow-2xs outline-none focus:bg-white"
                 />
               </div>
 
@@ -770,14 +848,16 @@ export function SaisieNotesPageView({
                 <button
                   type="button"
                   onClick={() => setPanneauAjoutOuvert(!panneauAjoutOuvert)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 ${
+                  className={`inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition-all ${
                     panneauAjoutOuvert
-                      ? "border-brand-orange bg-orange-50 text-brand-orange"
+                      ? "border-brand-orange text-brand-orange bg-orange-50"
                       : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                   }`}
                 >
                   <UserPlus size={13} />
-                  <span>{panneauAjoutOuvert ? "Fermer" : "Ajouter candidat"}</span>
+                  <span>
+                    {panneauAjoutOuvert ? "Fermer" : "Ajouter candidat"}
+                  </span>
                 </button>
               )}
             </div>
@@ -785,23 +865,23 @@ export function SaisieNotesPageView({
 
           {/* Tiroir / Zone d'ajout contextuel compact */}
           {!estVerrouille && panneauAjoutOuvert && (
-            <div className="p-3.5 bg-slate-50/90 rounded-2xl border border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs">
+            <div className="flex flex-col justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/90 p-3.5 text-xs lg:flex-row lg:items-center">
               {/* 1. Recherche élève centre */}
               <div className="relative w-full lg:w-80">
                 <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs">
-                  <Search size={13} className="text-slate-400 shrink-0" />
+                  <Search size={13} className="shrink-0 text-slate-400" />
                   <input
                     type="text"
                     value={rechercheApprenant}
                     onChange={(e) => setRechercheApprenant(e.target.value)}
                     placeholder="Ajouter élève du centre..."
-                    className="w-full outline-none text-slate-800 placeholder-slate-400 bg-transparent font-medium"
+                    className="w-full bg-transparent font-medium text-slate-800 placeholder-slate-400 outline-none"
                   />
                   {rechercheApprenant && (
                     <button
                       type="button"
                       onClick={() => setRechercheApprenant("")}
-                      className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                      className="cursor-pointer text-slate-400 hover:text-slate-600"
                     >
                       <X size={12} />
                     </button>
@@ -809,25 +889,25 @@ export function SaisieNotesPageView({
                 </div>
 
                 {apprenantsSuggeres.length > 0 && (
-                  <div className="absolute top-full left-0 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-xl z-40 max-h-56 overflow-y-auto divide-y divide-slate-100">
+                  <div className="absolute top-full left-0 z-40 mt-1 max-h-56 w-full divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
                     {apprenantsSuggeres.map((a) => (
                       <button
                         key={a.id}
                         type="button"
                         onClick={() => ajouterApprenant(a)}
-                        className="w-full text-left px-3.5 py-2 text-xs hover:bg-orange-50 flex items-center justify-between group cursor-pointer transition-colors"
+                        className="group flex w-full cursor-pointer items-center justify-between px-3.5 py-2 text-left text-xs transition-colors hover:bg-orange-50"
                       >
                         <div>
-                          <span className="font-bold text-slate-900 block">
+                          <span className="block font-bold text-slate-900">
                             {a.nom} {a.prenom}
                           </span>
                           {a.etablissementOrigine && (
-                            <span className="text-[11px] text-slate-500 block">
+                            <span className="block text-[11px] text-slate-500">
                               {a.etablissementOrigine}
                             </span>
                           )}
                         </div>
-                        <span className="text-[11px] text-brand-orange font-bold group-hover:underline">
+                        <span className="text-brand-orange text-[11px] font-bold group-hover:underline">
                           + Ajouter
                         </span>
                       </button>
@@ -837,13 +917,13 @@ export function SaisieNotesPageView({
               </div>
 
               {/* 2. Candidat hors-liste */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
+              <div className="flex w-full flex-col items-stretch gap-2 sm:flex-row sm:items-center lg:w-auto">
                 <input
                   type="text"
                   value={nouveauNomHorsListe}
                   onChange={(e) => setNouveauNomHorsListe(e.target.value)}
                   placeholder="Nom candidat libre..."
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-800 outline-none w-full sm:w-48 focus:border-brand-orange shadow-2xs"
+                  className="focus:border-brand-orange w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-800 shadow-2xs outline-none sm:w-48"
                 />
 
                 <div className="w-full sm:w-56">
@@ -859,7 +939,7 @@ export function SaisieNotesPageView({
                   type="button"
                   onClick={ajouterCandidatHorsListe}
                   disabled={!nouveauNomHorsListe.trim()}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand-orange px-3.5 py-1.5 font-bold text-white hover:bg-brand-orange/90 transition-all cursor-pointer disabled:opacity-40 shrink-0 shadow-2xs"
+                  className="bg-brand-orange hover:bg-brand-orange/90 inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3.5 py-1.5 font-bold text-white shadow-2xs transition-all disabled:opacity-40"
                 >
                   <Plus size={13} />
                   <span>Ajouter</span>
@@ -870,23 +950,23 @@ export function SaisieNotesPageView({
 
           {/* ── Grille de Notation Plein Écran (Tableau Type Tableur Excel-like) ── */}
           <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs">
-            <div className="overflow-x-auto max-h-[75vh]">
+            <div className="max-h-[75vh] overflow-x-auto">
               <table className="w-full border-collapse text-left text-xs">
                 {/* En-tête Sticky */}
-                <thead className="sticky top-0 z-20 bg-slate-50/95 backdrop-blur-xs text-slate-700 border-b border-slate-200 shadow-2xs">
+                <thead className="sticky top-0 z-20 border-b border-slate-200 bg-slate-50/95 text-slate-700 shadow-2xs backdrop-blur-xs">
                   <tr>
                     {/* Colonne 1 : N° (Sticky Left) */}
-                    <th className="sticky left-0 z-20 bg-slate-50/95 py-3 px-3 w-12 text-center font-bold text-slate-500">
+                    <th className="sticky left-0 z-20 w-12 bg-slate-50/95 px-3 py-3 text-center font-bold text-slate-500">
                       N°
                     </th>
 
                     {/* Colonne 2 : Candidat (Sticky Left) */}
-                    <th className="sticky left-12 z-20 bg-slate-50/95 py-3 px-4 min-w-[260px] font-bold text-slate-800 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
+                    <th className="sticky left-12 z-20 min-w-[260px] bg-slate-50/95 px-4 py-3 font-bold text-slate-800 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
                       Nom & Prénom du Candidat
                     </th>
 
                     {/* Colonne 3 : Établissement d'origine */}
-                    <th className="py-3 px-4 min-w-[200px] font-bold text-slate-700">
+                    <th className="min-w-[200px] px-4 py-3 font-bold text-slate-700">
                       Établissement d&rsquo;origine
                     </th>
 
@@ -894,12 +974,12 @@ export function SaisieNotesPageView({
                     {epreuves.map((ep) => (
                       <th
                         key={ep.id}
-                        className="py-3 px-3 text-center min-w-[140px] font-bold text-slate-900"
+                        className="min-w-[140px] px-3 py-3 text-center font-bold text-slate-900"
                       >
-                        <div className="text-xs font-bold truncate">
+                        <div className="truncate text-xs font-bold">
                           {ep.intitule}
                         </div>
-                        <div className="text-[10px] font-normal text-slate-400 mt-0.5">
+                        <div className="mt-0.5 text-[10px] font-normal text-slate-400">
                           Sur /{ep.noteMax} · Coef {ep.coefficient}
                         </div>
                       </th>
@@ -907,9 +987,7 @@ export function SaisieNotesPageView({
 
                     {/* Colonne Actions (si DA ou non verrouillé) */}
                     {!estVerrouille && (
-                      <th className="py-3 px-2 w-10 text-center font-bold text-slate-400">
-                        
-                      </th>
+                      <th className="w-10 px-2 py-3 text-center font-bold text-slate-400"></th>
                     )}
                   </tr>
                 </thead>
@@ -934,28 +1012,32 @@ export function SaisieNotesPageView({
                       return (
                         <tr
                           key={candidat.apprenantId || `hl-${idxOriginal}`}
-                          className={`transition-colors group ${
-                            estToutAbsent ? "bg-rose-50/15 hover:bg-rose-50/25" : "hover:bg-amber-50/35"
+                          className={`group transition-colors ${
+                            estToutAbsent
+                              ? "bg-rose-50/15 hover:bg-rose-50/25"
+                              : "hover:bg-amber-50/35"
                           }`}
                         >
                           {/* 1. N° */}
-                          <td className="sticky left-0 z-10 bg-inherit py-2 px-3 text-center font-mono font-semibold text-slate-400">
+                          <td className="sticky left-0 z-10 bg-inherit px-3 py-2 text-center font-mono font-semibold text-slate-400">
                             {idxOriginal + 1}
                           </td>
 
                           {/* 2. Nom & Prénom */}
-                          <td className="sticky left-12 z-10 bg-inherit py-2 px-4 font-bold text-slate-900 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
+                          <td className="sticky left-12 z-10 bg-inherit px-4 py-2 font-bold text-slate-900 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
                             <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2 min-w-0">
+                              <div className="flex min-w-0 items-center gap-2">
                                 {candidat.horsListe && (
-                                  <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-black text-amber-800 uppercase shrink-0">
+                                  <span className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-black text-amber-800 uppercase">
                                     Hors-liste
                                   </span>
                                 )}
-                                <span className="truncate">{candidat.nomComplet}</span>
+                                <span className="truncate">
+                                  {candidat.nomComplet}
+                                </span>
                                 {estToutAbsent && (
                                   <span
-                                    className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[9px] font-black text-rose-700 uppercase shrink-0"
+                                    className="shrink-0 rounded-md bg-rose-100 px-1.5 py-0.5 text-[9px] font-black text-rose-700 uppercase"
                                     title="Absent(e) à la totalité des épreuves"
                                   >
                                     ABS
@@ -965,12 +1047,18 @@ export function SaisieNotesPageView({
                               {!estVerrouille && (
                                 <button
                                   type="button"
-                                  onClick={() => basculerTousAbsents(idxOriginal)}
-                                  title={estToutAbsent ? "Repasser en mode Note" : "Marquer absent à toutes les épreuves"}
-                                  className={`rounded px-1.5 py-0.5 text-[10px] font-bold transition-all cursor-pointer shrink-0 ${
+                                  onClick={() =>
+                                    basculerTousAbsents(idxOriginal)
+                                  }
+                                  title={
+                                    estToutAbsent
+                                      ? "Repasser en mode Note"
+                                      : "Marquer absent à toutes les épreuves"
+                                  }
+                                  className={`shrink-0 cursor-pointer rounded px-1.5 py-0.5 text-[10px] font-bold transition-all ${
                                     estToutAbsent
                                       ? "bg-rose-100 text-rose-700 hover:bg-rose-200"
-                                      : "text-slate-400 hover:border-rose-300 hover:text-rose-700 hover:bg-rose-50 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                      : "text-slate-400 opacity-0 group-hover:opacity-100 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700 focus:opacity-100"
                                   }`}
                                 >
                                   {estToutAbsent ? "Annuler ABS" : "ABS"}
@@ -980,14 +1068,17 @@ export function SaisieNotesPageView({
                           </td>
 
                           {/* 3. Établissement (avec SelecteurEtablissement compact) */}
-                          <td className="py-2 px-3">
+                          <td className="px-3 py-2">
                             <SelecteurEtablissement
                               value={candidat.etablissementOrigine || ""}
                               onChange={(nouvelEtab) => {
                                 setLignes((prev) =>
                                   prev.map((lig, lIdx) =>
                                     lIdx === idxOriginal
-                                      ? { ...lig, etablissementOrigine: nouvelEtab }
+                                      ? {
+                                          ...lig,
+                                          etablissementOrigine: nouvelEtab,
+                                        }
                                       : lig,
                                   ),
                                 );
@@ -1001,8 +1092,14 @@ export function SaisieNotesPageView({
 
                           {/* 4. Cellules de Notation par Épreuve (Excel-like) */}
                           {epreuves.map((ep) => {
-                            const noteObj = candidat.notes.find((n) => n.epreuveId === ep.id);
-                            const noteVal = noteObj?.note !== null && noteObj?.note !== undefined ? noteObj.note : "";
+                            const noteObj = candidat.notes.find(
+                              (n) => n.epreuveId === ep.id,
+                            );
+                            const noteVal =
+                              noteObj?.note !== null &&
+                              noteObj?.note !== undefined
+                                ? noteObj.note
+                                : "";
                             const statut = noteObj?.statut ?? "NOTE";
                             const estAbsent = statut === "ABS";
                             const depasseMax =
@@ -1012,13 +1109,13 @@ export function SaisieNotesPageView({
                             return (
                               <td
                                 key={ep.id}
-                                className={`py-1.5 px-2 text-center ${
+                                className={`px-2 py-1.5 text-center ${
                                   estAbsent ? "bg-rose-50/30" : ""
                                 }`}
                               >
                                 <div className="flex items-center justify-center gap-1">
                                   {estAbsent ? (
-                                    <span className="w-16 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-200/80 font-black text-xs">
+                                    <span className="w-16 rounded-lg border border-rose-200/80 bg-rose-50 py-1 text-xs font-black text-rose-700">
                                       ABS
                                     </span>
                                   ) : (
@@ -1038,13 +1135,13 @@ export function SaisieNotesPageView({
                                         )
                                       }
                                       placeholder="—"
-                                      className={`w-16 rounded-lg text-center text-xs transition-all outline-none font-bold tabular-nums py-1 ${
+                                      className={`w-16 rounded-lg py-1 text-center text-xs font-bold tabular-nums transition-all outline-none ${
                                         depasseMax
                                           ? "border border-rose-400 bg-rose-50 text-rose-700 ring-2 ring-rose-200"
                                           : noteVal !== ""
-                                            ? "border border-transparent bg-slate-50/60 hover:bg-white hover:border-slate-300 focus:border-brand-orange focus:bg-white focus:ring-2 focus:ring-brand-orange/20 font-black text-slate-900"
-                                            : "border border-transparent bg-transparent hover:bg-slate-100/70 focus:border-brand-orange focus:bg-white focus:ring-2 focus:ring-brand-orange/20 text-slate-400"
-                                      } disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed`}
+                                            ? "focus:border-brand-orange focus:ring-brand-orange/20 border border-transparent bg-slate-50/60 font-black text-slate-900 hover:border-slate-300 hover:bg-white focus:bg-white focus:ring-2"
+                                            : "focus:border-brand-orange focus:ring-brand-orange/20 border border-transparent bg-transparent text-slate-400 hover:bg-slate-100/70 focus:bg-white focus:ring-2"
+                                      } disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400`}
                                     />
                                   )}
 
@@ -1053,16 +1150,18 @@ export function SaisieNotesPageView({
                                     <button
                                       type="button"
                                       tabIndex={-1}
-                                      onClick={() => toggleStatutAbsent(idxOriginal, ep.id)}
+                                      onClick={() =>
+                                        toggleStatutAbsent(idxOriginal, ep.id)
+                                      }
                                       title={
                                         estAbsent
                                           ? "Candidat absent (cliquer pour noter)"
                                           : "Marquer comme absent"
                                       }
-                                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                                      className={`cursor-pointer rounded px-1.5 py-0.5 text-[10px] font-bold transition-all ${
                                         estAbsent
                                           ? "bg-rose-600 text-white shadow-2xs"
-                                          : "text-slate-400 hover:text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                          : "text-slate-400 opacity-0 group-hover:opacity-100 hover:bg-rose-50 hover:text-rose-600 focus:opacity-100"
                                       }`}
                                     >
                                       ABS
@@ -1071,7 +1170,7 @@ export function SaisieNotesPageView({
                                 </div>
 
                                 {depasseMax && (
-                                  <p className="text-[10px] font-bold text-rose-600 mt-0.5">
+                                  <p className="mt-0.5 text-[10px] font-bold text-rose-600">
                                     Max {ep.noteMax}
                                   </p>
                                 )}
@@ -1081,13 +1180,13 @@ export function SaisieNotesPageView({
 
                           {/* 5. Supprimer de la feuille (candidats hors-liste) */}
                           {!estVerrouille && (
-                            <td className="py-2 px-2 text-center">
+                            <td className="px-2 py-2 text-center">
                               {candidat.horsListe && (
                                 <button
                                   type="button"
                                   onClick={() => supprimerLigne(idxOriginal)}
                                   title="Retirer ce candidat de la feuille"
-                                  className="p-1 text-slate-300 hover:text-rose-600 transition-colors cursor-pointer"
+                                  className="cursor-pointer p-1 text-slate-300 transition-colors hover:text-rose-600"
                                 >
                                   <Trash2 size={13} />
                                 </button>
@@ -1104,21 +1203,26 @@ export function SaisieNotesPageView({
           </div>
 
           {/* ── Barre d'Actions Inférieure Flottante ── */}
-          <div className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 px-6 py-3 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3 text-xs text-slate-600 font-semibold">
+          <div className="fixed right-0 bottom-0 left-0 z-30 flex items-center justify-between border-t border-slate-200 bg-white/95 px-6 py-3 shadow-lg backdrop-blur-md">
+            <div className="flex items-center gap-3 text-xs font-semibold text-slate-600">
               <span>
                 Total sur la feuille :{" "}
-                <strong className="text-slate-900">{lignes.length}</strong> candidat(s)
+                <strong className="text-slate-900">{lignes.length}</strong>{" "}
+                candidat(s)
               </span>
               <span>·</span>
               <span>
                 Absents :{" "}
-                <strong className="text-red-700">{stats.totalCandidatsAbsents}</strong>
+                <strong className="text-red-700">
+                  {stats.totalCandidatsAbsents}
+                </strong>
               </span>
               <span>·</span>
               <span>
                 Complétion :{" "}
-                <strong className="text-brand-orange">{stats.pourcentage}%</strong>
+                <strong className="text-brand-orange">
+                  {stats.pourcentage}%
+                </strong>
               </span>
             </div>
 
@@ -1143,7 +1247,7 @@ export function SaisieNotesPageView({
                     ? `Enregistrement bloqué : ${notesHorsBareme.length} note(s) hors barème`
                     : undefined
                 }
-                className="inline-flex items-center gap-2 rounded-xl bg-brand-orange px-6 py-2.5 text-xs font-black text-white hover:bg-brand-orange/90 shadow-xs transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                className="bg-brand-orange hover:bg-brand-orange/90 inline-flex cursor-pointer items-center gap-2 rounded-xl px-6 py-2.5 text-xs font-black text-white shadow-xs transition-all disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Save size={15} />
                 <span>
@@ -1161,4 +1265,3 @@ export function SaisieNotesPageView({
     </div>
   );
 }
-

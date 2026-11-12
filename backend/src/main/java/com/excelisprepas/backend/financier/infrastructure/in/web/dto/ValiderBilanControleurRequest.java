@@ -5,6 +5,6 @@ import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
 
 public record ValiderBilanControleurRequest(
-        @NotNull(message = "Le validateur est obligatoire") UUID validateurUtilisateurId
+        /* ignoré si authentifié : l\'auteur est lu dans le jeton */ UUID validateurUtilisateurId
 ) {
 }

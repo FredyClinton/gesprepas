@@ -1,5 +1,6 @@
 package com.excelisprepas.backend.financier.infrastructure.in.web;
 
+import com.excelisprepas.backend.auth.infrastructure.in.web.UtilisateurCourant;
 import com.excelisprepas.backend.financier.domain.model.BilanJournalier;
 import com.excelisprepas.backend.financier.domain.model.BilanJournalierApercu;
 import com.excelisprepas.backend.financier.domain.port.in.*;
@@ -135,13 +136,7 @@ public class BilanJournalierController {
     @PostMapping("/soumettre-caissier")
     public ResponseEntity<BilanJournalierResponse> soumettreCaissier(
             @Valid @RequestBody SoumettreBilanCaissierRequest request) {
-        UUID caissierId = request.caissierUtilisateurId();
-        if (caissierId == null || "00000000-0000-0000-0000-000000000000".equals(caissierId.toString())) {
-            var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null && auth.getPrincipal() instanceof com.excelisprepas.backend.auth.domain.model.ClaimsAccessToken claims) {
-                caissierId = claims.utilisateurId();
-            }
-        }
+        UUID caissierId = UtilisateurCourant.idOu(request.caissierUtilisateurId());
         BilanJournalier bilan = soumettreBilanCaissierUseCase.soumettreBilanCaissier(
                 request.centreId(), request.sessionId(), request.date(), caissierId);
         return ResponseEntity.ok(versReponse(bilan));
@@ -160,13 +155,7 @@ public class BilanJournalierController {
     @PostMapping("/valider-chef-centre")
     public ResponseEntity<BilanJournalierResponse> validerChefCentre(
             @Valid @RequestBody ValiderBilanChefCentreRequest request) {
-        UUID validateurId = request.validateurUtilisateurId();
-        if (validateurId == null || "00000000-0000-0000-0000-000000000000".equals(validateurId.toString())) {
-            var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null && auth.getPrincipal() instanceof com.excelisprepas.backend.auth.domain.model.ClaimsAccessToken claims) {
-                validateurId = claims.utilisateurId();
-            }
-        }
+        UUID validateurId = UtilisateurCourant.idOu(request.validateurUtilisateurId());
         BilanJournalier bilan = validerBilanChefCentreUseCase.validerBilanChefCentre(
                 request.centreId(), request.sessionId(), request.date(), validateurId);
         return ResponseEntity.status(HttpStatus.CREATED).body(versReponse(bilan));
@@ -185,13 +174,7 @@ public class BilanJournalierController {
     public ResponseEntity<BilanJournalierResponse> validerControleur(
             @Parameter(description = "Identifiant du bilan journalier") @PathVariable UUID id,
             @Valid @RequestBody ValiderBilanControleurRequest request) {
-        UUID validateurId = request.validateurUtilisateurId();
-        if (validateurId == null || "00000000-0000-0000-0000-000000000000".equals(validateurId.toString())) {
-            var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null && auth.getPrincipal() instanceof com.excelisprepas.backend.auth.domain.model.ClaimsAccessToken claims) {
-                validateurId = claims.utilisateurId();
-            }
-        }
+        UUID validateurId = UtilisateurCourant.idOu(request.validateurUtilisateurId());
         BilanJournalier bilan = validerBilanControleurUseCase.validerBilanControleur(id, validateurId);
         return ResponseEntity.ok(versReponse(bilan));
     }
@@ -208,13 +191,7 @@ public class BilanJournalierController {
     @PostMapping("/valider-controleur")
     public ResponseEntity<BilanJournalierResponse> validerControleurDirect(
             @Valid @RequestBody com.excelisprepas.backend.financier.infrastructure.in.web.dto.ValiderBilanControleurDirectRequest request) {
-        UUID validateurId = request.validateurUtilisateurId();
-        if (validateurId == null || "00000000-0000-0000-0000-000000000000".equals(validateurId.toString())) {
-            var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null && auth.getPrincipal() instanceof com.excelisprepas.backend.auth.domain.model.ClaimsAccessToken claims) {
-                validateurId = claims.utilisateurId();
-            }
-        }
+        UUID validateurId = UtilisateurCourant.idOu(request.validateurUtilisateurId());
         BilanJournalier bilan = validerBilanControleurUseCase.validerBilanControleur(
                 request.centreId(), request.sessionId(), request.date(), validateurId);
         return ResponseEntity.ok(versReponse(bilan));
@@ -238,7 +215,7 @@ public class BilanJournalierController {
                 request.date(),
                 request.nombreSalles(),
                 request.nombreCours(),
-                request.utilisateurId()
+                UtilisateurCourant.idOu(request.utilisateurId())
         );
         return ResponseEntity.ok(versReponse(bilan));
     }

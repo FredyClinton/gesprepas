@@ -1,5 +1,6 @@
 package com.excelisprepas.backend.dossier.infrastructure.in.web;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.excelisprepas.backend.dossier.domain.model.Concours;
 import com.excelisprepas.backend.dossier.domain.model.PieceRequise;
 import com.excelisprepas.backend.dossier.domain.port.in.*;
@@ -68,6 +69,7 @@ public class ConcoursController {
             @ApiResponse(responseCode = "404", description = "Session introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Session non utilisable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('DOSSIER_SUPERVISER')")
     @PostMapping
     public ResponseEntity<ConcoursResponse> creerConcours(@Valid @RequestBody CreerConcoursRequest request) {
         Concours concours = creerConcoursUseCase.creerConcours(request.nom(), request.sessionId(),
@@ -107,6 +109,7 @@ public class ConcoursController {
             @ApiResponse(responseCode = "404", description = "Concours ou pièce requise introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Pièce inactive ou déjà ajoutée au concours", content = @Content)
     })
+    @PreAuthorize("hasAuthority('DOSSIER_SUPERVISER')")
     @PostMapping("/{id}/pieces-requises")
     public ResponseEntity<Void> ajouterPiece(
             @Parameter(description = "Identifiant du concours") @PathVariable UUID id,
@@ -120,6 +123,7 @@ public class ConcoursController {
             @ApiResponse(responseCode = "204", description = "Pièce retirée du concours", content = @Content),
             @ApiResponse(responseCode = "404", description = "Concours, pièce requise ou pièce non ajoutée au concours introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('DOSSIER_SUPERVISER')")
     @DeleteMapping("/{id}/pieces-requises/{pieceRequiseId}")
     public ResponseEntity<Void> retirerPiece(
             @Parameter(description = "Identifiant du concours") @PathVariable UUID id,

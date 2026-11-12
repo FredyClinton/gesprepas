@@ -13,7 +13,7 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:update}
+      ddl-auto: ${JPA_DDL_AUTO:validate}
     show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
@@ -22,6 +22,9 @@ spring:
     enabled: ${FLYWAY_ENABLED:true}
     baseline-on-migrate: true
     baseline-version: 0
+    # V1_1 (rattrapage des tables autrefois créées par Hibernate) a été ajoutée après
+    # V31 : sans out-of-order, les bases existantes la refuseraient au démarrage.
+    out-of-order: true
 
 server:
   port: ${SERVER_PORT:8080}

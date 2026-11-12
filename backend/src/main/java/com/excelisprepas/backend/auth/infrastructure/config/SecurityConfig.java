@@ -50,7 +50,19 @@ public class SecurityConfig {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, TokenPort tokenPort) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, TokenPort tokenPort,
+                                           org.springframework.beans.factory.ObjectProvider<
+                                                   com.excelisprepas.backend.auth.domain.port.out.ContexteUtilisateurPort> contexte)
+            throws Exception {
+        // Centre d'un rôle rattaché à un centre : rattachement de la session active (relu en
+        // base par ContexteUtilisateurPort), à défaut celui du compte. ObjectProvider : absent
+        // des tranches @WebMvcTest, on retombe alors sur le centre du jeton.
+        java.util.function.Function<com.excelisprepas.backend.auth.domain.model.ClaimsAccessToken, java.util.UUID>
+                centreRattache = claims -> {
+                    var port = contexte.getIfAvailable();
+                    return port != null ? port.courant().getCentreId() : claims.centreId();
+                };
+
         http
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
@@ -64,7 +76,11 @@ public class SecurityConfig {
                                 ecrireErreur(response, HttpStatus.UNAUTHORIZED, "Authentification requise"))
                         .accessDeniedHandler((request, response, accessDeniedException) ->
                                 ecrireErreur(response, HttpStatus.FORBIDDEN, "Accès refusé")))
-                .addFilterBefore(new JwtAuthenticationFilter(tokenPort), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(new JwtAuthenticationFilter(tokenPort), UsernamePasswordAuthenticationFilter.class)
+                // Après l'authentification : écrase X-User-Role / X-Centre-Id / X-Departement-Id
+                // envoyés par le client avec les valeurs du jeton (voir EnTetesIdentiteFilter).
+                .addFilterAfter(new com.excelisprepas.backend.auth.infrastructure.in.web.EnTetesIdentiteFilter(centreRattache),
+                        JwtAuthenticationFilter.class);
 
         return http.build();
     }

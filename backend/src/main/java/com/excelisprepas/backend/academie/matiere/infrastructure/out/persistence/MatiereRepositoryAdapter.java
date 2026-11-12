@@ -46,4 +46,9 @@ public class MatiereRepositoryAdapter implements MatiereRepositoryPort {
     public void deleteById(UUID id) {
         jpaRepository.deleteById(id);
     }
+
+    @Override
+    public boolean estReferencee(UUID id) {
+        return jpaRepository.estReferencee(id);
+    }
 }

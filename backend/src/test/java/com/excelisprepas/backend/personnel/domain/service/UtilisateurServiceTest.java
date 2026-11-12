@@ -30,6 +30,7 @@ class UtilisateurServiceTest {
     private UtilisateurRepositoryPort repository;
     private PasswordEncoderPort passwordEncoder;
     private CentreRepositoryPort centreRepository;
+    private com.excelisprepas.backend.auth.domain.port.out.RefreshTokenRepositoryPort refreshTokenRepository;
     private UtilisateurService service;
 
     @BeforeEach
@@ -37,7 +38,8 @@ class UtilisateurServiceTest {
         repository = mock(UtilisateurRepositoryPort.class);
         passwordEncoder = mock(PasswordEncoderPort.class);
         centreRepository = mock(CentreRepositoryPort.class);
-        service = new UtilisateurService(repository, passwordEncoder, centreRepository);
+        refreshTokenRepository = mock(com.excelisprepas.backend.auth.domain.port.out.RefreshTokenRepositoryPort.class);
+        service = new UtilisateurService(repository, passwordEncoder, centreRepository, null, refreshTokenRepository);
     }
 
     private Utilisateur unUtilisateur() {
@@ -155,6 +157,39 @@ class UtilisateurServiceTest {
 
             verify(passwordEncoder).encoder("nouveauMotDePasse");
             verify(repository).save(any(Utilisateur.class));
+            verify(refreshTokenRepository).revoquerTousPourUtilisateur(eq(utilisateur.getId()), any());
+        }
+
+        @Test
+        @DisplayName("changerMonMotDePasse() change le mot de passe si l'actuel correspond")
+        void changerMonMotDePasseReussit() {
+            Utilisateur utilisateur = unUtilisateur();
+            when(repository.findById(utilisateur.getId())).thenReturn(Optional.of(utilisateur));
+            when(passwordEncoder.correspond("ancien", utilisateur.getMotDePasseHash())).thenReturn(true);
+            when(passwordEncoder.encoder("nouveauMotDePasse")).thenReturn("nouveau-hash");
+
+            service.changerMonMotDePasse(utilisateur.getId(), "ancien", "nouveauMotDePasse");
+
+            assertThat(utilisateur.getMotDePasseHash()).isEqualTo("nouveau-hash");
+            verify(repository).save(utilisateur);
+            verify(refreshTokenRepository).revoquerTousPourUtilisateur(eq(utilisateur.getId()), any());
+        }
+
+        @Test
+        @DisplayName("changerMonMotDePasse() refuse si le mot de passe actuel est incorrect")
+        void changerMonMotDePasseActuelIncorrect() {
+            Utilisateur utilisateur = unUtilisateur();
+            when(repository.findById(utilisateur.getId())).thenReturn(Optional.of(utilisateur));
+            when(passwordEncoder.correspond(anyString(), anyString())).thenReturn(false);
+
+            ThrowingCallable changement =
+                    () -> service.changerMonMotDePasse(utilisateur.getId(), "faux", "nouveauMotDePasse");
+
+            assertThatThrownBy(changement).isInstanceOf(
+                    com.excelisprepas.backend.personnel.domain.exception.MotDePasseActuelIncorrectException.class);
+            verify(passwordEncoder, never()).encoder(anyString());
+            verify(repository, never()).save(any());
+            verifyNoInteractions(refreshTokenRepository);
         }
 
         @Test

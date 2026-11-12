@@ -1,5 +1,6 @@
 package com.excelisprepas.backend.financier.infrastructure.in.web;
 
+import com.excelisprepas.backend.auth.infrastructure.in.web.UtilisateurCourant;
 import com.excelisprepas.backend.financier.domain.model.ValidationMouvement;
 import com.excelisprepas.backend.financier.domain.port.in.ValiderMouvementUseCase;
 import com.excelisprepas.backend.financier.infrastructure.in.web.dto.ValidationMouvementResponse;
@@ -44,13 +45,7 @@ public class ValidationMouvementController {
     public ResponseEntity<ValidationMouvementResponse> validerMouvement(
             @Parameter(description = "Identifiant du mouvement financier") @PathVariable UUID id,
             @Valid @RequestBody ValiderMouvementRequest request) {
-        UUID validateurId = request.validateurUtilisateurId();
-        if (validateurId == null || "00000000-0000-0000-0000-000000000000".equals(validateurId.toString())) {
-            var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null && auth.getPrincipal() instanceof com.excelisprepas.backend.auth.domain.model.ClaimsAccessToken claims) {
-                validateurId = claims.utilisateurId();
-            }
-        }
+        UUID validateurId = UtilisateurCourant.idOu(request.validateurUtilisateurId());
         ValidationMouvement validation = validerMouvementUseCase.validerMouvement(
                 id, request.decision(), validateurId);
         return ResponseEntity.ok(new ValidationMouvementResponse(

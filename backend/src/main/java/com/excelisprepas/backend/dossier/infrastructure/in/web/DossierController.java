@@ -1,5 +1,6 @@
 package com.excelisprepas.backend.dossier.infrastructure.in.web;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.excelisprepas.backend.dossier.domain.model.Dossier;
 import com.excelisprepas.backend.dossier.domain.model.DossierConcours;
 import com.excelisprepas.backend.dossier.domain.model.SelectionPiece;
@@ -79,6 +80,7 @@ public class DossierController {
             @ApiResponse(responseCode = "404", description = "Apprenant introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Dossier déjà existant pour cet apprenant", content = @Content)
     })
+    @PreAuthorize("hasAuthority('DOSSIER_GERER')")
     @PostMapping
     public ResponseEntity<DossierResponse> ouvrirDossier(@Valid @RequestBody OuvrirDossierRequest request) {
         Dossier dossier = ouvrirDossierUseCase.ouvrirDossier(request.apprenantId(), request.sessionId());
@@ -128,6 +130,7 @@ public class DossierController {
                     content = @Content(schema = @Schema(implementation = DossierResponse.class))),
             @ApiResponse(responseCode = "404", description = "Dossier introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('DOSSIER_GERER')")
     @PatchMapping("/{id}/observation")
     public ResponseEntity<DossierResponse> modifierObservation(
             @Parameter(description = "Identifiant du dossier") @PathVariable UUID id,
@@ -144,6 +147,7 @@ public class DossierController {
             @ApiResponse(responseCode = "404", description = "Dossier, concours ou pièce requise introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Dossier non ouvert ou clôturé, date limite dépassée, ou concours déjà ajouté", content = @Content)
     })
+    @PreAuthorize("hasAuthority('DOSSIER_GERER')")
     @PostMapping("/{id}/concours")
     public ResponseEntity<DossierConcoursResponse> ajouterConcours(
             @Parameter(description = "Identifiant du dossier") @PathVariable UUID id,
@@ -178,6 +182,7 @@ public class DossierController {
             @ApiResponse(responseCode = "404", description = "Dossier introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Dossier non ouvert, sans concours, ou pièces non toutes validées", content = @Content)
     })
+    @PreAuthorize("hasAuthority('DOSSIER_GERER')")
     @PatchMapping("/{id}/signaler-complet")
     public ResponseEntity<DossierResponse> signalerComplet(
             @Parameter(description = "Identifiant du dossier") @PathVariable UUID id) {
@@ -191,6 +196,7 @@ public class DossierController {
             @ApiResponse(responseCode = "404", description = "Dossier introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Dossier déjà clôturé", content = @Content)
     })
+    @PreAuthorize("hasAuthority('DOSSIER_GERER')")
     @PatchMapping("/{id}/cloturer")
     public ResponseEntity<DossierResponse> cloturer(
             @Parameter(description = "Identifiant du dossier") @PathVariable UUID id) {
@@ -204,6 +210,7 @@ public class DossierController {
             @ApiResponse(responseCode = "404", description = "Dossier introuvable", content = @Content),
             @ApiResponse(responseCode = "409", description = "Dossier déjà ouvert", content = @Content)
     })
+    @PreAuthorize("hasAuthority('DOSSIER_GERER')")
     @PatchMapping("/{id}/rouvrir")
     public ResponseEntity<DossierResponse> rouvrir(
             @Parameter(description = "Identifiant du dossier") @PathVariable UUID id) {

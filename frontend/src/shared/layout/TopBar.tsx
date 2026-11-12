@@ -27,12 +27,15 @@ type TopBarProps = {
 function getTitreSection(pathname: string): string {
   if (pathname.startsWith("/apprenants")) return "Gestion des Apprenants";
   if (pathname.startsWith("/dossiers")) return "Dossiers de Concours";
-  if (pathname.startsWith("/personnel") || pathname.startsWith("/personnels")) return "Personnel Administratif";
+  if (pathname.startsWith("/personnel") || pathname.startsWith("/personnels"))
+    return "Personnel Administratif";
   if (pathname.startsWith("/enseignants")) return "Corps Enseignant";
   if (pathname.startsWith("/finances")) return "Gestion Financière";
-  if (pathname.startsWith("/bilan-journalier")) return "Bilan Journalier de Caisse";
+  if (pathname.startsWith("/bilan-journalier"))
+    return "Bilan Journalier de Caisse";
   if (pathname.startsWith("/paie")) return "Gestion de la Paie";
-  if (pathname.startsWith("/concours-blancs")) return "Concours Blancs & Épreuves";
+  if (pathname.startsWith("/concours-blancs"))
+    return "Concours Blancs & Épreuves";
   if (pathname.startsWith("/progression")) return "Progression Pédagogique";
   if (pathname.startsWith("/livres")) return "Gestion des Livres";
   if (pathname.startsWith("/centres")) return "Centres & Infrastructures";
@@ -40,6 +43,7 @@ function getTitreSection(pathname: string): string {
   if (pathname.startsWith("/departements")) return "Départements Académiques";
   if (pathname.startsWith("/sessions")) return "Sessions & Phases";
   if (pathname.startsWith("/audit")) return "Journal d'Audit";
+  if (pathname.startsWith("/profil")) return "Mon profil";
   if (pathname.startsWith("/mon-centre")) return "Mon Centre";
   if (pathname.startsWith("/inscription")) return "Nouvelle Inscription";
   if (pathname.startsWith("/planification")) return "Planification des Cours";
@@ -69,7 +73,9 @@ export function TopBar({
   const handleGlobalSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (rechercheGlobale.trim()) {
-      router.push(`/apprenants?recherche=${encodeURIComponent(rechercheGlobale.trim())}`);
+      router.push(
+        `/apprenants?recherche=${encodeURIComponent(rechercheGlobale.trim())}`,
+      );
     }
   };
 
@@ -101,7 +107,7 @@ export function TopBar({
           <button
             type="button"
             onClick={onToggleSidebar}
-            className="hidden h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50/80 text-slate-600 shadow-2xs transition-colors hover:bg-slate-100 hover:text-brand-anthracite md:flex cursor-pointer"
+            className="hover:text-brand-anthracite hidden h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-slate-50/80 text-slate-600 shadow-2xs transition-colors hover:bg-slate-100 md:flex"
             title={
               isSidebarCollapsed
                 ? "Déplier la barre latérale"
@@ -119,7 +125,10 @@ export function TopBar({
 
         {/* Recherche transversale sur le Dashboard UNIQUEMENT */}
         {isDashboard ? (
-          <form onSubmit={handleGlobalSearchSubmit} className="relative hidden lg:block">
+          <form
+            onSubmit={handleGlobalSearchSubmit}
+            className="relative hidden lg:block"
+          >
             <Search
               size={16}
               className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate-400"
@@ -129,15 +138,15 @@ export function TopBar({
               value={rechercheGlobale}
               onChange={(e) => setRechercheGlobale(e.target.value)}
               placeholder="Recherche rapide... (apprenant, matricule)"
-              className="h-9 w-64 rounded-xl border border-slate-200/90 bg-slate-50/60 pl-9 pr-3 text-xs text-brand-anthracite placeholder:text-slate-400 transition-all duration-150 focus:w-80 focus:border-brand-orange focus:bg-white focus:ring-2 focus:ring-brand-orange/15 focus:outline-none"
+              className="text-brand-anthracite focus:border-brand-orange focus:ring-brand-orange/15 h-9 w-64 rounded-xl border border-slate-200/90 bg-slate-50/60 pr-3 pl-9 text-xs transition-all duration-150 placeholder:text-slate-400 focus:w-80 focus:bg-white focus:ring-2 focus:outline-none"
             />
           </form>
         ) : (
           /* Indicateur de contexte pour équilibrer le header sur toutes les autres pages sans vide */
-          <div className="hidden sm:flex items-center gap-2 text-xs">
-            <span className="text-slate-400 font-medium">Accueil</span>
+          <div className="hidden items-center gap-2 text-xs sm:flex">
+            <span className="font-medium text-slate-400">Accueil</span>
             <span className="text-slate-300">/</span>
-            <span className="font-bold text-slate-800 tracking-tight">
+            <span className="font-bold tracking-tight text-slate-800">
               {getTitreSection(pathname)}
             </span>
           </div>
@@ -147,33 +156,43 @@ export function TopBar({
       {/* Côté droit : Badge Rôle/Centre, Notifications & Profil */}
       <div className="flex items-center gap-2 sm:gap-3">
         {/* Badge Institutionnel Rôle & Centre - Bleu pourpre officiel #2D2E80 */}
-        <div className="flex max-w-[180px] sm:max-w-none items-center gap-2 rounded-xl border border-[#2D2E80]/20 bg-[#2D2E80]/5 px-3 py-1.5 text-xs font-semibold text-[#2D2E80]">
-          <span className="flex h-2 w-2 rounded-full bg-brand-orange animate-pulse" />
+        <div className="flex max-w-[180px] items-center gap-2 rounded-xl border border-[#2D2E80]/20 bg-[#2D2E80]/5 px-3 py-1.5 text-xs font-semibold text-[#2D2E80] sm:max-w-none">
+          <span className="bg-brand-orange flex h-2 w-2 animate-pulse rounded-full" />
           <span className="truncate">
             {ROLE_LABELS[role]}
             {centreName ? ` • ${centreName}` : ""}
           </span>
           {centreName && (
-            <MapPin size={12} className="shrink-0 text-brand-orange hidden sm:inline" />
+            <MapPin
+              size={12}
+              className="text-brand-orange hidden shrink-0 sm:inline"
+            />
           )}
         </div>
 
         {/* Bouton Notifications avec voyant */}
         <button
           type="button"
-          className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-white text-slate-600 shadow-2xs transition-all hover:bg-slate-50 hover:text-brand-anthracite cursor-pointer"
+          className="hover:text-brand-anthracite relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-slate-200/80 bg-white text-slate-600 shadow-2xs transition-all hover:bg-slate-50"
           aria-label="Centre de notifications"
         >
           <Bell size={18} />
-          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-brand-orange ring-2 ring-white" />
+          <span className="bg-brand-orange absolute top-2 right-2 h-2 w-2 rounded-full ring-2 ring-white" />
         </button>
 
         {/* Profil utilisateur connecté */}
-        <div className="flex items-center gap-2 pl-1">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2D2E80] text-white shadow-xs font-bold text-xs">
-            <User size={16} />
-          </div>
-        </div>
+        <Link
+          href="/profil"
+          className={`ml-1 flex h-9 w-9 items-center justify-center rounded-xl bg-[#2D2E80] text-white shadow-xs transition hover:bg-[#222365] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2D2E80] ${
+            pathname.startsWith("/profil")
+              ? "ring-brand-orange ring-2 ring-offset-2"
+              : ""
+          }`}
+          title="Mon profil"
+          aria-label="Mon profil"
+        >
+          <User size={16} />
+        </Link>
       </div>
     </header>
   );

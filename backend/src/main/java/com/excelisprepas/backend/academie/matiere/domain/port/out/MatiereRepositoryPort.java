@@ -16,4 +16,10 @@ public interface MatiereRepositoryPort {
     List<Matiere> findAll();
 
     void deleteById(UUID id);
+
+    /**
+     * Vrai si une autre table référence encore cette matière par clé étrangère
+     * (épreuves de concours blanc, quotas hebdomadaires) : la supprimer échouerait.
+     */
+    boolean estReferencee(UUID id);
 }

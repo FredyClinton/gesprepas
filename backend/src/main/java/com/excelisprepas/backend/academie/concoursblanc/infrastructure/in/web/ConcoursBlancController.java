@@ -1,5 +1,6 @@
 package com.excelisprepas.backend.academie.concoursblanc.infrastructure.in.web;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.excelisprepas.backend.academie.concoursblanc.domain.model.ConcoursBlanc;
 import com.excelisprepas.backend.academie.concoursblanc.domain.model.EpreuveConcoursBlanc;
 import com.excelisprepas.backend.academie.concoursblanc.domain.model.NoteEpreuve;
@@ -44,6 +45,7 @@ public class ConcoursBlancController {
         this.etablissementRepository = etablissementRepository;
     }
 
+    @PreAuthorize("hasAuthority('CONCOURS_BLANC_GERER')")
     @PostMapping
     public ResponseEntity<ConcoursBlancResponse> creer(@Valid @RequestBody CreerConcoursBlancRequest request) {
         List<ConcoursBlancService.EpreuveParam> params = request.epreuves() != null
@@ -74,6 +76,7 @@ public class ConcoursBlancController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ConcoursBlancResponse.fromDomain(cb));
     }
 
+    @PreAuthorize("hasAuthority('CONCOURS_BLANC_GERER')")
     @PutMapping("/{id}")
     public ResponseEntity<ConcoursBlancResponse> modifier(
             @PathVariable UUID id,
@@ -124,16 +127,45 @@ public class ConcoursBlancController {
         return false;
     }
 
-    private void verifierAccesCentre(ConcoursBlanc cb, String userRole, String centreIdHeader) {
-        if (estUtilisateurDirection(userRole)) return;
-        if (centreIdHeader == null || centreIdHeader.isBlank()) return;
-        try {
-            UUID centreId = UUID.fromString(centreIdHeader.trim());
-            boolean concerne = cb.isTousLesCentres() || (cb.getCentreIds() != null && cb.getCentreIds().contains(centreId));
-            if (!concerne) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Ce concours blanc ne concerne pas votre centre.");
+    /**
+     * Centre auquel l'appelant est restreint, ou null s'il voit tous les centres.
+     * Les en-têtes viennent du jeton (réécrits par EnTetesIdentiteFilter). Échec fermé :
+     * un rôle rattaché à un centre (CHEF_CENTRE, CAISSIER, CHARGE_DOSSIER) sans centre
+     * dans son jeton est refusé, au lieu de voir tous les centres comme auparavant.
+     */
+    private UUID centreImpose(String userRole, String centreIdHeader) {
+        if (estUtilisateurDirection(userRole)) return null;
+        if (centreIdHeader != null && !centreIdHeader.isBlank()) {
+            try {
+                return UUID.fromString(centreIdHeader.trim());
+            } catch (IllegalArgumentException e) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Centre de l'utilisateur invalide.");
             }
-        } catch (IllegalArgumentException ignored) {
+        }
+        if (estRoleCentreScope(userRole)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Aucun centre n'est associé à votre compte.");
+        }
+        return null;
+    }
+
+    private static boolean estRoleCentreScope(String userRole) {
+        if (userRole == null || userRole.isBlank()) return false;
+        try {
+            return com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur
+                    .valueOf(userRole.trim().toUpperCase()).estCentreScope();
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    private static boolean concerneCentre(ConcoursBlanc cb, UUID centreId) {
+        return cb.isTousLesCentres() || (cb.getCentreIds() != null && cb.getCentreIds().contains(centreId));
+    }
+
+    private void verifierAccesCentre(ConcoursBlanc cb, String userRole, String centreIdHeader) {
+        UUID centreId = centreImpose(userRole, centreIdHeader);
+        if (centreId != null && !concerneCentre(cb, centreId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Ce concours blanc ne concerne pas votre centre.");
         }
     }
 
@@ -143,14 +175,9 @@ public class ConcoursBlancController {
             @RequestHeader(value = "X-Centre-Id", required = false) String centreIdHeader,
             @RequestParam UUID sessionId) {
         List<ConcoursBlanc> list = concoursBlancService.listerParSession(sessionId);
-        if (!estUtilisateurDirection(userRole) && centreIdHeader != null && !centreIdHeader.isBlank()) {
-            try {
-                UUID centreId = UUID.fromString(centreIdHeader.trim());
-                list = list.stream()
-                        .filter(cb -> cb.isTousLesCentres() || (cb.getCentreIds() != null && cb.getCentreIds().contains(centreId)))
-                        .collect(Collectors.toList());
-            } catch (IllegalArgumentException ignored) {
-            }
+        UUID centreId = centreImpose(userRole, centreIdHeader);
+        if (centreId != null) {
+            list = list.stream().filter(cb -> concerneCentre(cb, centreId)).collect(Collectors.toList());
         }
         return ResponseEntity.ok(list.stream().map(ConcoursBlancResponse::fromDomain).collect(Collectors.toList()));
     }
@@ -166,12 +193,14 @@ public class ConcoursBlancController {
         return ResponseEntity.ok(ConcoursBlancResponse.fromDomain(cb));
     }
 
+    @PreAuthorize("hasAuthority('CONCOURS_BLANC_GERER')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> supprimer(@PathVariable UUID id) {
         concoursBlancService.supprimerConcoursBlanc(id);
         return ResponseEntity.noContent().build();
     }
 
+    @PreAuthorize("hasAuthority('CONCOURS_BLANC_DEFINIR_CONTENU')")
     @PutMapping("/{id}/epreuves/{epreuveId}/contenu")
     public ResponseEntity<EpreuveResponse> definirContenu(
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
@@ -188,22 +217,23 @@ public class ConcoursBlancController {
                         HttpStatus.FORBIDDEN, "Seuls les chefs de département et la direction académique peuvent définir le contenu des épreuves.");
             }
             if ("CHEF_DEPARTEMENT".equals(roleUpper)) {
-                if (departementIdHeader != null && !departementIdHeader.isBlank()) {
-                    try {
-                        UUID depId = UUID.fromString(departementIdHeader.trim());
-                        var depOpt = departementRepository.findById(depId);
-                        if (depOpt.isPresent()) {
-                            var dep = depOpt.get();
-                            EpreuveConcoursBlanc ep = concoursBlancService.recupererEpreuve(epreuveId)
-                                     .orElseThrow(() -> new IllegalArgumentException("Épreuve introuvable"));
-                            if (!dep.getMatiereId().equals(ep.getMatiereId())) {
-                                throw new ResponseStatusException(
-                                        HttpStatus.FORBIDDEN, "Un chef de département ne peut définir que le contenu des épreuves de sa propre matière.");
-                            }
-                        }
-                    } catch (IllegalArgumentException ex) {
-                        // ignore invalid UUID parsing
-                    }
+                // Échec fermé : sans département valide dans le jeton, pas de contenu à définir.
+                UUID depId;
+                try {
+                    depId = departementIdHeader == null ? null : UUID.fromString(departementIdHeader.trim());
+                } catch (IllegalArgumentException ex) {
+                    depId = null;
+                }
+                var dep = depId == null ? null : departementRepository.findById(depId).orElse(null);
+                if (dep == null) {
+                    throw new ResponseStatusException(
+                            HttpStatus.FORBIDDEN, "Aucun département n'est associé à votre compte.");
+                }
+                EpreuveConcoursBlanc ep = concoursBlancService.recupererEpreuve(epreuveId)
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Épreuve introuvable"));
+                if (!dep.getMatiereId().equals(ep.getMatiereId())) {
+                    throw new ResponseStatusException(
+                            HttpStatus.FORBIDDEN, "Un chef de département ne peut définir que le contenu des épreuves de sa propre matière.");
                 }
             }
         }
@@ -212,6 +242,7 @@ public class ConcoursBlancController {
         return ResponseEntity.ok(EpreuveResponse.fromDomain(ep));
     }
 
+    @PreAuthorize("hasAuthority('CONCOURS_BLANC_GERER')")
     @PutMapping("/{id}/statut")
     public ResponseEntity<ConcoursBlancResponse> changerStatut(
             @PathVariable UUID id,
@@ -220,6 +251,7 @@ public class ConcoursBlancController {
         return ResponseEntity.ok(ConcoursBlancResponse.fromDomain(cb));
     }
 
+    @PreAuthorize("hasAuthority('CONCOURS_BLANC_GERER')")
     @PutMapping("/{id}/verrouiller-centres")
     public ResponseEntity<ConcoursBlancResponse> verrouillerCentres(
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
@@ -233,6 +265,7 @@ public class ConcoursBlancController {
         return ResponseEntity.ok(ConcoursBlancResponse.fromDomain(cb));
     }
 
+    @PreAuthorize("hasAuthority('CONCOURS_BLANC_GERER')")
     @PostMapping("/{id}/compiler")
     public ResponseEntity<Void> compilerResultats(
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
@@ -256,10 +289,8 @@ public class ConcoursBlancController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Concours blanc non trouvé"));
         verifierAccesCentre(cb, userRole, centreIdHeader);
 
-        UUID filtreCentre = centreId;
-        if (!estUtilisateurDirection(userRole) && centreIdHeader != null && !centreIdHeader.isBlank()) {
-            filtreCentre = UUID.fromString(centreIdHeader.trim());
-        }
+        UUID centreImpose = centreImpose(userRole, centreIdHeader);
+        UUID filtreCentre = centreImpose != null ? centreImpose : centreId;
 
         List<ResultatCandidat> list = concoursBlancService.recupererResultats(id, filtreCentre, formationId);
         for (ResultatCandidat r : list) {
@@ -270,6 +301,7 @@ public class ConcoursBlancController {
         return ResponseEntity.ok(list.stream().map(ResultatCandidatResponse::fromDomain).collect(Collectors.toList()));
     }
 
+    @PreAuthorize("hasAuthority('CONCOURS_BLANC_SAISIR_NOTES')")
     @PostMapping("/{id}/notes")
     public ResponseEntity<List<ResultatCandidatResponse>> enregistrerNotes(
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
@@ -298,15 +330,10 @@ public class ConcoursBlancController {
                     HttpStatus.FORBIDDEN, "La saisie des notes a été verrouillée pour les centres par la Direction Académique.");
         }
 
-        if (!estUtilisateurDirection(userRole) && centreIdHeader != null && !centreIdHeader.isBlank()) {
-            try {
-                UUID userCentreId = UUID.fromString(centreIdHeader.trim());
-                if (!userCentreId.equals(request.centreId())) {
-                    throw new ResponseStatusException(
-                            HttpStatus.FORBIDDEN, "Vous ne pouvez saisir des notes que pour votre propre centre.");
-                }
-            } catch (IllegalArgumentException ignored) {
-            }
+        UUID userCentreId = centreImpose(userRole, centreIdHeader);
+        if (userCentreId != null && !userCentreId.equals(request.centreId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "Vous ne pouvez saisir des notes que pour votre propre centre.");
         }
 
         // Validation stricte du barème : interdire toute note hors barème (< 0 ou > noteMax)
@@ -387,10 +414,8 @@ public class ConcoursBlancController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Concours blanc non trouvé"));
         verifierAccesCentre(cb, userRole, centreIdHeader);
 
-        UUID filtreCentre = centreId;
-        if (!estUtilisateurDirection(userRole) && centreIdHeader != null && !centreIdHeader.isBlank()) {
-            filtreCentre = UUID.fromString(centreIdHeader.trim());
-        }
+        UUID centreImpose = centreImpose(userRole, centreIdHeader);
+        UUID filtreCentre = centreImpose != null ? centreImpose : centreId;
 
         List<EpreuveResponse> epreuvesFormation = cb.getEpreuves().stream()
                 .filter(e -> e.getFormationId().equals(formationId))

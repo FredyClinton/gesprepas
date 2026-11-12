@@ -88,7 +88,7 @@ class PersonnelControllerTest {
     void modifierPersonnel_succes_retourne200() throws Exception {
         UUID id = UUID.randomUUID();
         Personnel maj = new Personnel(id, "Smith", "Jane", "+237677777777", "987654321", "jane.smith@excelis.cm");
-        when(modifierPersonnelUseCase.modifierPersonnel(org.mockito.ArgumentMatchers.eq(id),
+        when(modifierPersonnelUseCase.modifierPersonnel(org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.eq(id),
                 org.mockito.ArgumentMatchers.eq("Smith"),
                 org.mockito.ArgumentMatchers.eq("Jane"),
                 org.mockito.ArgumentMatchers.eq("+237677777777"),
@@ -119,7 +119,7 @@ class PersonnelControllerTest {
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/personnel/" + id))
                 .andExpect(status().isNoContent());
 
-        org.mockito.Mockito.verify(supprimerPersonnelUseCase).supprimerPersonnel(id);
+        org.mockito.Mockito.verify(supprimerPersonnelUseCase).supprimerPersonnel(null, id);
     }
 
     @Test
@@ -130,7 +130,7 @@ class PersonnelControllerTest {
                 new com.excelisprepas.backend.personnel.domain.model.Utilisateur(
                         id, "Doe", "John", "+237699999999", "123456789", "john.doe@excelis.cm",
                         "hash", com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur.COMPTABLE, null);
-        when(creerComptePersonnelUseCase.creerCompte(org.mockito.ArgumentMatchers.eq(id),
+        when(creerComptePersonnelUseCase.creerCompte(org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.eq(id),
                 org.mockito.ArgumentMatchers.eq("Secret123!"),
                 org.mockito.ArgumentMatchers.eq(com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur.COMPTABLE),
                 org.mockito.ArgumentMatchers.isNull())).thenReturn(utilisateur);

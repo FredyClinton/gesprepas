@@ -26,7 +26,12 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Button, SortableHeader } from "@/shared/ui";
-import { compareStrings, compareNumbers, compareDates, type SortDirection } from "@/shared/lib/sort-utils";
+import {
+  compareStrings,
+  compareNumbers,
+  compareDates,
+  type SortDirection,
+} from "@/shared/lib/sort-utils";
 import {
   useDossiers,
   useConcoursSession,
@@ -53,10 +58,28 @@ import { useApprenants, type Apprenant } from "@/modules/apprenants";
 
 const FCFA = new Intl.NumberFormat("fr-FR");
 
-const STATUT_BADGES: Record<Dossier["statut"], { label: string; dot: string; bg: string; text: string }> = {
-  OUVERT: { label: "En cours", dot: "bg-amber-600", bg: "bg-amber-50 border border-amber-200", text: "text-amber-800" },
-  COMPLET: { label: "Complet", dot: "bg-emerald-600", bg: "bg-emerald-50 border border-emerald-200", text: "text-emerald-800" },
-  CLOTURE: { label: "Clôturé", dot: "bg-slate-400", bg: "bg-slate-100 border border-slate-200", text: "text-slate-700" },
+const STATUT_BADGES: Record<
+  Dossier["statut"],
+  { label: string; dot: string; bg: string; text: string }
+> = {
+  OUVERT: {
+    label: "En cours",
+    dot: "bg-amber-600",
+    bg: "bg-amber-50 border border-amber-200",
+    text: "text-amber-800",
+  },
+  COMPLET: {
+    label: "Complet",
+    dot: "bg-emerald-600",
+    bg: "bg-emerald-50 border border-emerald-200",
+    text: "text-emerald-800",
+  },
+  CLOTURE: {
+    label: "Clôturé",
+    dot: "bg-slate-400",
+    bg: "bg-slate-100 border border-slate-200",
+    text: "text-slate-700",
+  },
 };
 
 const PIECES_STANDARDS_DEFAUT = [
@@ -136,7 +159,8 @@ function DossierActionMenu({
 }: {
   dossierId: string;
   apprenantId: string;
-  onRattacherConcours: (apprenantId: string) => void;
+  /** Absent : l'utilisateur ne peut pas souscrire, l'entrée est masquée. */
+  onRattacherConcours?: (apprenantId: string) => void;
 }) {
   const [ouvert, setOuvert] = useState(false);
 
@@ -149,7 +173,7 @@ function DossierActionMenu({
           e.stopPropagation();
           setOuvert((v) => !v);
         }}
-        className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+        className="cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
         title="Options du dossier"
         aria-label="Options du dossier"
       >
@@ -169,33 +193,35 @@ function DossierActionMenu({
           />
           <div
             onClick={(e) => e.stopPropagation()}
-            className="absolute right-0 top-full mt-1 w-48 rounded-xl bg-white p-1.5 shadow-xl border border-slate-200/90 z-40 text-left animate-in fade-in slide-in-from-top-1"
+            className="animate-in fade-in slide-in-from-top-1 absolute top-full right-0 z-40 mt-1 w-48 rounded-xl border border-slate-200/90 bg-white p-1.5 text-left shadow-xl"
           >
             <Link
               href={`/dossiers/${dossierId}`}
               onClick={() => setOuvert(false)}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-orange rounded-lg transition-colors"
+              className="hover:text-brand-orange flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
             >
               <FolderOpen size={13} className="text-slate-400" />
               <span>Gérer le dossier</span>
             </Link>
 
-            <button
-              type="button"
-              onClick={() => {
-                setOuvert(false);
-                onRattacherConcours(apprenantId);
-              }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-orange-50 hover:text-brand-orange rounded-lg transition-colors cursor-pointer"
-            >
-              <Plus size={13} className="text-brand-orange" />
-              <span>Rattacher un concours</span>
-            </button>
+            {onRattacherConcours && (
+              <button
+                type="button"
+                onClick={() => {
+                  setOuvert(false);
+                  onRattacherConcours?.(apprenantId);
+                }}
+                className="hover:text-brand-orange flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-orange-50"
+              >
+                <Plus size={13} className="text-brand-orange" />
+                <span>Rattacher un concours</span>
+              </button>
+            )}
 
             <Link
               href={`/apprenants/${apprenantId}`}
               onClick={() => setOuvert(false)}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
             >
               <Eye size={13} className="text-slate-400" />
               <span>Fiche de l&rsquo;élève</span>
@@ -212,10 +238,17 @@ export function DossiersView() {
   const role = authSession?.user?.role;
   const userCentreId = authSession?.user?.centreId;
 
-  const isSuperviseur = role === "SUPERVISEUR_DOSSIERS" || role === "DIRECTEUR" || role === "DIRECTEUR_ACADEMIQUE";
+  const isSuperviseur =
+    role === "SUPERVISEUR_DOSSIERS" ||
+    role === "DIRECTEUR" ||
+    role === "DIRECTEUR_ACADEMIQUE";
+  // DOSSIER_GERER côté backend : le Directeur supervise en lecture seule (pas d'inscription).
+  const peutGererDossier = role !== "DIRECTEUR";
 
   // Navigation par 3 onglets au même niveau : suivi, campagnes, catalogue pièces
-  const [onglet, setOnglet] = useState<"suivi" | "campagnes" | "pieces">("suivi");
+  const [onglet, setOnglet] = useState<"suivi" | "campagnes" | "pieces">(
+    "suivi",
+  );
 
   // Données transverses
   const { data: sessionActive } = useSessionActive();
@@ -223,7 +256,8 @@ export function DossiersView() {
 
   const { data: centres = [] } = useCentres();
   const { data: formations = [] } = useFormations();
-  const { data: apprenants = [], isLoading: chargementApprenants } = useApprenants();
+  const { data: apprenants = [], isLoading: chargementApprenants } =
+    useApprenants();
 
   // Centre filtré (verrouillé si chef de centre ou chargé de dossier)
   const [centreSelectionne, setCentreSelectionne] = useState<string>(
@@ -236,14 +270,18 @@ export function DossiersView() {
   const [formationFiltre, setFormationFiltre] = useState<string>("");
 
   // Données dossiers & concours
-  const { data: dossiers = [], isLoading: chargementDossiers, refetch: refetchDossiers } = useDossiers(
-    sessionId || undefined,
-    centreSelectionne || undefined,
-  );
-  const { data: concoursList = [], isLoading: chargementConcours, refetch: refetchConcours } = useConcoursSession(
-    sessionId || undefined,
-  );
-  const { data: cataloguePieces = [], refetch: refetchPieces } = usePiecesRequises();
+  const {
+    data: dossiers = [],
+    isLoading: chargementDossiers,
+    refetch: refetchDossiers,
+  } = useDossiers(sessionId || undefined, centreSelectionne || undefined);
+  const {
+    data: concoursList = [],
+    isLoading: chargementConcours,
+    refetch: refetchConcours,
+  } = useConcoursSession(sessionId || undefined);
+  const { data: cataloguePieces = [], refetch: refetchPieces } =
+    usePiecesRequises();
 
   // Mutations
   const desactiverPieceMutation = useDesactiverPieceRequise();
@@ -252,18 +290,24 @@ export function DossiersView() {
 
   // Modals
   const [modalSouscrireOuverte, setModalSouscrireOuverte] = useState(false);
-  const [apprenantPourNouveauConcoursId, setApprenantPourNouveauConcoursId] = useState<string | null>(null);
-  const [modalCreerConcoursOuverte, setModalCreerConcoursOuverte] = useState(false);
+  const [apprenantPourNouveauConcoursId, setApprenantPourNouveauConcoursId] =
+    useState<string | null>(null);
+  const [modalCreerConcoursOuverte, setModalCreerConcoursOuverte] =
+    useState(false);
   const [modalPieceOuverte, setModalPieceOuverte] = useState(false);
   const [pieceAEditer, setPieceAEditer] = useState<PieceRequise | null>(null);
-  const [concoursPourPieces, setConcoursPourPieces] = useState<Concours | null>(null);
+  const [concoursPourPieces, setConcoursPourPieces] = useState<Concours | null>(
+    null,
+  );
   const [isInitializingPieces, setIsInitializingPieces] = useState(false);
   const [recherchePieceCatalogue, setRecherchePieceCatalogue] = useState("");
 
   // Tri du catalogue de pièces
   type ColonneTriPieces = "nom" | "montant" | "actif";
-  const [triPieceColonne, setTriPieceColonne] = useState<ColonneTriPieces>("nom");
-  const [triPieceDirection, setTriPieceDirection] = useState<SortDirection>("asc");
+  const [triPieceColonne, setTriPieceColonne] =
+    useState<ColonneTriPieces>("nom");
+  const [triPieceDirection, setTriPieceDirection] =
+    useState<SortDirection>("asc");
 
   function handleTriPiece(colonne: string) {
     const col = colonne as ColonneTriPieces;
@@ -275,11 +319,12 @@ export function DossiersView() {
     }
   }
 
-
   // Catalogue trié et filtré par recherche
   const cataloguePiecesTriees = useMemo(() => {
     const q = recherchePieceCatalogue.toLowerCase().trim();
-    const filtered = cataloguePieces.filter((p) => (!q ? true : p.nom.toLowerCase().includes(q)));
+    const filtered = cataloguePieces.filter((p) =>
+      !q ? true : p.nom.toLowerCase().includes(q),
+    );
     return [...filtered].sort((a, b) => {
       let cmp = 0;
       if (triPieceColonne === "nom") {
@@ -291,11 +336,18 @@ export function DossiersView() {
       }
       return triPieceDirection === "asc" ? cmp : -cmp;
     });
-  }, [cataloguePieces, recherchePieceCatalogue, triPieceColonne, triPieceDirection]);
+  }, [
+    cataloguePieces,
+    recherchePieceCatalogue,
+    triPieceColonne,
+    triPieceDirection,
+  ]);
 
   // Mode d'affichage et filtres pour les campagnes de concours (Tableau par défaut pour grand volume)
   const [vueConcours, setVueConcours] = useState<"table" | "cards">("table");
-  const [filtreStatutConcours, setFiltreStatutConcours] = useState<"TOUS" | "OUVERT" | "URGENT" | "CLOS">("TOUS");
+  const [filtreStatutConcours, setFiltreStatutConcours] = useState<
+    "TOUS" | "OUVERT" | "URGENT" | "CLOS"
+  >("TOUS");
 
   const statsConcours = useMemo(() => {
     let ouverts = 0;
@@ -314,9 +366,12 @@ export function DossiersView() {
   }, [concoursList]);
 
   // Recherche et filtrage des concours
-  type ColonneTriConcours = "nom" | "statut" | "recevabilite" | "depot" | "cout";
-  const [triConcoursColonne, setTriConcoursColonne] = useState<ColonneTriConcours>("nom");
-  const [triConcoursDirection, setTriConcoursDirection] = useState<SortDirection>("asc");
+  type ColonneTriConcours =
+    "nom" | "statut" | "recevabilite" | "depot" | "cout";
+  const [triConcoursColonne, setTriConcoursColonne] =
+    useState<ColonneTriConcours>("nom");
+  const [triConcoursDirection, setTriConcoursDirection] =
+    useState<SortDirection>("asc");
 
   function handleTriConcours(colonne: string) {
     const col = colonne as ColonneTriConcours;
@@ -337,7 +392,8 @@ export function DossiersView() {
         const cd = calculerCompteARebours(c.dateLimiteDepot);
         if (filtreStatutConcours === "CLOS" && !cd.estPasse) return false;
         if (filtreStatutConcours === "OUVERT" && cd.estPasse) return false;
-        if (filtreStatutConcours === "URGENT" && (!cd.estUrgent || cd.estPasse)) return false;
+        if (filtreStatutConcours === "URGENT" && (!cd.estUrgent || cd.estPasse))
+          return false;
       }
       return true;
     });
@@ -351,13 +407,22 @@ export function DossiersView() {
         const cdB = calculerCompteARebours(b.dateLimiteDepot);
         cmp = compareNumbers(cdA.jours, cdB.jours);
       } else if (triConcoursColonne === "recevabilite") {
-        cmp = compareDates(a.dateLimiteRecevabiliteCentre, b.dateLimiteRecevabiliteCentre);
+        cmp = compareDates(
+          a.dateLimiteRecevabiliteCentre,
+          b.dateLimiteRecevabiliteCentre,
+        );
       } else if (triConcoursColonne === "depot") {
         cmp = compareDates(a.dateLimiteDepot, b.dateLimiteDepot);
       }
       return triConcoursDirection === "asc" ? cmp : -cmp;
     });
-  }, [concoursList, rechercheConcours, filtreStatutConcours, triConcoursColonne, triConcoursDirection]);
+  }, [
+    concoursList,
+    rechercheConcours,
+    filtreStatutConcours,
+    triConcoursColonne,
+    triConcoursDirection,
+  ]);
 
   // Apprenants mappés par ID pour enrichir les lignes du tableau
   const apprenantsParId = useMemo(() => {
@@ -367,7 +432,8 @@ export function DossiersView() {
   }, [apprenants]);
 
   // Tri des dossiers
-  type ColonneTriDossiers = "apprenant" | "centre" | "filiere" | "date" | "dateLimite" | "statut";
+  type ColonneTriDossiers =
+    "apprenant" | "centre" | "filiere" | "date" | "dateLimite" | "statut";
   const [triColonne, setTriColonne] = useState<ColonneTriDossiers>("apprenant");
   const [triDirection, setTriDirection] = useState<SortDirection>("asc");
 
@@ -410,7 +476,9 @@ export function DossiersView() {
 
       // Trier par échéance la plus proche
       concoursAssocies.sort(
-        (a, b) => new Date(a.dateLimiteDepot).getTime() - new Date(b.dateLimiteDepot).getTime(),
+        (a, b) =>
+          new Date(a.dateLimiteDepot).getTime() -
+          new Date(b.dateLimiteDepot).getTime(),
       );
 
       map.set(dossier.id, concoursAssocies[0].dateLimiteDepot);
@@ -442,7 +510,12 @@ export function DossiersView() {
         const prenom = app?.prenom?.toLowerCase() || "";
         const recu = app?.referenceRecu?.toLowerCase() || "";
         const obs = dossier.observation?.toLowerCase() || "";
-        if (!nom.includes(q) && !prenom.includes(q) && !recu.includes(q) && !obs.includes(q)) {
+        if (
+          !nom.includes(q) &&
+          !prenom.includes(q) &&
+          !recu.includes(q) &&
+          !obs.includes(q)
+        ) {
           return false;
         }
       }
@@ -465,8 +538,10 @@ export function DossiersView() {
       } else if (triColonne === "filiere") {
         const appA = apprenantsParId.get(a.apprenantId);
         const appB = apprenantsParId.get(b.apprenantId);
-        const formA = formations.find((f) => f.id === appA?.formationId)?.nom || "";
-        const formB = formations.find((f) => f.id === appB?.formationId)?.nom || "";
+        const formA =
+          formations.find((f) => f.id === appA?.formationId)?.nom || "";
+        const formB =
+          formations.find((f) => f.id === appB?.formationId)?.nom || "";
         cmp = compareStrings(formA, formB);
       } else if (triColonne === "date") {
         cmp = compareDates(a.dateOuverture, b.dateOuverture);
@@ -513,7 +588,9 @@ export function DossiersView() {
   async function handleInitialiserPiecesStandard() {
     setIsInitializingPieces(true);
     try {
-      const existantes = new Set(cataloguePieces.map((p) => p.nom.toLowerCase().trim()));
+      const existantes = new Set(
+        cataloguePieces.map((p) => p.nom.toLowerCase().trim()),
+      );
       const aCreer = PIECES_STANDARDS_DEFAUT.filter(
         (p) => !existantes.has(p.nom.toLowerCase().trim()),
       );
@@ -530,7 +607,7 @@ export function DossiersView() {
   return (
     <div className="flex min-h-full w-full flex-col gap-4">
       {/* ── En-tête Sobre & Compact ── */}
-      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-3">
+      <div className="flex shrink-0 flex-col gap-3 border-b border-slate-200 pb-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
             Dossiers de Concours
@@ -548,7 +625,7 @@ export function DossiersView() {
             <button
               type="button"
               onClick={() => setModalCreerConcoursOuverte(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-orange px-3.5 py-2 text-xs font-semibold text-white hover:bg-brand-orange/90 shadow-2xs transition-colors cursor-pointer"
+              className="bg-brand-orange hover:bg-brand-orange/90 inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors"
             >
               <Award size={14} />
               <span>Programmer un concours</span>
@@ -562,10 +639,14 @@ export function DossiersView() {
                   type="button"
                   onClick={handleInitialiserPiecesStandard}
                   disabled={isInitializingPieces}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                 >
                   <Sparkles size={13} className="text-brand-orange" />
-                  <span>{isInitializingPieces ? "Chargement..." : "Initialiser pièces types"}</span>
+                  <span>
+                    {isInitializingPieces
+                      ? "Chargement..."
+                      : "Initialiser pièces types"}
+                  </span>
                 </button>
               )}
               <button
@@ -574,7 +655,7 @@ export function DossiersView() {
                   setPieceAEditer(null);
                   setModalPieceOuverte(true);
                 }}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-orange px-3.5 py-2 text-xs font-semibold text-white hover:bg-brand-orange/90 shadow-2xs transition-colors cursor-pointer"
+                className="bg-brand-orange hover:bg-brand-orange/90 inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors"
               >
                 <Plus size={14} />
                 <span>Ajouter une pièce</span>
@@ -582,11 +663,11 @@ export function DossiersView() {
             </div>
           )}
 
-          {onglet === "suivi" && (
+          {onglet === "suivi" && peutGererDossier && (
             <button
               type="button"
               onClick={() => setModalSouscrireOuverte(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-orange px-3.5 py-2 text-xs font-semibold text-white hover:bg-brand-orange/90 shadow-2xs transition-colors cursor-pointer"
+              className="bg-brand-orange hover:bg-brand-orange/90 inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors"
             >
               <Plus size={15} />
               <span>Inscrire un apprenant</span>
@@ -596,11 +677,11 @@ export function DossiersView() {
       </div>
 
       {/* ── 3 Onglets de Navigation au Même Niveau ── */}
-      <div className="border-b border-slate-200 flex flex-wrap gap-4 sm:gap-6 text-xs font-semibold">
+      <div className="flex flex-wrap gap-4 border-b border-slate-200 text-xs font-semibold sm:gap-6">
         <button
           type="button"
           onClick={() => setOnglet("suivi")}
-          className={`flex items-center gap-2 border-b-2 py-2 transition-colors cursor-pointer ${
+          className={`flex cursor-pointer items-center gap-2 border-b-2 py-2 transition-colors ${
             onglet === "suivi"
               ? "border-brand-orange text-brand-orange font-bold"
               : "border-transparent text-slate-500 hover:text-slate-900"
@@ -608,7 +689,7 @@ export function DossiersView() {
         >
           <FolderOpen size={14} />
           <span>Suivi des Dossiers</span>
-          <span className="text-[10px] px-1.5 py-0.2 rounded font-mono bg-slate-100 text-slate-600">
+          <span className="py-0.2 rounded bg-slate-100 px-1.5 font-mono text-[10px] text-slate-600">
             {dossiers.length}
           </span>
         </button>
@@ -616,7 +697,7 @@ export function DossiersView() {
         <button
           type="button"
           onClick={() => setOnglet("campagnes")}
-          className={`flex items-center gap-2 border-b-2 py-2 transition-colors cursor-pointer ${
+          className={`flex cursor-pointer items-center gap-2 border-b-2 py-2 transition-colors ${
             onglet === "campagnes"
               ? "border-brand-orange text-brand-orange font-bold"
               : "border-transparent text-slate-500 hover:text-slate-900"
@@ -624,7 +705,7 @@ export function DossiersView() {
         >
           <Award size={14} />
           <span>Campagnes de Concours</span>
-          <span className="text-[10px] px-1.5 py-0.2 rounded font-mono bg-slate-100 text-slate-600">
+          <span className="py-0.2 rounded bg-slate-100 px-1.5 font-mono text-[10px] text-slate-600">
             {concoursList.length}
           </span>
         </button>
@@ -632,7 +713,7 @@ export function DossiersView() {
         <button
           type="button"
           onClick={() => setOnglet("pieces")}
-          className={`flex items-center gap-2 border-b-2 py-2 transition-colors cursor-pointer ${
+          className={`flex cursor-pointer items-center gap-2 border-b-2 py-2 transition-colors ${
             onglet === "pieces"
               ? "border-brand-orange text-brand-orange font-bold"
               : "border-transparent text-slate-500 hover:text-slate-900"
@@ -640,7 +721,7 @@ export function DossiersView() {
         >
           <FileText size={14} />
           <span>Catalogue des Pièces</span>
-          <span className="text-[10px] px-1.5 py-0.2 rounded font-mono bg-slate-100 text-slate-600">
+          <span className="py-0.2 rounded bg-slate-100 px-1.5 font-mono text-[10px] text-slate-600">
             {cataloguePieces.length}
           </span>
         </button>
@@ -652,12 +733,12 @@ export function DossiersView() {
       {onglet === "suivi" && (
         <div className="space-y-4">
           {/* ── 1. Barre de Synthèse Horizontale Épurée & Interactive ── */}
-          <div className="flex flex-wrap items-center justify-between gap-3 p-2.5 sm:p-3 bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-2.5 shadow-2xs sm:p-3">
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <button
                 type="button"
                 onClick={() => setStatutFiltre("TOUS")}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+                className={`flex cursor-pointer items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
                   statutFiltre === "TOUS"
                     ? "bg-slate-900 text-white shadow-2xs"
                     : "bg-slate-100/80 text-slate-600 hover:bg-slate-200/70"
@@ -665,8 +746,10 @@ export function DossiersView() {
               >
                 <span>Total dossiers</span>
                 <span
-                  className={`px-1.5 py-0.2 rounded-md text-[11px] font-mono font-bold ${
-                    statutFiltre === "TOUS" ? "bg-white/20 text-white" : "bg-white text-slate-700 shadow-2xs"
+                  className={`py-0.2 rounded-md px-1.5 font-mono text-[11px] font-bold ${
+                    statutFiltre === "TOUS"
+                      ? "bg-white/20 text-white"
+                      : "bg-white text-slate-700 shadow-2xs"
                   }`}
                 >
                   {kpis.total}
@@ -675,18 +758,22 @@ export function DossiersView() {
 
               <button
                 type="button"
-                onClick={() => setStatutFiltre(statutFiltre === "OUVERT" ? "TOUS" : "OUVERT")}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+                onClick={() =>
+                  setStatutFiltre(statutFiltre === "OUVERT" ? "TOUS" : "OUVERT")
+                }
+                className={`flex cursor-pointer items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
                   statutFiltre === "OUVERT"
                     ? "bg-amber-600 text-white shadow-2xs"
                     : "bg-amber-500/10 text-amber-800 hover:bg-amber-500/15"
                 }`}
               >
-                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />
                 <span>En cours</span>
                 <span
-                  className={`px-1.5 py-0.2 rounded-md text-[11px] font-mono font-bold ${
-                    statutFiltre === "OUVERT" ? "bg-white/20 text-white" : "bg-white text-amber-800 shadow-2xs"
+                  className={`py-0.2 rounded-md px-1.5 font-mono text-[11px] font-bold ${
+                    statutFiltre === "OUVERT"
+                      ? "bg-white/20 text-white"
+                      : "bg-white text-amber-800 shadow-2xs"
                   }`}
                 >
                   {kpis.ouverts}
@@ -695,18 +782,24 @@ export function DossiersView() {
 
               <button
                 type="button"
-                onClick={() => setStatutFiltre(statutFiltre === "COMPLET" ? "TOUS" : "COMPLET")}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+                onClick={() =>
+                  setStatutFiltre(
+                    statutFiltre === "COMPLET" ? "TOUS" : "COMPLET",
+                  )
+                }
+                className={`flex cursor-pointer items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
                   statutFiltre === "COMPLET"
                     ? "bg-emerald-600 text-white shadow-2xs"
                     : "bg-emerald-500/10 text-emerald-800 hover:bg-emerald-500/15"
                 }`}
               >
-                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
                 <span>Complets</span>
                 <span
-                  className={`px-1.5 py-0.2 rounded-md text-[11px] font-mono font-bold ${
-                    statutFiltre === "COMPLET" ? "bg-white/20 text-white" : "bg-white text-emerald-800 shadow-2xs"
+                  className={`py-0.2 rounded-md px-1.5 font-mono text-[11px] font-bold ${
+                    statutFiltre === "COMPLET"
+                      ? "bg-white/20 text-white"
+                      : "bg-white text-emerald-800 shadow-2xs"
                   }`}
                 >
                   {kpis.complets}
@@ -715,18 +808,24 @@ export function DossiersView() {
 
               <button
                 type="button"
-                onClick={() => setStatutFiltre(statutFiltre === "CLOTURE" ? "TOUS" : "CLOTURE")}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+                onClick={() =>
+                  setStatutFiltre(
+                    statutFiltre === "CLOTURE" ? "TOUS" : "CLOTURE",
+                  )
+                }
+                className={`flex cursor-pointer items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
                   statutFiltre === "CLOTURE"
                     ? "bg-slate-600 text-white shadow-2xs"
                     : "bg-slate-500/10 text-slate-700 hover:bg-slate-500/15"
                 }`}
               >
-                <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" />
+                <span className="h-2 w-2 shrink-0 rounded-full bg-slate-400" />
                 <span>Clôturés</span>
                 <span
-                  className={`px-1.5 py-0.2 rounded-md text-[11px] font-mono font-bold ${
-                    statutFiltre === "CLOTURE" ? "bg-white/20 text-white" : "bg-white text-slate-700 shadow-2xs"
+                  className={`py-0.2 rounded-md px-1.5 font-mono text-[11px] font-bold ${
+                    statutFiltre === "CLOTURE"
+                      ? "bg-white/20 text-white"
+                      : "bg-white text-slate-700 shadow-2xs"
                   }`}
                 >
                   {kpis.clotures}
@@ -735,37 +834,45 @@ export function DossiersView() {
             </div>
 
             {/* Progression globale discrète */}
-            <div className="hidden lg:flex items-center gap-2 text-xs text-slate-500 pr-2">
+            <div className="hidden items-center gap-2 pr-2 text-xs text-slate-500 lg:flex">
               <span className="font-medium text-slate-400">Complétion :</span>
               <span className="font-mono font-bold text-slate-800">
-                {kpis.total > 0 ? Math.round((kpis.complets / kpis.total) * 100) : 0}%
+                {kpis.total > 0
+                  ? Math.round((kpis.complets / kpis.total) * 100)
+                  : 0}
+                %
               </span>
-              <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-100">
                 <div
-                  className="h-full bg-emerald-500 rounded-full transition-all duration-300"
-                  style={{ width: `${kpis.total > 0 ? (kpis.complets / kpis.total) * 100 : 0}%` }}
+                  className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                  style={{
+                    width: `${kpis.total > 0 ? (kpis.complets / kpis.total) * 100 : 0}%`,
+                  }}
                 />
               </div>
             </div>
           </div>
 
           {/* ── 2. Barre de Filtres Unifiée & Extensible ── */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          <div className="flex flex-col items-stretch gap-2.5 sm:flex-row sm:items-center">
             {/* Recherche intégrée avec bouton de nettoyage */}
             <div className="relative flex-1">
-              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <Search
+                size={14}
+                className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-slate-400"
+              />
               <input
                 type="text"
                 value={recherche}
                 onChange={(e) => setRecherche(e.target.value)}
                 placeholder="Rechercher par élève, reçu, note..."
-                className="w-full pl-9 pr-8 py-2 text-xs bg-white border border-slate-200/90 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-orange/30 focus:border-brand-orange transition-all placeholder:text-slate-400"
+                className="focus:ring-brand-orange/30 focus:border-brand-orange w-full rounded-xl border border-slate-200/90 bg-white py-2 pr-8 pl-9 text-xs transition-all placeholder:text-slate-400 focus:ring-2 focus:outline-none"
               />
               {recherche && (
                 <button
                   type="button"
                   onClick={() => setRecherche("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
+                  className="absolute top-1/2 right-2.5 -translate-y-1/2 cursor-pointer rounded p-0.5 text-slate-400 hover:text-slate-600"
                   title="Effacer la recherche"
                 >
                   <X size={13} />
@@ -778,37 +885,49 @@ export function DossiersView() {
               {/* Centre (sélectionnable pour superviseur, fixe pour chef/chargé) */}
               {isSuperviseur ? (
                 <div className="relative shrink-0">
-                  <Building2 size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <Building2
+                    size={13}
+                    className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate-400"
+                  />
                   <select
                     value={centreSelectionne}
                     onChange={(e) => setCentreSelectionne(e.target.value)}
-                    className="pl-8 pr-7 py-2 text-xs bg-white border border-slate-200/90 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-orange/30 focus:border-brand-orange appearance-none cursor-pointer font-medium text-slate-700"
+                    className="focus:ring-brand-orange/30 focus:border-brand-orange cursor-pointer appearance-none rounded-xl border border-slate-200/90 bg-white py-2 pr-7 pl-8 text-xs font-medium text-slate-700 focus:ring-2 focus:outline-none"
                   >
-                    <option value="">Tous les centres ({centres.length})</option>
+                    <option value="">
+                      Tous les centres ({centres.length})
+                    </option>
                     {centres.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.nom}
                       </option>
                     ))}
                   </select>
-                  <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <ChevronDown
+                    size={12}
+                    className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-slate-400"
+                  />
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-100/90 rounded-xl text-xs font-semibold text-slate-700 border border-slate-200/80 shrink-0">
+                <div className="flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200/80 bg-slate-100/90 px-3 py-2 text-xs font-semibold text-slate-700">
                   <Building2 size={13} className="text-brand-orange" />
                   <span className="max-w-[140px] truncate">
-                    {centres.find((c) => c.id === userCentreId)?.nom || "Mon centre"}
+                    {centres.find((c) => c.id === userCentreId)?.nom ||
+                      "Mon centre"}
                   </span>
                 </div>
               )}
 
               {/* Filtre Filière */}
               <div className="relative shrink-0">
-                <GraduationCap size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <GraduationCap
+                  size={13}
+                  className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate-400"
+                />
                 <select
                   value={formationFiltre}
                   onChange={(e) => setFormationFiltre(e.target.value)}
-                  className="pl-8 pr-7 py-2 text-xs bg-white border border-slate-200/90 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-orange/30 focus:border-brand-orange appearance-none cursor-pointer font-medium text-slate-700"
+                  className="focus:ring-brand-orange/30 focus:border-brand-orange cursor-pointer appearance-none rounded-xl border border-slate-200/90 bg-white py-2 pr-7 pl-8 text-xs font-medium text-slate-700 focus:ring-2 focus:outline-none"
                 >
                   <option value="">Toutes les filières</option>
                   {formations.map((f) => (
@@ -817,11 +936,17 @@ export function DossiersView() {
                     </option>
                   ))}
                 </select>
-                <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <ChevronDown
+                  size={12}
+                  className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-slate-400"
+                />
               </div>
 
               {/* Réinitialisation rapide si des filtres sont actifs */}
-              {(recherche || formationFiltre || (isSuperviseur && centreSelectionne) || statutFiltre !== "TOUS") && (
+              {(recherche ||
+                formationFiltre ||
+                (isSuperviseur && centreSelectionne) ||
+                statutFiltre !== "TOUS") && (
                 <button
                   type="button"
                   onClick={() => {
@@ -830,7 +955,7 @@ export function DossiersView() {
                     setStatutFiltre("TOUS");
                     if (isSuperviseur) setCentreSelectionne("");
                   }}
-                  className="px-2.5 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors shrink-0 flex items-center gap-1 cursor-pointer"
+                  className="flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-2.5 py-2 text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
                   title="Réinitialiser tous les filtres"
                 >
                   <RotateCcw size={12} />
@@ -841,35 +966,43 @@ export function DossiersView() {
           </div>
 
           {/* ── 3. Tableau de Suivi Aéré & Lignes Épurées ── */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden">
+          <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xs">
             {chargementDossiers || chargementApprenants ? (
-              <div className="p-12 text-center space-y-3">
-                <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-brand-orange border-r-transparent" />
-                <p className="text-xs text-slate-400">Chargement des dossiers souscrits...</p>
+              <div className="space-y-3 p-12 text-center">
+                <div className="border-brand-orange inline-block h-6 w-6 animate-spin rounded-full border-2 border-r-transparent" />
+                <p className="text-xs text-slate-400">
+                  Chargement des dossiers souscrits...
+                </p>
               </div>
             ) : dossiersFiltres.length === 0 ? (
-              <div className="p-12 text-center space-y-3">
-                <div className="h-12 w-12 rounded-2xl bg-orange-50 text-brand-orange flex items-center justify-center mx-auto">
+              <div className="space-y-3 p-12 text-center">
+                <div className="text-brand-orange mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50">
                   <FolderOpen size={24} />
                 </div>
-                <h3 className="text-sm font-bold text-slate-800">Aucun dossier trouvé</h3>
-                <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                  Aucun apprenant n&rsquo;a encore de dossier correspondant à ces filtres. Cliquez sur
-                  &laquo; Inscrire un apprenant &raquo; pour initier une première souscription.
+                <h3 className="text-sm font-bold text-slate-800">
+                  Aucun dossier trouvé
+                </h3>
+                <p className="mx-auto max-w-sm text-xs text-slate-400">
+                  Aucun apprenant n&rsquo;a encore de dossier correspondant à
+                  ces filtres.
+                  {peutGererDossier &&
+                    " Cliquez sur « Inscrire un apprenant » pour initier une première souscription."}
                 </p>
-                <Button
-                  type="button"
-                  onClick={() => setModalSouscrireOuverte(true)}
-                  className="bg-brand-orange text-white text-xs mt-2"
-                >
-                  <Plus size={14} className="mr-1" /> Inscrire un apprenant
-                </Button>
+                {peutGererDossier && (
+                  <Button
+                    type="button"
+                    onClick={() => setModalSouscrireOuverte(true)}
+                    className="bg-brand-orange mt-2 text-xs text-white"
+                  >
+                    <Plus size={14} className="mr-1" /> Inscrire un apprenant
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
+                <table className="w-full border-collapse text-left text-xs">
                   <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50/60 text-slate-400 text-[11px] font-bold uppercase tracking-wider">
+                    <tr className="border-b border-slate-100 bg-slate-50/60 text-[11px] font-bold tracking-wider text-slate-400 uppercase">
                       <SortableHeader
                         label="Apprenant"
                         sortKey="apprenant"
@@ -896,7 +1029,9 @@ export function DossiersView() {
                         onSort={handleTri}
                         className="w-[12%]"
                       />
-                      <th className="py-3 px-3.5 w-[16%] min-w-[135px]">Progression pièces</th>
+                      <th className="w-[16%] min-w-[135px] px-3.5 py-3">
+                        Progression pièces
+                      </th>
                       <SortableHeader
                         label="Date ouverture"
                         sortKey="date"
@@ -921,41 +1056,68 @@ export function DossiersView() {
                         onSort={handleTri}
                         className="w-[10%] whitespace-nowrap"
                       />
-                      <th className="py-3 px-3.5 w-[14%]">Observation</th>
-                      <th className="py-3 px-3.5 text-right w-[60px] whitespace-nowrap">Actions</th>
+                      <th className="w-[14%] px-3.5 py-3">Observation</th>
+                      <th className="w-[60px] px-3.5 py-3 text-right whitespace-nowrap">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100/70">
                     {dossiersFiltres.map((dossier) => {
-                      const apprenant = apprenantsParId.get(dossier.apprenantId);
-                      const centre = centres.find((c) => c.id === dossier.centreId);
-                      const formation = formations.find((f) => f.id === apprenant?.formationId);
+                      const apprenant = apprenantsParId.get(
+                        dossier.apprenantId,
+                      );
+                      const centre = centres.find(
+                        (c) => c.id === dossier.centreId,
+                      );
+                      const formation = formations.find(
+                        (f) => f.id === apprenant?.formationId,
+                      );
                       const badge = STATUT_BADGES[dossier.statut];
-                      const initiales = `${apprenant?.nom?.[0] || ""}${apprenant?.prenom?.[0] || ""}`.toUpperCase() || "E";
-                      const obsInfo = nettoyerObservation(dossier.observation, formation?.nom, badge.label);
+                      const initiales =
+                        `${apprenant?.nom?.[0] || ""}${apprenant?.prenom?.[0] || ""}`.toUpperCase() ||
+                        "E";
+                      const obsInfo = nettoyerObservation(
+                        dossier.observation,
+                        formation?.nom,
+                        badge.label,
+                      );
 
                       return (
-                        <tr key={dossier.id} className="hover:bg-slate-50/60 transition-colors group">
+                        <tr
+                          key={dossier.id}
+                          className="group transition-colors hover:bg-slate-50/60"
+                        >
                           {/* 1. Apprenant : compact et unifié */}
-                          <td className="py-3 px-3.5">
-                            <div className="flex items-center gap-2.5 min-w-0">
+                          <td className="px-3.5 py-3">
+                            <div className="flex min-w-0 items-center gap-2.5">
                               <div
-                                className="h-7 w-7 rounded-lg bg-slate-100 text-slate-700 font-bold flex items-center justify-center shrink-0 text-[11px] border border-slate-200/80"
-                                title={apprenant ? `${apprenant.nom} ${apprenant.prenom}` : "Élève inconnu"}
+                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200/80 bg-slate-100 text-[11px] font-bold text-slate-700"
+                                title={
+                                  apprenant
+                                    ? `${apprenant.nom} ${apprenant.prenom}`
+                                    : "Élève inconnu"
+                                }
                               >
                                 {initiales}
                               </div>
                               <div className="min-w-0 flex-1">
                                 <Link
                                   href={`/dossiers/${dossier.id}`}
-                                  className="font-bold text-slate-900 hover:text-brand-orange hover:underline transition-colors block text-xs truncate"
-                                  title={apprenant ? `${apprenant.nom} ${apprenant.prenom}` : "Élève inconnu"}
+                                  className="hover:text-brand-orange block truncate text-xs font-bold text-slate-900 transition-colors hover:underline"
+                                  title={
+                                    apprenant
+                                      ? `${apprenant.nom} ${apprenant.prenom}`
+                                      : "Élève inconnu"
+                                  }
                                 >
-                                  {apprenant ? `${apprenant.nom} ${apprenant.prenom}` : "Élève inconnu"}
+                                  {apprenant
+                                    ? `${apprenant.nom} ${apprenant.prenom}`
+                                    : "Élève inconnu"}
                                 </Link>
                                 {apprenant?.referenceRecu && (
                                   <span
-                                    className="text-[10px] text-slate-400 font-mono block truncate"
+                                    className="block truncate font-mono text-[10px] text-slate-400"
                                     title={`Reçu: ${apprenant.referenceRecu}`}
                                   >
                                     Reçu: {apprenant.referenceRecu}
@@ -967,23 +1129,31 @@ export function DossiersView() {
 
                           {/* Centre (si superviseur) */}
                           {isSuperviseur && (
-                            <td className="py-3 px-3.5">
-                              <span className="font-semibold text-slate-700 flex items-center gap-1.5 truncate">
-                                <Building2 size={13} className="text-slate-400 shrink-0" />
-                                <span className="truncate">{centre?.nom || "—"}</span>
+                            <td className="px-3.5 py-3">
+                              <span className="flex items-center gap-1.5 truncate font-semibold text-slate-700">
+                                <Building2
+                                  size={13}
+                                  className="shrink-0 text-slate-400"
+                                />
+                                <span className="truncate">
+                                  {centre?.nom || "—"}
+                                </span>
                               </span>
                             </td>
                           )}
 
                           {/* Formation / Filière */}
-                          <td className="py-3 px-3.5">
-                            <span className="text-slate-600 font-medium truncate block" title={formation?.nom || "—"}>
+                          <td className="px-3.5 py-3">
+                            <span
+                              className="block truncate font-medium text-slate-600"
+                              title={formation?.nom || "—"}
+                            >
                               {formation?.nom || "—"}
                             </span>
                           </td>
 
                           {/* 2. Progression pièces : composant graphique uniforme */}
-                          <td className="py-3 px-3.5">
+                          <td className="px-3.5 py-3">
                             <ProgressionPiecesDossierCell
                               dossierId={dossier.id}
                               statut={dossier.statut}
@@ -991,14 +1161,16 @@ export function DossiersView() {
                           </td>
 
                           {/* Date ouverture */}
-                          <td className="py-3 px-3.5 whitespace-nowrap">
-                            <span className="text-slate-500 font-mono text-[11px]">
-                              {new Date(dossier.dateOuverture).toLocaleDateString("fr-FR")}
+                          <td className="px-3.5 py-3 whitespace-nowrap">
+                            <span className="font-mono text-[11px] text-slate-500">
+                              {new Date(
+                                dossier.dateOuverture,
+                              ).toLocaleDateString("fr-FR")}
                             </span>
                           </td>
 
                           {/* 3. Date limite de dépôt pour chaque concours */}
-                          <td className="py-3 px-3.5 whitespace-nowrap">
+                          <td className="px-3.5 py-3 whitespace-nowrap">
                             <DateLimiteDepotDossierCell
                               dossierId={dossier.id}
                               concoursCatalogue={concoursList}
@@ -1006,46 +1178,60 @@ export function DossiersView() {
                           </td>
 
                           {/* Statut avec Soft Badge */}
-                          <td className="py-3 px-3.5 whitespace-nowrap">
+                          <td className="px-3.5 py-3 whitespace-nowrap">
                             <span
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${badge.bg} ${badge.text}`}
+                              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${badge.bg} ${badge.text}`}
                             >
-                              <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
+                              <span
+                                className={`h-1.5 w-1.5 rounded-full ${badge.dot}`}
+                              />
                               {badge.label}
                             </span>
                           </td>
 
                           {/* 4. Observation : allégée, sans redondances */}
-                          <td className="py-3 px-3.5 max-w-[180px]">
+                          <td className="max-w-[180px] px-3.5 py-3">
                             {obsInfo ? (
-                              <div className="flex items-center gap-1.5 min-w-0" title={obsInfo.texte}>
+                              <div
+                                className="flex min-w-0 items-center gap-1.5"
+                                title={obsInfo.texte}
+                              >
                                 {obsInfo.estAlerte ? (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200/70 truncate">
-                                    <AlertCircle size={10} className="text-amber-600 shrink-0" />
-                                    <span className="truncate">{obsInfo.texte}</span>
+                                  <span className="inline-flex items-center gap-1 truncate rounded border border-amber-200/70 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+                                    <AlertCircle
+                                      size={10}
+                                      className="shrink-0 text-amber-600"
+                                    />
+                                    <span className="truncate">
+                                      {obsInfo.texte}
+                                    </span>
                                   </span>
                                 ) : (
-                                  <span className="text-slate-600 text-xs truncate block font-medium">
+                                  <span className="block truncate text-xs font-medium text-slate-600">
                                     {obsInfo.texte}
                                   </span>
                                 )}
                               </div>
                             ) : (
-                              <span className="text-slate-400 italic text-[11px] block">
+                              <span className="block text-[11px] text-slate-400 italic">
                                 Aucune note
                               </span>
                             )}
                           </td>
 
                           {/* 5. Actions : harmonisées (Gérer + Menu contextuel) */}
-                          <td className="py-3 px-3.5 text-right whitespace-nowrap">
+                          <td className="px-3.5 py-3 text-right whitespace-nowrap">
                             <DossierActionMenu
                               dossierId={dossier.id}
                               apprenantId={dossier.apprenantId}
-                              onRattacherConcours={(appId) => {
-                                setApprenantPourNouveauConcoursId(appId);
-                                setModalSouscrireOuverte(true);
-                              }}
+                              onRattacherConcours={
+                                peutGererDossier
+                                  ? (appId) => {
+                                      setApprenantPourNouveauConcoursId(appId);
+                                      setModalSouscrireOuverte(true);
+                                    }
+                                  : undefined
+                              }
                             />
                           </td>
                         </tr>
@@ -1066,44 +1252,57 @@ export function DossiersView() {
         <div className="space-y-4">
           {/* Barre d'outils et de filtrage adaptée aux volumes importants */}
           <div className="flex flex-col gap-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
               <div>
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <h3 className="flex items-center gap-2 text-base font-bold text-slate-900">
                   <Award size={17} className="text-brand-orange" />
-                  Campagnes de concours &middot; Session {sessionActive?.annee || ""}
+                  Campagnes de concours &middot; Session{" "}
+                  {sessionActive?.annee || ""}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  {concoursList.length} concours répertorié{concoursList.length > 1 ? "s" : ""}. Vue optimisée pour grand catalogue avec dates et coûts.
+                  {concoursList.length} concours répertorié
+                  {concoursList.length > 1 ? "s" : ""}. Vue optimisée pour grand
+                  catalogue avec dates et coûts.
                 </p>
               </div>
 
               {/* Commutateur de vue : Tableau (par défaut) vs Cartes */}
               <div className="flex items-center gap-2 self-start sm:self-auto">
-                <div className="flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200/80">
+                <div className="flex items-center rounded-xl border border-slate-200/80 bg-slate-100 p-1">
                   <button
                     type="button"
                     onClick={() => setVueConcours("table")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                    className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
                       vueConcours === "table"
                         ? "bg-white text-slate-900 shadow-2xs"
                         : "text-slate-500 hover:text-slate-900"
                     }`}
                     title="Vue ergonomique en tableau (recommandée pour grand volume)"
                   >
-                    <List size={14} className={vueConcours === "table" ? "text-brand-orange" : ""} />
+                    <List
+                      size={14}
+                      className={
+                        vueConcours === "table" ? "text-brand-orange" : ""
+                      }
+                    />
                     <span>Tableau</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setVueConcours("cards")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                    className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
                       vueConcours === "cards"
                         ? "bg-white text-slate-900 shadow-2xs"
                         : "text-slate-500 hover:text-slate-900"
                     }`}
                     title="Vue en cartes"
                   >
-                    <LayoutGrid size={14} className={vueConcours === "cards" ? "text-brand-orange" : ""} />
+                    <LayoutGrid
+                      size={14}
+                      className={
+                        vueConcours === "cards" ? "text-brand-orange" : ""
+                      }
+                    />
                     <span>Cartes</span>
                   </button>
                 </div>
@@ -1112,13 +1311,13 @@ export function DossiersView() {
 
             {/* Filtres rapides et recherche */}
             {concoursList.length > 0 && (
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
+              <div className="flex flex-col justify-between gap-3 pt-1 md:flex-row md:items-center">
                 {/* Pastilles de statut rapides */}
-                <div className="flex items-center gap-1.5 flex-wrap">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => setFiltreStatutConcours("TOUS")}
-                    className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    className={`cursor-pointer rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
                       filtreStatutConcours === "TOUS"
                         ? "bg-slate-900 text-white"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -1129,7 +1328,7 @@ export function DossiersView() {
                   <button
                     type="button"
                     onClick={() => setFiltreStatutConcours("OUVERT")}
-                    className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    className={`cursor-pointer rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
                       filtreStatutConcours === "OUVERT"
                         ? "bg-emerald-600 text-white"
                         : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
@@ -1140,7 +1339,7 @@ export function DossiersView() {
                   <button
                     type="button"
                     onClick={() => setFiltreStatutConcours("URGENT")}
-                    className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    className={`cursor-pointer rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
                       filtreStatutConcours === "URGENT"
                         ? "bg-amber-600 text-white"
                         : "bg-amber-50 text-amber-800 hover:bg-amber-100"
@@ -1151,7 +1350,7 @@ export function DossiersView() {
                   <button
                     type="button"
                     onClick={() => setFiltreStatutConcours("CLOS")}
-                    className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    className={`cursor-pointer rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
                       filtreStatutConcours === "CLOS"
                         ? "bg-slate-600 text-white"
                         : "bg-slate-100 text-slate-500 hover:bg-slate-200"
@@ -1165,14 +1364,14 @@ export function DossiersView() {
                 <div className="relative w-full sm:w-64">
                   <Search
                     size={13}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                    className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate-400"
                   />
                   <input
                     type="text"
                     placeholder="Rechercher un concours..."
                     value={rechercheConcours}
                     onChange={(e) => setRechercheConcours(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-orange/30 focus:border-brand-orange transition-all"
+                    className="focus:ring-brand-orange/30 focus:border-brand-orange w-full rounded-xl border border-slate-200 bg-white py-1.5 pr-3 pl-8 text-xs transition-all focus:ring-2 focus:outline-none"
                   />
                 </div>
               </div>
@@ -1184,35 +1383,38 @@ export function DossiersView() {
               Chargement des concours...
             </div>
           ) : concoursList.length === 0 ? (
-            <div className="p-10 text-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 space-y-2">
-              <Award size={28} className="text-slate-300 mx-auto" />
-              <p className="text-xs font-bold text-slate-700">Aucun concours programmé pour cette session</p>
-              <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
-                Le superviseur ou directeur peut programmer les concours lancés cette année en définissant les
-                délais et les pièces requises.
+            <div className="space-y-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-10 text-center">
+              <Award size={28} className="mx-auto text-slate-300" />
+              <p className="text-xs font-bold text-slate-700">
+                Aucun concours programmé pour cette session
+              </p>
+              <p className="mx-auto max-w-sm text-[11px] text-slate-400">
+                Le superviseur ou directeur peut programmer les concours lancés
+                cette année en définissant les délais et les pièces requises.
               </p>
               {isSuperviseur && (
                 <Button
                   type="button"
                   onClick={() => setModalCreerConcoursOuverte(true)}
-                  className="bg-brand-orange text-white text-xs mt-2"
+                  className="bg-brand-orange mt-2 text-xs text-white"
                 >
                   Programmer le premier concours
                 </Button>
               )}
             </div>
           ) : concoursFiltres.length === 0 ? (
-            <div className="p-10 text-center text-xs text-slate-400 rounded-2xl border border-slate-200/80 bg-white">
-              Aucun concours ne correspond à vos filtres &laquo; {rechercheConcours || "Sélection actuelle"} &raquo;.
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-10 text-center text-xs text-slate-400">
+              Aucun concours ne correspond à vos filtres &laquo;{" "}
+              {rechercheConcours || "Sélection actuelle"} &raquo;.
             </div>
           ) : vueConcours === "table" ? (
             /* ── VUE TABLEAU : Haute ergonomie pour grand volume de concours ── */
-            <div className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden">
+            <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xs">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
+                <table className="w-full border-collapse text-left text-xs">
                   <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50/60 text-slate-400 text-[11px] font-bold uppercase tracking-wider">
-                      <th className="py-3 px-4 w-12 text-center">#</th>
+                    <tr className="border-b border-slate-100 bg-slate-50/60 text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+                      <th className="w-12 px-4 py-3 text-center">#</th>
                       <SortableHeader
                         label="Concours officiel"
                         sortKey="nom"
@@ -1242,7 +1444,7 @@ export function DossiersView() {
                         direction={triConcoursDirection}
                         onSort={handleTriConcours}
                       />
-                      <th className="py-3 px-4 text-center">Pièces</th>
+                      <th className="px-4 py-3 text-center">Pièces</th>
                       <SortableHeader
                         label="Coût dossier"
                         sortKey="cout"
@@ -1251,7 +1453,7 @@ export function DossiersView() {
                         onSort={handleTriConcours}
                         align="right"
                       />
-                      <th className="py-3 px-4 text-right w-44">Actions</th>
+                      <th className="w-44 px-4 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100/70">
@@ -1262,15 +1464,19 @@ export function DossiersView() {
                         index={index}
                         isSuperviseur={isSuperviseur}
                         onGererPieces={() => setConcoursPourPieces(concours)}
-                        onSouscrire={() => setModalSouscrireOuverte(true)}
+                        onSouscrire={
+                          peutGererDossier
+                            ? () => setModalSouscrireOuverte(true)
+                            : undefined
+                        }
                       />
                     ))}
                   </tbody>
-                  <tfoot className="bg-slate-50/70 border-t border-slate-100 text-slate-500 text-[11px] font-medium">
+                  <tfoot className="border-t border-slate-100 bg-slate-50/70 text-[11px] font-medium text-slate-500">
                     <tr>
-                      <td colSpan={8} className="py-3 px-4">
+                      <td colSpan={8} className="px-4 py-3">
                         Total affiché :{" "}
-                        <strong className="text-slate-800 font-bold">
+                        <strong className="font-bold text-slate-800">
                           {concoursFiltres.length} concours
                         </strong>
                         {concoursFiltres.length !== concoursList.length &&
@@ -1283,14 +1489,18 @@ export function DossiersView() {
             </div>
           ) : (
             /* ── VUE GRILLE / CARTES BENTO STYLE ── */
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {concoursFiltres.map((concours) => (
                 <ConcoursCampagneCard
                   key={concours.id}
                   concours={concours}
                   isSuperviseur={isSuperviseur}
                   onGererPieces={() => setConcoursPourPieces(concours)}
-                  onSouscrire={() => setModalSouscrireOuverte(true)}
+                  onSouscrire={
+                    peutGererDossier
+                      ? () => setModalSouscrireOuverte(true)
+                      : undefined
+                  }
                 />
               ))}
             </div>
@@ -1303,14 +1513,15 @@ export function DossiersView() {
       {/* ═══════════════════════════════════════════════════════════════════════ */}
       {onglet === "pieces" && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div>
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <h3 className="flex items-center gap-2 text-base font-bold text-slate-900">
                 <FileText size={17} className="text-brand-orange" />
                 Catalogue des Pièces Administratives & Tarifs
               </h3>
               <p className="text-xs text-slate-500">
-                Référentiel standard des pièces administratives et leurs tarifs applicables.
+                Référentiel standard des pièces administratives et leurs tarifs
+                applicables.
               </p>
             </div>
 
@@ -1319,20 +1530,20 @@ export function DossiersView() {
                 <div className="relative w-48 sm:w-60">
                   <Search
                     size={13}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                    className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate-400"
                   />
                   <input
                     type="text"
                     placeholder="Filtrer les pièces..."
                     value={recherchePieceCatalogue}
                     onChange={(e) => setRecherchePieceCatalogue(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200/90 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-orange/30 focus:border-brand-orange transition-all placeholder:text-slate-400"
+                    className="focus:ring-brand-orange/30 focus:border-brand-orange w-full rounded-xl border border-slate-200/90 bg-white py-1.5 pr-3 pl-8 text-xs transition-all placeholder:text-slate-400 focus:ring-2 focus:outline-none"
                   />
                   {recherchePieceCatalogue && (
                     <button
                       type="button"
                       onClick={() => setRecherchePieceCatalogue("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                      className="absolute top-1/2 right-2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600"
                     >
                       <X size={12} />
                     </button>
@@ -1346,21 +1557,25 @@ export function DossiersView() {
                   variant="secondary"
                   onClick={handleInitialiserPiecesStandard}
                   disabled={isInitializingPieces}
-                  className="text-xs font-bold flex items-center gap-1.5"
+                  className="flex items-center gap-1.5 text-xs font-bold"
                 >
                   <Sparkles size={13} className="text-brand-orange" />
-                  <span>{isInitializingPieces ? "Chargement..." : "Initialiser pièces types"}</span>
+                  <span>
+                    {isInitializingPieces
+                      ? "Chargement..."
+                      : "Initialiser pièces types"}
+                  </span>
                 </Button>
               )}
             </div>
           </div>
 
           {/* Tableau du catalogue de pièces épuré */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xs">
+            <table className="w-full border-collapse text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/60 text-slate-400 text-[11px] font-bold uppercase tracking-wider">
-                  <th className="py-3 px-4 w-12 text-center">#</th>
+                <tr className="border-b border-slate-100 bg-slate-50/60 text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+                  <th className="w-12 px-4 py-3 text-center">#</th>
                   <SortableHeader
                     label="Libellé de la pièce exigible"
                     sortKey="nom"
@@ -1384,21 +1599,31 @@ export function DossiersView() {
                     onSort={handleTriPiece}
                     align="right"
                   />
-                  {isSuperviseur && <th className="py-3 px-4 text-right w-24">Actions</th>}
+                  {isSuperviseur && (
+                    <th className="w-24 px-4 py-3 text-right">Actions</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100/70">
                 {cataloguePieces.length === 0 ? (
                   <tr>
-                    <td colSpan={isSuperviseur ? 5 : 4} className="p-10 text-center text-slate-400">
-                      Aucune pièce dans le catalogue. Cliquez sur &laquo; Initialiser pièces types &raquo; pour
-                      charger la liste standard.
+                    <td
+                      colSpan={isSuperviseur ? 5 : 4}
+                      className="p-10 text-center text-slate-400"
+                    >
+                      Aucune pièce dans le catalogue. Cliquez sur &laquo;
+                      Initialiser pièces types &raquo; pour charger la liste
+                      standard.
                     </td>
                   </tr>
                 ) : cataloguePiecesTriees.length === 0 ? (
                   <tr>
-                    <td colSpan={isSuperviseur ? 5 : 4} className="p-10 text-center text-slate-400">
-                      Aucune pièce ne correspond à votre recherche &laquo; {recherchePieceCatalogue} &raquo;.
+                    <td
+                      colSpan={isSuperviseur ? 5 : 4}
+                      className="p-10 text-center text-slate-400"
+                    >
+                      Aucune pièce ne correspond à votre recherche &laquo;{" "}
+                      {recherchePieceCatalogue} &raquo;.
                     </td>
                   </tr>
                 ) : (
@@ -1406,38 +1631,38 @@ export function DossiersView() {
                     return (
                       <tr
                         key={piece.id}
-                        className="transition-colors hover:bg-slate-50/70 group"
+                        className="group transition-colors hover:bg-slate-50/70"
                       >
-                        <td className="py-3.5 px-4 text-center font-mono text-[11px] font-semibold text-slate-400">
+                        <td className="px-4 py-3.5 text-center font-mono text-[11px] font-semibold text-slate-400">
                           {String(index + 1).padStart(2, "0")}
                         </td>
-                        <td className="py-3.5 px-4">
+                        <td className="px-4 py-3.5">
                           <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-xl bg-orange-500/10 text-brand-orange flex items-center justify-center shrink-0">
+                            <div className="text-brand-orange flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-orange-500/10">
                               <FileText size={15} />
                             </div>
-                            <span className="font-semibold text-slate-900 text-xs">
+                            <span className="text-xs font-semibold text-slate-900">
                               {piece.nom}
                             </span>
                           </div>
                         </td>
                         {/* Tarif en police semi-bold avec hiérarchie claire */}
-                        <td className="py-3.5 px-4 text-right">
-                          <span className="font-semibold font-mono text-slate-900 text-xs">
+                        <td className="px-4 py-3.5 text-right">
+                          <span className="font-mono text-xs font-semibold text-slate-900">
                             {FCFA.format(piece.montant)} FCFA
                           </span>
                         </td>
                         {/* Statut aligné proprement sur la droite avec soft badge */}
-                        <td className="py-3.5 px-4 text-right pr-6">
+                        <td className="px-4 py-3.5 pr-6 text-right">
                           <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
                               piece.actif
                                 ? "bg-emerald-500/10 text-emerald-700"
                                 : "bg-slate-500/10 text-slate-500"
                             }`}
                           >
                             <span
-                              className={`w-1.5 h-1.5 rounded-full ${
+                              className={`h-1.5 w-1.5 rounded-full ${
                                 piece.actif ? "bg-emerald-500" : "bg-slate-400"
                               }`}
                             />
@@ -1446,15 +1671,15 @@ export function DossiersView() {
                         </td>
                         {/* Actions directes au survol de la ligne */}
                         {isSuperviseur && (
-                          <td className="py-3.5 px-4 text-right">
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-end gap-1">
+                          <td className="px-4 py-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                               <button
                                 type="button"
                                 onClick={() => {
                                   setPieceAEditer(piece);
                                   setModalPieceOuverte(true);
                                 }}
-                                className="p-1.5 text-slate-400 hover:text-brand-orange hover:bg-orange-50 rounded-lg transition-colors cursor-pointer"
+                                className="hover:text-brand-orange cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-orange-50"
                                 title="Modifier libellé ou tarif"
                               >
                                 <Edit2 size={14} />
@@ -1463,8 +1688,10 @@ export function DossiersView() {
                               {piece.actif ? (
                                 <button
                                   type="button"
-                                  onClick={() => desactiverPieceMutation.mutate(piece.id)}
-                                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                  onClick={() =>
+                                    desactiverPieceMutation.mutate(piece.id)
+                                  }
+                                  className="cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
                                   title="Désactiver cette pièce"
                                 >
                                   <Power size={14} />
@@ -1472,8 +1699,10 @@ export function DossiersView() {
                               ) : (
                                 <button
                                   type="button"
-                                  onClick={() => reactiverPieceMutation.mutate(piece.id)}
-                                  className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                                  onClick={() =>
+                                    reactiverPieceMutation.mutate(piece.id)
+                                  }
+                                  className="cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
                                   title="Réactiver cette pièce"
                                 >
                                   <RotateCcw size={14} />
@@ -1488,23 +1717,30 @@ export function DossiersView() {
                 )}
               </tbody>
               {cataloguePiecesTriees.length > 0 && (
-                <tfoot className="bg-slate-50/70 border-t border-slate-100 text-slate-500 text-[11px] font-medium">
+                <tfoot className="border-t border-slate-100 bg-slate-50/70 text-[11px] font-medium text-slate-500">
                   <tr>
-                    <td colSpan={2} className="py-3 px-4">
+                    <td colSpan={2} className="px-4 py-3">
                       Total répertorié :{" "}
-                      <strong className="text-slate-800 font-bold">
-                        {cataloguePiecesTriees.length} pièce{cataloguePiecesTriees.length > 1 ? "s" : ""}
+                      <strong className="font-bold text-slate-800">
+                        {cataloguePiecesTriees.length} pièce
+                        {cataloguePiecesTriees.length > 1 ? "s" : ""}
                       </strong>
                     </td>
-                    <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                    <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
                       {FCFA.format(
-                        cataloguePiecesTriees.reduce((acc, p) => acc + (p.montant || 0), 0),
+                        cataloguePiecesTriees.reduce(
+                          (acc, p) => acc + (p.montant || 0),
+                          0,
+                        ),
                       )}{" "}
                       FCFA
                     </td>
-                    <td colSpan={isSuperviseur ? 2 : 1} className="py-3 px-4 text-right pr-6 text-slate-400">
-                      {cataloguePiecesTriees.filter((p) => p.actif).length} active(s) sur{" "}
-                      {cataloguePiecesTriees.length}
+                    <td
+                      colSpan={isSuperviseur ? 2 : 1}
+                      className="px-4 py-3 pr-6 text-right text-slate-400"
+                    >
+                      {cataloguePiecesTriees.filter((p) => p.actif).length}{" "}
+                      active(s) sur {cataloguePiecesTriees.length}
                     </td>
                   </tr>
                 </tfoot>
@@ -1583,18 +1819,19 @@ function ConcoursActionMenu({
   isSuperviseur: boolean;
   estEncoreOuvert: boolean;
   onGererPieces: () => void;
-  onSouscrire: () => void;
+  /** Absent : l'utilisateur ne peut pas souscrire. */
+  onSouscrire?: () => void;
 }) {
   const [ouvert, setOuvert] = useState(false);
 
   return (
     <div className="relative inline-flex items-center gap-1.5">
       {/* Action principale prioritaire */}
-      {estEncoreOuvert ? (
+      {estEncoreOuvert && onSouscrire ? (
         <button
           type="button"
           onClick={onSouscrire}
-          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-brand-orange hover:bg-brand-orange/90 rounded-xl transition-all shadow-2xs cursor-pointer"
+          className="bg-brand-orange hover:bg-brand-orange/90 inline-flex cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold text-white shadow-2xs transition-all"
           title="Souscrire un candidat à ce concours"
         >
           <Plus size={13} />
@@ -1604,8 +1841,10 @@ function ConcoursActionMenu({
         <button
           type="button"
           onClick={onGererPieces}
-          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer"
-          title={isSuperviseur ? "Gérer les pièces exigées" : "Consulter les pièces"}
+          className="inline-flex cursor-pointer items-center gap-1 rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-all hover:bg-slate-200"
+          title={
+            isSuperviseur ? "Gérer les pièces exigées" : "Consulter les pièces"
+          }
         >
           <FileText size={13} />
           <span>Pièces</span>
@@ -1620,7 +1859,7 @@ function ConcoursActionMenu({
             e.stopPropagation();
             setOuvert((v) => !v);
           }}
-          className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+          className="cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
           title="Options contextuelles"
         >
           <MoreVertical size={15} />
@@ -1637,7 +1876,7 @@ function ConcoursActionMenu({
             />
             <div
               onClick={(e) => e.stopPropagation()}
-              className="absolute right-0 top-full mt-1 w-52 rounded-xl bg-white p-1.5 shadow-xl border border-slate-200/90 z-40 animate-in fade-in slide-in-from-top-1 text-left"
+              className="animate-in fade-in slide-in-from-top-1 absolute top-full right-0 z-40 mt-1 w-52 rounded-xl border border-slate-200/90 bg-white p-1.5 text-left shadow-xl"
             >
               <button
                 type="button"
@@ -1645,20 +1884,24 @@ function ConcoursActionMenu({
                   setOuvert(false);
                   onGererPieces();
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-orange-50 hover:text-brand-orange rounded-lg transition-colors cursor-pointer"
+                className="hover:text-brand-orange flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-orange-50"
               >
                 <FileText size={14} className="text-slate-400" />
-                <span>{isSuperviseur ? "Gérer les pièces exigées" : "Consulter les pièces requises"}</span>
+                <span>
+                  {isSuperviseur
+                    ? "Gérer les pièces exigées"
+                    : "Consulter les pièces requises"}
+                </span>
               </button>
 
-              {estEncoreOuvert && (
+              {estEncoreOuvert && onSouscrire && (
                 <button
                   type="button"
                   onClick={() => {
                     setOuvert(false);
-                    onSouscrire();
+                    onSouscrire?.();
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-orange-50 hover:text-brand-orange rounded-lg transition-colors cursor-pointer border-t border-slate-100/70 mt-1 pt-1.5"
+                  className="hover:text-brand-orange mt-1 flex w-full cursor-pointer items-center gap-2.5 rounded-lg border-t border-slate-100/70 px-3 py-2 pt-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-orange-50"
                 >
                   <Plus size={14} className="text-slate-400" />
                   <span>Inscrire un apprenant</span>
@@ -1671,8 +1914,6 @@ function ConcoursActionMenu({
     </div>
   );
 }
-
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPOSANT LIGNE DE TABLEAU ERGONOMIQUE POUR GRAND VOLUME DE CONCOURS
@@ -1689,9 +1930,11 @@ function ConcoursTableRow({
   index: number;
   isSuperviseur: boolean;
   onGererPieces: () => void;
-  onSouscrire: () => void;
+  /** Absent : l'utilisateur ne peut pas souscrire. */
+  onSouscrire?: () => void;
 }) {
-  const { data: pieces = [], isLoading: chargementPieces } = usePiecesDuConcours(concours.id);
+  const { data: pieces = [], isLoading: chargementPieces } =
+    usePiecesDuConcours(concours.id);
 
   const coutTotal = useMemo(() => {
     return pieces.reduce((sum, p) => sum + (p.montant || 0), 0);
@@ -1714,86 +1957,90 @@ function ConcoursTableRow({
   return (
     <tr
       key={concours.id}
-      className="transition-colors hover:bg-slate-50/70 group"
+      className="group transition-colors hover:bg-slate-50/70"
     >
-      <td className="py-3.5 px-4 text-center font-mono text-[11px] font-semibold text-slate-400">
+      <td className="px-4 py-3.5 text-center font-mono text-[11px] font-semibold text-slate-400">
         {String(index + 1).padStart(2, "0")}
       </td>
 
-      <td className="py-3.5 px-4">
+      <td className="px-4 py-3.5">
         <div className="space-y-0.5">
-          <span className="font-bold text-slate-900 text-xs block">{concours.nom}</span>
-          <span className="text-[10px] text-slate-400 block font-normal">
+          <span className="block text-xs font-bold text-slate-900">
+            {concours.nom}
+          </span>
+          <span className="block text-[10px] font-normal text-slate-400">
             Session officielle
           </span>
         </div>
       </td>
 
-      <td className="py-3.5 px-4 text-center">
+      <td className="px-4 py-3.5 text-center">
         <span
-          className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${
+          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
             !estEncoreOuvert
               ? "bg-slate-500/10 text-slate-500"
               : compteAReboursCentre.estPasse
-              ? "bg-amber-500/10 text-amber-700"
-              : compteAReboursCentre.estUrgent
-              ? "bg-amber-500/10 text-amber-800"
-              : "bg-emerald-500/10 text-emerald-700"
+                ? "bg-amber-500/10 text-amber-700"
+                : compteAReboursCentre.estUrgent
+                  ? "bg-amber-500/10 text-amber-800"
+                  : "bg-emerald-500/10 text-emerald-700"
           }`}
         >
           <span
-            className={`w-1.5 h-1.5 rounded-full ${
+            className={`h-1.5 w-1.5 rounded-full ${
               !estEncoreOuvert
                 ? "bg-slate-400"
                 : compteAReboursCentre.estPasse
-                ? "bg-amber-500"
-                : "bg-emerald-500"
+                  ? "bg-amber-500"
+                  : "bg-emerald-500"
             }`}
           />
           {!estEncoreOuvert
             ? "Clos"
             : compteAReboursCentre.estPasse
-            ? "Clos centre"
-            : "Ouvert"}
+              ? "Clos centre"
+              : "Ouvert"}
         </span>
       </td>
 
-      <td className="py-3.5 px-4">
+      <td className="px-4 py-3.5">
         <div className="flex flex-col gap-0.5">
-          <span className="font-mono text-slate-800 font-semibold text-xs">
+          <span className="font-mono text-xs font-semibold text-slate-800">
             {dateCentre.toLocaleDateString("fr-FR")}
           </span>
-          <span className="text-[10px] text-slate-400 font-medium">
+          <span className="text-[10px] font-medium text-slate-400">
             {compteAReboursCentre.court || compteAReboursCentre.texte}
           </span>
         </div>
       </td>
 
-      <td className="py-3.5 px-4">
+      <td className="px-4 py-3.5">
         <div className="flex flex-col gap-0.5">
-          <span className="font-mono text-slate-800 font-semibold text-xs">
+          <span className="font-mono text-xs font-semibold text-slate-800">
             {dateOfficielle.toLocaleDateString("fr-FR")}
           </span>
-          <span className="text-[10px] text-slate-400 font-medium">
+          <span className="text-[10px] font-medium text-slate-400">
             {compteAReboursOfficiel.court || compteAReboursOfficiel.texte}
           </span>
         </div>
       </td>
 
-      <td className="py-3.5 px-4 text-center">
-        <span className="font-medium text-slate-600 text-xs">
-          {chargementPieces ? "..." : `${pieces.length} pièce${pieces.length > 1 ? "s" : ""}`}
+      <td className="px-4 py-3.5 text-center">
+        <span className="text-xs font-medium text-slate-600">
+          {chargementPieces
+            ? "..."
+            : `${pieces.length} pièce${pieces.length > 1 ? "s" : ""}`}
         </span>
       </td>
 
-      <td className="py-3.5 px-4 text-right">
-        <span className="font-mono font-semibold text-xs text-slate-900">
+      <td className="px-4 py-3.5 text-right">
+        <span className="font-mono text-xs font-semibold text-slate-900">
           {chargementPieces ? "..." : `${FCFA.format(coutTotal)} FCFA`}
         </span>
       </td>
 
       {/* Actions épurées : bouton principal et menu contextuel */}
-      <td className="py-3.5 px-4 text-right">
+      <td className="px-4 py-3.5 text-right">
         <div className="flex items-center justify-end">
           <ConcoursActionMenu
             isSuperviseur={isSuperviseur}
@@ -1822,7 +2069,8 @@ function ConcoursCampagneCard({
   onGererPieces: () => void;
   onSouscrire?: () => void;
 }) {
-  const { data: pieces = [], isLoading: chargementPieces } = usePiecesDuConcours(concours.id);
+  const { data: pieces = [], isLoading: chargementPieces } =
+    usePiecesDuConcours(concours.id);
 
   const coutTotal = useMemo(() => {
     return pieces.reduce((sum, p) => sum + (p.montant || 0), 0);
@@ -1843,57 +2091,57 @@ function ConcoursCampagneCard({
   const estEncoreOuvert = !compteAReboursOfficiel.estPasse;
 
   return (
-    <div className="rounded-2xl bg-white border border-slate-200/80 p-5 shadow-2xs hover:border-brand-orange/40 hover:shadow-md transition-all flex flex-col justify-between space-y-4 group">
+    <div className="hover:border-brand-orange/40 group flex flex-col justify-between space-y-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs transition-all hover:shadow-md">
       <div className="space-y-3.5">
         {/* En-tête Bento : Titre & Statut soft badge */}
         <div className="flex items-start justify-between gap-2.5">
-          <div className="space-y-0.5 flex-1 min-w-0">
-            <h4 className="font-bold text-slate-900 text-sm leading-snug truncate">
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <h4 className="truncate text-sm leading-snug font-bold text-slate-900">
               {concours.nom}
             </h4>
-            <span className="text-[11px] text-slate-400 block">
+            <span className="block text-[11px] text-slate-400">
               {chargementPieces
                 ? "Calcul des pièces..."
                 : `${pieces.length} pièce${pieces.length > 1 ? "s" : ""} exigée${pieces.length > 1 ? "s" : ""}`}
             </span>
           </div>
           <span
-            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
               !estEncoreOuvert
                 ? "bg-slate-500/10 text-slate-500"
                 : compteAReboursCentre.estPasse
-                ? "bg-amber-500/10 text-amber-700"
-                : compteAReboursCentre.estUrgent
-                ? "bg-amber-500/10 text-amber-800"
-                : "bg-emerald-500/10 text-emerald-700"
+                  ? "bg-amber-500/10 text-amber-700"
+                  : compteAReboursCentre.estUrgent
+                    ? "bg-amber-500/10 text-amber-800"
+                    : "bg-emerald-500/10 text-emerald-700"
             }`}
           >
             <span
-              className={`w-1.5 h-1.5 rounded-full ${
+              className={`h-1.5 w-1.5 rounded-full ${
                 !estEncoreOuvert
                   ? "bg-slate-400"
                   : compteAReboursCentre.estPasse
-                  ? "bg-amber-500"
-                  : "bg-emerald-500"
+                    ? "bg-amber-500"
+                    : "bg-emerald-500"
               }`}
             />
             {!estEncoreOuvert
               ? "Clos"
               : compteAReboursCentre.estPasse
-              ? "Clos centre"
-              : "Ouvert"}
+                ? "Clos centre"
+                : "Ouvert"}
           </span>
         </div>
 
         {/* ── Bento Grid Intérieure : Coût et Délais légers sans bordures épaisses ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           {/* Bento Cellule 1 : Coût total */}
-          <div className="p-3 bg-orange-500/5 rounded-xl border border-orange-500/10 flex flex-col justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <div className="flex flex-col justify-between rounded-xl border border-orange-500/10 bg-orange-500/5 p-3">
+            <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
               Coût dossier
             </span>
             <div className="mt-1">
-              <span className="font-mono font-bold text-sm text-brand-orange block">
+              <span className="text-brand-orange block font-mono text-sm font-bold">
                 {chargementPieces ? "..." : `${FCFA.format(coutTotal)} FCFA`}
               </span>
               <span className="text-[10px] text-slate-400">
@@ -1903,18 +2151,20 @@ function ConcoursCampagneCard({
           </div>
 
           {/* Bento Cellule 2 : Pièces exigées */}
-          <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100 flex flex-col justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <div className="flex flex-col justify-between rounded-xl border border-slate-100 bg-slate-50/80 p-3">
+            <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
               Pièces requises
             </span>
             <div className="mt-1">
-              <span className="font-mono font-bold text-sm text-slate-800 block">
-                {chargementPieces ? "..." : `${pieces.length} document${pieces.length > 1 ? "s" : ""}`}
+              <span className="block font-mono text-sm font-bold text-slate-800">
+                {chargementPieces
+                  ? "..."
+                  : `${pieces.length} document${pieces.length > 1 ? "s" : ""}`}
               </span>
               <button
                 type="button"
                 onClick={onGererPieces}
-                className="text-[10px] font-semibold text-brand-orange hover:underline cursor-pointer"
+                className="text-brand-orange cursor-pointer text-[10px] font-semibold hover:underline"
               >
                 {isSuperviseur ? "Configurer" : "Consulter"}
               </button>
@@ -1923,32 +2173,32 @@ function ConcoursCampagneCard({
         </div>
 
         {/* ── Calendrier & Délais avec indicateurs textuels discrets ── */}
-        <div className="p-3 bg-slate-50/70 rounded-xl border border-slate-100/90 space-y-2 text-xs">
+        <div className="space-y-2 rounded-xl border border-slate-100/90 bg-slate-50/70 p-3 text-xs">
           <div className="flex items-center justify-between text-slate-600">
-            <span className="text-[11px] text-slate-500 flex items-center gap-1.5 font-medium">
-              <Clock size={12} className="text-slate-400 shrink-0" />
+            <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+              <Clock size={12} className="shrink-0 text-slate-400" />
               Recevabilité centre :
             </span>
             <div className="text-right">
-              <span className="font-mono font-bold text-slate-800 text-[11px] block">
+              <span className="block font-mono text-[11px] font-bold text-slate-800">
                 {dateCentre.toLocaleDateString("fr-FR")}
               </span>
-              <span className="text-[10px] text-slate-400 font-medium">
+              <span className="text-[10px] font-medium text-slate-400">
                 {compteAReboursCentre.court || compteAReboursCentre.texte}
               </span>
             </div>
           </div>
 
-          <div className="border-t border-slate-200/50 pt-2 flex items-center justify-between text-slate-600">
-            <span className="text-[11px] text-slate-500 flex items-center gap-1.5 font-medium">
-              <Clock size={12} className="text-slate-400 shrink-0" />
+          <div className="flex items-center justify-between border-t border-slate-200/50 pt-2 text-slate-600">
+            <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+              <Clock size={12} className="shrink-0 text-slate-400" />
               Dépôt officiel :
             </span>
             <div className="text-right">
-              <span className="font-mono font-bold text-slate-800 text-[11px] block">
+              <span className="block font-mono text-[11px] font-bold text-slate-800">
                 {dateOfficielle.toLocaleDateString("fr-FR")}
               </span>
-              <span className="text-[10px] text-slate-400 font-medium">
+              <span className="text-[10px] font-medium text-slate-400">
                 {compteAReboursOfficiel.court || compteAReboursOfficiel.texte}
               </span>
             </div>
@@ -1957,14 +2207,16 @@ function ConcoursCampagneCard({
       </div>
 
       {/* Pied de carte avec actions unifiées */}
-      <div className="pt-2 border-t border-slate-100/80 flex items-center justify-between">
+      <div className="flex items-center justify-between border-t border-slate-100/80 pt-2">
         <button
           type="button"
           onClick={onGererPieces}
-          className="text-xs font-semibold text-slate-600 hover:text-brand-orange flex items-center gap-1.5 cursor-pointer transition-colors"
+          className="hover:text-brand-orange flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-slate-600 transition-colors"
         >
           <FileText size={13} className="text-slate-400" />
-          <span>{isSuperviseur ? "Gérer les pièces" : "Pièces du dossier"}</span>
+          <span>
+            {isSuperviseur ? "Gérer les pièces" : "Pièces du dossier"}
+          </span>
         </button>
 
         {onSouscrire && (

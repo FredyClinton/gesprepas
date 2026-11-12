@@ -97,7 +97,8 @@ export function BordereauResultatsView({
     userCentreId,
   );
 
-  const estDA = role === "DIRECTEUR_ACADEMIQUE" || role === "DIRECTEUR";
+  const estDirecteur = role === "DIRECTEUR"; // lecture seule (consulte et exporte)
+  const estDA = role === "DIRECTEUR_ACADEMIQUE";
   const estChefDept = role === "CHEF_DEPARTEMENT";
   const estVerrouilleSaisie =
     concoursBlanc.statut === "CLOTURE" ||
@@ -106,7 +107,9 @@ export function BordereauResultatsView({
   const formation = formations.find((f) => f.id === formationId);
 
   // Fonction utilitaire : absent(e) si aucune note enregistrée
-  const estCandidatAbsent = (c: { notes?: { statut: string; note?: number | null }[] }) => {
+  const estCandidatAbsent = (c: {
+    notes?: { statut: string; note?: number | null }[];
+  }) => {
     if (!c.notes || c.notes.length === 0) return true;
     return !c.notes.some(
       (n) => n.statut === "NOTE" && n.note !== null && n.note !== undefined,
@@ -258,21 +261,32 @@ export function BordereauResultatsView({
     if (!bordereau || candidatsFiltres.length === 0) {
       return {
         nbPresentsAffiches: 0,
-        statsParEpreuve: {} as Record<string, { moyenne: number; noteMax: number; nbNotes: number }>,
+        statsParEpreuve: {} as Record<
+          string,
+          { moyenne: number; noteMax: number; nbNotes: number }
+        >,
         moyenneTotalPoints: null as number | null,
         moyenneGenerale: null as number | null,
       };
     }
 
-    const presentsAffiches = candidatsFiltres.filter((c) => !estCandidatAbsent(c));
+    const presentsAffiches = candidatsFiltres.filter(
+      (c) => !estCandidatAbsent(c),
+    );
     const nbPresentsAffiches = presentsAffiches.length;
 
     // Stats par épreuve
-    const statsParEpreuve: Record<string, { moyenne: number; noteMax: number; nbNotes: number }> = {};
+    const statsParEpreuve: Record<
+      string,
+      { moyenne: number; noteMax: number; nbNotes: number }
+    > = {};
     bordereau.epreuves.forEach((ep) => {
       const notesEpreuve = presentsAffiches
         .map((c) => c.notes.find((n) => n.epreuveId === ep.id))
-        .filter((n) => n && n.statut === "NOTE" && n.note !== null && n.note !== undefined)
+        .filter(
+          (n) =>
+            n && n.statut === "NOTE" && n.note !== null && n.note !== undefined,
+        )
         .map((n) => n!.note!);
 
       if (notesEpreuve.length > 0) {
@@ -301,7 +315,9 @@ export function BordereauResultatsView({
       .filter((m): m is number => m !== null && m !== undefined);
     const moyenneGenerale =
       moyennes.length > 0
-        ? Number((moyennes.reduce((a, b) => a + b, 0) / moyennes.length).toFixed(2))
+        ? Number(
+            (moyennes.reduce((a, b) => a + b, 0) / moyennes.length).toFixed(2),
+          )
         : null;
 
     return {
@@ -326,11 +342,15 @@ export function BordereauResultatsView({
     }
 
     const presents = candidatsTries.filter((c) => !estCandidatAbsent(c));
-    const tauxPresence = totalInscrits > 0 ? Math.round((nbPresents / totalInscrits) * 100) : 0;
+    const tauxPresence =
+      totalInscrits > 0 ? Math.round((nbPresents / totalInscrits) * 100) : 0;
 
     // Taux de réussite (moyenne générale >= 10/20)
     const admis = presents.filter((c) => (c.moyennePonderee ?? 0) >= 10);
-    const tauxReussite = presents.length > 0 ? Math.round((admis.length / presents.length) * 100) : 0;
+    const tauxReussite =
+      presents.length > 0
+        ? Math.round((admis.length / presents.length) * 100)
+        : 0;
 
     // Moyenne générale globale
     const candidatsAvecMoyenne = presents.filter(
@@ -340,8 +360,10 @@ export function BordereauResultatsView({
       candidatsAvecMoyenne.length > 0
         ? Number(
             (
-              candidatsAvecMoyenne.reduce((acc, c) => acc + (c.moyennePonderee ?? 0), 0) /
-              candidatsAvecMoyenne.length
+              candidatsAvecMoyenne.reduce(
+                (acc, c) => acc + (c.moyennePonderee ?? 0),
+                0,
+              ) / candidatsAvecMoyenne.length
             ).toFixed(2),
           )
         : null;
@@ -355,7 +377,10 @@ export function BordereauResultatsView({
     });
     const major = presentsTriesParRang[0] || null;
 
-    const coefTotal = bordereau.epreuves.reduce((acc, ep) => acc + (ep.coefficient || 1), 0);
+    const coefTotal = bordereau.epreuves.reduce(
+      (acc, ep) => acc + (ep.coefficient || 1),
+      0,
+    );
 
     return {
       tauxPresence,
@@ -379,7 +404,9 @@ export function BordereauResultatsView({
       "Nom et Prénom",
       "Centre",
       "Établissement",
-      ...bordereau.epreuves.map((e) => `${e.intitule} (Coef ${e.coefficient} / ${e.noteMax})`),
+      ...bordereau.epreuves.map(
+        (e) => `${e.intitule} (Coef ${e.coefficient} / ${e.noteMax})`,
+      ),
       "Total Pondéré (pts)",
     ];
 
@@ -411,7 +438,11 @@ export function BordereauResultatsView({
         `"${ctreNom.replace(/"/g, '""')}"`,
         `"${(c.etablissementOrigine || "").replace(/"/g, '""')}"`,
         ...notesCols,
-        estAbs ? "ABS" : (c.totalPondere ? c.totalPondere.toFixed(2).replace(".", ",") : "0"),
+        estAbs
+          ? "ABS"
+          : c.totalPondere
+            ? c.totalPondere.toFixed(2).replace(".", ",")
+            : "0",
       ].join(sep);
     });
 
@@ -432,7 +463,12 @@ export function BordereauResultatsView({
   // Helper pour l'icône de tri
   const renderSortIcon = (key: SortKey) => {
     if (sortKey !== key) {
-      return <ChevronsUpDown size={12} className="text-slate-300 group-hover:text-slate-500" />;
+      return (
+        <ChevronsUpDown
+          size={12}
+          className="text-slate-300 group-hover:text-slate-500"
+        />
+      );
     }
     return sortOrder === "asc" ? (
       <ChevronUp size={13} className="text-brand-orange" />
@@ -446,16 +482,16 @@ export function BordereauResultatsView({
       {/* ── B. Barre d'outils unifiée sur une seule ligne ── */}
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-2xs">
         {/* Filtres et Recherche */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 min-w-0">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-2.5">
           {/* Sélecteur de Filière */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+          <div className="flex shrink-0 items-center gap-1.5">
+            <span className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">
               Filière
             </span>
             <select
               value={formationId}
               onChange={(e) => setFormationId(e.target.value)}
-              className="cursor-pointer rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-bold text-slate-800 outline-none focus:border-brand-orange"
+              className="focus:border-brand-orange cursor-pointer rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-bold text-slate-800 outline-none"
             >
               {formations.map((f) => (
                 <option key={f.id} value={f.id}>
@@ -468,20 +504,21 @@ export function BordereauResultatsView({
           <span className="text-slate-300">|</span>
 
           {/* Sélecteur de Centre */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+          <div className="flex shrink-0 items-center gap-1.5">
+            <span className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">
               Centre
             </span>
             {verrouillerCentre ? (
               <span className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
                 <Building2 size={12} className="text-slate-400" />
-                {centres.find((c) => c.id === initCentreId)?.nom || "Mon centre"}
+                {centres.find((c) => c.id === initCentreId)?.nom ||
+                  "Mon centre"}
               </span>
             ) : (
               <select
                 value={centreIdFiltre}
                 onChange={(e) => setCentreIdFiltre(e.target.value)}
-                className="cursor-pointer rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-800 outline-none focus:border-brand-orange"
+                className="focus:border-brand-orange cursor-pointer rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-800 outline-none"
               >
                 <option value="TOUS">Tous les centres (Général)</option>
                 {centres.map((c) => (
@@ -496,23 +533,23 @@ export function BordereauResultatsView({
           <span className="text-slate-300">|</span>
 
           {/* Barre de Recherche rapide */}
-          <div className="relative w-44 sm:w-56 shrink-0">
+          <div className="relative w-44 shrink-0 sm:w-56">
             <Search
               size={13}
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+              className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-slate-400"
             />
             <input
               type="text"
               value={rechercheCandidat}
               onChange={(e) => setRechercheCandidat(e.target.value)}
               placeholder="Rechercher nom, lycée..."
-              className="w-full rounded-md border border-slate-300 bg-white py-1 pl-7 pr-6 text-xs text-slate-800 placeholder:text-slate-400 focus:border-brand-orange focus:outline-none"
+              className="focus:border-brand-orange w-full rounded-md border border-slate-300 bg-white py-1 pr-6 pl-7 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none"
             />
             {rechercheCandidat && (
               <button
                 type="button"
                 onClick={() => setRechercheCandidat("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer text-slate-400 hover:text-slate-600"
                 title="Effacer la recherche"
               >
                 <X size={12} />
@@ -521,13 +558,13 @@ export function BordereauResultatsView({
           </div>
 
           {/* Filtres de statut compacts */}
-          <div className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 p-0.5 text-[11px] font-semibold shrink-0">
+          <div className="inline-flex shrink-0 items-center rounded-md border border-slate-200 bg-slate-50 p-0.5 text-[11px] font-semibold">
             <button
               type="button"
               onClick={() => setFiltreStatutCandidat("TOUS")}
-              className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+              className={`cursor-pointer rounded px-2 py-0.5 transition-all ${
                 filtreStatutCandidat === "TOUS"
-                  ? "bg-slate-900 text-white font-bold"
+                  ? "bg-slate-900 font-bold text-white"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
@@ -536,9 +573,9 @@ export function BordereauResultatsView({
             <button
               type="button"
               onClick={() => setFiltreStatutCandidat("CLASSES")}
-              className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+              className={`cursor-pointer rounded px-2 py-0.5 transition-all ${
                 filtreStatutCandidat === "CLASSES"
-                  ? "bg-slate-900 text-white font-bold"
+                  ? "bg-slate-900 font-bold text-white"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
@@ -548,9 +585,9 @@ export function BordereauResultatsView({
               <button
                 type="button"
                 onClick={() => setFiltreStatutCandidat("TOP10")}
-                className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                className={`cursor-pointer rounded px-2 py-0.5 transition-all ${
                   filtreStatutCandidat === "TOP10"
-                    ? "bg-slate-900 text-white font-bold"
+                    ? "bg-slate-900 font-bold text-white"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
@@ -561,9 +598,9 @@ export function BordereauResultatsView({
               <button
                 type="button"
                 onClick={() => setFiltreStatutCandidat("ABSENTS")}
-                className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                className={`cursor-pointer rounded px-2 py-0.5 transition-all ${
                   filtreStatutCandidat === "ABSENTS"
-                    ? "bg-rose-700 text-white font-bold"
+                    ? "bg-rose-700 font-bold text-white"
                     : "text-slate-600 hover:text-rose-700"
                 }`}
               >
@@ -574,8 +611,8 @@ export function BordereauResultatsView({
         </div>
 
         {/* Actions Métier : Saisie, Compilation, Exporter */}
-        <div className="flex items-center gap-2 shrink-0">
-          {onSaisieNotes && !estChefDept && (
+        <div className="flex shrink-0 items-center gap-2">
+          {onSaisieNotes && !estChefDept && !estDirecteur && (
             <button
               type="button"
               onClick={() =>
@@ -585,7 +622,7 @@ export function BordereauResultatsView({
                 )
               }
               disabled={estVerrouilleSaisie}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
+              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1 text-xs font-bold transition-all ${
                 estVerrouilleSaisie
                   ? "cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400"
                   : "bg-brand-orange hover:bg-brand-orange/90 text-white shadow-2xs"
@@ -630,14 +667,14 @@ export function BordereauResultatsView({
                   },
                 );
               }}
-              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-orange transition-colors cursor-pointer disabled:opacity-50"
+              className="hover:text-brand-orange inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
               title="Recalculer les moyennes pondérées et les classements"
             >
               <RefreshCw
                 size={13}
                 className={
                   compilerMutation.isPending
-                    ? "animate-spin text-brand-orange"
+                    ? "text-brand-orange animate-spin"
                     : "text-slate-400"
                 }
               />
@@ -650,7 +687,7 @@ export function BordereauResultatsView({
               <button
                 type="button"
                 onClick={() => setMenuExportOuvert(!menuExportOuvert)}
-                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
               >
                 <Download size={13} className="text-slate-400" />
                 <span>Exporter</span>
@@ -673,7 +710,7 @@ export function BordereauResultatsView({
                       exporterExcel();
                       setMenuExportOuvert(false);
                     }}
-                    className="flex w-full items-center gap-2 rounded p-1.5 text-left font-medium text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors cursor-pointer"
+                    className="flex w-full cursor-pointer items-center gap-2 rounded p-1.5 text-left font-medium text-slate-700 transition-colors hover:bg-emerald-50 hover:text-emerald-800"
                   >
                     <FileSpreadsheet size={14} className="text-emerald-600" />
                     <span>Tableau Excel (.csv)</span>
@@ -686,7 +723,7 @@ export function BordereauResultatsView({
                         onOuvrirExportModal(formationId);
                         setMenuExportOuvert(false);
                       }}
-                      className="flex w-full items-center gap-2 rounded p-1.5 text-left font-medium text-slate-700 hover:bg-orange-50 hover:text-brand-orange transition-colors cursor-pointer"
+                      className="hover:text-brand-orange flex w-full cursor-pointer items-center gap-2 rounded p-1.5 text-left font-medium text-slate-700 transition-colors hover:bg-orange-50"
                     >
                       <Printer size={14} className="text-brand-orange" />
                       <span>Fiche Officielle (PDF)</span>
@@ -728,8 +765,8 @@ export function BordereauResultatsView({
             Aucun résultat enregistré pour cette filière dans ce concours blanc.
           </div>
         ) : candidatsFiltres.length === 0 ? (
-          <div className="p-12 text-center text-xs space-y-2">
-            <p className="text-slate-600 font-medium">
+          <div className="space-y-2 p-12 text-center text-xs">
+            <p className="font-medium text-slate-600">
               Aucun candidat ne correspond à vos filtres actifs.
             </p>
             <button
@@ -738,22 +775,22 @@ export function BordereauResultatsView({
                 setRechercheCandidat("");
                 setFiltreStatutCandidat("TOUS");
               }}
-              className="text-xs font-bold text-brand-orange hover:underline cursor-pointer"
+              className="text-brand-orange cursor-pointer text-xs font-bold hover:underline"
             >
               Réinitialiser les filtres pour afficher tous les candidats
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto relative">
+          <div className="relative overflow-x-auto">
             <table className="w-full border-collapse text-left text-xs">
-              <thead className="sticky top-0 z-20 bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-700 tracking-wider uppercase select-none shadow-xs">
+              <thead className="sticky top-0 z-20 border-b border-slate-200 bg-slate-50 text-[11px] font-bold tracking-wider text-slate-700 uppercase shadow-xs select-none">
                 <tr>
                   {/* Colonne Rang Général (Sticky Left) */}
-                  <th className="sticky left-0 z-30 w-12 bg-slate-50 px-2 py-2 text-center border-b border-slate-200">
+                  <th className="sticky left-0 z-30 w-12 border-b border-slate-200 bg-slate-50 px-2 py-2 text-center">
                     <button
                       type="button"
                       onClick={() => handleSort("rang")}
-                      className="group inline-flex items-center justify-center gap-1 w-full font-bold uppercase text-slate-700 hover:text-slate-900 cursor-pointer"
+                      className="group inline-flex w-full cursor-pointer items-center justify-center gap-1 font-bold text-slate-700 uppercase hover:text-slate-900"
                       title="Trier par Rang Général"
                     >
                       <span>Rang</span>
@@ -762,11 +799,11 @@ export function BordereauResultatsView({
                   </th>
 
                   {/* Colonne Rang Centre */}
-                  <th className="w-14 px-2 py-2 text-center border-b border-slate-200">
+                  <th className="w-14 border-b border-slate-200 px-2 py-2 text-center">
                     <button
                       type="button"
                       onClick={() => handleSort("rangCentre")}
-                      className="group inline-flex items-center justify-center gap-1 w-full font-semibold uppercase text-slate-600 hover:text-slate-900 cursor-pointer"
+                      className="group inline-flex w-full cursor-pointer items-center justify-center gap-1 font-semibold text-slate-600 uppercase hover:text-slate-900"
                       title="Trier par Rang au sein du Centre"
                     >
                       <span>R. Ctre</span>
@@ -775,11 +812,11 @@ export function BordereauResultatsView({
                   </th>
 
                   {/* Colonne Évolution */}
-                  <th className="w-12 px-1.5 py-2 text-center border-b border-slate-200">
+                  <th className="w-12 border-b border-slate-200 px-1.5 py-2 text-center">
                     <button
                       type="button"
                       onClick={() => handleSort("deltaRang")}
-                      className="group inline-flex items-center justify-center gap-0.5 w-full font-semibold uppercase text-slate-600 hover:text-slate-900 cursor-pointer"
+                      className="group inline-flex w-full cursor-pointer items-center justify-center gap-0.5 font-semibold text-slate-600 uppercase hover:text-slate-900"
                       title="Trier par Progression (Delta)"
                     >
                       <span>Évol.</span>
@@ -788,11 +825,11 @@ export function BordereauResultatsView({
                   </th>
 
                   {/* Colonne Nom & Prénom (Sticky Left 12) */}
-                  <th className="sticky left-12 z-30 min-w-[200px] bg-slate-50 px-3 py-2 text-left border-b border-slate-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
+                  <th className="sticky left-12 z-30 min-w-[200px] border-b border-slate-200 bg-slate-50 px-3 py-2 text-left shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
                     <button
                       type="button"
                       onClick={() => handleSort("nomComplet")}
-                      className="group inline-flex items-center gap-1 font-bold uppercase text-slate-700 hover:text-slate-900 cursor-pointer"
+                      className="group inline-flex cursor-pointer items-center gap-1 font-bold text-slate-700 uppercase hover:text-slate-900"
                       title="Trier par Nom alphabétique"
                     >
                       <span>Noms & Prénoms</span>
@@ -801,11 +838,11 @@ export function BordereauResultatsView({
                   </th>
 
                   {/* Colonne Centre */}
-                  <th className="min-w-[110px] px-3 py-2 border-b border-slate-200">
+                  <th className="min-w-[110px] border-b border-slate-200 px-3 py-2">
                     <button
                       type="button"
                       onClick={() => handleSort("centre")}
-                      className="group inline-flex items-center gap-1 font-semibold uppercase text-slate-600 hover:text-slate-900 cursor-pointer"
+                      className="group inline-flex cursor-pointer items-center gap-1 font-semibold text-slate-600 uppercase hover:text-slate-900"
                       title="Trier par Centre"
                     >
                       <span>Centre</span>
@@ -814,11 +851,11 @@ export function BordereauResultatsView({
                   </th>
 
                   {/* Colonne Établissement d'origine */}
-                  <th className="min-w-[130px] px-3 py-2 border-b border-slate-200">
+                  <th className="min-w-[130px] border-b border-slate-200 px-3 py-2">
                     <button
                       type="button"
                       onClick={() => handleSort("etablissement")}
-                      className="group inline-flex items-center gap-1 font-semibold uppercase text-slate-600 hover:text-slate-900 cursor-pointer"
+                      className="group inline-flex cursor-pointer items-center gap-1 font-semibold text-slate-600 uppercase hover:text-slate-900"
                       title="Trier par Établissement"
                     >
                       <span>Établissement</span>
@@ -832,15 +869,15 @@ export function BordereauResultatsView({
                     return (
                       <th
                         key={ep.id}
-                        className="min-w-[105px] px-2.5 py-1.5 text-right border-b border-slate-200"
+                        className="min-w-[105px] border-b border-slate-200 px-2.5 py-1.5 text-right"
                       >
                         <button
                           type="button"
                           onClick={() => handleSort(epreuveSortKey)}
-                          className="group inline-flex flex-col items-end w-full cursor-pointer"
+                          className="group inline-flex w-full cursor-pointer flex-col items-end"
                           title={`Trier par note en ${ep.intitule}`}
                         >
-                          <div className="inline-flex items-center gap-1 font-bold text-slate-800 uppercase line-clamp-1">
+                          <div className="line-clamp-1 inline-flex items-center gap-1 font-bold text-slate-800 uppercase">
                             <span>{ep.intitule}</span>
                             {renderSortIcon(epreuveSortKey)}
                           </div>
@@ -853,14 +890,14 @@ export function BordereauResultatsView({
                   })}
 
                   {/* Colonne Total Pondéré (pts) (Sticky Right) */}
-                  <th className="sticky right-0 z-30 w-24 bg-slate-50 px-3 py-2 text-right border-b border-slate-200 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]">
+                  <th className="sticky right-0 z-30 w-24 border-b border-slate-200 bg-slate-50 px-3 py-2 text-right shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]">
                     <button
                       type="button"
                       onClick={() => handleSort("totalPondere")}
-                      className="group inline-flex flex-col items-end w-full cursor-pointer"
+                      className="group inline-flex w-full cursor-pointer flex-col items-end"
                       title="Trier par Total des points"
                     >
-                      <div className="inline-flex items-center gap-1 font-bold uppercase text-slate-900">
+                      <div className="inline-flex items-center gap-1 font-bold text-slate-900 uppercase">
                         <span>Total</span>
                         {renderSortIcon("totalPondere")}
                       </div>
@@ -900,7 +937,7 @@ export function BordereauResultatsView({
                       >
                         {estAbsent ? (
                           <span
-                            className="inline-flex items-center justify-center rounded px-1.5 py-0.2 text-[10px] font-bold uppercase bg-rose-100 text-rose-700"
+                            className="py-0.2 inline-flex items-center justify-center rounded bg-rose-100 px-1.5 text-[10px] font-bold text-rose-700 uppercase"
                             title="Absent(e)"
                           >
                             ABS
@@ -909,11 +946,11 @@ export function BordereauResultatsView({
                           <span
                             className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold tabular-nums ${
                               c.rang === 1
-                                ? "bg-amber-400 text-slate-950 font-black shadow-2xs"
+                                ? "bg-amber-400 font-black text-slate-950 shadow-2xs"
                                 : c.rang === 2
-                                  ? "bg-slate-200 text-slate-800 font-bold"
+                                  ? "bg-slate-200 font-bold text-slate-800"
                                   : c.rang === 3
-                                    ? "bg-amber-700/80 text-white font-bold"
+                                    ? "bg-amber-700/80 font-bold text-white"
                                     : "text-slate-600"
                             }`}
                           >
@@ -925,9 +962,11 @@ export function BordereauResultatsView({
                       {/* Rang Centre */}
                       <td className="px-2 py-1.5 text-center text-xs font-semibold text-slate-600 tabular-nums">
                         {estAbsent ? (
-                          <span className="text-[10px] text-rose-500 font-medium">ABS</span>
+                          <span className="text-[10px] font-medium text-rose-500">
+                            ABS
+                          </span>
                         ) : (
-                          c.rangCentre ?? "-"
+                          (c.rangCentre ?? "-")
                         )}
                       </td>
 
@@ -949,7 +988,9 @@ export function BordereauResultatsView({
                             </span>
                           )
                         ) : (
-                          <span className="text-[11px] text-slate-300 font-medium">—</span>
+                          <span className="text-[11px] font-medium text-slate-300">
+                            —
+                          </span>
                         )}
                       </td>
 
@@ -964,11 +1005,11 @@ export function BordereauResultatsView({
                         }`}
                       >
                         <div className="flex items-center gap-1.5">
-                          <span className="font-semibold text-slate-900 line-clamp-1">
+                          <span className="line-clamp-1 font-semibold text-slate-900">
                             {c.nomComplet}
                           </span>
                           {c.horsListe && (
-                            <span className="rounded bg-amber-100 px-1 py-0.2 text-[9px] font-bold text-amber-800 shrink-0">
+                            <span className="py-0.2 shrink-0 rounded bg-amber-100 px-1 text-[9px] font-bold text-amber-800">
                               HL
                             </span>
                           )}
@@ -976,21 +1017,24 @@ export function BordereauResultatsView({
                       </td>
 
                       {/* Centre EXCELIS */}
-                      <td className="px-3 py-1.5 text-xs text-slate-600 truncate max-w-[130px]">
+                      <td className="max-w-[130px] truncate px-3 py-1.5 text-xs text-slate-600">
                         {centres.find((ct) => ct.id === c.centreId)?.nom || "—"}
                       </td>
 
                       {/* Établissement d'origine */}
-                      <td className="px-3 py-1.5 text-xs text-slate-500 truncate max-w-[150px]">
+                      <td className="max-w-[150px] truncate px-3 py-1.5 text-xs text-slate-500">
                         {c.etablissementOrigine || "—"}
                       </td>
 
                       {/* Notes par Épreuve (Sobres, rigoureuses, lisibles) */}
                       {bordereau.epreuves.map((ep) => {
-                        const noteObj = c.notes.find((n) => n.epreuveId === ep.id);
+                        const noteObj = c.notes.find(
+                          (n) => n.epreuveId === ep.id,
+                        );
                         const noteVal = noteObj?.note;
                         const statut = noteObj?.statut ?? "NOTE";
-                        const maxNoteEpreuve = bordereau.meilleuresNotesParEpreuve[ep.id];
+                        const maxNoteEpreuve =
+                          bordereau.meilleuresNotesParEpreuve[ep.id];
                         const estMeilleureNote =
                           statut === "NOTE" &&
                           noteVal !== null &&
@@ -1000,13 +1044,16 @@ export function BordereauResultatsView({
                           noteVal > 0;
 
                         return (
-                          <td key={ep.id} className="px-2.5 py-1.5 text-right font-mono text-xs tabular-nums">
+                          <td
+                            key={ep.id}
+                            className="px-2.5 py-1.5 text-right font-mono text-xs tabular-nums"
+                          >
                             {statut === "NOTE" ? (
                               noteVal !== null && noteVal !== undefined ? (
                                 <span
                                   className={
                                     estMeilleureNote
-                                      ? "font-black text-amber-900 font-mono"
+                                      ? "font-mono font-black text-amber-900"
                                       : noteVal < 5
                                         ? "font-semibold text-rose-600"
                                         : "font-medium text-slate-800"
@@ -1019,7 +1066,7 @@ export function BordereauResultatsView({
                               )
                             ) : (
                               <span
-                                className={`rounded px-1 py-0.2 text-[10px] font-bold uppercase ${
+                                className={`py-0.2 rounded px-1 text-[10px] font-bold uppercase ${
                                   statut === "ABS"
                                     ? "bg-rose-50 text-rose-700"
                                     : "bg-slate-100 text-slate-600"
@@ -1043,8 +1090,11 @@ export function BordereauResultatsView({
                         }`}
                       >
                         {estAbsent ? (
-                          <span className="font-semibold text-[11px] text-rose-600">ABS</span>
-                        ) : c.totalPondere !== null && c.totalPondere !== undefined ? (
+                          <span className="text-[11px] font-semibold text-rose-600">
+                            ABS
+                          </span>
+                        ) : c.totalPondere !== null &&
+                          c.totalPondere !== undefined ? (
                           c.totalPondere.toFixed(2)
                         ) : (
                           "—"
@@ -1057,12 +1107,13 @@ export function BordereauResultatsView({
 
               {/* Ligne de synthèse officielle en bas de tableau */}
               <tfoot>
-                <tr className="border-t-2 border-slate-300 bg-slate-100/95 text-xs font-bold text-slate-900 sticky bottom-0 z-20 shadow-2xs">
+                <tr className="sticky bottom-0 z-20 border-t-2 border-slate-300 bg-slate-100/95 text-xs font-bold text-slate-900 shadow-2xs">
                   <td
                     colSpan={6}
-                    className="sticky left-0 z-10 bg-slate-100 px-3 py-2 text-right uppercase tracking-wider text-[11px] text-slate-700 font-bold shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]"
+                    className="sticky left-0 z-10 bg-slate-100 px-3 py-2 text-right text-[11px] font-bold tracking-wider text-slate-700 uppercase shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]"
                   >
-                    Moyennes & Performances ({syntheseTableau.nbPresentsAffiches} candidats) :
+                    Moyennes & Performances (
+                    {syntheseTableau.nbPresentsAffiches} candidats) :
                   </td>
                   {bordereau.epreuves.map((ep) => {
                     const st = syntheseTableau.statsParEpreuve[ep.id];
@@ -1073,7 +1124,7 @@ export function BordereauResultatsView({
                       >
                         {st ? (
                           <div className="flex flex-col items-end">
-                            <span className="text-slate-900 font-bold">
+                            <span className="font-bold text-slate-900">
                               {st.moyenne.toFixed(2)}
                             </span>
                             <span className="text-[10px] font-semibold text-slate-500">
@@ -1100,11 +1151,11 @@ export function BordereauResultatsView({
       </div>
 
       {/* ── D. Bande de Synthèse Compacte (Indicateurs Secondaires après le tableau) ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600">
         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
           {/* Participation */}
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">
               Participation :
             </span>
             <span className="font-mono font-bold text-slate-900 tabular-nums">
@@ -1114,7 +1165,7 @@ export function BordereauResultatsView({
               ({nbPresents}/{totalInscrits})
             </span>
             {nbAbsents > 0 && (
-              <span className="text-rose-600 font-semibold text-[11px]">
+              <span className="text-[11px] font-semibold text-rose-600">
                 · {nbAbsents} abs.
               </span>
             )}
@@ -1124,20 +1175,22 @@ export function BordereauResultatsView({
 
           {/* Épreuves */}
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">
               Épreuves :
             </span>
             <span className="font-bold text-slate-800">
               {bordereau?.epreuves?.length || 0} matières
             </span>
-            <span className="text-slate-400">· Coef. {statsPilotage.coefTotal}</span>
+            <span className="text-slate-400">
+              · Coef. {statsPilotage.coefTotal}
+            </span>
           </div>
 
           <span className="text-slate-300">·</span>
 
           {/* Taux de Réussite */}
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">
               Taux réussite (≥10) :
             </span>
             <span className="font-mono font-bold text-slate-900 tabular-nums">
@@ -1152,7 +1205,7 @@ export function BordereauResultatsView({
 
           {/* Moyenne Filière */}
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">
               Moyenne filière :
             </span>
             <span className="font-mono font-bold text-slate-900 tabular-nums">
@@ -1167,17 +1220,20 @@ export function BordereauResultatsView({
             <>
               <span className="text-slate-300">·</span>
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">
+                <span className="text-[10px] font-bold tracking-wider text-amber-800 uppercase">
                   Major {filtreEffective !== "TOUS" ? "Centre" : "Promo"} :
                 </span>
                 <span className="font-bold text-slate-900">
                   {statsPilotage.majorCandidat.nomComplet}
                 </span>
-                <span className="font-mono text-amber-800 font-bold tabular-nums">
+                <span className="font-mono font-bold text-amber-800 tabular-nums">
                   ({statsPilotage.majorCandidat.totalPondere?.toFixed(2)} pts)
                 </span>
-                <span className="text-slate-400 text-[11px]">
-                  · {centres.find((c) => c.id === statsPilotage.majorCandidat?.centreId)?.nom || ""}
+                <span className="text-[11px] text-slate-400">
+                  ·{" "}
+                  {centres.find(
+                    (c) => c.id === statsPilotage.majorCandidat?.centreId,
+                  )?.nom || ""}
                 </span>
               </div>
             </>
@@ -1185,7 +1241,7 @@ export function BordereauResultatsView({
         </div>
 
         {/* Navigation et affichage des lignes */}
-        <div className="flex items-center gap-2 ml-auto text-[11px] text-slate-500 font-medium">
+        <div className="ml-auto flex items-center gap-2 text-[11px] font-medium text-slate-500">
           <span>
             {candidatsAffiches.length} sur {candidatsFiltres.length} candidat
             {candidatsFiltres.length > 1 ? "s" : ""}
@@ -1196,7 +1252,7 @@ export function BordereauResultatsView({
                 type="button"
                 disabled={pageCourante === 1}
                 onClick={() => setPageCourante((p) => Math.max(1, p - 1))}
-                className="px-1.5 py-0.5 rounded border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                className="cursor-pointer rounded border border-slate-200 bg-white px-1.5 py-0.5 text-slate-700 hover:bg-slate-50 disabled:opacity-40"
                 title="Page précédente"
               >
                 ‹
@@ -1207,8 +1263,10 @@ export function BordereauResultatsView({
               <button
                 type="button"
                 disabled={pageCourante === totalPages}
-                onClick={() => setPageCourante((p) => Math.min(totalPages, p + 1))}
-                className="px-1.5 py-0.5 rounded border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                onClick={() =>
+                  setPageCourante((p) => Math.min(totalPages, p + 1))
+                }
+                className="cursor-pointer rounded border border-slate-200 bg-white px-1.5 py-0.5 text-slate-700 hover:bg-slate-50 disabled:opacity-40"
                 title="Page suivante"
               >
                 ›
@@ -1218,10 +1276,11 @@ export function BordereauResultatsView({
           <select
             value={lignesParPage}
             onChange={(e) => {
-              const val = e.target.value === "TOUS" ? "TOUS" : Number(e.target.value);
+              const val =
+                e.target.value === "TOUS" ? "TOUS" : Number(e.target.value);
               setLignesParPage(val);
             }}
-            className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] text-slate-600 outline-none cursor-pointer"
+            className="cursor-pointer rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] text-slate-600 outline-none"
           >
             <option value={25}>25 / page</option>
             <option value={50}>50 / page</option>

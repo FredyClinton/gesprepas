@@ -38,7 +38,7 @@ public class AccesPersonnelService implements GererAccesPersonnelUseCase, Lister
     }
 
     @Override
-    public AccesPersonnel definirAcces(UUID personnelId, UUID sessionId, UUID phaseId, StatutAcces statut, String motif) {
+    public AccesPersonnel definirAcces(RoleUtilisateur appelant, UUID personnelId, UUID sessionId, UUID phaseId, StatutAcces statut, String motif) {
         Objects.requireNonNull(personnelId, "personnelId ne peut pas être nul");
         Objects.requireNonNull(sessionId, "sessionId ne peut pas être nul");
         Objects.requireNonNull(statut, "statut ne peut pas être nul");
@@ -53,6 +53,7 @@ public class AccesPersonnelService implements GererAccesPersonnelUseCase, Lister
         if (statut == StatutAcces.BLOQUE && utilisateur.getRole() == RoleUtilisateur.DIRECTEUR) {
             throw new IllegalStateException("Le compte du Directeur ne peut pas être bloqué.");
         }
+        verifierPeutGerer(appelant, utilisateur.getRole());
 
         sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new SessionIntrouvableException(sessionId));
@@ -76,13 +77,13 @@ public class AccesPersonnelService implements GererAccesPersonnelUseCase, Lister
     }
 
     @Override
-    public AccesPersonnel accorderAcces(UUID personnelId, UUID sessionId, UUID phaseId, String motif) {
-        return definirAcces(personnelId, sessionId, phaseId, StatutAcces.ACCORDE, motif);
+    public AccesPersonnel accorderAcces(RoleUtilisateur appelant, UUID personnelId, UUID sessionId, UUID phaseId, String motif) {
+        return definirAcces(appelant, personnelId, sessionId, phaseId, StatutAcces.ACCORDE, motif);
     }
 
     @Override
-    public AccesPersonnel bloquerAcces(UUID personnelId, UUID sessionId, UUID phaseId, String motif) {
-        return definirAcces(personnelId, sessionId, phaseId, StatutAcces.BLOQUE, motif);
+    public AccesPersonnel bloquerAcces(RoleUtilisateur appelant, UUID personnelId, UUID sessionId, UUID phaseId, String motif) {
+        return definirAcces(appelant, personnelId, sessionId, phaseId, StatutAcces.BLOQUE, motif);
     }
 
     @Override
@@ -106,5 +107,12 @@ public class AccesPersonnelService implements GererAccesPersonnelUseCase, Lister
     @Override
     public List<AccesPersonnel> listerParPersonnel(UUID personnelId) {
         return accesPersonnelRepository.findByPersonnelId(personnelId);
+    }
+
+    /** Refuse si l'appelant gère un compte plus puissant que lui (voir MatricePermissions.peutAttribuer). */
+    private static void verifierPeutGerer(RoleUtilisateur appelant, RoleUtilisateur cible) {
+        if (!com.excelisprepas.backend.auth.domain.model.MatricePermissions.peutAttribuer(appelant, cible)) {
+            throw new com.excelisprepas.backend.personnel.domain.exception.AttributionRoleInterditeException(cible);
+        }
     }
 }

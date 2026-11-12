@@ -72,7 +72,11 @@ export function ConcoursBlancsView({
   const { data: matieres = [] } = useMatieres();
   const { data: departements = [] } = useDepartements();
 
-  const estDA = userRole === "DIRECTEUR_ACADEMIQUE" || userRole === "DIRECTEUR";
+  // Le Directeur consulte les concours blancs de tous les centres, en lecture seule :
+  // les actions (programmer, compiler, verrouiller, saisir) restent au Directeur académique.
+  const estDirecteur = userRole === "DIRECTEUR";
+  const estDA = userRole === "DIRECTEUR_ACADEMIQUE";
+  const voitTousCentres = estDA || estDirecteur;
   const estChefDept = userRole === "CHEF_DEPARTEMENT";
 
   // Départements dont l'utilisateur connecté est le chef
@@ -101,13 +105,13 @@ export function ConcoursBlancsView({
 
   // Filtrage selon le centre si utilisateur non-DA
   const concoursBlancs = useMemo(() => {
-    if (estDA || !userCentreId) return tousConcoursBlancs;
+    if (voitTousCentres || !userCentreId) return tousConcoursBlancs;
     return tousConcoursBlancs.filter(
       (cb) =>
         cb.tousLesCentres ||
         (cb.centreIds && cb.centreIds.includes(userCentreId)),
     );
-  }, [tousConcoursBlancs, estDA, userCentreId]);
+  }, [tousConcoursBlancs, voitTousCentres, userCentreId]);
 
   // Concours Blanc sélectionné pour la consultation
   const [concoursActifId, setConcoursActifId] = useState<string>("");
@@ -138,7 +142,7 @@ export function ConcoursBlancsView({
   const [centreSaisieId, setCentreSaisieId] = useState("");
 
   const effectiveCentreId = useMemo(() => {
-    if (userCentreId && !estDA) return userCentreId;
+    if (userCentreId && !voitTousCentres) return userCentreId;
     if (
       centreSaisieId &&
       centresConcoursActif.some((c) => c.id === centreSaisieId)
@@ -146,7 +150,13 @@ export function ConcoursBlancsView({
       return centreSaisieId;
     }
     return centresConcoursActif[0]?.id || centres[0]?.id || "";
-  }, [userCentreId, estDA, centreSaisieId, centresConcoursActif, centres]);
+  }, [
+    userCentreId,
+    voitTousCentres,
+    centreSaisieId,
+    centresConcoursActif,
+    centres,
+  ]);
 
   const [modalExportOuvert, setModalExportOuvert] = useState(false);
   const [formationExportId, setFormationExportId] = useState<string>("");
@@ -180,7 +190,8 @@ export function ConcoursBlancsView({
             </span>
           </div>
           <p className="mt-1 text-sm text-slate-500">
-            Organisation des sessions, saisie des notes par centre et palmarès consolidé.
+            Organisation des sessions, saisie des notes par centre et palmarès
+            consolidé.
           </p>
         </div>
 
@@ -191,7 +202,7 @@ export function ConcoursBlancsView({
               setConcoursAModifier(null);
               setModalProgrammerOuvert(true);
             }}
-            className="bg-brand-orange hover:bg-brand-orange/90 shadow-brand-orange/20 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white shadow-md transition-all active:scale-[0.98] cursor-pointer"
+            className="bg-brand-orange hover:bg-brand-orange/90 shadow-brand-orange/20 flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white shadow-md transition-all active:scale-[0.98]"
           >
             <Plus className="h-4 w-4" />
             <span>Nouveau Concours Blanc</span>
@@ -201,8 +212,8 @@ export function ConcoursBlancsView({
 
       {/* ── Vue Master-Detail (comme les Bordereaux) ── */}
       {isLoading ? (
-        <div className="flex flex-col lg:flex-row items-start gap-5">
-          <div className="w-full lg:w-72 xl:w-80 shrink-0 space-y-3">
+        <div className="flex flex-col items-start gap-5 lg:flex-row">
+          <div className="w-full shrink-0 space-y-3 lg:w-72 xl:w-80">
             <div className="h-4 w-1/3 animate-pulse rounded bg-slate-200" />
             <div className="animate-pulse space-y-3 rounded-xl border border-slate-200 bg-white p-4">
               <div className="h-4 w-1/2 rounded bg-slate-200" />
@@ -213,7 +224,7 @@ export function ConcoursBlancsView({
               <div className="h-3 w-3/4 rounded bg-slate-200" />
             </div>
           </div>
-          <div className="w-full flex-1 min-w-0 space-y-4">
+          <div className="w-full min-w-0 flex-1 space-y-4">
             <div className="animate-pulse space-y-4 rounded-xl border border-slate-200 bg-white p-6">
               <div className="h-6 w-1/3 rounded bg-slate-200" />
               <div className="h-4 w-1/2 rounded bg-slate-200" />
@@ -229,7 +240,9 @@ export function ConcoursBlancsView({
             Aucun concours blanc programmé pour cette session
           </h3>
           <p className="mt-1 mb-6 max-w-md text-sm text-slate-500">
-            Programmez une session d&rsquo;évaluation pour définir les matières, coefficients, organiser le passage des épreuves et compiler les classements.
+            Programmez une session d&rsquo;évaluation pour définir les matières,
+            coefficients, organiser le passage des épreuves et compiler les
+            classements.
           </p>
           {estDA && (
             <button
@@ -238,7 +251,7 @@ export function ConcoursBlancsView({
                 setConcoursAModifier(null);
                 setModalProgrammerOuvert(true);
               }}
-              className="bg-brand-orange hover:bg-brand-orange/90 shadow-brand-orange/20 flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-md transition-all cursor-pointer"
+              className="bg-brand-orange hover:bg-brand-orange/90 shadow-brand-orange/20 flex cursor-pointer items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-md transition-all"
             >
               <Plus className="h-4 w-4" />
               <span>Programmer le premier Concours Blanc</span>
@@ -246,9 +259,9 @@ export function ConcoursBlancsView({
           )}
         </div>
       ) : (
-        <div className="flex flex-col lg:flex-row items-start gap-5">
+        <div className="flex flex-col items-start gap-5 lg:flex-row">
           {/* Colonne de gauche : Liste des Concours Blancs */}
-          <div className="w-full lg:w-72 xl:w-80 shrink-0 space-y-3">
+          <div className="w-full shrink-0 space-y-3 lg:w-72 xl:w-80">
             <h3 className="px-1 text-xs font-bold tracking-wider text-slate-400 uppercase">
               Concours Blancs ({concoursBlancs.length})
             </h3>
@@ -266,7 +279,7 @@ export function ConcoursBlancsView({
                     onClick={() => setConcoursActifId(cb.id)}
                     className={`cursor-pointer rounded-xl border p-3.5 text-left transition-all ${
                       isSelected
-                        ? "border-brand-orange bg-orange-50/50 shadow-2xs ring-1 ring-brand-orange"
+                        ? "border-brand-orange ring-brand-orange bg-orange-50/50 shadow-2xs ring-1"
                         : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50"
                     }`}
                   >
@@ -275,29 +288,30 @@ export function ConcoursBlancsView({
                         {cb.titre || `Concours Blanc N°${cb.numero}`}
                       </span>
                       {isPublie ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200/80 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
                           <CheckCircle2 className="h-2.5 w-2.5 text-emerald-600" />
                           Publié
                         </span>
                       ) : isEnCours ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200/80 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-200/80 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">
                           <Clock className="h-2.5 w-2.5 text-amber-600" />
                           En cours
                         </span>
                       ) : isCloture ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
                           <Lock className="h-2.5 w-2.5 text-slate-500" />
                           Clôturé
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
                           Programmé
                         </span>
                       )}
                     </div>
 
                     <div className="mb-2 text-xs text-slate-500">
-                      Épreuves : {formatDate(cb.dateEpreuve)} • Sem. {cb.semaine}
+                      Épreuves : {formatDate(cb.dateEpreuve)} • Sem.{" "}
+                      {cb.semaine}
                     </div>
 
                     <div className="flex items-center justify-between border-t border-slate-100 pt-1.5 text-xs">
@@ -318,32 +332,33 @@ export function ConcoursBlancsView({
 
           {/* Colonne de droite : Concours Blanc Actif (Surface unifiée) */}
           {concoursActif && (
-            <div className="w-full flex-1 min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+            <div className="w-full min-w-0 flex-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
               {/* 1. En-tête simplifié du Concours Blanc */}
               <div className="border-b border-slate-100 p-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-2.5">
                       <h2 className="font-mono text-base font-bold text-slate-900">
-                        {concoursActif.titre || `Concours Blanc N°${concoursActif.numero}`}
+                        {concoursActif.titre ||
+                          `Concours Blanc N°${concoursActif.numero}`}
                       </h2>
                       {concoursActif.statut === "PUBLIE" ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200/80 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
                           <CheckCircle2 className="h-3 w-3 text-emerald-600" />
                           Résultats publiés
                         </span>
                       ) : concoursActif.statut === "EN_COURS" ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200/80 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-200/80 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
                           <Clock className="h-3 w-3 text-amber-600" />
                           Session en cours
                         </span>
                       ) : concoursActif.statut === "CLOTURE" ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
                           <Lock className="h-3 w-3 text-slate-500" />
                           Session clôturée
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
                           Session programmée
                         </span>
                       )}
@@ -358,14 +373,14 @@ export function ConcoursBlancsView({
                   </div>
 
                   {/* Actions d'en-tête */}
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex shrink-0 items-center gap-2">
                     {/* Menu Pilotage Session DA */}
                     {estDA && (
                       <div className="relative">
                         <button
                           type="button"
                           onClick={() => setMenuAdminOuvert(!menuAdminOuvert)}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
+                          className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50"
                         >
                           <span>Pilotage</span>
                           <ChevronRight
@@ -378,7 +393,7 @@ export function ConcoursBlancsView({
 
                         {menuAdminOuvert && (
                           <div
-                            className="absolute right-0 top-full mt-1 z-30 w-64 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg space-y-0.5 text-xs"
+                            className="absolute top-full right-0 z-30 mt-1 w-64 space-y-0.5 rounded-xl border border-slate-200 bg-white p-1.5 text-xs shadow-lg"
                             onMouseLeave={() => setMenuAdminOuvert(false)}
                           >
                             <button
@@ -388,7 +403,7 @@ export function ConcoursBlancsView({
                                 setModalProgrammerOuvert(true);
                                 setMenuAdminOuvert(false);
                               }}
-                              className="w-full flex items-center gap-2 p-2 rounded-lg text-slate-700 hover:bg-slate-50 font-medium text-left cursor-pointer"
+                              className="flex w-full cursor-pointer items-center gap-2 rounded-lg p-2 text-left font-medium text-slate-700 hover:bg-slate-50"
                             >
                               <Pencil size={13} className="text-slate-400" />
                               <span>Modifier dates & centres</span>
@@ -406,7 +421,7 @@ export function ConcoursBlancsView({
                                 });
                                 setMenuAdminOuvert(false);
                               }}
-                              className="w-full flex items-center gap-2 p-2 rounded-lg text-slate-700 hover:bg-slate-50 font-medium text-left cursor-pointer"
+                              className="flex w-full cursor-pointer items-center gap-2 rounded-lg p-2 text-left font-medium text-slate-700 hover:bg-slate-50"
                             >
                               {concoursActif.saisieNotesBloqueeCentre ? (
                                 <>
@@ -436,7 +451,7 @@ export function ConcoursBlancsView({
                                   });
                                   setMenuAdminOuvert(false);
                                 }}
-                                className="w-full flex items-center gap-2 p-2 rounded-lg text-amber-800 hover:bg-amber-50 font-bold text-left cursor-pointer"
+                                className="flex w-full cursor-pointer items-center gap-2 rounded-lg p-2 text-left font-bold text-amber-800 hover:bg-amber-50"
                               >
                                 <CheckCircle2 size={13} />
                                 <span>Démarrer les épreuves (EN COURS)</span>
@@ -453,7 +468,7 @@ export function ConcoursBlancsView({
                                   });
                                   setMenuAdminOuvert(false);
                                 }}
-                                className="w-full flex items-center gap-2 p-2 rounded-lg text-emerald-800 hover:bg-emerald-50 font-bold text-left cursor-pointer"
+                                className="flex w-full cursor-pointer items-center gap-2 rounded-lg p-2 text-left font-bold text-emerald-800 hover:bg-emerald-50"
                               >
                                 <CheckCircle2 size={13} />
                                 <span>Publier les résultats</span>
@@ -470,7 +485,7 @@ export function ConcoursBlancsView({
                                   });
                                   setMenuAdminOuvert(false);
                                 }}
-                                className="w-full flex items-center gap-2 p-2 rounded-lg text-slate-700 hover:bg-slate-100 font-bold text-left cursor-pointer"
+                                className="flex w-full cursor-pointer items-center gap-2 rounded-lg p-2 text-left font-bold text-slate-700 hover:bg-slate-100"
                               >
                                 <Lock size={13} />
                                 <span>Clôturer définitivement</span>
@@ -487,7 +502,7 @@ export function ConcoursBlancsView({
                                   });
                                   setMenuAdminOuvert(false);
                                 }}
-                                className="w-full flex items-center gap-2 p-2 rounded-lg text-emerald-800 hover:bg-emerald-50 font-bold text-left cursor-pointer"
+                                className="flex w-full cursor-pointer items-center gap-2 rounded-lg p-2 text-left font-bold text-emerald-800 hover:bg-emerald-50"
                               >
                                 <Unlock size={13} />
                                 <span>Rouvrir le concours (PUBLIÉ)</span>
@@ -511,7 +526,7 @@ export function ConcoursBlancsView({
                                   setMenuAdminOuvert(false);
                                 }
                               }}
-                              className="w-full flex items-center gap-2 p-2 rounded-lg text-red-700 hover:bg-red-50 font-bold text-left cursor-pointer"
+                              className="flex w-full cursor-pointer items-center gap-2 rounded-lg p-2 text-left font-bold text-red-700 hover:bg-red-50"
                             >
                               <Trash2 size={13} />
                               <span>Supprimer ce concours</span>
@@ -558,13 +573,13 @@ export function ConcoursBlancsView({
                           );
                         }}
                         title="Recalculer les moyennes pondérées et les classements"
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
+                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 disabled:opacity-50"
                       >
                         <RefreshCw
                           size={13}
                           className={
                             compilerMutation.isPending
-                              ? "animate-spin text-brand-orange"
+                              ? "text-brand-orange animate-spin"
                               : "text-slate-500"
                           }
                         />
@@ -577,9 +592,12 @@ export function ConcoursBlancsView({
                       type="button"
                       onClick={() => setModalExportOuvert(true)}
                       title="Imprimer ou exporter le bordereau"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50"
                     >
-                      <FileSpreadsheet size={13} className="text-brand-orange" />
+                      <FileSpreadsheet
+                        size={13}
+                        className="text-brand-orange"
+                      />
                       <span>Bordereau PDF</span>
                     </button>
                   </div>
@@ -605,7 +623,9 @@ export function ConcoursBlancsView({
                     </div>
                     <span className="text-slate-200">•</span>
                     <div>
-                      <span className="text-slate-400">État de la saisie : </span>
+                      <span className="text-slate-400">
+                        État de la saisie :{" "}
+                      </span>
                       {concoursActif.saisieNotesBloqueeCentre ? (
                         <span className="font-semibold text-rose-700">
                           Verrouillée
@@ -621,11 +641,11 @@ export function ConcoursBlancsView({
               </div>
 
               {/* 2. Barre d'onglets de navigation métier */}
-              <div className="flex items-center gap-2 border-b border-slate-200 px-4 pt-1 bg-slate-50/50">
+              <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50/50 px-4 pt-1">
                 <button
                   type="button"
                   onClick={() => setOngletActif("resultats")}
-                  className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition-all cursor-pointer ${
+                  className={`flex cursor-pointer items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition-all ${
                     ongletActif === "resultats"
                       ? "border-brand-orange text-brand-orange"
                       : "border-transparent text-slate-500 hover:text-slate-800"
@@ -635,11 +655,11 @@ export function ConcoursBlancsView({
                   <span>Consultation des résultats</span>
                 </button>
 
-                {!estChefDept && (
+                {!estChefDept && !estDirecteur && (
                   <button
                     type="button"
                     onClick={() => setOngletActif("saisie")}
-                    className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition-all cursor-pointer ${
+                    className={`flex cursor-pointer items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition-all ${
                       ongletActif === "saisie"
                         ? "border-brand-orange text-brand-orange"
                         : "border-transparent text-slate-500 hover:text-slate-800"
@@ -653,7 +673,7 @@ export function ConcoursBlancsView({
                 <button
                   type="button"
                   onClick={() => setOngletActif("epreuves")}
-                  className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition-all cursor-pointer ${
+                  className={`flex cursor-pointer items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition-all ${
                     ongletActif === "epreuves"
                       ? "border-brand-orange text-brand-orange"
                       : "border-transparent text-slate-500 hover:text-slate-800"
@@ -703,11 +723,11 @@ export function ConcoursBlancsView({
                         : centres
                     }
                     matieres={matieres}
-                    formationIdActive={
-                      formationSaisieId || formations[0]?.id
-                    }
+                    formationIdActive={formationSaisieId || formations[0]?.id}
                     centreIdFiltre={effectiveCentreId}
-                    verrouillerCentre={Boolean(userCentreId && !estDA)}
+                    verrouillerCentre={Boolean(
+                      userCentreId && !voitTousCentres,
+                    )}
                     role={userRole}
                     userCentreId={userCentreId || undefined}
                     onOuvrirExportModal={(fId) => {
@@ -723,12 +743,10 @@ export function ConcoursBlancsView({
                 )}
 
                 {/* MODE 2 : Saisie des notes en ligne */}
-                {ongletActif === "saisie" && !estChefDept && (
+                {ongletActif === "saisie" && !estChefDept && !estDirecteur && (
                   <SaisieNotesInlineView
                     concoursBlanc={concoursActif}
-                    formationId={
-                      formationSaisieId || formations[0]?.id || ""
-                    }
+                    formationId={formationSaisieId || formations[0]?.id || ""}
                     centreId={effectiveCentreId}
                     centres={
                       centresConcoursActif.length > 0
@@ -746,12 +764,13 @@ export function ConcoursBlancsView({
 
                 {/* MODE 3 : Matières & Épreuves */}
                 {ongletActif === "epreuves" && (
-                  <div className="p-5 space-y-4">
+                  <div className="space-y-4 p-5">
                     {!concoursActif.epreuves ||
                     concoursActif.epreuves.length === 0 ? (
-                      <div className="p-8 text-center bg-white rounded-xl border border-dashed border-slate-200 space-y-2">
+                      <div className="space-y-2 rounded-xl border border-dashed border-slate-200 bg-white p-8 text-center">
                         <p className="text-xs font-medium text-slate-600">
-                          Aucune matière n&rsquo;est encore rattachée à ce concours blanc.
+                          Aucune matière n&rsquo;est encore rattachée à ce
+                          concours blanc.
                         </p>
                         {estDA && (
                           <button
@@ -760,7 +779,7 @@ export function ConcoursBlancsView({
                               setConcoursAModifier(concoursActif);
                               setModalProgrammerOuvert(true);
                             }}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-orange px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-orange/90 cursor-pointer"
+                            className="bg-brand-orange hover:bg-brand-orange/90 inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white"
                           >
                             <Pencil size={13} />
                             <span>Configurer les matières</span>
@@ -770,10 +789,9 @@ export function ConcoursBlancsView({
                     ) : (
                       <div className="space-y-4">
                         {formations.map((f) => {
-                          const epreuvesFiliere =
-                            concoursActif.epreuves.filter(
-                              (e) => e.formationId === f.id,
-                            );
+                          const epreuvesFiliere = concoursActif.epreuves.filter(
+                            (e) => e.formationId === f.id,
+                          );
                           if (epreuvesFiliere.length === 0) return null;
 
                           const totalCoef = epreuvesFiliere.reduce(
@@ -795,9 +813,9 @@ export function ConcoursBlancsView({
                           return (
                             <div
                               key={f.id}
-                              className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs"
+                              className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs"
                             >
-                              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs">
+                              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-xs">
                                 <div className="flex items-center gap-3">
                                   <span className="font-bold text-slate-900">
                                     {f.nom}
@@ -810,17 +828,17 @@ export function ConcoursBlancsView({
                                     d&rsquo;épreuves
                                   </span>
                                   <span className="text-slate-400">·</span>
-                                  <span className="text-slate-600 font-medium">
+                                  <span className="font-medium text-slate-600">
                                     Coef. total {totalCoef}
                                   </span>
                                 </div>
 
                                 <div className="flex items-center gap-2">
                                   <span
-                                    className={`text-[11px] font-semibold px-2 py-0.5 rounded ${
+                                    className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
                                       toutPret
-                                        ? "text-emerald-700 bg-emerald-50 border border-emerald-200/60"
-                                        : "text-amber-700 bg-amber-50 border border-amber-200/60"
+                                        ? "border border-emerald-200/60 bg-emerald-50 text-emerald-700"
+                                        : "border border-amber-200/60 bg-amber-50 text-amber-700"
                                     }`}
                                   >
                                     {sujetsPrets}/{epreuvesFiliere.length}{" "}
@@ -830,23 +848,23 @@ export function ConcoursBlancsView({
                               </div>
 
                               <div className="overflow-x-auto">
-                                <table className="w-full text-left text-xs border-collapse">
+                                <table className="w-full border-collapse text-left text-xs">
                                   <thead>
-                                    <tr className="border-b border-slate-200 bg-slate-50/50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                                    <tr className="border-b border-slate-200 bg-slate-50/50 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
                                       <th className="px-4 py-2">Matière</th>
-                                      <th className="px-3 py-2 text-center w-24">
+                                      <th className="w-24 px-3 py-2 text-center">
                                         Durée
                                       </th>
-                                      <th className="px-3 py-2 text-center w-20">
+                                      <th className="w-20 px-3 py-2 text-center">
                                         Coef.
                                       </th>
-                                      <th className="px-3 py-2 text-center w-20">
+                                      <th className="w-20 px-3 py-2 text-center">
                                         Barème
                                       </th>
-                                      <th className="px-3 py-2 text-center w-32">
+                                      <th className="w-32 px-3 py-2 text-center">
                                         État du sujet
                                       </th>
-                                      <th className="px-4 py-2 text-right w-28">
+                                      <th className="w-28 px-4 py-2 text-right">
                                         Action
                                       </th>
                                     </tr>
@@ -859,8 +877,7 @@ export function ConcoursBlancsView({
                                       const estMaMatiere =
                                         estChefDept &&
                                         mesMatiereIds.has(ep.matiereId);
-                                      const peutEditer =
-                                        estDA || estMaMatiere;
+                                      const peutEditer = estDA || estMaMatiere;
                                       const depAssocie = departements.find(
                                         (d) => d.matiereId === ep.matiereId,
                                       );
@@ -868,10 +885,8 @@ export function ConcoursBlancsView({
                                       return (
                                         <tr
                                           key={ep.id}
-                                          className={`hover:bg-slate-50/70 transition-colors ${
-                                            estMaMatiere
-                                              ? "bg-amber-50/30"
-                                              : ""
+                                          className={`transition-colors hover:bg-slate-50/70 ${
+                                            estMaMatiere ? "bg-amber-50/30" : ""
                                           }`}
                                         >
                                           <td className="px-4 py-2.5">
@@ -880,7 +895,7 @@ export function ConcoursBlancsView({
                                                 {ep.intitule}
                                               </span>
                                               {estChefDept && estMaMatiere && (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded">
+                                                <span className="py-0.2 inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 text-[10px] font-bold text-amber-800">
                                                   <Star
                                                     size={10}
                                                     className="fill-amber-600 text-amber-600"
@@ -895,23 +910,23 @@ export function ConcoursBlancsView({
                                               )}
                                             </div>
                                           </td>
-                                          <td className="px-3 py-2.5 text-center text-slate-600 tabular-nums font-mono">
+                                          <td className="px-3 py-2.5 text-center font-mono text-slate-600 tabular-nums">
                                             {ep.dureeMinutes} min
                                           </td>
-                                          <td className="px-3 py-2.5 text-center text-slate-800 font-bold tabular-nums font-mono">
+                                          <td className="px-3 py-2.5 text-center font-mono font-bold text-slate-800 tabular-nums">
                                             {ep.coefficient}
                                           </td>
-                                          <td className="px-3 py-2.5 text-center text-slate-600 tabular-nums font-mono">
+                                          <td className="px-3 py-2.5 text-center font-mono text-slate-600 tabular-nums">
                                             /{ep.noteMax}
                                           </td>
                                           <td className="px-3 py-2.5 text-center">
                                             {aContenu ? (
-                                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/50">
+                                              <span className="inline-flex items-center gap-1 rounded border border-emerald-200/50 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
                                                 <CheckCircle2 size={11} />
                                                 Prêt
                                               </span>
                                             ) : (
-                                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                                              <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
                                                 En attente
                                               </span>
                                             )}
@@ -922,7 +937,7 @@ export function ConcoursBlancsView({
                                               onClick={() =>
                                                 ouvrirContenuEpreuve(ep)
                                               }
-                                              className={`text-xs font-semibold hover:underline cursor-pointer ${
+                                              className={`cursor-pointer text-xs font-semibold hover:underline ${
                                                 peutEditer
                                                   ? "text-brand-orange font-bold"
                                                   : "text-slate-600"
@@ -987,8 +1002,7 @@ export function ConcoursBlancsView({
           mesMatiereIds={mesMatiereIds}
           peutEditer={
             estDA ||
-            (estChefDept &&
-              mesMatiereIds.has(epreuvePourContenu.matiereId))
+            (estChefDept && mesMatiereIds.has(epreuvePourContenu.matiereId))
           }
           departementNom={
             departements.find(

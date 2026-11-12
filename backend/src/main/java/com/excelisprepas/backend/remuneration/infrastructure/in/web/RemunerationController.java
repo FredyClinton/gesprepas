@@ -57,7 +57,8 @@ public class RemunerationController {
             @RequestParam(required = false) LocalDate datePaiement,
             @RequestParam(required = false, defaultValue = "DIRECTION") String saisiPar) {
         
-        BordereauPaieDetailResponse simule = remunerationService.preparerSimulationDetail(sessionId, datePaiement, saisiPar);
+        BordereauPaieDetailResponse simule = remunerationService.preparerSimulationDetail(sessionId, datePaiement,
+                com.excelisprepas.backend.auth.infrastructure.in.web.UtilisateurCourant.libelleOu(saisiPar));
         return ResponseEntity.ok(simule);
     }
 
@@ -77,7 +78,7 @@ public class RemunerationController {
                 request.datePaiement(),
                 request.reference(),
                 domainLignes,
-                request.saisiPar() != null ? request.saisiPar() : "DIRECTION"
+                com.excelisprepas.backend.auth.infrastructure.in.web.UtilisateurCourant.libelleOu(request.saisiPar() != null ? request.saisiPar() : "DIRECTION")
         );
 
         BordereauPaieDetailResponse response = remunerationService.recupererBordereauDetail(valide.getId());

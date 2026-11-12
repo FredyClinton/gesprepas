@@ -21,7 +21,8 @@ Run all commands from the `frontend/` directory using pnpm.
 
 ```bash
 pnpm install                # install dependencies
-pnpm dev                    # run the dev server (http://localhost:3000)
+pnpm dev                    # run the dev server (http://localhost:3000, Turbopack)
+pnpm dev:webpack            # dev server on webpack, if Turbopack misbehaves
 pnpm build                  # production build
 pnpm start                  # run the production build
 pnpm lint                   # ESLint
@@ -33,11 +34,22 @@ pnpm format:check            # Prettier, check only (no writes)
 Copy `.env.local.example` to `.env.local` before running the app; it only needs `NEXT_PUBLIC_API_BASE_URL` (defaults
 to the backend's local dev port, `http://localhost:8080`).
 
+There is no test runner configured (no test files, no test script). `pnpm lint`, `pnpm format:check` and `pnpm build`
+(which type-checks) are the verification gates; behavior is checked manually against a running backend.
+
 ## Architecture
 
-The codebase is organized by business module under `src/modules/`, mirroring the backend's module boundaries
-(`dossiers`, `apprenants`, `centres-sessions`, `academique`, `finances`, `paie`, `concours-blancs`, `utilisateurs`,
-`alertes`), plus `src/app/` for routing and `src/shared/` for cross-cutting concerns.
+The codebase is organized by business module under `src/modules/`, mirroring the backend's module boundaries (`ls
+src/modules` for the current list - e.g. `dossiers`, `apprenants`, `financier`, `paie`, `personnel`, `progression`,
+`gel-enseignants`...), plus `src/app/` for routing and `src/shared/` for cross-cutting concerns.
+
+Roles and navigation: there is no role switcher - a user has exactly one `Role` (`src/types/roles.ts`, mirror of the
+backend's `RoleUtilisateur` enum, UPPER_SNAKE_CASE), carried on the NextAuth session (`session.user.role`, plus
+`centreId`/`departementId` for scoped roles). `src/shared/layout/nav-items.ts` defines the sidebar entries per role,
+and `src/app/(dashboard)/page.tsx` is a dispatcher that renders the role's dashboard from `(dashboard)/_dashboards/`.
+`src/proxy.ts` (Next 16's replacement for `middleware.ts`) runs NextAuth's `auth` on every route except `/login`,
+`/api/auth/*` and static assets; `(dashboard)/layout.tsx` additionally redirects to `/login` without a session.
+`src/app/planning/public/` sits outside both route groups (public planning view).
 
 ```
 src/
@@ -45,7 +57,8 @@ src/
     (auth)/            # route group: screens with no active session (login...)
     (dashboard)/        # route group: the logged-in space, one subfolder per module
       <module>/...       # thin page.tsx files that compose components from modules/
-      layout.tsx           # sidebar + active-role switcher, shared by the whole space
+      layout.tsx           # session check + DashboardShell (sidebar, top bar)
+      _dashboards/          # one dashboard component per role, picked by page.tsx
     layout.tsx             # root layout: fonts, global providers
     providers.tsx           # global providers (TanStack Query...), colocated here
                              # because only the root layout uses it
@@ -73,7 +86,7 @@ src/
   shared/
     ui/                 # design system: Button, Card, Badge, Table, StatusPill -
                          # no business logic
-    layout/              # Sidebar, TopBar, RoleSwitcher, MobileNav
+    layout/              # DashboardShell, Sidebar, MobileSidebar, TopBar, nav-items.ts
     auth/                 # active session/role context, route guards
     lib/                   # generic fetch wrapper (api-client.ts), QueryClient config
                             # (query-client.ts), other cross-cutting utils
@@ -101,7 +114,9 @@ Key conventions to preserve when extending this:
   or any UI library - they're plain TS/Zod, reusable by both the data layer and by forms.
 - **`domain/schemas.ts` is shared between form validation and API response validation.** The same Zod schema (or a
   close derivation of it) backs both `zodResolver` in a React Hook Form and runtime-checking what `data/client.ts`
-  gets back from the backend - don't duplicate the shape in two places.
+  gets back from the backend - don't duplicate the shape in two places. In practice, today only a few modules have a
+  `schemas.ts` (used for forms), and every `data/client.ts` returns `apiFetch<T>(...)` unvalidated - don't assume
+  responses have been runtime-checked.
 - **A module's `data/client.ts` is the only place that calls `shared/lib/api-client.ts` directly.** Components and
   pages consume `queries.ts`/`mutations.ts` hooks, never `apiFetch` or `fetch` directly.
 - **Brand tokens, never raw hex.** Tailwind is configured CSS-first (Tailwind v4, no `tailwind.config.ts`): the
@@ -113,7 +128,8 @@ globals.css` under `@theme inline` (mirrored, for reference, in `src/shared/conf
   anywhere in the interface - it's reserved for the logo asset itself.
 - **A module can only reach into another module through its `index.ts` barrel** (or by depending on backend data
   shaped independently, e.g. two modules both fetching `centre` data). Don't import from `modules/<other>/domain`
-  or `modules/<other>/data` directly.
+  or `modules/<other>/data` directly. (Some existing files, mostly under `app/(dashboard)/paie`, `bilan-journalier`
+  and `_dashboards`, still deep-import - don't copy that pattern; export what you need from the barrel instead.)
 
 ## Security
 

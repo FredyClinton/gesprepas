@@ -17,6 +17,7 @@ import com.excelisprepas.backend.shared.exception.PersonnelIntrouvableException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import com.excelisprepas.backend.personnel.domain.model.RoleUtilisateur;
 import java.util.UUID;
 
 public class PersonnelService implements CreerPersonnelUseCase, ListerPersonnelUseCase,
@@ -79,19 +80,38 @@ public class PersonnelService implements CreerPersonnelUseCase, ListerPersonnelU
     }
 
     @Override
-    public Personnel modifierPersonnel(UUID id, String nom, String prenom, String telephone, String numeroCni, String email) {
+    public Personnel modifierPersonnel(RoleUtilisateur appelant, UUID id, String nom, String prenom, String telephone, String numeroCni, String email) {
         Personnel personnel = recupererPersonnel(id);
+        verifierPeutGererCompteDe(appelant, id);
         personnel.renommer(nom, prenom);
         personnel.modifierCoordonnees(telephone, numeroCni, email);
         return personnelRepository.save(personnel);
     }
 
     @Override
-    public void supprimerPersonnel(UUID id) {
+    public void supprimerPersonnel(RoleUtilisateur appelant, UUID id) {
         recupererPersonnel(id);
+        verifierPeutGererCompteDe(appelant, id);
         if (utilisateurRepository != null && utilisateurRepository.existsById(id)) {
             utilisateurRepository.supprimerCompteSeul(id);
         }
         personnelRepository.deleteById(id);
+    }
+
+    /**
+     * Un membre du personnel qui a un compte ne peut être modifié ou supprimé que par
+     * quelqu'un d'au moins aussi puissant que son rôle : sinon un Chef de département
+     * pourrait changer l'email de connexion du Directeur ou supprimer son compte.
+     * Sans compte utilisateur, PERSONNEL_GERER (vérifié par le contrôleur) suffit.
+     */
+    private void verifierPeutGererCompteDe(RoleUtilisateur appelant, UUID personnelId) {
+        if (utilisateurRepository == null) {
+            return;
+        }
+        utilisateurRepository.findById(personnelId).ifPresent(u -> {
+            if (!com.excelisprepas.backend.auth.domain.model.MatricePermissions.peutAttribuer(appelant, u.getRole())) {
+                throw new com.excelisprepas.backend.personnel.domain.exception.AttributionRoleInterditeException(u.getRole());
+            }
+        });
     }
 }

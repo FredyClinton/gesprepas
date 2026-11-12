@@ -11,6 +11,6 @@ public record AjusterActiviteBilanRequest(
         @NotNull(message = "La date est obligatoire") LocalDate date,
         @Min(value = 0, message = "Le nombre de salles ne peut pas être négatif") int nombreSalles,
         @Min(value = 0, message = "Le nombre de cours ne peut pas être négatif") int nombreCours,
-        @NotNull(message = "L'identifiant utilisateur est obligatoire") UUID utilisateurId
+        /* ignoré si authentifié : l\'auteur est lu dans le jeton */ UUID utilisateurId
 ) {
 }

@@ -1,5 +1,6 @@
 package com.excelisprepas.backend.remuneration.infrastructure.in.web;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.excelisprepas.backend.remuneration.domain.model.BordereauPaiePersonnel;
 import com.excelisprepas.backend.remuneration.domain.model.LigneSaisiePaiePersonnel;
 import com.excelisprepas.backend.remuneration.domain.port.in.ConsulterPaiePersonnelUseCase;
@@ -39,6 +40,7 @@ public class RemunerationPersonnelController {
     }
 
     @Operation(summary = "Préparer une simulation de bordereau de paie du personnel pour une session")
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_PAIE')")
     @PostMapping("/sessions/{sessionId}/preparer")
     public ResponseEntity<BordereauPaiePersonnelResponse> preparerSimulation(
             @PathVariable UUID sessionId,
@@ -46,11 +48,13 @@ public class RemunerationPersonnelController {
             @RequestParam(required = false, defaultValue = "Paie Personnel") String intitule,
             @RequestParam(required = false, defaultValue = "DIRECTION") String saisiPar) {
         
-        BordereauPaiePersonnel simulation = preparerUseCase.preparerSimulation(sessionId, datePaiement, intitule, saisiPar);
+        BordereauPaiePersonnel simulation = preparerUseCase.preparerSimulation(sessionId, datePaiement, intitule,
+                com.excelisprepas.backend.auth.infrastructure.in.web.UtilisateurCourant.libelleOu(saisiPar));
         return ResponseEntity.ok(BordereauPaiePersonnelResponse.fromDomain(simulation));
     }
 
     @Operation(summary = "Valider et émettre un bordereau de paie du personnel avec sortie financière globale")
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_PAIE')")
     @PostMapping("/sessions/{sessionId}/valider")
     public ResponseEntity<BordereauPaiePersonnelResponse> validerBordereau(
             @PathVariable UUID sessionId,
@@ -61,12 +65,14 @@ public class RemunerationPersonnelController {
                 .toList();
 
         BordereauPaiePersonnel valide = validerUseCase.validerBordereau(
-                sessionId, request.datePaiement(), request.reference(), request.intitule(), domainLignes, request.saisiPar());
+                sessionId, request.datePaiement(), request.reference(), request.intitule(), domainLignes,
+                com.excelisprepas.backend.auth.infrastructure.in.web.UtilisateurCourant.libelleOu(request.saisiPar()));
 
         return ResponseEntity.ok(BordereauPaiePersonnelResponse.fromDomain(valide));
     }
 
     @Operation(summary = "Lister les bordereaux de paie du personnel d'une session")
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_PAIE')")
     @GetMapping("/sessions/{sessionId}/bordereaux")
     public ResponseEntity<List<BordereauPaiePersonnelResponse>> listerBordereauxParSession(
             @PathVariable UUID sessionId) {
@@ -77,6 +83,7 @@ public class RemunerationPersonnelController {
     }
 
     @Operation(summary = "Récupérer un bordereau de paie du personnel par son identifiant")
+    @PreAuthorize("hasAuthority('FINANCIER_GERER_PAIE')")
     @GetMapping("/bordereaux/{bordereauId}")
     public ResponseEntity<BordereauPaiePersonnelResponse> recupererBordereau(
             @PathVariable UUID bordereauId) {

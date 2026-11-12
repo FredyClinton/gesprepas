@@ -64,17 +64,22 @@ export function SaisieNotesCentreModal({
   centresDisponibles,
   onChangerCentre,
 }: SaisieNotesCentreModalProps) {
-  const estDA = role === "DIRECTEUR_ACADEMIQUE" || role === "DIRECTEUR";
+  const estDirecteur = role === "DIRECTEUR"; // lecture seule
+  const estDA = role === "DIRECTEUR_ACADEMIQUE";
   const estCloture = concoursBlanc.statut === "CLOTURE";
-  const estVerrouille = estCloture || Boolean(concoursBlanc.saisieNotesBloqueeCentre && !estDA);
+  const estVerrouille =
+    estCloture ||
+    estDirecteur ||
+    Boolean(concoursBlanc.saisieNotesBloqueeCentre && !estDA);
 
-  const { data: resultatsExistants = [], isLoading } = useResultatsConcoursBlanc(
-    concoursBlanc.id,
-    centreId,
-    formationId,
-    role,
-    userCentreId,
-  );
+  const { data: resultatsExistants = [], isLoading } =
+    useResultatsConcoursBlanc(
+      concoursBlanc.id,
+      centreId,
+      formationId,
+      role,
+      userCentreId,
+    );
   const enregistrerMutation = useEnregistrerNotesConcoursBlanc();
 
   const [sauvegardeSucces, setSauvegardeSucces] = useState(false);
@@ -157,26 +162,39 @@ export function SaisieNotesCentreModal({
           }),
         };
       });
-      initLignes.sort((a, b) => a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" }));
+      initLignes.sort((a, b) =>
+        a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" }),
+      );
       setLignes(initLignes);
     } else {
       // Pré-remplissage avec les apprenants du centre triés par ordre alphabétique
-      const candidatsInit: CandidatNotesInput[] = tousLesApprenantsCentre.map((a) => ({
-        formationId,
-        apprenantId: a.id,
-        nomComplet: `${a.nom} ${a.prenom}`.trim(),
-        etablissementOrigine: a.etablissementOrigine || "",
-        horsListe: false,
-        notes: epreuves.map((ep) => ({
-          epreuveId: ep.id,
-          note: null,
-          statut: "NOTE",
-        })),
-      }));
-      candidatsInit.sort((a, b) => a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" }));
+      const candidatsInit: CandidatNotesInput[] = tousLesApprenantsCentre.map(
+        (a) => ({
+          formationId,
+          apprenantId: a.id,
+          nomComplet: `${a.nom} ${a.prenom}`.trim(),
+          etablissementOrigine: a.etablissementOrigine || "",
+          horsListe: false,
+          notes: epreuves.map((ep) => ({
+            epreuveId: ep.id,
+            note: null,
+            statut: "NOTE",
+          })),
+        }),
+      );
+      candidatsInit.sort((a, b) =>
+        a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" }),
+      );
       setLignes(candidatsInit);
     }
-  }, [isOpen, resultatsExistants, tousLesApprenantsCentre, poolApprenants, formationId, epreuves]);
+  }, [
+    isOpen,
+    resultatsExistants,
+    tousLesApprenantsCentre,
+    poolApprenants,
+    formationId,
+    epreuves,
+  ]);
 
   if (!isOpen) return null;
 
@@ -205,7 +223,9 @@ export function SaisieNotesCentreModal({
     };
     setLignes((prev) => {
       const next = [...prev, nouvelleLigne];
-      next.sort((a, b) => a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" }));
+      next.sort((a, b) =>
+        a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" }),
+      );
       return next;
     });
     setRechercheApprenant("");
@@ -232,7 +252,9 @@ export function SaisieNotesCentreModal({
     };
     setLignes((prev) => {
       const next = [...prev, nouvelleLigne];
-      next.sort((a, b) => a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" }));
+      next.sort((a, b) =>
+        a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" }),
+      );
       return next;
     });
     setNouveauNomHorsListe("");
@@ -270,7 +292,8 @@ export function SaisieNotesCentreModal({
     setLignes((prev) => {
       const copy = [...prev];
       const c = { ...copy[indexCandidat] };
-      const estDejaTousAbs = c.notes.length > 0 && c.notes.every((n) => n.statut === "ABS");
+      const estDejaTousAbs =
+        c.notes.length > 0 && c.notes.every((n) => n.statut === "ABS");
       c.notes = c.notes.map((n) => ({
         ...n,
         statut: estDejaTousAbs ? "NOTE" : "ABS",
@@ -282,7 +305,8 @@ export function SaisieNotesCentreModal({
   };
 
   const handleEnregistrer = async () => {
-    if (estVerrouille || !concoursBlanc || enregistrerMutation.isPending) return;
+    if (estVerrouille || !concoursBlanc || enregistrerMutation.isPending)
+      return;
 
     if (notesHorsBareme.length > 0) {
       setErreurValidation(
@@ -305,23 +329,25 @@ export function SaisieNotesCentreModal({
       setSauvegardeSucces(true);
       setTimeout(() => setSauvegardeSucces(false), 3000);
     } catch (err) {
-      setErreurValidation(messageErreurApi(err, "Erreur lors de l'enregistrement des notes."));
+      setErreurValidation(
+        messageErreurApi(err, "Erreur lors de l'enregistrement des notes."),
+      );
     }
   };
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150"
+      className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-3 backdrop-blur-xs duration-150 sm:p-6"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-6xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 flex flex-col h-[92vh] overflow-hidden"
+        className="relative flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* En-tête */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-200 gap-3 shrink-0">
+        <div className="flex shrink-0 flex-col justify-between gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-center">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-orange text-white shadow-xs">
+            <div className="bg-brand-orange flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-xs">
               <Award size={20} />
             </div>
             <div>
@@ -329,19 +355,23 @@ export function SaisieNotesCentreModal({
                 <h2 className="text-lg font-bold text-slate-900">
                   Feuille de notation — {concoursBlanc.titre}
                 </h2>
-                <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-bold text-brand-orange">
+                <span className="text-brand-orange rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-bold">
                   {formationNom}
                 </span>
               </div>
-              <div className="text-xs text-slate-500 flex flex-wrap items-center gap-2 mt-0.5">
-                {centresDisponibles && centresDisponibles.length > 1 && onChangerCentre ? (
+              <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                {centresDisponibles &&
+                centresDisponibles.length > 1 &&
+                onChangerCentre ? (
                   <div className="flex items-center gap-1.5">
                     <Building2 size={13} className="text-slate-400" />
-                    <span className="font-semibold text-slate-700">Centre :</span>
+                    <span className="font-semibold text-slate-700">
+                      Centre :
+                    </span>
                     <select
                       value={centreId}
                       onChange={(e) => onChangerCentre(e.target.value)}
-                      className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-bold text-slate-800 outline-none focus:border-brand-orange"
+                      className="focus:border-brand-orange rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-bold text-slate-800 outline-none"
                     >
                       {centresDisponibles.map((c) => (
                         <option key={c.id} value={c.id}>
@@ -353,10 +383,14 @@ export function SaisieNotesCentreModal({
                 ) : (
                   <span className="flex items-center gap-1">
                     <Building2 size={13} className="text-slate-400" />
-                    <span>Centre : <strong>{centreNom}</strong></span>
+                    <span>
+                      Centre : <strong>{centreNom}</strong>
+                    </span>
                   </span>
                 )}
-                <span>· Date : {concoursBlanc.dateEpreuve} ({concoursBlanc.jour})</span>
+                <span>
+                  · Date : {concoursBlanc.dateEpreuve} ({concoursBlanc.jour})
+                </span>
               </div>
             </div>
           </div>
@@ -365,13 +399,17 @@ export function SaisieNotesCentreModal({
             <button
               type="button"
               onClick={handleEnregistrer}
-              disabled={estVerrouille || enregistrerMutation.isPending || notesHorsBareme.length > 0}
+              disabled={
+                estVerrouille ||
+                enregistrerMutation.isPending ||
+                notesHorsBareme.length > 0
+              }
               title={
                 notesHorsBareme.length > 0
                   ? `Enregistrement bloqué : ${notesHorsBareme.length} note(s) hors barème`
                   : undefined
               }
-              className="inline-flex items-center gap-1.5 rounded-xl bg-brand-orange px-4 py-2 text-xs font-bold text-white hover:bg-brand-orange/90 shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+              className="bg-brand-orange hover:bg-brand-orange/90 inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-xs transition-colors disabled:opacity-50"
             >
               <Save size={14} />
               <span>
@@ -386,7 +424,7 @@ export function SaisieNotesCentreModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
+              className="cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
             >
               <X size={18} />
             </button>
@@ -395,36 +433,45 @@ export function SaisieNotesCentreModal({
 
         {/* Bannière Notes Hors Barème */}
         {(notesHorsBareme.length > 0 || erreurValidation) && (
-          <div className="my-2 flex items-start gap-2.5 rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-900 shrink-0 shadow-2xs">
-            <AlertTriangle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+          <div className="my-2 flex shrink-0 items-start gap-2.5 rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-900 shadow-2xs">
+            <AlertTriangle
+              size={16}
+              className="mt-0.5 shrink-0 text-rose-600"
+            />
             <div className="space-y-1">
               <p className="font-bold">
                 {erreurValidation ||
                   `${notesHorsBareme.length} note(s) hors barème détectée(s) — Enregistrement bloqué`}
               </p>
               {notesHorsBareme.length > 0 && (
-                <ul className="list-disc pl-4 text-[11px] text-rose-800 space-y-0.5">
+                <ul className="list-disc space-y-0.5 pl-4 text-[11px] text-rose-800">
                   {notesHorsBareme.slice(0, 4).map((inv, i) => (
                     <li key={i}>
-                      <span className="font-semibold">{inv.candidatNom}</span> : note de{" "}
-                      <strong>{inv.note}</strong> en <em>{inv.epreuveIntitule}</em> (barème autorisé : 0 à {inv.noteMax})
+                      <span className="font-semibold">{inv.candidatNom}</span> :
+                      note de <strong>{inv.note}</strong> en{" "}
+                      <em>{inv.epreuveIntitule}</em> (barème autorisé : 0 à{" "}
+                      {inv.noteMax})
                     </li>
                   ))}
                   {notesHorsBareme.length > 4 && (
-                    <li>... et {notesHorsBareme.length - 4} autre(s) note(s) hors barème</li>
+                    <li>
+                      ... et {notesHorsBareme.length - 4} autre(s) note(s) hors
+                      barème
+                    </li>
                   )}
                 </ul>
               )}
               <p className="text-[11px] font-medium text-rose-700">
-                Chaque note doit être comprise entre 0 et la note maximale de l&apos;épreuve.
+                Chaque note doit être comprise entre 0 et la note maximale de
+                l&apos;épreuve.
               </p>
             </div>
           </div>
         )}
 
         {estVerrouille && (
-          <div className="my-2 flex items-center gap-2 rounded-xl bg-red-50 px-4 py-2.5 border border-red-200 text-xs font-bold text-red-800 shrink-0">
-            <Lock size={16} className="text-red-600 shrink-0" />
+          <div className="my-2 flex shrink-0 items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-bold text-red-800">
+            <Lock size={16} className="shrink-0 text-red-600" />
             <span>
               {estCloture
                 ? "Ce concours blanc est définitivement clôturé. La saisie et modification des notes sont fermées."
@@ -434,28 +481,34 @@ export function SaisieNotesCentreModal({
         )}
 
         {sauvegardeSucces && (
-          <div className="my-2 flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2 border border-emerald-200 text-xs font-bold text-emerald-800 animate-in fade-in shrink-0">
+          <div className="animate-in fade-in my-2 flex shrink-0 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-800">
             <CheckCircle2 size={16} className="text-emerald-600" />
-            <span>Notes enregistrées avec succès pour le centre {centreNom} !</span>
+            <span>
+              Notes enregistrées avec succès pour le centre {centreNom} !
+            </span>
           </div>
         )}
 
         {/* Barre d'outils d'ajout : Recherche inter-formation & Ajout hors-liste */}
         {!estVerrouille && (
-          <div className="py-3 px-4 bg-slate-50 border-b border-slate-200 -mx-6 flex flex-col md:flex-row items-center justify-between gap-3 shrink-0">
+          <div className="-mx-6 flex shrink-0 flex-col items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 md:flex-row">
             {/* Outil 1 : Recherche élève d'un autre groupe ou du centre */}
             <div className="relative w-full md:w-80">
-              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs text-xs">
-                <Search size={14} className="text-slate-400 shrink-0" />
+              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-2xs">
+                <Search size={14} className="shrink-0 text-slate-400" />
                 <input
                   type="text"
                   value={rechercheApprenant}
                   onChange={(e) => setRechercheApprenant(e.target.value)}
                   placeholder="Chercher un élève (autre groupe / centre)..."
-                  className="w-full outline-none text-slate-800 placeholder-slate-400 bg-transparent font-medium"
+                  className="w-full bg-transparent font-medium text-slate-800 placeholder-slate-400 outline-none"
                 />
                 {rechercheApprenant && (
-                  <button type="button" onClick={() => setRechercheApprenant("")} className="text-slate-400 hover:text-slate-600">
+                  <button
+                    type="button"
+                    onClick={() => setRechercheApprenant("")}
+                    className="text-slate-400 hover:text-slate-600"
+                  >
                     <X size={12} />
                   </button>
                 )}
@@ -463,21 +516,27 @@ export function SaisieNotesCentreModal({
 
               {/* Menu déroulant des résultats de recherche */}
               {apprenantsSuggeres.length > 0 && (
-                <div className="absolute top-full left-0 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg z-30 max-h-48 overflow-y-auto divide-y divide-slate-100">
+                <div className="absolute top-full left-0 z-30 mt-1 max-h-48 w-full divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
                   {apprenantsSuggeres.map((a) => (
                     <button
                       key={a.id}
                       type="button"
                       onClick={() => ajouterApprenantDuCentre(a)}
-                      className="w-full text-left px-3 py-2 text-xs hover:bg-orange-50 flex items-center justify-between group"
+                      className="group flex w-full items-center justify-between px-3 py-2 text-left text-xs hover:bg-orange-50"
                     >
                       <div>
-                        <span className="font-bold text-slate-800 block">{a.nom} {a.prenom}</span>
+                        <span className="block font-bold text-slate-800">
+                          {a.nom} {a.prenom}
+                        </span>
                         {a.etablissementOrigine && (
-                          <span className="text-[10px] text-slate-400 block">{a.etablissementOrigine}</span>
+                          <span className="block text-[10px] text-slate-400">
+                            {a.etablissementOrigine}
+                          </span>
                         )}
                       </div>
-                      <span className="text-[10px] text-brand-orange font-semibold group-hover:underline">+ Ajouter</span>
+                      <span className="text-brand-orange text-[10px] font-semibold group-hover:underline">
+                        + Ajouter
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -485,13 +544,13 @@ export function SaisieNotesCentreModal({
             </div>
 
             {/* Outil 2 : Ajout d'un nouveau nom (candidat libre / hors liste) */}
-            <div className="flex items-center gap-2 w-full md:w-auto">
+            <div className="flex w-full items-center gap-2 md:w-auto">
               <input
                 type="text"
                 value={nouveauNomHorsListe}
                 onChange={(e) => setNouveauNomHorsListe(e.target.value)}
                 placeholder="Nom et prénom candidat libre..."
-                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 outline-none w-48"
+                className="w-48 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 outline-none"
               />
               <div className="w-52">
                 <SelecteurEtablissement
@@ -505,7 +564,7 @@ export function SaisieNotesCentreModal({
                 type="button"
                 onClick={ajouterCandidatHorsListe}
                 disabled={!nouveauNomHorsListe.trim()}
-                className="inline-flex items-center gap-1 rounded-xl border border-dashed border-brand-orange/60 bg-orange-50/60 px-3 py-1.5 text-xs font-bold text-brand-orange hover:bg-brand-orange hover:text-white transition-all cursor-pointer disabled:opacity-40 shrink-0"
+                className="border-brand-orange/60 text-brand-orange hover:bg-brand-orange inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl border border-dashed bg-orange-50/60 px-3 py-1.5 text-xs font-bold transition-all hover:text-white disabled:opacity-40"
               >
                 <UserPlus size={13} />
                 <span>+ Candidat hors-liste</span>
@@ -515,20 +574,28 @@ export function SaisieNotesCentreModal({
         )}
 
         {/* Grille de saisie des notes */}
-        <div className="flex-1 overflow-auto -mx-6 px-6 py-2">
+        <div className="-mx-6 flex-1 overflow-auto px-6 py-2">
           {lignes.length === 0 ? (
-            <div className="text-center py-16 text-slate-400 text-xs">
-              Aucun candidat sur cette feuille de notation. Utilisez la barre ci-dessus pour ajouter des candidats.
+            <div className="py-16 text-center text-xs text-slate-400">
+              Aucun candidat sur cette feuille de notation. Utilisez la barre
+              ci-dessus pour ajouter des candidats.
             </div>
           ) : (
             <table className="w-full border-collapse text-left text-xs">
-              <thead className="sticky top-0 bg-white z-10">
+              <thead className="sticky top-0 z-10 bg-white">
                 <tr className="border-b border-b-slate-300 bg-slate-100/90 text-slate-700">
-                  <th className="py-2.5 px-3 w-10 text-center font-bold">N°</th>
-                  <th className="py-2.5 px-3 min-w-[200px] font-bold">Nom et Prénom du Candidat</th>
-                  <th className="py-2.5 px-3 min-w-[140px] font-bold">Établissement / Statut</th>
+                  <th className="w-10 px-3 py-2.5 text-center font-bold">N°</th>
+                  <th className="min-w-[200px] px-3 py-2.5 font-bold">
+                    Nom et Prénom du Candidat
+                  </th>
+                  <th className="min-w-[140px] px-3 py-2.5 font-bold">
+                    Établissement / Statut
+                  </th>
                   {epreuves.map((ep) => (
-                    <th key={ep.id} className="py-2.5 px-3 text-center min-w-[140px] font-bold border-l border-slate-200">
+                    <th
+                      key={ep.id}
+                      className="min-w-[140px] border-l border-slate-200 px-3 py-2.5 text-center font-bold"
+                    >
                       <div>{ep.intitule}</div>
                       <div className="text-[10px] font-normal text-slate-500">
                         Max /{ep.noteMax} · Coef {ep.coefficient}
@@ -547,13 +614,15 @@ export function SaisieNotesCentreModal({
                     <tr
                       key={candidat.apprenantId || `hl-${idx}`}
                       className={`transition-colors ${
-                        estToutAbsent ? "bg-rose-50/20 hover:bg-rose-50/30" : "hover:bg-slate-50/70"
+                        estToutAbsent
+                          ? "bg-rose-50/20 hover:bg-rose-50/30"
+                          : "hover:bg-slate-50/70"
                       }`}
                     >
-                      <td className="py-2 px-3 text-center font-mono font-bold text-slate-400">
+                      <td className="px-3 py-2 text-center font-mono font-bold text-slate-400">
                         {idx + 1}
                       </td>
-                      <td className="py-2 px-3 font-bold text-slate-900">
+                      <td className="px-3 py-2 font-bold text-slate-900">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
                             {candidat.horsListe && (
@@ -575,11 +644,15 @@ export function SaisieNotesCentreModal({
                             <button
                               type="button"
                               onClick={() => basculerTousAbsents(idx)}
-                              title={estToutAbsent ? "Repasser en mode Note" : "Marquer absent à toutes les épreuves"}
-                              className={`rounded px-1.5 py-0.5 text-[10px] font-bold transition-all cursor-pointer ${
+                              title={
+                                estToutAbsent
+                                  ? "Repasser en mode Note"
+                                  : "Marquer absent à toutes les épreuves"
+                              }
+                              className={`cursor-pointer rounded px-1.5 py-0.5 text-[10px] font-bold transition-all ${
                                 estToutAbsent
                                   ? "bg-rose-100 text-rose-700 hover:bg-rose-200"
-                                  : "border border-slate-200 text-slate-400 hover:border-rose-300 hover:text-rose-700 hover:bg-rose-50"
+                                  : "border border-slate-200 text-slate-400 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700"
                               }`}
                             >
                               {estToutAbsent ? "Annuler ABS" : "ABS"}
@@ -587,124 +660,149 @@ export function SaisieNotesCentreModal({
                           )}
                         </div>
                       </td>
-                    <td className="py-2 px-3 text-xs min-w-[160px]">
-                      <SelecteurEtablissement
-                        value={candidat.etablissementOrigine || ""}
-                        disabled={estVerrouille}
-                        onChange={(nouvelEtab) => {
-                          setLignes((prev) =>
-                            prev.map((lig, lIdx) =>
-                              lIdx === idx
-                                ? { ...lig, etablissementOrigine: nouvelEtab }
-                                : lig,
-                            ),
-                          );
-                        }}
-                        variant="compact"
-                        placeholder="Lycée / Établissement"
-                      />
-                    </td>
+                      <td className="min-w-[160px] px-3 py-2 text-xs">
+                        <SelecteurEtablissement
+                          value={candidat.etablissementOrigine || ""}
+                          disabled={estVerrouille}
+                          onChange={(nouvelEtab) => {
+                            setLignes((prev) =>
+                              prev.map((lig, lIdx) =>
+                                lIdx === idx
+                                  ? { ...lig, etablissementOrigine: nouvelEtab }
+                                  : lig,
+                              ),
+                            );
+                          }}
+                          variant="compact"
+                          placeholder="Lycée / Établissement"
+                        />
+                      </td>
 
-                    {/* Cellules de saisie pour chaque épreuve */}
-                    {epreuves.map((ep) => {
-                      const noteObj = candidat.notes.find((n) => n.epreuveId === ep.id);
-                      const noteVal = noteObj?.note ?? "";
-                      const statut = noteObj?.statut ?? "NOTE";
-                      const depasseMax =
-                        typeof noteVal === "number" &&
-                        (noteVal > ep.noteMax || noteVal < 0);
+                      {/* Cellules de saisie pour chaque épreuve */}
+                      {epreuves.map((ep) => {
+                        const noteObj = candidat.notes.find(
+                          (n) => n.epreuveId === ep.id,
+                        );
+                        const noteVal = noteObj?.note ?? "";
+                        const statut = noteObj?.statut ?? "NOTE";
+                        const depasseMax =
+                          typeof noteVal === "number" &&
+                          (noteVal > ep.noteMax || noteVal < 0);
 
-                      return (
-                        <td key={ep.id} className="py-1.5 px-3 border-l border-slate-200 text-center">
-                          <div className="flex flex-col items-center justify-center">
-                            <div className="flex items-center justify-center gap-1.5">
-                              {statut === "NOTE" ? (
-                                <input
-                                  type="number"
-                                  step="0.25"
-                                  min={0}
-                                  max={ep.noteMax}
+                        return (
+                          <td
+                            key={ep.id}
+                            className="border-l border-slate-200 px-3 py-1.5 text-center"
+                          >
+                            <div className="flex flex-col items-center justify-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                {statut === "NOTE" ? (
+                                  <input
+                                    type="number"
+                                    step="0.25"
+                                    min={0}
+                                    max={ep.noteMax}
+                                    disabled={estVerrouille}
+                                    value={noteVal}
+                                    onChange={(e) =>
+                                      handleNoteChange(
+                                        idx,
+                                        ep.id,
+                                        e.target.value,
+                                        "NOTE",
+                                      )
+                                    }
+                                    placeholder={`--/${ep.noteMax}`}
+                                    title={
+                                      depasseMax
+                                        ? noteVal < 0
+                                          ? "Note négative interdite !"
+                                          : `Note ${noteVal} hors barème ! Le barème maximal est de ${ep.noteMax}.`
+                                        : undefined
+                                    }
+                                    className={`w-18 rounded-lg border px-2 py-1 text-center text-xs font-bold transition outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 ${
+                                      depasseMax
+                                        ? "border-2 border-rose-500 bg-rose-50 text-rose-900 ring-2 ring-rose-200"
+                                        : "focus:border-brand-orange border-slate-200 text-slate-800"
+                                    }`}
+                                  />
+                                ) : (
+                                  <span
+                                    className={`w-18 rounded-lg py-1 text-center text-xs font-black uppercase ${
+                                      statut === "ABS"
+                                        ? "bg-red-100 text-red-700"
+                                        : "bg-slate-100 text-slate-700"
+                                    }`}
+                                  >
+                                    {statut}
+                                  </span>
+                                )}
+
+                                {/* Menu bascule NOTE / ABS / DISP */}
+                                <select
+                                  value={statut}
                                   disabled={estVerrouille}
-                                  value={noteVal}
-                                  onChange={(e) => handleNoteChange(idx, ep.id, e.target.value, "NOTE")}
-                                  placeholder={`--/${ep.noteMax}`}
-                                  title={
-                                    depasseMax
-                                      ? noteVal < 0
-                                        ? "Note négative interdite !"
-                                        : `Note ${noteVal} hors barème ! Le barème maximal est de ${ep.noteMax}.`
-                                      : undefined
+                                  onChange={(e) =>
+                                    handleNoteChange(
+                                      idx,
+                                      ep.id,
+                                      "",
+                                      e.target.value as StatutNote,
+                                    )
                                   }
-                                  className={`w-18 rounded-lg border px-2 py-1 text-center text-xs font-bold outline-none transition disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed ${
-                                    depasseMax
-                                      ? "border-2 border-rose-500 bg-rose-50 text-rose-900 ring-2 ring-rose-200"
-                                      : "border-slate-200 text-slate-800 focus:border-brand-orange"
-                                  }`}
-                                />
-                              ) : (
-                                <span
-                                  className={`w-18 rounded-lg py-1 text-center text-xs font-black uppercase ${
-                                    statut === "ABS" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-700"
-                                  }`}
+                                  className="rounded-md border border-slate-200 bg-slate-50 px-1 py-1 text-[10px] font-bold text-slate-600 outline-none disabled:cursor-not-allowed disabled:bg-slate-100"
                                 >
-                                  {statut}
+                                  <option value="NOTE">Note</option>
+                                  <option value="ABS">ABS</option>
+                                  <option value="DISP">DISP</option>
+                                </select>
+                              </div>
+                              {depasseMax && (
+                                <span className="mt-0.5 text-[9px] font-bold whitespace-nowrap text-rose-600">
+                                  {noteVal < 0 ? "< 0 !" : `max ${ep.noteMax}`}
                                 </span>
                               )}
-
-                              {/* Menu bascule NOTE / ABS / DISP */}
-                              <select
-                                value={statut}
-                                disabled={estVerrouille}
-                                onChange={(e) =>
-                                  handleNoteChange(idx, ep.id, "", e.target.value as StatutNote)
-                                }
-                                className="rounded-md border border-slate-200 bg-slate-50 px-1 py-1 text-[10px] font-bold text-slate-600 outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
-                              >
-                                <option value="NOTE">Note</option>
-                                <option value="ABS">ABS</option>
-                                <option value="DISP">DISP</option>
-                              </select>
                             </div>
-                            {depasseMax && (
-                              <span className="text-[9px] font-bold text-rose-600 whitespace-nowrap mt-0.5">
-                                {noteVal < 0 ? "< 0 !" : `max ${ep.noteMax}`}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
         </div>
 
         {/* Pied de modal */}
-        <div className="flex items-center justify-between pt-4 border-t border-slate-200 shrink-0 text-xs text-slate-500">
+        <div className="flex shrink-0 items-center justify-between border-t border-slate-200 pt-4 text-xs text-slate-500">
           <span>
-            Total : <strong>{lignes.length}</strong> candidat{lignes.length > 1 ? "s" : ""} enregistré{lignes.length > 1 ? "s" : ""} pour ce centre
+            Total : <strong>{lignes.length}</strong> candidat
+            {lignes.length > 1 ? "s" : ""} enregistré
+            {lignes.length > 1 ? "s" : ""} pour ce centre
           </span>
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-slate-200 px-4 py-2 font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+              className="cursor-pointer rounded-xl border border-slate-200 px-4 py-2 font-bold text-slate-600 transition-colors hover:bg-slate-50"
             >
               Fermer
             </button>
             <button
               type="button"
               onClick={handleEnregistrer}
-              disabled={enregistrerMutation.isPending || estVerrouille || notesHorsBareme.length > 0}
+              disabled={
+                enregistrerMutation.isPending ||
+                estVerrouille ||
+                notesHorsBareme.length > 0
+              }
               title={
                 notesHorsBareme.length > 0
                   ? `Enregistrement bloqué : ${notesHorsBareme.length} note(s) hors barème`
                   : undefined
               }
-              className="inline-flex items-center gap-1.5 rounded-xl bg-brand-orange px-5 py-2 font-bold text-white hover:bg-brand-orange/90 shadow-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-brand-orange hover:bg-brand-orange/90 inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-5 py-2 font-bold text-white shadow-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Save size={14} />
               <span>
@@ -721,4 +819,3 @@ export function SaisieNotesCentreModal({
     </div>
   );
 }
-

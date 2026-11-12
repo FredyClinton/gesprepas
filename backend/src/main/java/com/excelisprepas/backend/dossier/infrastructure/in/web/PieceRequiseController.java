@@ -1,5 +1,6 @@
 package com.excelisprepas.backend.dossier.infrastructure.in.web;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.excelisprepas.backend.dossier.domain.model.PieceRequise;
 import com.excelisprepas.backend.dossier.domain.port.in.*;
 import com.excelisprepas.backend.dossier.infrastructure.in.web.dto.CreerPieceRequiseRequest;
@@ -55,6 +56,7 @@ public class PieceRequiseController {
                     content = @Content(schema = @Schema(implementation = PieceRequiseResponse.class))),
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content)
     })
+    @PreAuthorize("hasAuthority('DOSSIER_SUPERVISER')")
     @PostMapping
     public ResponseEntity<PieceRequiseResponse> creerPieceRequise(@Valid @RequestBody CreerPieceRequiseRequest request) {
         PieceRequise pieceRequise = creerPieceRequiseUseCase.creerPieceRequise(request.nom(), request.montant());
@@ -68,6 +70,7 @@ public class PieceRequiseController {
             @ApiResponse(responseCode = "400", description = "Requête invalide", content = @Content),
             @ApiResponse(responseCode = "404", description = "Pièce requise introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('DOSSIER_SUPERVISER')")
     @PatchMapping("/{id}")
     public ResponseEntity<PieceRequiseResponse> modifierPieceRequise(
             @Parameter(description = "Identifiant de la pièce requise") @PathVariable UUID id,
@@ -82,6 +85,7 @@ public class PieceRequiseController {
                     content = @Content(schema = @Schema(implementation = PieceRequiseResponse.class))),
             @ApiResponse(responseCode = "404", description = "Pièce requise introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('DOSSIER_SUPERVISER')")
     @PatchMapping("/{id}/desactiver")
     public ResponseEntity<PieceRequiseResponse> desactiver(
             @Parameter(description = "Identifiant de la pièce requise") @PathVariable UUID id) {
@@ -94,6 +98,7 @@ public class PieceRequiseController {
                     content = @Content(schema = @Schema(implementation = PieceRequiseResponse.class))),
             @ApiResponse(responseCode = "404", description = "Pièce requise introuvable", content = @Content)
     })
+    @PreAuthorize("hasAuthority('DOSSIER_SUPERVISER')")
     @PatchMapping("/{id}/reactiver")
     public ResponseEntity<PieceRequiseResponse> reactiver(
             @Parameter(description = "Identifiant de la pièce requise") @PathVariable UUID id) {

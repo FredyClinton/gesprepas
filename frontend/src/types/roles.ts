@@ -36,3 +36,24 @@ export const CENTRE_SCOPE_ROLES: ReadonlySet<Role> = new Set([
   "CHARGE_DOSSIER",
   "CAISSIER",
 ]);
+
+// Rôles qu'un appelant peut attribuer en créant un compte : miroir de
+// MatricePermissions.peutAttribuer côté backend (un rôle n'est attribuable que s'il ne
+// donne aucune permission que l'appelant n'a pas ; seul le Directeur crée un Directeur).
+// Le backend refuse de toute façon (403) : cette liste n'évite qu'un choix voué à l'échec.
+// À mettre à jour avec MatricePermissions (voir MatricePermissionsTest).
+const ROLES_ATTRIBUABLES: Partial<Record<Role, readonly Role[]>> = {
+  DIRECTEUR: Object.keys(ROLE_LABELS) as Role[],
+  DIRECTEUR_ACADEMIQUE: [
+    "DIRECTEUR_ACADEMIQUE",
+    "CHEF_DEPARTEMENT",
+    "CHARGE_DOSSIER",
+    "SUPERVISEUR_DOSSIERS",
+  ],
+};
+
+export function rolesAttribuablesPar(
+  appelant: string | undefined,
+): readonly Role[] {
+  return (appelant && ROLES_ATTRIBUABLES[appelant as Role]) || [];
+}

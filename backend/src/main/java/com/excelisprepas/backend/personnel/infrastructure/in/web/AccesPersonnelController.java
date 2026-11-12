@@ -31,13 +31,13 @@ public class AccesPersonnelController {
 
     @Operation(summary = "Définir l'accès d'un personnel sur une session et éventuellement une phase",
             description = "Permet au Directeur d'accorder ou bloquer l'accès d'un membre du personnel sur une session et une phase.")
-    @PreAuthorize("hasAuthority('PERSONNEL_GERER')")
+    @PreAuthorize("hasAuthority('PERSONNEL_AFFECTER_ROLE')")
     @PostMapping("/{personnelId}/acces")
     public ResponseEntity<AccesPersonnelResponse> definirAcces(
             @PathVariable UUID personnelId,
             @Valid @RequestBody GererAccesRequest request) {
         AccesPersonnel acces = gererAccesPersonnelUseCase.definirAcces(
-                personnelId, request.sessionId(), request.phaseId(), request.statut(), request.motif());
+                com.excelisprepas.backend.auth.infrastructure.in.web.UtilisateurCourant.roleOuNull(), personnelId, request.sessionId(), request.phaseId(), request.statut(), request.motif());
         return ResponseEntity.ok(AccesPersonnelResponse.fromDomain(acces));
     }
 

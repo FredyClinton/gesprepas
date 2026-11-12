@@ -30,8 +30,20 @@ import {
   X,
   ShoppingBag,
 } from "lucide-react";
-import { Card, Button, Modal, SkeletonCard, SkeletonTable, SortableHeader } from "@/shared/ui";
-import { compareStrings, compareNumbers, compareDates, type SortDirection } from "@/shared/lib/sort-utils";
+import {
+  Card,
+  Button,
+  Modal,
+  SkeletonCard,
+  SkeletonTable,
+  SortableHeader,
+} from "@/shared/ui";
+import {
+  compareStrings,
+  compareNumbers,
+  compareDates,
+  type SortDirection,
+} from "@/shared/lib/sort-utils";
 import {
   useLivres,
   useCreerLivre,
@@ -65,17 +77,22 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
 
   const isChefCentre = roleEffectif === "CHEF_CENTRE";
   const peutGererLivres = roleEffectif === "DIRECTEUR_ACADEMIQUE";
-  const peutEnregistrerVente =
-    roleEffectif === "CAISSIER" ||
-    roleEffectif === "DIRECTEUR";
+  // La vente est faite par le caissier (permission backend LIVRE_VENDRE) ; le Directeur consulte.
+  const peutEnregistrerVente = roleEffectif === "CAISSIER";
 
   // Navigation par onglets
-  const [ongletActif, setOngletActif] = useState<"catalogue" | "bilan">("catalogue");
+  const [ongletActif, setOngletActif] = useState<"catalogue" | "bilan">(
+    "catalogue",
+  );
 
   // Données de base
   const { data: sessionActive } = useSessionActive();
   const { data: centres = [] } = useCentres();
-  const { data: livres = [], isLoading: livresLoading, error: livresError } = useLivres();
+  const {
+    data: livres = [],
+    isLoading: livresLoading,
+    error: livresError,
+  } = useLivres();
 
   // Mutations catalogue
   const creerLivreMutation = useCreerLivre(roleEffectif);
@@ -84,7 +101,9 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
 
   // Filtres, vue & tris Catalogue
   const [rechercheCatalogue, setRechercheCatalogue] = useState("");
-  const [statutFiltre, setStatutFiltre] = useState<"TOUS" | "ACTIFS" | "INACTIFS">("TOUS");
+  const [statutFiltre, setStatutFiltre] = useState<
+    "TOUS" | "ACTIFS" | "INACTIFS"
+  >("TOUS");
   const [vueMode, setVueMode] = useState<"grille" | "tableau">("grille");
   type TriCatalogueOption =
     | "titre-asc"
@@ -93,22 +112,39 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
     | "prix-desc"
     | "disponibilite"
     | "recent";
-  const [triCatalogue, setTriCatalogue] = useState<TriCatalogueOption>("titre-asc");
+  const [triCatalogue, setTriCatalogue] =
+    useState<TriCatalogueOption>("titre-asc");
 
-  function handleTriCatalogueHeader(colonne: "titre" | "prix" | "disponibilite") {
+  function handleTriCatalogueHeader(
+    colonne: "titre" | "prix" | "disponibilite",
+  ) {
     if (colonne === "titre") {
-      setTriCatalogue((prev) => (prev === "titre-asc" ? "titre-desc" : "titre-asc"));
+      setTriCatalogue((prev) =>
+        prev === "titre-asc" ? "titre-desc" : "titre-asc",
+      );
     } else if (colonne === "prix") {
-      setTriCatalogue((prev) => (prev === "prix-asc" ? "prix-desc" : "prix-asc"));
+      setTriCatalogue((prev) =>
+        prev === "prix-asc" ? "prix-desc" : "prix-asc",
+      );
     } else if (colonne === "disponibilite") {
       setTriCatalogue("disponibilite");
     }
   }
 
   // Tris des ventes et statistiques
-  type TriVenteColonne = "date" | "centre" | "acheteur" | "type" | "livre" | "quantite" | "prix" | "total";
-  const [triVenteColonne, setTriVenteColonne] = useState<TriVenteColonne>("date");
-  const [triVenteDirection, setTriVenteDirection] = useState<SortDirection>("desc");
+  type TriVenteColonne =
+    | "date"
+    | "centre"
+    | "acheteur"
+    | "type"
+    | "livre"
+    | "quantite"
+    | "prix"
+    | "total";
+  const [triVenteColonne, setTriVenteColonne] =
+    useState<TriVenteColonne>("date");
+  const [triVenteDirection, setTriVenteDirection] =
+    useState<SortDirection>("desc");
 
   function handleTriVente(colonne: TriVenteColonne) {
     if (triVenteColonne === colonne) {
@@ -116,7 +152,10 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
     } else {
       setTriVenteColonne(colonne);
       setTriVenteDirection(
-        colonne === "date" || colonne === "quantite" || colonne === "prix" || colonne === "total"
+        colonne === "date" ||
+          colonne === "quantite" ||
+          colonne === "prix" ||
+          colonne === "total"
           ? "desc"
           : "asc",
       );
@@ -124,8 +163,10 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
   }
 
   type TriLivreVentesOuvrageColonne = "nom" | "quantite" | "recette" | "part";
-  const [triOuvrageColonne, setTriOuvrageColonne] = useState<TriLivreVentesOuvrageColonne>("recette");
-  const [triOuvrageDirection, setTriOuvrageDirection] = useState<SortDirection>("desc");
+  const [triOuvrageColonne, setTriOuvrageColonne] =
+    useState<TriLivreVentesOuvrageColonne>("recette");
+  const [triOuvrageDirection, setTriOuvrageDirection] =
+    useState<SortDirection>("desc");
 
   function handleTriOuvrage(colonne: TriLivreVentesOuvrageColonne) {
     if (triOuvrageColonne === colonne) {
@@ -136,9 +177,12 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
     }
   }
 
-  type TriLivreVentesCentreColonne = "centre" | "quantite" | "recette" | "contribution";
-  const [triCentreColonne, setTriCentreColonne] = useState<TriLivreVentesCentreColonne>("recette");
-  const [triCentreDirection, setTriCentreDirection] = useState<SortDirection>("desc");
+  type TriLivreVentesCentreColonne =
+    "centre" | "quantite" | "recette" | "contribution";
+  const [triCentreColonne, setTriCentreColonne] =
+    useState<TriLivreVentesCentreColonne>("recette");
+  const [triCentreDirection, setTriCentreDirection] =
+    useState<SortDirection>("desc");
 
   function handleTriCentre(colonne: TriLivreVentesCentreColonne) {
     if (triCentreColonne === colonne) {
@@ -161,7 +205,9 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
 
   // Modal Vente
   const [modalVenteOuverte, setModalVenteOuverte] = useState(false);
-  const [livreVentePreselectionne, setLivreVentePreselectionne] = useState<string | null>(null);
+  const [livreVentePreselectionne, setLivreVentePreselectionne] = useState<
+    string | null
+  >(null);
 
   function ouvrirVente(livreId?: string) {
     setLivreVentePreselectionne(livreId || null);
@@ -174,19 +220,20 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
     isChefCentre ? userCentreIdEffectif || "" : "",
   );
   const [selectedLivreId, setSelectedLivreId] = useState<string>("");
-  const [selectedTypeAcheteur, setSelectedTypeAcheteur] = useState<"TOUS" | "INTERNE" | "EXTERNE">("TOUS");
+  const [selectedTypeAcheteur, setSelectedTypeAcheteur] = useState<
+    "TOUS" | "INTERNE" | "EXTERNE"
+  >("TOUS");
   const [dateDebut, setDateDebut] = useState<string>("");
   const [dateFin, setDateFin] = useState<string>("");
   const [rechercheVente, setRechercheVente] = useState("");
 
   // Centre effectif pour les requêtes
-  const centreIdQuery = isChefCentre ? (userCentreIdEffectif || "") : (selectedCentreId || undefined);
+  const centreIdQuery = isChefCentre
+    ? userCentreIdEffectif || ""
+    : selectedCentreId || undefined;
 
   // Données de ventes & statistiques
-  const {
-    data: statsVentes,
-    isLoading: statsLoading,
-  } = useStatsVentesLivres(
+  const { data: statsVentes, isLoading: statsLoading } = useStatsVentesLivres(
     {
       sessionId: sessionActive?.id || "",
       centreId: centreIdQuery,
@@ -249,7 +296,13 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
       }
       return triVenteDirection === "asc" ? cmp : -cmp;
     });
-  }, [ventes, selectedTypeAcheteur, rechercheVente, triVenteColonne, triVenteDirection]);
+  }, [
+    ventes,
+    selectedTypeAcheteur,
+    rechercheVente,
+    triVenteColonne,
+    triVenteDirection,
+  ]);
 
   const statsParLivreTries = useMemo(() => {
     if (!statsVentes?.parLivre) return [];
@@ -295,8 +348,12 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
       (acc: number, v: VenteLivre) => acc + (v.quantite || 0),
       0,
     );
-    const ventesInternes = (ventesFiltrees as VenteLivre[]).filter((v: VenteLivre) => !v.estExterne);
-    const ventesExternes = (ventesFiltrees as VenteLivre[]).filter((v: VenteLivre) => v.estExterne);
+    const ventesInternes = (ventesFiltrees as VenteLivre[]).filter(
+      (v: VenteLivre) => !v.estExterne,
+    );
+    const ventesExternes = (ventesFiltrees as VenteLivre[]).filter(
+      (v: VenteLivre) => v.estExterne,
+    );
 
     const montantInternes = ventesInternes.reduce(
       (acc: number, v: VenteLivre) => acc + (v.montantTotal || 0),
@@ -473,22 +530,22 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-100 text-brand-orange shadow-2xs">
+            <div className="text-brand-orange flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-100 shadow-2xs">
               <BookOpen size={24} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+                <h1 className="text-2xl font-black tracking-tight text-slate-900">
                   Gestion des Ouvrages & Ventes
                 </h1>
                 {sessionActive && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[11px] font-bold text-slate-700">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-700">
                     <Calendar size={11} className="text-slate-500" />
                     Session {sessionActive.annee}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
+              <p className="mt-0.5 text-xs font-medium text-slate-500">
                 {isChefCentre
                   ? `Vue Centre : ${nomCentreUtilisateur} — Disponibilité des ouvrages et traçabilité des ventes de la session.`
                   : "Supervision Globale : Catalogue national, bilans consolidés et traçabilité multi-centres."}
@@ -502,7 +559,7 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
           {peutEnregistrerVente && (
             <Button
               onClick={() => setModalVenteOuverte(true)}
-              className="flex items-center gap-2 bg-brand-orange hover:bg-brand-orange/90 text-white font-bold shadow-sm cursor-pointer"
+              className="bg-brand-orange hover:bg-brand-orange/90 flex cursor-pointer items-center gap-2 font-bold text-white shadow-sm"
             >
               <ShoppingCart size={16} />
               <span>Enregistrer une vente</span>
@@ -512,7 +569,7 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
           {peutGererLivres && (
             <Button
               onClick={ouvrirCreation}
-              className="flex items-center gap-2 bg-brand-anthracite hover:bg-brand-anthracite/90 text-white font-bold shadow-sm cursor-pointer"
+              className="bg-brand-anthracite hover:bg-brand-anthracite/90 flex cursor-pointer items-center gap-2 font-bold text-white shadow-sm"
             >
               <Plus size={16} />
               <span>Nouveau livre</span>
@@ -527,7 +584,7 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
           <button
             type="button"
             onClick={() => setOngletActif("catalogue")}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-black transition-colors border-b-2 cursor-pointer ${
+            className={`flex cursor-pointer items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-black transition-colors ${
               ongletActif === "catalogue"
                 ? "border-brand-orange text-brand-orange"
                 : "border-transparent text-slate-500 hover:text-slate-800"
@@ -540,7 +597,7 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
           <button
             type="button"
             onClick={() => setOngletActif("bilan")}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-black transition-colors border-b-2 cursor-pointer ${
+            className={`flex cursor-pointer items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-black transition-colors ${
               ongletActif === "bilan"
                 ? "border-brand-orange text-brand-orange"
                 : "border-transparent text-slate-500 hover:text-slate-800"
@@ -549,7 +606,7 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
             <BarChart3 size={16} />
             <span>Traçabilité & Bilans des Ventes</span>
             {ventes.length > 0 && (
-              <span className="rounded-full bg-orange-100 text-brand-orange px-2 py-0.2 text-[10px] font-black">
+              <span className="text-brand-orange py-0.2 rounded-full bg-orange-100 px-2 text-[10px] font-black">
                 {ventes.length}
               </span>
             )}
@@ -557,11 +614,13 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
         </div>
 
         {/* Badge rôle / granularité */}
-        <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500 font-bold pb-2">
+        <div className="hidden items-center gap-2 pb-2 text-xs font-bold text-slate-500 sm:flex">
           <Building2 size={14} className="text-slate-400" />
           <span>Niveau d'accès : </span>
-          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 font-black text-[11px]">
-            {isChefCentre ? `Centre (${nomCentreUtilisateur})` : "Consolidé (Global)"}
+          <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-black text-slate-800">
+            {isChefCentre
+              ? `Centre (${nomCentreUtilisateur})`
+              : "Consolidé (Global)"}
           </span>
         </div>
       </div>
@@ -572,27 +631,27 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
       {ongletActif === "catalogue" && (
         <div className="space-y-4">
           {/* Cartes Récapitulatives & Filtres Rapides */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
             <button
               type="button"
               onClick={() => setStatutFiltre("TOUS")}
-              className={`p-4 flex items-center gap-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+              className={`flex cursor-pointer items-center gap-3.5 rounded-2xl border p-4 text-left transition-all ${
                 statutFiltre === "TOUS"
-                  ? "bg-blue-50/50 border-blue-300 ring-2 ring-blue-500/20 shadow-xs"
-                  : "bg-white border-slate-200 hover:border-slate-300 shadow-2xs"
+                  ? "border-blue-300 bg-blue-50/50 shadow-xs ring-2 ring-blue-500/20"
+                  : "border-slate-200 bg-white shadow-2xs hover:border-slate-300"
               }`}
             >
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100/70 text-blue-700 shrink-0">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100/70 text-blue-700">
                 <BookOpen size={20} />
               </div>
               <div>
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                <span className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase">
                   Total des Références
                 </span>
-                <span className="text-xl font-black text-slate-900 leading-tight">
+                <span className="text-xl leading-tight font-black text-slate-900">
                   {statsCatalogue.total} ouvrages
                 </span>
-                <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">
+                <span className="mt-0.5 block text-[10px] font-semibold text-slate-400">
                   Tous supports confondus
                 </span>
               </div>
@@ -601,23 +660,23 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
             <button
               type="button"
               onClick={() => setStatutFiltre("ACTIFS")}
-              className={`p-4 flex items-center gap-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+              className={`flex cursor-pointer items-center gap-3.5 rounded-2xl border p-4 text-left transition-all ${
                 statutFiltre === "ACTIFS"
-                  ? "bg-emerald-50/50 border-emerald-300 ring-2 ring-emerald-500/20 shadow-xs"
-                  : "bg-white border-slate-200 hover:border-slate-300 shadow-2xs"
+                  ? "border-emerald-300 bg-emerald-50/50 shadow-xs ring-2 ring-emerald-500/20"
+                  : "border-slate-200 bg-white shadow-2xs hover:border-slate-300"
               }`}
             >
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100/70 text-emerald-700 shrink-0">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100/70 text-emerald-700">
                 <CheckCircle2 size={20} />
               </div>
               <div>
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                <span className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase">
                   Disponibles à la vente
                 </span>
-                <span className="text-xl font-black text-emerald-800 leading-tight">
+                <span className="text-xl leading-tight font-black text-emerald-800">
                   {statsCatalogue.actifs} actifs
                 </span>
-                <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">
+                <span className="mt-0.5 block text-[10px] font-semibold text-slate-400">
                   Prêts pour vente directe
                 </span>
               </div>
@@ -626,23 +685,23 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
             <button
               type="button"
               onClick={() => setStatutFiltre("INACTIFS")}
-              className={`p-4 flex items-center gap-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+              className={`flex cursor-pointer items-center gap-3.5 rounded-2xl border p-4 text-left transition-all ${
                 statutFiltre === "INACTIFS"
-                  ? "bg-slate-100 border-slate-400 ring-2 ring-slate-500/20 shadow-xs"
-                  : "bg-white border-slate-200 hover:border-slate-300 shadow-2xs"
+                  ? "border-slate-400 bg-slate-100 shadow-xs ring-2 ring-slate-500/20"
+                  : "border-slate-200 bg-white shadow-2xs hover:border-slate-300"
               }`}
             >
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-600 shrink-0">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
                 <XCircle size={20} />
               </div>
               <div>
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                <span className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase">
                   Indisponibles / Archivés
                 </span>
-                <span className="text-xl font-black text-slate-700 leading-tight">
+                <span className="text-xl leading-tight font-black text-slate-700">
                   {statsCatalogue.inactifs} inactifs
                 </span>
-                <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">
+                <span className="mt-0.5 block text-[10px] font-semibold text-slate-400">
                   Retirés temporairement
                 </span>
               </div>
@@ -650,26 +709,26 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
           </div>
 
           {/* Barre d'Outils Catalogue : Recherche, Filtres, Tri & Mode d'affichage */}
-          <Card className="p-3.5 bg-white border border-slate-200 shadow-2xs">
-            <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+          <Card className="border border-slate-200 bg-white p-3.5 shadow-2xs">
+            <div className="flex flex-col items-stretch justify-between gap-3 lg:flex-row lg:items-center">
               {/* Recherche textuelle */}
-              <div className="relative flex-1 min-w-[220px] max-w-lg">
+              <div className="relative max-w-lg min-w-[220px] flex-1">
                 <Search
                   size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400"
                 />
                 <input
                   type="text"
                   placeholder="Rechercher par titre ou mot-clé..."
                   value={rechercheCatalogue}
                   onChange={(e) => setRechercheCatalogue(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 py-2 text-xs font-semibold text-slate-800 placeholder:text-slate-400 outline-none focus:border-brand-orange focus:bg-white focus:ring-2 focus:ring-brand-orange/20 transition-all"
+                  className="focus:border-brand-orange focus:ring-brand-orange/20 w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pr-8 pl-9 text-xs font-semibold text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:bg-white focus:ring-2"
                 />
                 {rechercheCatalogue && (
                   <button
                     type="button"
                     onClick={() => setRechercheCatalogue("")}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer transition-colors"
+                    className="absolute top-1/2 right-2.5 -translate-y-1/2 cursor-pointer rounded p-0.5 text-slate-400 transition-colors hover:text-slate-600"
                     title="Effacer la recherche"
                   >
                     <X size={14} />
@@ -680,11 +739,11 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
               {/* Filtres de Statut, Menu de Tri et Sélecteur de Vue */}
               <div className="flex flex-wrap items-center gap-2.5">
                 {/* Pilules de statut */}
-                <div className="inline-flex items-center rounded-xl bg-slate-100 p-1 border border-slate-200 text-xs font-bold">
+                <div className="inline-flex items-center rounded-xl border border-slate-200 bg-slate-100 p-1 text-xs font-bold">
                   <button
                     type="button"
                     onClick={() => setStatutFiltre("TOUS")}
-                    className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                    className={`cursor-pointer rounded-lg px-2.5 py-1 transition-all ${
                       statutFiltre === "TOUS"
                         ? "bg-white text-slate-900 shadow-2xs"
                         : "text-slate-500 hover:text-slate-800"
@@ -695,7 +754,7 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                   <button
                     type="button"
                     onClick={() => setStatutFiltre("ACTIFS")}
-                    className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                    className={`cursor-pointer rounded-lg px-2.5 py-1 transition-all ${
                       statutFiltre === "ACTIFS"
                         ? "bg-emerald-600 text-white shadow-2xs"
                         : "text-emerald-700 hover:text-emerald-900"
@@ -706,7 +765,7 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                   <button
                     type="button"
                     onClick={() => setStatutFiltre("INACTIFS")}
-                    className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                    className={`cursor-pointer rounded-lg px-2.5 py-1 transition-all ${
                       statutFiltre === "INACTIFS"
                         ? "bg-slate-700 text-white shadow-2xs"
                         : "text-slate-500 hover:text-slate-800"
@@ -718,12 +777,14 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
 
                 {/* Sélecteur de tri */}
                 <div className="flex items-center gap-1.5 pl-0.5">
-                  <ArrowUpDown size={14} className="text-slate-400 shrink-0" />
+                  <ArrowUpDown size={14} className="shrink-0 text-slate-400" />
                   <select
                     value={triCatalogue}
-                    onChange={(e) => setTriCatalogue(e.target.value as TriCatalogueOption)}
+                    onChange={(e) =>
+                      setTriCatalogue(e.target.value as TriCatalogueOption)
+                    }
                     aria-label="Trier les ouvrages par"
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-brand-orange focus:bg-white cursor-pointer transition-all"
+                    className="focus:border-brand-orange cursor-pointer rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-700 transition-all outline-none focus:bg-white"
                   >
                     <option value="titre-asc">Titre (A → Z)</option>
                     <option value="titre-desc">Titre (Z → A)</option>
@@ -739,9 +800,9 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                   <button
                     type="button"
                     onClick={() => setVueMode("grille")}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
                       vueMode === "grille"
-                        ? "bg-white text-brand-orange shadow-2xs"
+                        ? "text-brand-orange bg-white shadow-2xs"
                         : "text-slate-500 hover:text-slate-800"
                     }`}
                     title="Vue en grille / fiches"
@@ -752,9 +813,9 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                   <button
                     type="button"
                     onClick={() => setVueMode("tableau")}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
                       vueMode === "tableau"
-                        ? "bg-white text-brand-orange shadow-2xs"
+                        ? "text-brand-orange bg-white shadow-2xs"
                         : "text-slate-500 hover:text-slate-800"
                     }`}
                     title="Vue en tableau / liste compacte"
@@ -770,7 +831,7 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
           {/* Affichage des Données : Loading, Erreur, Vide ou Liste/Grille */}
           {livresLoading ? (
             vueMode === "grille" ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {Array.from({ length: 6 }).map((_, idx) => (
                   <SkeletonCard key={idx} />
                 ))}
@@ -779,15 +840,20 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
               <SkeletonTable rows={6} columns={4} />
             )
           ) : livresError ? (
-            <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-700 font-medium">
-              <AlertCircle size={16} className="text-rose-500 shrink-0" />
-              <span>Impossible de charger les ouvrages. Veuillez réessayer plus tard.</span>
+            <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs font-medium text-rose-700">
+              <AlertCircle size={16} className="shrink-0 text-rose-500" />
+              <span>
+                Impossible de charger les ouvrages. Veuillez réessayer plus
+                tard.
+              </span>
             </div>
           ) : livresFiltres.length === 0 ? (
-            <Card className="p-12 text-center bg-white border border-slate-200">
-              <BookOpen size={42} className="mx-auto text-slate-300 mb-3" />
-              <h3 className="text-base font-black text-slate-800">Aucun ouvrage trouvé</h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+            <Card className="border border-slate-200 bg-white p-12 text-center">
+              <BookOpen size={42} className="mx-auto mb-3 text-slate-300" />
+              <h3 className="text-base font-black text-slate-800">
+                Aucun ouvrage trouvé
+              </h3>
+              <p className="mx-auto mt-1 max-w-sm text-xs text-slate-500">
                 {rechercheCatalogue || statutFiltre !== "TOUS"
                   ? "Aucun résultat ne correspond à vos filtres actuels."
                   : "Aucun ouvrage n'est encore enregistré dans le catalogue."}
@@ -799,7 +865,7 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                     setRechercheCatalogue("");
                     setStatutFiltre("TOUS");
                   }}
-                  className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                  className="mt-4 inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-100"
                 >
                   <X size={13} />
                   <span>Réinitialiser les filtres</span>
@@ -808,35 +874,47 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
             </Card>
           ) : vueMode === "tableau" ? (
             /* ── VUE TABLEAU COMPACT ── */
-            <Card className="bg-white border border-slate-200 shadow-2xs overflow-hidden">
+            <Card className="overflow-hidden border border-slate-200 bg-white shadow-2xs">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
+                <table className="w-full border-collapse text-left text-xs">
                   <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50/75 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                    <tr className="border-b border-slate-100 bg-slate-50/75 text-[10px] font-bold tracking-wider text-slate-500 uppercase">
                       <SortableHeader
                         label="Ouvrage & Référence"
                         sortKey="titre"
-                        currentSortKey={triCatalogue.startsWith("titre") ? "titre" : undefined}
-                        direction={triCatalogue === "titre-desc" ? "desc" : "asc"}
+                        currentSortKey={
+                          triCatalogue.startsWith("titre") ? "titre" : undefined
+                        }
+                        direction={
+                          triCatalogue === "titre-desc" ? "desc" : "asc"
+                        }
                         onSort={() => handleTriCatalogueHeader("titre")}
                       />
                       <SortableHeader
                         label="Prix Unitaire"
                         sortKey="prix"
-                        currentSortKey={triCatalogue.startsWith("prix") ? "prix" : undefined}
-                        direction={triCatalogue === "prix-desc" ? "desc" : "asc"}
+                        currentSortKey={
+                          triCatalogue.startsWith("prix") ? "prix" : undefined
+                        }
+                        direction={
+                          triCatalogue === "prix-desc" ? "desc" : "asc"
+                        }
                         onSort={() => handleTriCatalogueHeader("prix")}
                         align="right"
                       />
                       <SortableHeader
                         label="Disponibilité"
                         sortKey="disponibilite"
-                        currentSortKey={triCatalogue === "disponibilite" ? "disponibilite" : undefined}
+                        currentSortKey={
+                          triCatalogue === "disponibilite"
+                            ? "disponibilite"
+                            : undefined
+                        }
                         direction="asc"
                         onSort={() => handleTriCatalogueHeader("disponibilite")}
                         align="center"
                       />
-                      <th className="py-3.5 px-4 text-right">Actions</th>
+                      <th className="px-4 py-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -844,56 +922,67 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                       <tr
                         key={livre.id}
                         className={`transition-colors ${
-                          livre.actif ? "hover:bg-slate-50/70" : "bg-slate-50/40 hover:bg-slate-50/80"
+                          livre.actif
+                            ? "hover:bg-slate-50/70"
+                            : "bg-slate-50/40 hover:bg-slate-50/80"
                         }`}
                       >
-                        <td className="py-3.5 px-4">
+                        <td className="px-4 py-3.5">
                           <div className="flex items-center gap-3">
                             <span
-                              className={`flex h-8 w-8 items-center justify-center rounded-xl font-black text-xs shrink-0 shadow-2xs ${
+                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-black shadow-2xs ${
                                 livre.actif
-                                  ? "bg-orange-100 text-brand-orange"
+                                  ? "text-brand-orange bg-orange-100"
                                   : "bg-slate-200 text-slate-500"
                               }`}
                             >
                               {livre.titre.slice(0, 2).toUpperCase()}
                             </span>
                             <div className="min-w-0">
-                              <span className="font-black text-slate-900 block truncate text-xs sm:text-sm">
+                              <span className="block truncate text-xs font-black text-slate-900 sm:text-sm">
                                 {livre.titre}
                               </span>
-                              <span className="text-[11px] text-slate-500 line-clamp-1">
-                                {livre.description || "Aucune description renseignée."}
+                              <span className="line-clamp-1 text-[11px] text-slate-500">
+                                {livre.description ||
+                                  "Aucune description renseignée."}
                               </span>
                             </div>
                           </div>
                         </td>
 
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          <span className="font-black text-brand-orange text-xs sm:text-sm">
+                        <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                          <span className="text-brand-orange text-xs font-black sm:text-sm">
                             {FCFA.format(livre.prix)} FCFA
                           </span>
                         </td>
 
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap">
                           {peutGererLivres ? (
                             <button
                               type="button"
                               onClick={() => handleToggleActif(livre)}
-                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold cursor-pointer transition-colors ${
+                              className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold transition-colors ${
                                 livre.actif
-                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                                  : "bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200"
+                                  ? "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                  : "border border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-200"
                               }`}
                               title="Cliquer pour basculer la disponibilité"
                             >
                               {livre.actif ? (
                                 <>
-                                  <CheckCircle2 size={11} className="text-emerald-600" /> Disponible
+                                  <CheckCircle2
+                                    size={11}
+                                    className="text-emerald-600"
+                                  />{" "}
+                                  Disponible
                                 </>
                               ) : (
                                 <>
-                                  <XCircle size={11} className="text-slate-400" /> Indisponible
+                                  <XCircle
+                                    size={11}
+                                    className="text-slate-400"
+                                  />{" "}
+                                  Indisponible
                                 </>
                               )}
                             </button>
@@ -901,31 +990,39 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                             <span
                               className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold ${
                                 livre.actif
-                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                  : "bg-slate-100 text-slate-600 border border-slate-200"
+                                  ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                                  : "border border-slate-200 bg-slate-100 text-slate-600"
                               }`}
                             >
                               {livre.actif ? (
                                 <>
-                                  <CheckCircle2 size={11} className="text-emerald-600" /> Disponible
+                                  <CheckCircle2
+                                    size={11}
+                                    className="text-emerald-600"
+                                  />{" "}
+                                  Disponible
                                 </>
                               ) : (
                                 <>
-                                  <XCircle size={11} className="text-slate-400" /> Indisponible
+                                  <XCircle
+                                    size={11}
+                                    className="text-slate-400"
+                                  />{" "}
+                                  Indisponible
                                 </>
                               )}
                             </span>
                           )}
                         </td>
 
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        <td className="px-4 py-3.5 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
                             {/* Raccourci Vente Directe (Caissier / Direction) */}
                             {livre.actif && peutEnregistrerVente && (
                               <button
                                 type="button"
                                 onClick={() => ouvrirVente(livre.id)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-orange-50 hover:bg-brand-orange text-brand-orange hover:text-white font-bold text-xs transition-colors cursor-pointer"
+                                className="hover:bg-brand-orange text-brand-orange inline-flex cursor-pointer items-center gap-1 rounded-lg bg-orange-50 px-2.5 py-1 text-xs font-bold transition-colors hover:text-white"
                                 title="Enregistrer une vente pour cet ouvrage"
                               >
                                 <ShoppingBag size={12} />
@@ -938,7 +1035,7 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                                 <button
                                   type="button"
                                   onClick={() => ouvrirEdition(livre)}
-                                  className="p-1.5 text-slate-500 hover:text-brand-orange hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                  className="hover:text-brand-orange cursor-pointer rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100"
                                   title="Modifier cet ouvrage"
                                 >
                                   <Edit2 size={13} />
@@ -949,14 +1046,14 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                                     <button
                                       type="button"
                                       onClick={() => handleSupprimer(livre.id)}
-                                      className="px-2 py-0.5 bg-rose-600 text-white rounded text-[10px] font-bold hover:bg-rose-700 transition-colors cursor-pointer"
+                                      className="cursor-pointer rounded bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white transition-colors hover:bg-rose-700"
                                     >
                                       Oui
                                     </button>
                                     <button
                                       type="button"
                                       onClick={() => setDeleteConfirmId(null)}
-                                      className="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[10px] font-medium hover:bg-slate-300 transition-colors cursor-pointer"
+                                      className="cursor-pointer rounded bg-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-700 transition-colors hover:bg-slate-300"
                                     >
                                       Non
                                     </button>
@@ -965,7 +1062,7 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                                   <button
                                     type="button"
                                     onClick={() => setDeleteConfirmId(livre.id)}
-                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                    className="cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
                                     title="Supprimer cet ouvrage"
                                   >
                                     <Trash2 size={13} />
@@ -979,11 +1076,12 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                     ))}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-slate-50/75 border-t border-slate-200 text-[11px] font-bold text-slate-600">
-                      <td className="py-3 px-4" colSpan={2}>
-                        {livresFiltres.length} référence(s) affichée(s) sur {statsCatalogue.total} au total
+                    <tr className="border-t border-slate-200 bg-slate-50/75 text-[11px] font-bold text-slate-600">
+                      <td className="px-4 py-3" colSpan={2}>
+                        {livresFiltres.length} référence(s) affichée(s) sur{" "}
+                        {statsCatalogue.total} au total
                       </td>
-                      <td className="py-3 px-4 text-right" colSpan={2}>
+                      <td className="px-4 py-3 text-right" colSpan={2}>
                         {statsCatalogue.actifs} disponible(s) à la vente
                       </td>
                     </tr>
@@ -993,32 +1091,32 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
             </Card>
           ) : (
             /* ── VUE GRILLE / FICHES ÉLÉGANTES ── */
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {livresFiltres.map((livre) => {
                 return (
                   <Card
                     key={livre.id}
-                    className={`p-5 flex flex-col justify-between border transition-all ${
+                    className={`flex flex-col justify-between border p-5 transition-all ${
                       livre.actif
-                        ? "bg-white border-slate-200 hover:border-brand-orange/40 hover:shadow-md"
-                        : "bg-slate-50 border-slate-200/80 opacity-80"
+                        ? "hover:border-brand-orange/40 border-slate-200 bg-white hover:shadow-md"
+                        : "border-slate-200/80 bg-slate-50 opacity-80"
                     }`}
                   >
                     <div>
                       {/* Entête de carte */}
-                      <div className="flex items-start justify-between gap-2 mb-2.5">
-                        <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="mb-2.5 flex items-start justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-2.5">
                           <span
-                            className={`flex h-9 w-9 items-center justify-center rounded-xl font-black text-xs shrink-0 shadow-2xs ${
+                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black shadow-2xs ${
                               livre.actif
-                                ? "bg-orange-100 text-brand-orange"
+                                ? "text-brand-orange bg-orange-100"
                                 : "bg-slate-200 text-slate-500"
                             }`}
                           >
                             {livre.titre.slice(0, 2).toUpperCase()}
                           </span>
                           <div className="min-w-0">
-                            <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight leading-tight truncate">
+                            <h3 className="truncate text-sm leading-tight font-black tracking-tight text-slate-900 sm:text-base">
                               {livre.titre}
                             </h3>
                           </div>
@@ -1028,10 +1126,10 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                           <button
                             type="button"
                             onClick={() => handleToggleActif(livre)}
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold cursor-pointer transition-colors shrink-0 ${
+                            className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold transition-colors ${
                               livre.actif
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                                : "bg-slate-200 text-slate-600 border border-slate-300 hover:bg-slate-300"
+                                ? "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                : "border border-slate-300 bg-slate-200 text-slate-600 hover:bg-slate-300"
                             }`}
                             title="Cliquer pour basculer la disponibilité"
                           >
@@ -1047,10 +1145,10 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                           </button>
                         ) : (
                           <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold shrink-0 ${
+                            className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
                               livre.actif
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                : "bg-slate-200 text-slate-600 border border-slate-300"
+                                ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                                : "border border-slate-300 bg-slate-200 text-slate-600"
                             }`}
                           >
                             {livre.actif ? (
@@ -1067,17 +1165,18 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                       </div>
 
                       {/* Description */}
-                      <p className="text-xs text-slate-600 mb-4 line-clamp-2 min-h-[32px] leading-relaxed">
-                        {livre.description || "Aucune description renseignée pour cet ouvrage."}
+                      <p className="mb-4 line-clamp-2 min-h-[32px] text-xs leading-relaxed text-slate-600">
+                        {livre.description ||
+                          "Aucune description renseignée pour cet ouvrage."}
                       </p>
 
                       {/* Prix et Raccourci Vente */}
-                      <div className="flex items-center justify-between pt-3 border-t border-slate-100 mb-3">
+                      <div className="mb-3 flex items-center justify-between border-t border-slate-100 pt-3">
                         <div>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          <span className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase">
                             Prix unitaire
                           </span>
-                          <span className="text-base font-black text-brand-orange">
+                          <span className="text-brand-orange text-base font-black">
                             {FCFA.format(livre.prix)} FCFA
                           </span>
                         </div>
@@ -1086,7 +1185,7 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                           <button
                             type="button"
                             onClick={() => ouvrirVente(livre.id)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-brand-orange text-brand-orange hover:text-white font-bold text-xs transition-colors cursor-pointer"
+                            className="hover:bg-brand-orange text-brand-orange flex cursor-pointer items-center gap-1.5 rounded-xl bg-orange-50 px-3 py-1.5 text-xs font-bold transition-colors hover:text-white"
                             title="Enregistrer une vente pour cet ouvrage"
                           >
                             <ShoppingBag size={13} />
@@ -1098,11 +1197,11 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
 
                     {/* Actions d'administration */}
                     {peutGererLivres && (
-                      <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 text-xs">
+                      <div className="flex items-center justify-between border-t border-slate-100 pt-2.5 text-xs">
                         <Button
                           variant="secondary"
                           onClick={() => ouvrirEdition(livre)}
-                          className="flex items-center gap-1.5 text-slate-700 hover:text-brand-orange font-bold text-xs py-1 px-2.5 cursor-pointer"
+                          className="hover:text-brand-orange flex cursor-pointer items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-slate-700"
                         >
                           <Edit2 size={13} />
                           <span>Modifier</span>
@@ -1113,14 +1212,14 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                             <button
                               type="button"
                               onClick={() => handleSupprimer(livre.id)}
-                              className="px-2 py-1 bg-rose-600 text-white rounded-md text-[11px] font-bold hover:bg-rose-700 transition-colors cursor-pointer"
+                              className="cursor-pointer rounded-md bg-rose-600 px-2 py-1 text-[11px] font-bold text-white transition-colors hover:bg-rose-700"
                             >
                               Confirmer
                             </button>
                             <button
                               type="button"
                               onClick={() => setDeleteConfirmId(null)}
-                              className="px-2 py-1 bg-slate-200 text-slate-700 rounded-md text-[11px] font-medium hover:bg-slate-300 transition-colors cursor-pointer"
+                              className="cursor-pointer rounded-md bg-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-300"
                             >
                               Annuler
                             </button>
@@ -1129,7 +1228,7 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                           <button
                             type="button"
                             onClick={() => setDeleteConfirmId(livre.id)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                            className="cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
                             title="Supprimer cet ouvrage"
                           >
                             <Trash2 size={15} />
@@ -1151,9 +1250,9 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
       {ongletActif === "bilan" && (
         <div className="space-y-6">
           {/* Barre de Filtres Traçabilité & Granularité */}
-          <Card className="p-4 bg-white border border-slate-200 shadow-2xs space-y-3">
+          <Card className="space-y-3 border border-slate-200 bg-white p-4 shadow-2xs">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <div className="flex items-center gap-2 text-xs font-black text-slate-800 uppercase tracking-wider">
+              <div className="flex items-center gap-2 text-xs font-black tracking-wider text-slate-800 uppercase">
                 <Filter size={14} className="text-brand-orange" />
                 <span>Filtres de consolidation & Recherche</span>
               </div>
@@ -1164,22 +1263,24 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5">
               {/* Filtre Centre */}
               <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                <label className="mb-1 block text-[11px] font-bold text-slate-600">
                   Centre d'apprentissage
                 </label>
                 {isChefCentre ? (
-                  <div className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 flex items-center justify-between">
+                  <div className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700">
                     <span className="truncate">{nomCentreUtilisateur}</span>
-                    <span className="text-[10px] text-slate-400 font-medium">Fixé</span>
+                    <span className="text-[10px] font-medium text-slate-400">
+                      Fixé
+                    </span>
                   </div>
                 ) : (
                   <select
                     value={selectedCentreId}
                     onChange={(e) => setSelectedCentreId(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-brand-orange focus:bg-white cursor-pointer"
+                    className="focus:border-brand-orange w-full cursor-pointer rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:bg-white"
                   >
                     <option value="">Tous les centres (Consolidé)</option>
                     {centres.map((c) => (
@@ -1193,13 +1294,13 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
 
               {/* Filtre Livre */}
               <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                <label className="mb-1 block text-[11px] font-bold text-slate-600">
                   Ouvrage / Titre
                 </label>
                 <select
                   value={selectedLivreId}
                   onChange={(e) => setSelectedLivreId(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-brand-orange focus:bg-white cursor-pointer"
+                  className="focus:border-brand-orange w-full cursor-pointer rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:bg-white"
                 >
                   <option value="">Tous les ouvrages</option>
                   {livres.map((l) => (
@@ -1212,15 +1313,17 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
 
               {/* Filtre Type Acheteur */}
               <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                <label className="mb-1 block text-[11px] font-bold text-slate-600">
                   Type d'acheteur
                 </label>
                 <select
                   value={selectedTypeAcheteur}
                   onChange={(e) =>
-                    setSelectedTypeAcheteur(e.target.value as "TOUS" | "INTERNE" | "EXTERNE")
+                    setSelectedTypeAcheteur(
+                      e.target.value as "TOUS" | "INTERNE" | "EXTERNE",
+                    )
                   }
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-brand-orange focus:bg-white cursor-pointer"
+                  className="focus:border-brand-orange w-full cursor-pointer rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:bg-white"
                 >
                   <option value="TOUS">Tous les acheteurs</option>
                   <option value="INTERNE">Élèves inscrits uniquement</option>
@@ -1230,27 +1333,27 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
 
               {/* Date Début */}
               <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                <label className="mb-1 block text-[11px] font-bold text-slate-600">
                   Date de début
                 </label>
                 <input
                   type="date"
                   value={dateDebut}
                   onChange={(e) => setDateDebut(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 outline-none focus:border-brand-orange focus:bg-white cursor-pointer"
+                  className="focus:border-brand-orange w-full cursor-pointer rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 outline-none focus:bg-white"
                 />
               </div>
 
               {/* Date Fin */}
               <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                <label className="mb-1 block text-[11px] font-bold text-slate-600">
                   Date de fin
                 </label>
                 <input
                   type="date"
                   value={dateFin}
                   onChange={(e) => setDateFin(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 outline-none focus:border-brand-orange focus:bg-white cursor-pointer"
+                  className="focus:border-brand-orange w-full cursor-pointer rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 outline-none focus:bg-white"
                 />
               </div>
             </div>
@@ -1260,44 +1363,44 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
               <div className="relative">
                 <Search
                   size={15}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400"
                 />
                 <input
                   type="text"
                   placeholder="Rechercher par nom de l'élève ou de l'acheteur externe..."
                   value={rechercheVente}
                   onChange={(e) => setRechercheVente(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder:text-slate-400 outline-none focus:border-brand-orange focus:bg-white focus:ring-2 focus:ring-brand-orange/20"
+                  className="focus:border-brand-orange focus:ring-brand-orange/20 w-full rounded-xl border border-slate-200 bg-slate-50 py-1.5 pr-3 pl-9 text-xs font-semibold text-slate-800 outline-none placeholder:text-slate-400 focus:bg-white focus:ring-2"
                 />
               </div>
             </div>
           </Card>
 
           {/* Cartes KPI Bilans Ventes */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="p-4 bg-white border border-slate-200 shadow-2xs">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card className="border border-slate-200 bg-white p-4 shadow-2xs">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-50 text-brand-orange shrink-0">
+                <div className="text-brand-orange flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-50">
                   <Coins size={22} />
                 </div>
                 <div>
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                  <span className="block text-[11px] font-bold tracking-wider text-slate-400 uppercase">
                     Recettes Totales Ventes
                   </span>
-                  <span className="text-xl font-black text-brand-orange">
+                  <span className="text-brand-orange text-xl font-black">
                     {FCFA.format(aggregatesFiltres.totalMontant)} FCFA
                   </span>
                 </div>
               </div>
             </Card>
 
-            <Card className="p-4 bg-white border border-slate-200 shadow-2xs">
+            <Card className="border border-slate-200 bg-white p-4 shadow-2xs">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 shrink-0">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                   <Package size={22} />
                 </div>
                 <div>
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                  <span className="block text-[11px] font-bold tracking-wider text-slate-400 uppercase">
                     Exemplaires Vendus
                   </span>
                   <span className="text-xl font-black text-slate-900">
@@ -1307,38 +1410,38 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
               </div>
             </Card>
 
-            <Card className="p-4 bg-white border border-slate-200 shadow-2xs">
+            <Card className="border border-slate-200 bg-white p-4 shadow-2xs">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-orange/10 text-brand-orange shrink-0">
+                <div className="bg-brand-orange/10 text-brand-orange flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
                   <UserCheck size={22} />
                 </div>
                 <div>
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                  <span className="block text-[11px] font-bold tracking-wider text-slate-400 uppercase">
                     Élèves du Centre
                   </span>
-                  <span className="text-base font-black text-brand-anthracite block leading-tight">
+                  <span className="text-brand-anthracite block text-base leading-tight font-black">
                     {FCFA.format(aggregatesFiltres.montantInternes)} FCFA
                   </span>
-                  <span className="text-[10px] text-slate-500 font-semibold">
+                  <span className="text-[10px] font-semibold text-slate-500">
                     {aggregatesFiltres.nbInternes} transaction(s)
                   </span>
                 </div>
               </div>
             </Card>
 
-            <Card className="p-4 bg-white border border-slate-200 shadow-2xs">
+            <Card className="border border-slate-200 bg-white p-4 shadow-2xs">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 text-purple-600 shrink-0">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
                   <Users size={22} />
                 </div>
                 <div>
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                  <span className="block text-[11px] font-bold tracking-wider text-slate-400 uppercase">
                     Acheteurs Externes
                   </span>
-                  <span className="text-base font-black text-purple-800 block leading-tight">
+                  <span className="block text-base leading-tight font-black text-purple-800">
                     {FCFA.format(aggregatesFiltres.montantExternes)} FCFA
                   </span>
-                  <span className="text-[10px] text-slate-500 font-semibold">
+                  <span className="text-[10px] font-semibold text-slate-500">
                     {aggregatesFiltres.nbExternes} transaction(s)
                   </span>
                 </div>
@@ -1347,15 +1450,15 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
           </div>
 
           {/* ── SECTION 1 : VENTILATION PAR TYPE DE LIVRE (NOM) ── */}
-          <Card className="bg-white border border-slate-200 shadow-2xs overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+          <Card className="overflow-hidden border border-slate-200 bg-white shadow-2xs">
+            <div className="flex items-center justify-between border-b border-slate-100 p-4">
               <div className="flex items-center gap-2">
                 <BookOpen size={16} className="text-brand-orange" />
                 <h2 className="text-sm font-black text-slate-900">
                   Bilan & Ventilation par Ouvrage (Nom du Livre)
                 </h2>
               </div>
-              <span className="text-xs text-slate-500 font-semibold">
+              <span className="text-xs font-semibold text-slate-500">
                 Session en cours
               </span>
             </div>
@@ -1365,14 +1468,14 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                 <SkeletonTable rows={4} columns={4} />
               </div>
             ) : !statsVentes || statsVentes.parLivre.length === 0 ? (
-              <div className="p-8 text-center text-slate-500 text-xs">
+              <div className="p-8 text-center text-xs text-slate-500">
                 Aucune vente enregistrée pour les filtres sélectionnés.
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
+                <table className="w-full border-collapse text-left text-xs">
                   <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50/75 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                    <tr className="border-b border-slate-100 bg-slate-50/75 text-[10px] font-bold tracking-wider text-slate-500 uppercase">
                       <SortableHeader
                         label="Nom de l'Ouvrage"
                         sortKey="nom"
@@ -1410,34 +1513,42 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                     {statsParLivreTries.map((item: VentilationLivreItem) => {
                       const pct =
                         statsVentes.totalMontant > 0
-                          ? Math.round((item.montantTotal / statsVentes.totalMontant) * 100)
+                          ? Math.round(
+                              (item.montantTotal / statsVentes.totalMontant) *
+                                100,
+                            )
                           : 0;
 
                       return (
-                        <tr key={item.livreId} className="hover:bg-slate-50/60 transition-colors">
-                          <td className="py-3 px-4 font-black text-slate-800 flex items-center gap-2">
-                            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-orange-100 text-brand-orange font-bold text-[10px]">
+                        <tr
+                          key={item.livreId}
+                          className="transition-colors hover:bg-slate-50/60"
+                        >
+                          <td className="flex items-center gap-2 px-4 py-3 font-black text-slate-800">
+                            <span className="text-brand-orange flex h-6 w-6 items-center justify-center rounded-lg bg-orange-100 text-[10px] font-bold">
                               {item.titreLivre.slice(0, 2).toUpperCase()}
                             </span>
                             <span>{item.titreLivre}</span>
                           </td>
-                          <td className="py-3 px-4 text-center font-bold text-slate-700">
-                            <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-black">
+                          <td className="px-4 py-3 text-center font-bold text-slate-700">
+                            <span className="rounded-md bg-blue-50 px-2 py-0.5 font-black text-blue-700">
                               {item.quantiteVendue} ex.
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-right font-black text-brand-orange">
+                          <td className="text-brand-orange px-4 py-3 text-right font-black">
                             {FCFA.format(item.montantTotal)} FCFA
                           </td>
-                          <td className="py-3 px-4 text-center">
+                          <td className="px-4 py-3 text-center">
                             <div className="inline-flex items-center gap-1">
-                              <div className="w-16 h-2 rounded-full bg-slate-100 overflow-hidden">
+                              <div className="h-2 w-16 overflow-hidden rounded-full bg-slate-100">
                                 <div
-                                  className="h-full bg-brand-orange rounded-full"
+                                  className="bg-brand-orange h-full rounded-full"
                                   style={{ width: `${Math.min(pct, 100)}%` }}
                                 />
                               </div>
-                              <span className="text-[10px] font-bold text-slate-500">{pct}%</span>
+                              <span className="text-[10px] font-bold text-slate-500">
+                                {pct}%
+                              </span>
                             </div>
                           </td>
                         </tr>
@@ -1445,15 +1556,17 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                     })}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-slate-50 font-black text-slate-900 border-t border-slate-200">
-                      <td className="py-3 px-4">TOTAL CONSOLIDÉ</td>
-                      <td className="py-3 px-4 text-center text-blue-700">
+                    <tr className="border-t border-slate-200 bg-slate-50 font-black text-slate-900">
+                      <td className="px-4 py-3">TOTAL CONSOLIDÉ</td>
+                      <td className="px-4 py-3 text-center text-blue-700">
                         {statsVentes.totalQuantite} exemplaires
                       </td>
-                      <td className="py-3 px-4 text-right text-brand-orange text-sm">
+                      <td className="text-brand-orange px-4 py-3 text-right text-sm">
                         {FCFA.format(statsVentes.totalMontant)} FCFA
                       </td>
-                      <td className="py-3 px-4 text-center text-slate-500">100%</td>
+                      <td className="px-4 py-3 text-center text-slate-500">
+                        100%
+                      </td>
                     </tr>
                   </tfoot>
                 </table>
@@ -1462,112 +1575,124 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
           </Card>
 
           {/* ── SECTION 2 : VENTILATION PAR CENTRE (Visible aux Directeurs quand pas de filtre centre unique) ── */}
-          {!isChefCentre && !selectedCentreId && statsVentes && statsVentes.parCentre.length > 0 && (
-            <Card className="bg-white border border-slate-200 shadow-2xs overflow-hidden">
-              <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Building2 size={16} className="text-blue-600" />
-                  <h2 className="text-sm font-black text-slate-900">
-                    Ventilation des Ventes par Centre d'Apprentissage
-                  </h2>
+          {!isChefCentre &&
+            !selectedCentreId &&
+            statsVentes &&
+            statsVentes.parCentre.length > 0 && (
+              <Card className="overflow-hidden border border-slate-200 bg-white shadow-2xs">
+                <div className="flex items-center justify-between border-b border-slate-100 p-4">
+                  <div className="flex items-center gap-2">
+                    <Building2 size={16} className="text-blue-600" />
+                    <h2 className="text-sm font-black text-slate-900">
+                      Ventilation des Ventes par Centre d'Apprentissage
+                    </h2>
+                  </div>
+                  <span className="text-xs font-semibold text-slate-500">
+                    Vue Consolidation Nationale
+                  </span>
                 </div>
-                <span className="text-xs text-slate-500 font-semibold">
-                  Vue Consolidation Nationale
-                </span>
-              </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50/75 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
-                      <SortableHeader
-                        label="Centre"
-                        sortKey="centre"
-                        currentSortKey={triCentreColonne}
-                        direction={triCentreDirection}
-                        onSort={handleTriCentre}
-                      />
-                      <SortableHeader
-                        label="Exemplaires Vendus"
-                        sortKey="quantite"
-                        currentSortKey={triCentreColonne}
-                        direction={triCentreDirection}
-                        onSort={handleTriCentre}
-                        align="center"
-                      />
-                      <SortableHeader
-                        label="Recette Totale"
-                        sortKey="recette"
-                        currentSortKey={triCentreColonne}
-                        direction={triCentreDirection}
-                        onSort={handleTriCentre}
-                        align="right"
-                      />
-                      <SortableHeader
-                        label="Contribution"
-                        sortKey="contribution"
-                        currentSortKey={triCentreColonne}
-                        direction={triCentreDirection}
-                        onSort={handleTriCentre}
-                        align="center"
-                      />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {statsParCentreTries.map((c: VentilationCentreItem) => {
-                      const pct =
-                        statsVentes.totalMontant > 0
-                          ? Math.round((c.montantTotal / statsVentes.totalMontant) * 100)
-                          : 0;
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-100 bg-slate-50/75 text-[10px] font-bold tracking-wider text-slate-500 uppercase">
+                        <SortableHeader
+                          label="Centre"
+                          sortKey="centre"
+                          currentSortKey={triCentreColonne}
+                          direction={triCentreDirection}
+                          onSort={handleTriCentre}
+                        />
+                        <SortableHeader
+                          label="Exemplaires Vendus"
+                          sortKey="quantite"
+                          currentSortKey={triCentreColonne}
+                          direction={triCentreDirection}
+                          onSort={handleTriCentre}
+                          align="center"
+                        />
+                        <SortableHeader
+                          label="Recette Totale"
+                          sortKey="recette"
+                          currentSortKey={triCentreColonne}
+                          direction={triCentreDirection}
+                          onSort={handleTriCentre}
+                          align="right"
+                        />
+                        <SortableHeader
+                          label="Contribution"
+                          sortKey="contribution"
+                          currentSortKey={triCentreColonne}
+                          direction={triCentreDirection}
+                          onSort={handleTriCentre}
+                          align="center"
+                        />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {statsParCentreTries.map((c: VentilationCentreItem) => {
+                        const pct =
+                          statsVentes.totalMontant > 0
+                            ? Math.round(
+                                (c.montantTotal / statsVentes.totalMontant) *
+                                  100,
+                              )
+                            : 0;
 
-                      return (
-                        <tr key={c.centreId} className="hover:bg-slate-50/60 transition-colors">
-                          <td className="py-3 px-4 font-black text-slate-800 flex items-center gap-2">
-                            <Building2 size={14} className="text-slate-400" />
-                            <span>{c.nomCentre}</span>
-                          </td>
-                          <td className="py-3 px-4 text-center font-bold text-slate-700">
-                            <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-black">
-                              {c.quantiteVendue} ex.
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-right font-black text-slate-900">
-                            {FCFA.format(c.montantTotal)} FCFA
-                          </td>
-                          <td className="py-3 px-4 text-center">
-                            <div className="inline-flex items-center gap-1">
-                              <div className="w-16 h-2 rounded-full bg-slate-100 overflow-hidden">
-                                <div
-                                  className="h-full bg-blue-600 rounded-full"
-                                  style={{ width: `${Math.min(pct, 100)}%` }}
-                                />
+                        return (
+                          <tr
+                            key={c.centreId}
+                            className="transition-colors hover:bg-slate-50/60"
+                          >
+                            <td className="flex items-center gap-2 px-4 py-3 font-black text-slate-800">
+                              <Building2 size={14} className="text-slate-400" />
+                              <span>{c.nomCentre}</span>
+                            </td>
+                            <td className="px-4 py-3 text-center font-bold text-slate-700">
+                              <span className="rounded-md bg-blue-50 px-2 py-0.5 font-black text-blue-700">
+                                {c.quantiteVendue} ex.
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right font-black text-slate-900">
+                              {FCFA.format(c.montantTotal)} FCFA
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <div className="inline-flex items-center gap-1">
+                                <div className="h-2 w-16 overflow-hidden rounded-full bg-slate-100">
+                                  <div
+                                    className="h-full rounded-full bg-blue-600"
+                                    style={{ width: `${Math.min(pct, 100)}%` }}
+                                  />
+                                </div>
+                                <span className="text-[10px] font-bold text-slate-500">
+                                  {pct}%
+                                </span>
                               </div>
-                              <span className="text-[10px] font-bold text-slate-500">{pct}%</span>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            )}
 
           {/* ── SECTION 3 : JOURNAL DÉTAILLÉ & TRAÇABILITÉ DES VENTES ── */}
-          <Card className="bg-white border border-slate-200 shadow-2xs overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+          <Card className="overflow-hidden border border-slate-200 bg-white shadow-2xs">
+            <div className="flex items-center justify-between border-b border-slate-100 p-4">
               <div className="flex items-center gap-2">
                 <Receipt size={16} className="text-brand-orange" />
                 <h2 className="text-sm font-black text-slate-900">
-                  Journal Détaillé des Ventes & Traçabilité ({ventesFiltrees.length} lignes)
+                  Journal Détaillé des Ventes & Traçabilité (
+                  {ventesFiltrees.length} lignes)
                 </h2>
               </div>
 
               <Button
                 variant="secondary"
                 onClick={() => setModalVenteOuverte(true)}
-                className="text-xs font-bold flex items-center gap-1 text-slate-700 hover:text-brand-orange"
+                className="hover:text-brand-orange flex items-center gap-1 text-xs font-bold text-slate-700"
               >
                 <Plus size={13} />
                 <span>Nouvelle vente</span>
@@ -1584,19 +1709,23 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
               </div>
             ) : ventesFiltrees.length === 0 ? (
               <div className="p-10 text-center text-slate-400">
-                <ShoppingCart size={32} className="mx-auto text-slate-300 mb-2" />
+                <ShoppingCart
+                  size={32}
+                  className="mx-auto mb-2 text-slate-300"
+                />
                 <p className="text-xs font-bold text-slate-600">
                   Aucune transaction enregistrée pour ces critères.
                 </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Cliquez sur « Enregistrer une vente » pour consigner une vente de livres.
+                <p className="mt-0.5 text-[11px] text-slate-400">
+                  Cliquez sur « Enregistrer une vente » pour consigner une vente
+                  de livres.
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto max-h-[500px]">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead className="sticky top-0 bg-slate-50/95 backdrop-blur-xs z-10">
-                    <tr className="border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+              <div className="max-h-[500px] overflow-x-auto">
+                <table className="w-full border-collapse text-left text-xs">
+                  <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur-xs">
+                    <tr className="border-b border-slate-200 text-[10px] font-bold tracking-wider text-slate-500 uppercase">
                       <SortableHeader
                         label="Date de vente"
                         sortKey="date"
@@ -1660,44 +1789,47 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {ventesFiltrees.map((v: VenteLivre) => (
-                      <tr key={v.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-3 px-4 font-semibold text-slate-600 whitespace-nowrap">
+                      <tr
+                        key={v.id}
+                        className="transition-colors hover:bg-slate-50/70"
+                      >
+                        <td className="px-4 py-3 font-semibold whitespace-nowrap text-slate-600">
                           {new Date(v.dateVente).toLocaleDateString("fr-FR", {
                             day: "2-digit",
                             month: "2-digit",
                             year: "numeric",
                           })}
                         </td>
-                        <td className="py-3 px-4 font-bold text-slate-800 whitespace-nowrap">
+                        <td className="px-4 py-3 font-bold whitespace-nowrap text-slate-800">
                           <span className="flex items-center gap-1.5">
                             <Building2 size={12} className="text-slate-400" />
                             {v.centreNom}
                           </span>
                         </td>
-                        <td className="py-3 px-4 font-black text-slate-900 whitespace-nowrap">
+                        <td className="px-4 py-3 font-black whitespace-nowrap text-slate-900">
                           {v.nomAcheteur}
                         </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           {v.estExterne ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 border border-purple-200 px-2 py-0.5 text-[10px] font-bold text-purple-700">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700">
                               <Users size={10} /> Externe
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-brand-orange/10 border border-brand-orange/20 px-2 py-0.5 text-[10px] font-bold text-brand-orange">
+                            <span className="bg-brand-orange/10 border-brand-orange/20 text-brand-orange inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold">
                               <UserCheck size={10} /> Élève inscrit
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-4 font-black text-slate-800">
+                        <td className="px-4 py-3 font-black text-slate-800">
                           {v.livreTitre}
                         </td>
-                        <td className="py-3 px-4 text-center font-black text-slate-800">
+                        <td className="px-4 py-3 text-center font-black text-slate-800">
                           {v.quantite}
                         </td>
-                        <td className="py-3 px-4 text-right font-medium text-slate-600">
+                        <td className="px-4 py-3 text-right font-medium text-slate-600">
                           {FCFA.format(v.prixUnitaire)} F
                         </td>
-                        <td className="py-3 px-4 text-right font-black text-brand-orange whitespace-nowrap">
+                        <td className="text-brand-orange px-4 py-3 text-right font-black whitespace-nowrap">
                           {FCFA.format(v.montantTotal)} FCFA
                         </td>
                       </tr>
@@ -1715,19 +1847,21 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
         <Modal
           isOpen={modalCatalogueOuverte}
           onClose={() => setModalCatalogueOuverte(false)}
-          title={livreEnEdition ? "Modifier l'ouvrage" : "Ajouter un nouvel ouvrage"}
+          title={
+            livreEnEdition ? "Modifier l'ouvrage" : "Ajouter un nouvel ouvrage"
+          }
           maxWidth="max-w-md"
         >
           <form onSubmit={handleSubmitLivre} className="space-y-4">
             {formErreur && (
-              <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs text-rose-700 font-medium">
-                <AlertCircle size={16} className="text-rose-500 shrink-0" />
+              <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs font-medium text-rose-700">
+                <AlertCircle size={16} className="shrink-0 text-rose-500" />
                 <span>{formErreur}</span>
               </div>
             )}
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="mb-1 block text-xs font-bold text-slate-700">
                 Titre de l'ouvrage <span className="text-rose-500">*</span>
               </label>
               <input
@@ -1736,14 +1870,15 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                 value={titre}
                 onChange={(e) => setTitre(e.target.value)}
                 placeholder="Ex: AXIOME, VECTEUR..."
-                className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm font-bold text-slate-800 outline-none focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
+                className="focus:border-brand-orange focus:ring-brand-orange/20 w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm font-bold text-slate-800 outline-none focus:ring-2"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+              <label className="mb-1 block flex items-center gap-1 text-xs font-bold text-slate-700">
                 <Coins size={12} className="text-brand-orange" />
-                <span>Prix (FCFA)</span> <span className="text-rose-500">*</span>
+                <span>Prix (FCFA)</span>{" "}
+                <span className="text-rose-500">*</span>
               </label>
               <input
                 type="number"
@@ -1754,12 +1889,12 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                   setPrix(e.target.value === "" ? "" : Number(e.target.value))
                 }
                 placeholder="Ex: 10000"
-                className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm font-bold text-slate-800 outline-none focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
+                className="focus:border-brand-orange focus:ring-brand-orange/20 w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm font-bold text-slate-800 outline-none focus:ring-2"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="mb-1 block text-xs font-bold text-slate-700">
                 Description / Matière / Destination
               </label>
               <textarea
@@ -1767,7 +1902,7 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Ex: Manuel de préparation intensive en mathématiques..."
-                className="w-full rounded-xl border border-slate-200 p-3 text-xs text-slate-800 outline-none focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
+                className="focus:border-brand-orange focus:ring-brand-orange/20 w-full rounded-xl border border-slate-200 p-3 text-xs text-slate-800 outline-none focus:ring-2"
               />
             </div>
 
@@ -1777,23 +1912,24 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
                 id="modal-livre-actif"
                 checked={actif}
                 onChange={(e) => setActif(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-brand-orange focus:ring-brand-orange cursor-pointer"
+                className="text-brand-orange focus:ring-brand-orange h-4 w-4 cursor-pointer rounded border-slate-300"
               />
               <label
                 htmlFor="modal-livre-actif"
-                className="text-xs font-bold text-slate-700 cursor-pointer select-none"
+                className="cursor-pointer text-xs font-bold text-slate-700 select-none"
               >
                 Livre disponible (visible et disponible à l'encaissement)
               </label>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-3">
               <Button
                 type="button"
                 variant="secondary"
                 onClick={() => setModalCatalogueOuverte(false)}
                 disabled={
-                  creerLivreMutation.isPending || modifierLivreMutation.isPending
+                  creerLivreMutation.isPending ||
+                  modifierLivreMutation.isPending
                 }
               >
                 Annuler
@@ -1801,15 +1937,16 @@ export function LivresView({ userRole, userCentreId }: LivresViewProps = {}) {
               <Button
                 type="submit"
                 disabled={
-                  creerLivreMutation.isPending || modifierLivreMutation.isPending
+                  creerLivreMutation.isPending ||
+                  modifierLivreMutation.isPending
                 }
-                className="bg-brand-orange text-white font-bold hover:bg-brand-orange/90"
+                className="bg-brand-orange hover:bg-brand-orange/90 font-bold text-white"
               >
                 {creerLivreMutation.isPending || modifierLivreMutation.isPending
                   ? "Enregistrement..."
                   : livreEnEdition
-                  ? "Mettre à jour"
-                  : "Créer le livre"}
+                    ? "Mettre à jour"
+                    : "Créer le livre"}
               </Button>
             </div>
           </form>
